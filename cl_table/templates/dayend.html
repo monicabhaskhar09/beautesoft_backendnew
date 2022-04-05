@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+
+<style>
+
+
+
+.row::after {
+  content: "";
+  clear: both;
+  display: table;
+}
+
+table {
+    border-collapse: collapse;
+    border-spacing: 0;
+    width: 100%;
+    border: 1px solid black;
+
+}
+td {
+  padding: 5px;
+  text-align: center;
+  border: 1px solid black;
+  background-color:#ffffff;
+}
+th {
+  padding: 5px;
+  border: 1px solid black;
+  text-align: center;
+  background-color:#f9a870;
+
+}
+
+img.sticky {
+  position: -webkit-sticky;
+  position: sticky;
+  top: 0;
+  width: 200px;}
+
+.spaDetails img{
+        /* border-radius: 50%; */
+        width: 8rem;
+        height: 8rem;
+}
+.spaDetails h4{
+        font-weight: 700;
+}
+.spaDetails p{
+        margin-bottom: 0;
+        font-size: 14px;
+}
+.total{
+  text-align: right;
+
+}
+.last td{
+  background-color:#adc5e7;
+}
+
+</style>
+
+</head>
+
+{% load static %}
+<body style="margin:40px;">
+  <div class="container">
+		<div class="row  spaDetails justify-content-center">
+			<div class="col-xs-4 d-flex justify-content-center">
+				<img src="{{path}}" alt="">
+			</div>
+			<div class="col-xs-8 pl-3">
+				<h4>{{name}}</h4>
+				<p>{{address}}</p>
+			</div>
+		</div>
+	</div>
+
+  <br>
+
+  <div class="row">
+    <div class="column" style="width: 100%">
+      <table>
+        <tr>
+          <th>DayEnd Report for {{ date_display }}</th>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+ <br/>
+
+  <div class="row">
+    <div class="column" style="width: 50%;margin-right: 10px;">
+      <table >
+        <tr>
+          <th>Sales Collection</th>
+          <th>Before Tax</th>
+          <th>Amount</th>
+          <th>Qty</th>
+        </tr>
+
+        {% for s in saleslst %}
+          <tr>
+            <td>{{ s.desc }}</td>
+            <td>{{ s.before_tax|floatformat:2 }}</td>
+            <td>{{ s.amount|floatformat:2 }}</td>
+            <td>{{ s.qty }}</td>
+          </tr>
+        {% endfor %}
+
+        <tr class='last'>
+          <td class="total">Total</td>
+          <td>{{ total_tax|floatformat:2 }}</th>
+          <td>{{ sales_total_amt|floatformat:2 }}</th>
+          <td>{{ sales_qty }}</th>
+        </tr>
+
+      </table>
+    </div>
+    <div class="column" style="width: 50%">
+      <table >
+        <tr>
+          <th>Dept Sales</th>
+          <th>Amount</th>
+        </tr>
+
+        {% for d in dept_sales %}
+          <tr>
+            <td>{{ d.dept_sales }}</td>
+            <td>{{ d.amount|floatformat:2 }}</td>
+          </tr>
+        {% endfor %}
+
+        <tr class='last'>
+          <td class="total">Total</td>
+          <td>{{ dept_total_amount|floatformat:2 }}</th>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <br/>
+
+  <div class="row" >
+    <div class="column" style="width: 50%;margin-right: 10px;">
+      <table >
+
+        <tr>
+          <th>Non Sales Collection</th>
+          <th>Amount</th>
+          <th>Qty</th>
+        </tr>
+
+        {% for ns in nonsaleslst %}
+          <tr>
+            <td>{{ ns.desc }}</td>
+            <td>{{ ns.amount|floatformat:2 }}</td>
+            <td>{{ ns.qty }}</td>
+          </tr>
+        {% endfor %}
+
+        <tr class='last'>
+          <td class="total">Total</td>
+          <td>{{ nonsales_total_amt|floatformat:2 }}</th>
+          <td>{{ nonsales_qty }}</th>
+        </tr>
+
+      </table>
+    </div>
+    <div class="column" style="width: 50%">
+      <table >
+        <tr>
+          <th>Course</th>
+          <th>CN Consumption Txn</th>
+          <th>Qty</th>
+          <th>Amount</th>
+        </tr>
+
+        {% for d in invcn_lst %}
+          <tr>
+            <td>{{ d.course }}</td>
+            <td>{{ d.sa_transacno_ref }}</td>
+            <td>{{ d.qty }}</td>
+            <td>{{ d.used_amt|floatformat:2 }}</td>
+          </tr>
+        {% endfor %}
+
+        <tr class='last'>
+          <td class="total" colspan="2">Total</td>
+          <td>{{ total_qty }}</th>
+          <td>{{ credit_amount|floatformat:2 }}</th>
+        </tr>
+      </table>
+    </div>
+
+  </div>
+
+  <br/>
+
+  <div class="row" >
+    <div class="column" style="width: 50%;margin-right: 10px;">
+      <table>
+
+        <tr>
+          <th>Service Sales</th>
+          <th>Amount</th>
+        </tr>
+
+        {% for se in ser_sal_lst %}
+          <tr>
+            <td>{{ se.desc }}</td>
+            <td>{{ se.amount|floatformat:2 }}</td>
+          </tr>
+        {% endfor %}
+
+        <tr class='last'>
+          <td class="total">Total</td>
+          <td>{{ sase_amount|floatformat:2 }}</th>
+        </tr>
+
+      </table>
+    </div>
+    <div class="column" style="width: 50%">
+     
+    </div>
+
+  </div>
+
+
+  <br/>
+  <div class="row">
+    <div class="column" style="width: 100%;">
+      <table >
+        <tr>
+          <th>AR Transaction</th>
+          <th>Cust Code</th>
+          <th>Cust Name</th>
+          <th>Desc</th>
+          <th>Amount</th>
+        </tr>
+
+        {% for a in ar_trasac %}
+          <tr>
+            <td>{{ a.satransac_ref }}</td>
+            <td>{{ a.cust_code }}</td>
+            <td>{{ a.cust_name }}</td>
+            <td>{{ a.desc }}</td>
+            <td>{{ a.amount|floatformat:2 }}</td>
+          </tr>
+        {% endfor %}
+
+        <tr class='last'>
+          <td class="total" colspan="4">Total</td>
+          <td>{{ artrasac_total_amount|floatformat:2 }}</th>
+        </tr>
+      </table>
+    </div>
+  </div>  
+  <br/>
+
+  
+  
+
+  <div class="row">
+    <div class="column" style="width: 100%">
+      <table >
+
+        <tr>
+          <th>Sales Transaction</th>
+          <th>Cust Code</th>
+          <th>Cust Name</th>
+          <th>Desc</th>
+          <th>Qty</th>
+          <th>Amount</th>
+          <th>Balance</th>
+          <th>Net Amount</th>
+          <th>Paid</th>
+          <th>Outstanding</th>
+
+        </tr>
+
+        {% for sa in sales_trasac %}
+          <tr>
+            <td>{{ sa.satransac_ref }}</td>
+            <td>{{ sa.cust_code }}</td>
+            <td>{{ sa.cust_name }}</td>
+            <td>{{ sa.desc }}</td>
+            <td>{{ sa.qty }}</td>
+            <td>{{ sa.amt|floatformat:2 }}</td>
+            <td>{{ sa.balance|floatformat:2 }}</td>
+            <td>{{ sa.amount|floatformat:2 }}</td>
+            <td>{{ sa.paid|floatformat:2 }}</td>
+            <td>{{ sa.outstanding|floatformat:2 }}</td>
+          </tr>
+        {% endfor %}
+
+        <tr class='last'>
+          <td class="total" colspan="4">Total</td>
+          <td>{{ depo_qty }}</th>
+          <td>{{ depo_amt|floatformat:2 }}</th>
+          <td>{{ depo_balance|floatformat:2 }}</th>
+          <td>{{ salestrasc_total_amount|floatformat:2 }}</th>
+          <td>{{ salestrasc_total_paid|floatformat:2 }}</th>
+          <td>{{ salestrasc_total_outstanding|floatformat:2 }}</th>
+        </tr>
+
+      </table>
+    </div>
+    
+
+  </div>
+  <br/>
+
+  <div class="row">
+    <div class="column" style="width: 100%;">
+      <table >
+        <p><b>Non Sales Details</b></p>
+        <tr>
+          <th>Cust Code</th>
+          <th>Cust Name</th>
+          <th>Desc</th>
+          <th>Qty</th>
+          <th>Amount</th>
+          <th>Balance</th>
+        </tr>
+
+        {% for no in nonsales_det %}
+          <tr>
+            <td>{{ no.cust_code }}</td>
+            <td>{{ no.cust_name }}</td>
+            <td>{{ no.desc }}</td>
+            <td>{{ no.qty }}</td>
+            <td>{{ no.amount|floatformat:2 }}</td>
+            <td>{{ no.balance|floatformat:2 }}</td>
+          </tr>
+        {% endfor %}
+
+        <tr class='last'>
+          <td class="total" colspan="3">Total</td>
+          <td>{{ nonsal_qty }}</th> 
+          <td>{{ nonsal_amount|floatformat:2 }}</th>
+          <td>{{ nonsal_balance|floatformat:2 }}</th>
+        </tr>
+
+      </table>
+    </div>
+  </div>  
+  
+  
+  <br/>
+  <div class="row">
+    <div class="column" style="width: 100%">
+      <table>
+        <p><b>Treatment Done</b></p>
+        <tr>
+          <th>Cust Name</th>
+          <th>Cust Code</th>
+          <th>Cust Refer</th>
+          <th>Treatment Done</th>
+          <th>Treatment Code</th>
+          <th>Description</th>
+          <th>Staff</th>
+          <th>Purchase Outlet</th>
+          <th>TD Outlet</th>
+          <th>Amount</th>
+        </tr>
+
+        {% for td in treatment_done %}
+          <tr>
+            <td>{{ td.cust_name }}</td>
+            <td>{{ td.cust_code }}</td>
+            <td>{{ td.cust_refer }}</td>
+            <td>{{ td.treatment_done }}</td>
+            <td>{{ td.treatment_code }}</td>
+            <td>{{ td.desc }}</td>
+            <td>{{ td.staff_name }}</td>
+            <td>{{ td.buy_treatment_outlet }}</td>
+            <td>{{ td.treatmentdone_outlet }}</td>
+            <td>{{ td.amount|floatformat:2 }}</td>
+          </tr>
+        {% endfor %}
+
+        <tr class='last'>
+          <!-- <td colspan="7"></td> -->
+          <td class="total" colspan="9">Total</td>
+          <td>{{ td_total_amount|floatformat:2 }}</th>
+        </tr>
+
+        
+      </table>
+    </div>
+  </div>
+  
+  <!-- <fix>
+    <div class="box">
+      <div class="split">
+        <p> {% if footer1 %} {{ footer1 }} {% else %} {% endif %} </p>
+        <p> {% if footer2 %} {{ footer2 }} {% else %} {% endif %} </p>
+        <p>{% if footer3 %} {{ footer3 }} {% else %} {% endif %} </p>
+        <p>{% if footer4 %} {{ footer4 }} {% else %} {% endif %}</p>
+      </div>
+      <div class="split right">
+        <hr>
+        <p>Customer Signature</p>
+      </div>
+    </div>
+ </fix> -->
+
+    
+</body>
+</html>

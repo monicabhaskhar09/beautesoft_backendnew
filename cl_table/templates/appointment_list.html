@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+  <!-- <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"> -->
+<style>
+hr{
+    border:0;
+    margin:0;
+    width:100%;
+    height:1px;
+    border-bottom: 1px dashed black;
+}
+.checkbox {
+  width:15px;
+  height:15px;
+  border: 1px solid #000;
+  display: inline-block;
+}
+
+/* This is what simulates a checkmark icon */
+.checkbox.checked:after {
+  content: '';
+  display: block;
+  width: 4px;
+  height: 7px;
+
+  /* "Center" the checkmark */
+  position:absolute;
+  top:4px;
+  left:7px;
+
+  border: solid #000;
+  border-width: 0 2px 2px 0;
+
+}
+table {
+    border-collapse: collapse;
+    width: 100%;
+}
+td {
+  padding: 5px;
+  text-align: center;
+}
+th {
+  text-align: center;
+}
+.split {
+  height: 500px;
+  width: 50%;
+  position: absolute;
+}
+.right {
+  right: 0;
+  text-align: left;
+}
+.right1 {
+  right: 40px;
+  text-align: right;
+}
+.box {
+  width: 50%;
+  height: 160px;
+}
+.clearfix {
+  content: "";
+  clear: both;
+  display: table;
+}
+img.sticky {
+  position: -webkit-sticky;
+  position: sticky;
+  top: 0;
+  width: 200px;}
+.column {
+  float: left;
+  width: 33.33%;
+  padding: 5px;
+}
+.row::after {
+  content: "";
+  clear: both;
+  display: table;
+}
+header {
+   position: fixed;
+   padding: 10px 16px;
+}
+fix {
+    position: fixed;
+    bottom: -600px;
+    left: 15px;
+    right: 15px;
+    text-align: left;
+}
+.spaDetails img{
+        /* border-radius: 50%; */
+        width: 8rem;
+        height: 8rem;
+}
+.spaDetails h4{
+        font-weight: 700;
+}
+.spaDetails p{
+        margin-bottom: 0;
+        font-size: 14px;
+}
+
+</style>
+</head>
+
+{% load static %}
+<body style="margin:40px;">
+
+  <div class="container">
+		<div class="row  spaDetails justify-content-center">
+			<div class="col-xs-4 d-flex justify-content-center">
+				<img src="{{path}}" alt="">
+			</div>
+			<div class="col-xs-8 pl-3">
+				<h4>{{name}}</h4>
+				<p>{{address}}</p>
+			</div>
+		</div>
+  </div>
+  
+  <div>
+    <p style="width: 100%;"><b>Report: Appointment List Report</b></p>
+  </div>
+
+  <br>
+ 
+  <div>
+    <p  style="float:right;text-align:right;margin-left: 30%;"><b>Print Date:</b>  {{ today }}</p>
+ </div>
+
+ 
+
+  <div class="clearfix">
+		<div class="box">
+			<div class="split">
+        <p><b>Start Date : </b> {{ start_date }} </p>
+        <p><b>Employee :</b> {{ empjoin }} </p>
+        <p><b>Status :</b> {{ statusjoin }} </p>
+  
+			</div>
+			<div class="split right">
+        <p><b>End Date : </b>{{ end_date }} </p>
+        <p><b>Site: </b>{{ sitejoin }} </p>
+        <p><b>Sec Status : </b> {{ secstatusjoin }} </p>
+			</div>
+		</div>
+	</div>
+  
+  
+
+  <table cellspacing="15" cellpadding="10">
+    <tr>
+      <th><u>Date</u></th>
+      <th><u>Customer Name</u></th>
+      <th><u>Contact (HP)</u></th>
+      <th><u>Start Time</u></th>
+      <th><u>End Time</u></th>
+      <th><u>Staff</u></th>
+      <th><u>Service</u></th>
+    </tr>
+
+    {% for key, values in appt_data.items %}
+      <tr>
+        <td><strong>Appointment Date :</strong></td>
+        <td><strong>{{ key }}</strong></td>
+        <td colspan="5"></td>
+      </tr>
+      {% for value in values %}
+          {% for k, v in value.items %}
+            <tr>
+              <td><strong>Status :</strong></td>
+              <td><strong>{{ k }}</strong></td>
+              <td colspan="5"></td>
+            </tr>
+            {% for vals in v %}
+                <tr>
+                 <td>{{ vals.date }}</td>
+                 <td>{{ vals.cust_name }}</td>
+                 <td>{{ vals.phone }}</td>
+                 <td>{{ vals.start_time }}</td>
+                 <td>{{ vals.end_time }}</td>
+                 <td>{{ vals.staff }}</td>
+                 <td>{{ vals.service }}</td>
+                </tr>
+            {% endfor %}
+          {% endfor %}
+      {% endfor %}
+    {% endfor %}
+
+   
+    </table>
+    <br>
+    <!-- <p>Report Appointment</p> -->
+
+   
+
+    <!-- <fix>
+        <div class="box">
+          <div class="split">
+            <p>Remarks:  {% if hdr.trans_remark %} {{ hdr.trans_remark }}  {% else %} {% endif %}</p>
+            <p> {% if footer1 %} {{ footer1 }} {% else %} {% endif %} </p>
+            <p> {% if footer2 %} {{ footer2 }} {% else %} {% endif %} </p>
+            <p>{% if footer3 %} {{ footer3 }} {% else %} {% endif %} </p>
+            <p>{% if footer4 %} {{ footer4 }} {% else %} {% endif %}</p>
+          </div>
+          <div class="split right">
+            <hr>
+            <p>Customer Signature</p>
+          </div>
+        </div>
+    </fix>
+     -->
+
+</body>
+</html>

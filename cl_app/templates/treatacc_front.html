@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+<style>
+
+/* table {
+    border-collapse: collapse;
+    width: 100%;
+}
+td {
+  padding: 5px;
+  text-align: center;
+} */
+/* .first th {
+  text-align: center;
+} */
+/* .split {
+  height: 500px;
+  width: 50%;
+  position: absolute;
+}
+.right {
+  right: 0px;
+  text-align: left;
+  padding-left: 200px;
+}
+.right1 {
+  right: 40px;
+  text-align: right;
+}
+.box {
+  width: 50%;
+  height: 100px;
+}
+.clearfix {
+  content: "";
+  clear: both;
+  display: table;
+}
+img.sticky {
+  position: -webkit-sticky;
+  position: sticky;
+  top: 0;
+  width: 200px;}
+.column {
+  float: left;
+  width: 33.33%;
+  padding: 5px;
+}
+.row::after {
+  content: "";
+  clear: both;
+  display: table;
+}
+header {
+   position: fixed;
+   padding: 10px 16px;
+}
+fix {
+    position: fixed;
+    bottom: -600px;
+    left: 15px;
+    right: 15px;
+    text-align: left;
+}
+.spaDetails img{
+        border-radius: 50%;
+        width: 8rem;
+        height: 8rem;
+}
+.spaDetails h4{
+        font-weight: 700;
+}
+.spaDetails p{
+        margin-bottom: 0;
+        font-size: 14px;
+} */
+
+/* body{
+    padding: 20px;
+} */
+
+/* th,td{
+    padding:3px;
+}
+th{
+  background-color:black;
+  color:white;
+} */
+
+    @page{
+      size:a4 portrait;
+        @frame header_frame {
+              -pdf-frame-content:header_content;
+              left:20pt;
+              width: 567pt;
+              top:60pt;
+              height:50pt
+        }
+        @frame footer_frame {
+              -pdf-frame-content:footer_content;
+              left:20pt;
+              width:567pt;
+              top:772pt;
+              height:30pt
+        }
+        
+        @frame content_frame {
+          left:10pt;
+          width:567pt;
+          top:90pt;
+          height:620pt;
+        }
+    }
+
+</style>
+
+</head>
+
+<body>
+    <div id="header_content">
+      This is Header Print on Every Page of Pdf
+    </div> 
+     
+    <div class="container-fluid">
+      <table style="width: 100%;font-size: 10px;">
+          <thead>
+              <tr>
+                  <th>Date</th>
+                  <th>Transac</th>
+                  <th>Treatment</th>
+                  <th>Desc</th>
+                  <th>Qty</th>
+                  <th>Payment</th>
+                  <th>Credit</th>
+                  <th>OpenQty</th>
+              </tr>
+          </thead> 
+          {% for d in data %}
+            <tr>
+                <td>{{ d.sa_date }}</td>
+                <td>{{ d.transaction }}</td>
+                <td>{{ d.treatment_parentcode }}</td>
+                <td>{{ d.description }}</td>
+                <td>{{ d.qty }}</td>
+                <td>{{ d.payment }}</td>
+                <td>{{ d.balance }}</td>
+                <td>{{ d.outstanding }}</td>
+                <td>{{ d.balance_qty }}</td>
+
+            </tr>
+          {% endfor %}
+   
+
+      </table>
+
+    </div>
+      
+
+    <div id="footer_content">
+      This is Footer Print on Every Page of Pdf Page No. <pdf:pagenumber> / Total Page : <pdf:pagecount>
+    </div> 
+
+</body>
+
+</html>
