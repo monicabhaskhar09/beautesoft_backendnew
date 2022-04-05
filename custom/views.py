@@ -269,6 +269,7 @@ class CategoryViewset(viewsets.ModelViewSet):
                     queryset = ItemClass.objects.filter(itm_isactive=True).order_by('-itm_desc')
 
         return queryset
+        
 
     def list(self, request):
         try:
