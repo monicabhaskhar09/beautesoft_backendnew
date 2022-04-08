@@ -189,6 +189,15 @@ class VoucherRecordSerializer(serializers.ModelSerializer):
         model = VoucherRecord
         fields = ['id','voucher_no','cust_codeid','cust_name','value','percent','site_codeid','sitecode_name','issued_expiry_date','isvalid']
                  
+class VoucherRecordAccSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = VoucherRecord
+        fields = ['id','voucher_name','voucher_no','value','issued_expiry_date','sa_date']
+         
+
+
+
 
 class EmployeeDropSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source='pk',required=False)

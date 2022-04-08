@@ -23,7 +23,7 @@ from .models import (Gender, Employee, Fmspw, Attendance2, Customer, Images, Tre
                      Securitylevellist, DailysalesdataSummary, DailysalesdataDetail, Multilanguage, MultiLanguageWord, Workschedule,
                      Religious, Nationality, Races, DailysalestdSummary,
                      MrRewardItemType,CustomerPoint,TreatmentDuration,Smsreceivelog,TreatmentProtocol,CustomerTitle,CustomerPointDtl,
-                     ItemDiv,Tempcustsign,CustomerDocument)
+                     ItemDiv,Tempcustsign,CustomerDocument,ApptChannel)
 from cl_app.models import ItemSitelist, SiteGroup, LoggedInUser
 from custom.models import Room,ItemCart,VoucherRecord,EmpLevel,PosPackagedeposit,payModeChangeLog
 from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializer, Attendance2Serializer,
@@ -57,7 +57,8 @@ from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializ
                           CustomerdetailSerializer,StaffsAppointmentSerializer,
                           AppointmentCalSerializer,AboutSerializer,
                           CustomerPointSerializer, MGMSerializer,SMSReplySerializer,ConfirmBookingApptSerializer,
-                          ItemDescSerializer,TempcustsignSerializer,CustomerDocumentSerializer)
+                          ItemDescSerializer,TempcustsignSerializer,CustomerDocumentSerializer,
+                          ApptChannelSerializer)
 from datetime import date, timedelta, datetime
 import datetime
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
@@ -3102,7 +3103,6 @@ class AppointmentViewset(viewsets.ModelViewSet):
                     result = {'status': status.HTTP_400_BAD_REQUEST,"message": msg,'error': True}
                     return Response(result, status=status.HTTP_400_BAD_REQUEST) 
 
-
                 if site.is_empvalidate == True:    
                     #customer will have multiple appt in one outlet in different time only not same time
                     #customer having an appointment for the same day on another branch
@@ -3127,7 +3127,7 @@ class AppointmentViewset(viewsets.ModelViewSet):
                     # print(prev_appts,"prev_appts")
                     
                     if prev_appts:
-                        check_ids = Appointment.objects.filter(appt_date=Appt['appt_date'],emp_no=empobj.emp_code,
+                        check_ids = Appointment.objects.filter(appt_isactive=True,appt_date=Appt['appt_date'],emp_no=empobj.emp_code,
                         ).filter(Q(appt_to_time__gt=reqt['start_time']) & Q(appt_fr_time__lt=reqt['end_time']))
                         # print(check_ids,"check_ids")
 
@@ -4115,10 +4115,10 @@ class AppointmentResourcesViewset(viewsets.ModelViewSet):
                 raise Exception('Employee does not exist.') 
 
 
-            if request.data['recur_qty'] == 0 or request.data['recur_days'] == 0:
-                result = {'status': status.HTTP_200_OK,"message":"Recurring Days / Recurring Qty should not be 0",
-                'error': False}
-                return Response(data=result, status=status.HTTP_200_OK)
+            # if request.data['recur_qty'] == 0 or request.data['recur_days'] == 0:
+            #     result = {'status': status.HTTP_200_OK,"message":"Recurring Days / Recurring Qty should not be 0",
+            #     'error': False}
+            #     return Response(data=result, status=status.HTTP_200_OK)
 
             # master_ids = Treatment_Master.objects.filter(Appointment=appobj,site_code=site.itemsite_code).order_by('id').first()
             #if not master_ids:
@@ -4130,36 +4130,38 @@ class AppointmentResourcesViewset(viewsets.ModelViewSet):
             #    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Past Date Appointment Update is not Allowed !",'error': True} 
             #    return Response(result, status=status.HTTP_400_BAD_REQUEST)   
 
-            if appobj.appt_status == "Block":
-                result = {'status': status.HTTP_200_OK,"message":"Blocked Appointment Update is not Allowed !",'error': True} 
-                return Response(result, status=status.HTTP_200_OK)   
+            # if appobj.appt_status == "Block":
+            #     result = {'status': status.HTTP_200_OK,"message":"Blocked Appointment Update is not Allowed !",'error': True} 
+            #     return Response(result, status=status.HTTP_200_OK)   
 
           
             emp_obj = Employee.objects.filter(pk=request.data['emp_id'],emp_isactive=True).first()
             if not emp_obj:
                 result = {'status': status.HTTP_200_OK,"message":"Employee ID does not exist!!",'error': True} 
                 return Response(result, status=status.HTTP_200_OK)        
-
-            stockobj = Stock.objects.filter(pk=request.data['item_id'],item_isactive=True).first()
-            if not stockobj:
-                result = {'status': status.HTTP_200_OK,"message":"Stock Id does not exist!!",'error': True} 
-                return Response(data=result, status=status.HTTP_200_OK)
+            
+            if 'item_id' in request.data and request.data['item_id']:
+                stockobj = Stock.objects.filter(pk=request.data['item_id'],item_isactive=True).first()
+                if not stockobj:
+                    result = {'status': status.HTTP_200_OK,"message":"Stock Id does not exist!!",'error': True} 
+                    return Response(data=result, status=status.HTTP_200_OK)
             
             if site.is_empvalidate == True:    
                 #customer Validation
-                custprev_appts = Appointment.objects.filter(appt_date=request.data['appt_date'],
-                cust_no=appobj.cust_noid.cust_code).order_by('-pk').exclude(itemsite_code=site.itemsite_code)
-                if custprev_appts:
-                    msg = "This Customer Will have appointment on this day other outlet"
-                    result = {'status': status.HTTP_200_OK,"message": msg,'error': True}
-                    return Response(result, status=status.HTTP_200_OK) 
+                if appobj.appt_status != "Block":
+                    custprev_appts = Appointment.objects.filter(appt_date=request.data['appt_date'],
+                    cust_no=appobj.cust_noid.cust_code).order_by('-pk').exclude(itemsite_code=site.itemsite_code)
+                    if custprev_appts:
+                        msg = "This Customer Will have appointment on this day other outlet"
+                        result = {'status': status.HTTP_200_OK,"message": msg,'error': True}
+                        return Response(result, status=status.HTTP_200_OK) 
 
-                custprevtime_appts = Appointment.objects.filter(appt_date=request.data['appt_date'],
-                cust_no=appobj.cust_noid.cust_code).filter(Q(appt_to_time__gte=request.data['start_time']) & Q(appt_fr_time__lte=request.data['end_time'])).exclude(pk=appobj.pk).order_by('-pk')
-                if custprevtime_appts:
-                    msg = "This Customer Will have appointment on this day with same time"
-                    result = {'status': status.HTTP_200_OK,"message": msg,'error': True}
-                    return Response(result, status=status.HTTP_200_OK) 
+                    custprevtime_appts = Appointment.objects.filter(appt_date=request.data['appt_date'],
+                    cust_no=appobj.cust_noid.cust_code).filter(Q(appt_to_time__gte=request.data['start_time']) & Q(appt_fr_time__lte=request.data['end_time'])).exclude(pk=appobj.pk).order_by('-pk')
+                    if custprevtime_appts:
+                        msg = "This Customer Will have appointment on this day with same time"
+                        result = {'status': status.HTTP_200_OK,"message": msg,'error': True}
+                        return Response(result, status=status.HTTP_200_OK) 
             
 
                 #staff having shift/appointment on other branch for the same time
@@ -4167,7 +4169,7 @@ class AppointmentResourcesViewset(viewsets.ModelViewSet):
                 emp_no=emp_obj.emp_code).order_by('-pk').exclude(pk=appobj.pk)
                 # print(prev_appts,"prev_appts")
                 if prev_appts:
-                    check_ids = Appointment.objects.filter(appt_date=request.data['appt_date'],emp_no=emp_obj.emp_code,
+                    check_ids = Appointment.objects.filter(appt_isactive=True,appt_date=request.data['appt_date'],emp_no=emp_obj.emp_code,
                     ).filter(Q(appt_to_time__gt=request.data['start_time']) & Q(appt_fr_time__lt=request.data['end_time'])).exclude(pk=appobj.pk)
                     # print(check_ids,"check_ids")
                     if check_ids:
@@ -4212,25 +4214,25 @@ class AppointmentResourcesViewset(viewsets.ModelViewSet):
                         #        return Response(result, status=status.HTTP_400_BAD_REQUEST)        
 
 
-                        if request.data['appt_status'] == 'Cancelled':
-                            if appobj.appt_status == 'Done':
-                                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Completed Appointment cannot move cancelled!!",'error': True} 
-                                return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-                            if appobj.appt_status == 'Cancelled':
-                                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cancelled Appointment cannot move Cancelled again!!",'error': True} 
-                                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                        # if request.data['appt_status'] == 'Cancelled':
+                        #     if appobj.appt_status == 'Done':
+                        #         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Completed Appointment cannot move cancelled!!",'error': True} 
+                        #         return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                        #     if appobj.appt_status == 'Cancelled':
+                        #         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cancelled Appointment cannot move Cancelled again!!",'error': True} 
+                        #         return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
-                            # if not trmtt_ids:
-                            #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cannot move done because treatmentcode,sa_transacno does not exist!!",'error': True} 
-                            #     return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                        #     # if not trmtt_ids:
+                        #     #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cannot move done because treatmentcode,sa_transacno does not exist!!",'error': True} 
+                        #     #     return Response(result, status=status.HTTP_400_BAD_REQUEST) 
 
-                            if trmtt_ids and trmtt_ids.status == "Done":
-                                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Appointment Cannot move Cancelled because treatment is in Done!!",'error': True} 
-                                return Response(result, status=status.HTTP_400_BAD_REQUEST)    
+                        #     if trmtt_ids and trmtt_ids.status == "Done":
+                        #         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Appointment Cannot move Cancelled because treatment is in Done!!",'error': True} 
+                        #         return Response(result, status=status.HTTP_400_BAD_REQUEST)    
 
-                            if trmtt_ids and trmtt_ids.status == "Cancel":
-                                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Already Treatment is cancelled only!!",'error': True} 
-                                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                        #     if trmtt_ids and trmtt_ids.status == "Cancel":
+                        #         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Already Treatment is cancelled only!!",'error': True} 
+                        #         return Response(result, status=status.HTTP_400_BAD_REQUEST)
                             
                             # if master_ids: 
                             #     master_ids.status = "Cancel"
@@ -4374,8 +4376,8 @@ class AppointmentResourcesViewset(viewsets.ModelViewSet):
                 username=log_emp.display_name,appt_date=request.data['appt_date'],
                 appt_fr_time=request.data['start_time'],appt_to_time=request.data['end_time'],
                 emp_code=old_empcode,newempcode=log_emp.emp_code,
-                appt_status=request.data['appt_status'],sec_status=request.data['sec_status'],appt_remark=stockobj.item_desc,
-                item_code=stockobj.item_code,requesttherapist=request.data['requesttherapist'],
+                appt_status=request.data['appt_status'],sec_status=request.data['sec_status'],appt_remark=stockobj.item_desc if request.data['item_id'] else None,
+                item_code=stockobj.item_code if request.data['item_id'] else None,requesttherapist=request.data['requesttherapist'],
                 add_duration=request.data['add_duration'],new_remark=request.data['edit_remark']).save()
                 
                 
@@ -5010,7 +5012,7 @@ class AppointmentEditViewset(viewsets.ModelViewSet):
                         # print(prev_appts,"prev_appts")
                         
                         if prev_appts:
-                            check_ids = Appointment.objects.filter(appt_date=appt['appt_date'],emp_no=emp_obj.emp_code,
+                            check_ids = Appointment.objects.filter(appt_isactive=True,appt_date=appt['appt_date'],emp_no=emp_obj.emp_code,
                             ).filter(Q(appt_to_time__gt=i['start_time']) & Q(appt_fr_time__lt=i['end_time'])).exclude(pk=i['appt_id'])
                             # print(check_ids,"check_ids")
 
@@ -5034,7 +5036,7 @@ class AppointmentEditViewset(viewsets.ModelViewSet):
                         # print(prev_appts,"prev_appts")
                         
                         if prev_appts:
-                            check_ids = Appointment.objects.filter(appt_date=appt['appt_date'],emp_no=emp_obj.emp_code,
+                            check_ids = Appointment.objects.filter(appt_isactive=True,appt_date=appt['appt_date'],emp_no=emp_obj.emp_code,
                             ).filter(Q(appt_to_time__gt=i['start_time']) & Q(appt_fr_time__lt=i['end_time']))
                             # print(check_ids,"check_ids")
 
@@ -10557,12 +10559,17 @@ class CustomerReceiptPrintList(generics.ListAPIView):
             # print(credit,"credit")       
 
             outstanding = tot_trans - tot_depo
+            
+            
+
+
             sub_data = {'tot_qty':str(tot_qty),'tot_net':str("{:.2f}".format((tot_trans))),
             'tot_paid':str("{:.2f}".format((tot_depo))),'tot_price':str("{:.2f}".format((tot_price))),
             'tot_bal':str("{:.2f}".format((tot_bal))),'outstanding': str("{:.2f}".format((outstanding))),
             'sub_total':str("{:.2f}".format((tot_depo))),'tot_disc':str("{:.2f}".format((tot_disc))),
             'prepaid_balance': prepaid_amt,
-            'creditnote_balance': credit_amt,'total_netprice':str("{:.2f}".format((total_netprice)))}
+            'creditnote_balance': credit_amt,'total_netprice':str("{:.2f}".format((total_netprice)))
+            }
 
             taud_serializer = PostaudprintSerializer(taud, many=True)
             taud_data = taud_serializer.data
@@ -11217,7 +11224,7 @@ class EmployeeAppointmentViewNew(viewsets.ModelViewSet):
                     #Therapist
                     #if emp.show_in_appt == True:
                     if 1==2:
-                        site_list = EmpSitelist.objects.filter(Emp_Codeid=emp,Site_Codeid__pk=site.pk,isactive=True)
+                        site_list = EmpSitelist.objects.filter(Emp_Codeid=emp,Site_Codeid__pk=site.pk,isactive=True,hide_in_appt=False)
                         if site_list:
                             if sc_system_obj and sc_system_obj.value_data == 'True':
                                 month = False 
@@ -11253,7 +11260,7 @@ class EmployeeAppointmentViewNew(viewsets.ModelViewSet):
                     #manager -> Therapist,Consultant staffs as Resources
                     # elif emp.show_in_appt == False:
                     elif 1==1:
-                        emp_siteids = list(EmpSitelist.objects.filter(Site_Codeid__pk=site.pk,isactive=True,Emp_Codeid__emp_isactive=True,Emp_Codeid__show_in_appt=True).values_list('Emp_Codeid', flat=True).distinct())
+                        emp_siteids = list(EmpSitelist.objects.filter(Site_Codeid__pk=site.pk,isactive=True,Emp_Codeid__emp_isactive=True,Emp_Codeid__show_in_appt=True,hide_in_appt=False).values_list('Emp_Codeid', flat=True).distinct())
                         # staffs = list(set([e.Emp_Codeid.pk for e in emp_siteids if e.Emp_Codeid and e.Emp_Codeid.emp_isactive == True and e.Emp_Codeid.show_in_appt == True]))
                         if sc_system_obj and sc_system_obj.value_data == 'True':
                             month = False
@@ -12256,6 +12263,25 @@ class ApptTypeAPIView(generics.ListAPIView):
             invalid_message = str(e)
             return general_error_response(invalid_message)     
 
+class ApptChannelAPIView(generics.ListAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = ApptChannel.objects.filter(isactive=True).order_by('-pk')
+    serializer_class = ApptChannelSerializer
+
+    def list(self, request):
+        try:
+            queryset = self.filter_queryset(self.get_queryset())
+            if queryset:
+                serializer = self.get_serializer(queryset, many=True)
+                result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 'data':  serializer.data}
+            else:
+                serializer = self.get_serializer()
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+            return Response(data=result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)     
 
 
 class TmpItemHelperViewset(viewsets.ModelViewSet):
@@ -12994,7 +13020,7 @@ class AppointmentBlockViewset(viewsets.ModelViewSet):
                         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cant Block Appointments for Past days!!",'error': True} 
                         return Response(result, status=status.HTTP_400_BAD_REQUEST) 
 
-                    prev_appts = Appointment.objects.filter(appt_date=sdate,emp_no=empobj.emp_code
+                    prev_appts = Appointment.objects.filter(appt_isactive=True,appt_date=sdate,emp_no=empobj.emp_code
                     ).filter(Q(appt_to_time__gt=request.data['appt_fr_time']) & Q(
                     appt_fr_time__lt=request.data['appt_to_time'])).order_by('-pk')
                     if prev_appts:
@@ -14535,7 +14561,6 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
                                             )
                         s.emp_code = emp_code
                         s.type_code = jobtitle.level_code
-                        print(s.type_code,"s.type_code")
                         s.emp_type = jobtitle.level_code
                         s.save()
                         token = False
@@ -16388,7 +16413,6 @@ class RewardPolicyViewSet(viewsets.ModelViewSet):
 
                 for brand in brand_res:
                     k.brand_ids.add(brand)      
-
 
             result = {'status': status.HTTP_200_OK, 'message': "success", 'error': False, "data": serializer.data}
             return Response(result, status=status.HTTP_200_OK)
@@ -18767,7 +18791,7 @@ class CustomerDocumentViewset(viewsets.ModelViewSet):
 
     def create(self, request, format=None):
         try:
-            serializer = CustomerDocumentSerializer(data=request.data)
+            serializer = CustomerDocumentSerializer(data=request.data, context={'request': self.request})
             if serializer.is_valid():
                 serializer.save()
                 result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully ",'error': False,

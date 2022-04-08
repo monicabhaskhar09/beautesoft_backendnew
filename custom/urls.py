@@ -28,6 +28,8 @@ router.register(r'addremovestaff', views.AddRemoveSalesStaffViewset, basename='a
 router.register(r'packagesertmpitemhelper', views.PackageServiceTmpItemHelperViewset, basename='packagesertmpitemhelper')
 router.register(r'salarysubtype', views.SalarySubTypeLookupViewset)
 router.register(r'modeofpayment', views.ModeOfPaymentViewset)
+router.register(r'voucheraccount', views.VoucherRecordAccViewset)
+
 
 # router.register(r'users', views.UserViewSet)
 

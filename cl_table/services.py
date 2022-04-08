@@ -1330,9 +1330,14 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                         treat = c
                         Price = c.trans_amt
                         Unit_Amount = Price / c.quantity
+                        
                         times = str(i).zfill(2)
                         treatment_no = str(c.quantity).zfill(2)
                         
+                        if i == int(c.quantity):
+                            lval = float(Price) - (float("{:.2f}".format(Unit_Amount)) * (c.quantity -1))
+                            Unit_Amount = lval
+                            
                         tmptrd_ids = Tmptreatment.objects.filter(itemcart=c,times=times).order_by('pk').first()
 
                         if tmptrd_ids:

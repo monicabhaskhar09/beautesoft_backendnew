@@ -94,6 +94,7 @@ urlpatterns = [
     path('api/stripepaymentintentconfirm', views.StripePaymentIntentConfirmAPIView.as_view(), name='stripepaymentintentconfirm'),
     # path('api/securitylevellistpost', views.SecuritylevellistPostAPI.as_view(), name='securitylevellistpost'),
     path('api/schedulemonthappt/', views.ScheduleMonthAppointListAPIView.as_view(), name='schedulemonthappt'),
+    path('api/apptchannel/', views.ApptChannelAPIView.as_view(), name='apptchannel'),
 
     
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

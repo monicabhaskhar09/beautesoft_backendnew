@@ -6,7 +6,7 @@ BlockReason,AppointmentLog,Title, Workschedule, CustomerFormControl,Country,Stat
 CustomerClass, RewardPolicy, RedeemPolicy, Diagnosis, DiagnosisCompare, Securitylevellist,
 DailysalesdataDetail, DailysalesdataSummary,Holditemdetail,PrepaidAccount,CreditNote,TreatmentAccount,
 DepositAccount, CustomerPoint, MrRewardItemType,Smsreceivelog,Systemsetup,TreatmentProtocol,
-CustomerTitle,ItemDiv,Tempcustsign,CustomerDocument)
+CustomerTitle,ItemDiv,Tempcustsign,CustomerDocument,ApptChannel)
 from cl_app.models import ItemSitelist, SiteGroup
 from custom.models import EmpLevel,Room,VoucherRecord
 from django.contrib.auth.models import User
@@ -1779,6 +1779,12 @@ class ApptTypeSerializer(serializers.ModelSerializer):
         model = ApptType
         fields = ['id','appt_type_desc','appt_type_code']
 
+class ApptChannelSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='pk',required=False)
+
+    class Meta:
+        model = ApptChannel
+        fields = ['id','channel_code','channel_desc']
 
 class TmpItemHelperSerializer(serializers.ModelSerializer):
 

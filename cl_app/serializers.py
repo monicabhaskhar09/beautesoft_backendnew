@@ -7,7 +7,7 @@ ItemLink,Systemsetup,Employee,Multistaff,ItemDiv)
 from django.utils import timezone
 from django.db.models import Sum
 from custom.views import round_calc
-from custom.models import ItemCart
+from custom.models import ItemCart,VoucherRecord
 from datetime import date, timedelta, datetime
 import datetime
 
@@ -46,7 +46,6 @@ class ItemDivSerializer(serializers.ModelSerializer):
             data['desc'] = instance.itm_desc            
         return data    
     
-
 
 class StockSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source='pk',required=False)
@@ -109,7 +108,6 @@ class TopupprepaidSerializer(serializers.ModelSerializer):
     
     description = serializers.CharField(source='pp_desc',required=False)
     sa_staffname = serializers.CharField(source='staff_name',required=False)
-
     class Meta:
         model = PrepaidAccount
         fields = ['id','pp_desc','sa_date','description','exp_date','remain','outstanding','staff_name','sa_staffname']
@@ -765,3 +763,84 @@ class TreatmentUsageStockSerializer(serializers.ModelSerializer):
     class Meta:
         model = Stock
         fields = ['id','item_desc','item_name','item_code']
+
+
+class PrepaidAccountListSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='pk',required=False)
+
+    class Meta:
+        model = PrepaidAccount
+        fields = ['id','pp_no','pp_desc','sa_date','exp_date','cust_name','remain']
+    
+    def to_representation(self, instance):
+        
+        data = super(PrepaidAccountListSerializer, self).to_representation(instance)
+        splt = str(instance.sa_date).split(" ")
+        sa_date = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d-%b-%y")
+
+        data['sa_date'] = sa_date
+    
+        splt_e = str(instance.exp_date).split(" ")
+        exp_date = datetime.datetime.strptime(str(splt_e[0]), "%Y-%m-%d").strftime("%d-%b-%y")
+
+        data['exp_date'] = exp_date
+        data['remain'] = "{:.2f}".format(data['remain'])
+    
+        return data 
+
+class TreatmentListSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='pk',required=False)
+
+    class Meta:
+        model = Treatment
+        fields = ['id','treatment_code','course','treatment_date','cust_name','unit_amount']
+    
+    def to_representation(self, instance):
+        
+        data = super(TreatmentListSerializer, self).to_representation(instance)
+        splt = str(instance.treatment_date).split(" ")
+        treatment_date = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d-%b-%y")
+
+        data['treatment_date'] = treatment_date
+    
+        data['unit_amount'] = "{:.2f}".format(data['unit_amount'])
+    
+        return data 
+
+class VoucherAccListSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='pk',required=False)
+
+    class Meta:
+        model = VoucherRecord
+        fields = ['id','voucher_name','voucher_no','sa_date','cust_name','value']
+    
+    def to_representation(self, instance):
+        
+        data = super(VoucherAccListSerializer, self).to_representation(instance)
+        splt = str(instance.sa_date).split(" ")
+        sa_date = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d-%b-%y")
+
+        data['sa_date'] = sa_date
+    
+        data['value'] = "{:.2f}".format(data['value'])
+    
+        return data         
+
+class HoldItemListSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='pk',required=False)
+
+    class Meta:
+        model = Holditemdetail
+        fields = ['id','sa_date','hi_itemdesc','hi_staffname','hi_amt','sa_custname']
+    
+    def to_representation(self, instance):
+        
+        data = super(HoldItemListSerializer, self).to_representation(instance)
+        splt = str(instance.sa_date).split(" ")
+        sa_date = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d-%b-%y")
+
+        data['sa_date'] = sa_date
+    
+        data['hi_amt'] = "{:.2f}".format(data['hi_amt'])
+    
+        return data

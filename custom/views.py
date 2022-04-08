@@ -18,7 +18,8 @@ CitySerializer,StateSerializer,CountrySerializer,SupplyContactInfoSerializer,Con
 CommissionProfileSerializer, SalarySubTypeLookupSerializer, ModeOfPaymentSerializer,
 ManualInvoiceSerializer,ManualInvoiceDetailSerializer,
 ManualInvoiceAddrSerializer,ManualInvoiceItemSerializer,WorkOrderInvoiceSerializer,
-WorkOrderDetailSerializer,WorkOrderInvoiceAddrSerializer,WorkOrderInvoiceItemSerializer)
+WorkOrderDetailSerializer,WorkOrderInvoiceAddrSerializer,WorkOrderInvoiceItemSerializer,
+VoucherRecordAccSerializer)
 from .models import (EmpLevel, Room, Combo_Services, ItemCart,VoucherRecord,RoundPoint, RoundSales,
 PaymentRemarks, HolditemSetup,PosPackagedeposit,SmtpSettings,MultiPricePolicy,salesStaffChangeLog,
 serviceStaffChangeLog,dateChangeLog,  TimeLogModel, ProjectModel, ActivityModel, QuotationModel, POModel, QuotationAddrModel, 
@@ -269,7 +270,7 @@ class CategoryViewset(viewsets.ModelViewSet):
                     queryset = ItemClass.objects.filter(itm_isactive=True).order_by('-itm_desc')
 
         return queryset
-        
+
 
     def list(self, request):
         try:
@@ -1101,15 +1102,11 @@ class EmployeeCartAPI(viewsets.ModelViewSet):
                 queryset = Employee.objects.filter(pk__in=staffs,emp_isactive=True,show_in_trmt=True).order_by('emp_seq_webappt')
 
             elif self.request.GET.get('sales_staff',None) == "2":
-                print("222")
                 squeryset = Employee.objects.filter(pk__in=staffs,emp_isactive=True).filter(
                     Q(show_in_trmt=True) | Q(show_in_sales=True)).order_by('emp_seq_webappt')
-                print(squeryset,"squeryset")
                 wqueryset = Employee.objects.filter(pk__in=staffs,emp_isactive=True,show_in_trmt=True,
                 show_in_sales=True).order_by('emp_seq_webappt')  
-                print(wqueryset,"wqueryset")
                 combined_list = list(chain(squeryset,wqueryset))
-                print(combined_list,"combined_list")
                 queryset = combined_list
     
 
@@ -4474,8 +4471,8 @@ class itemCartViewset(viewsets.ModelViewSet):
                     if ct.auto == True and ct.recorddetail != 'TD' and ct.recorddetail[0:2] != 'TP' and ct.is_foc != True:
                         qty = int(ct.treatment_no) if ct.treatment_no else ct.quantity
                         discvalamt += float(ct.price) - ct.discount_price
-                        t_disclimit += ct.itemcodeid.disclimit
-                        t_emp_maxdisclimit += empl.max_disc
+                        t_disclimit += ct.itemcodeid.disclimit if  ct.itemcodeid.disclimit else 0
+                        t_emp_maxdisclimit += empl.max_disc if empl.max_disc else 0
 
                         if idx != len(new_cart_ids):
                             old_nettrascamt = ct.trans_amt
@@ -4986,6 +4983,51 @@ class VoucherRecordViewset(viewsets.ModelViewSet):
             result = {'status': state,"message":message,'error': error, 'data': []}
             return Response(data=result, status=status.HTTP_200_OK)              
     
+class VoucherRecordAccViewset(viewsets.ModelViewSet):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = VoucherRecord.objects.filter(isvalid=True).order_by('-id')
+    serializer_class = VoucherRecordAccSerializer
+
+    def list(self, request):
+        try:
+            cust_obj = Customer.objects.filter(pk=self.request.GET.get('cust_id',None),cust_isactive=True).first()
+            if not cust_obj:
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer ID does not exist!!",'error': True} 
+                return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+            queryset = VoucherRecord.objects.filter(isvalid=True,cust_codeid=cust_obj.cust_no).order_by('-pk')
+            if queryset:
+                serializer = VoucherRecordAccSerializer(queryset, many=True)
+                data = serializer.data
+                lst = []
+                for d in data:
+                    dict_d = dict(d)
+                    if dict_d['sa_date']:
+                        splt = str(dict_d['sa_date']).split("T")
+                        dict_d['sa_date'] = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d-%b-%y")
+                    
+                    if dict_d['issued_expiry_date']:
+                        splti = str(dict_d['issued_expiry_date']).split("T")
+                        dict_d['issued_expiry_date'] = datetime.datetime.strptime(str(splti[0]), "%Y-%m-%d").strftime("%d-%b-%y")
+                    
+                    if dict_d['value']:
+                        dict_d['value'] = "{:.2f}".format(float(dict_d['value']))
+                    else:
+                        dict_d['value'] = "0.00"
+
+                    lst.append(dict_d)
+                result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",
+                'error': False, 'data': lst}
+                return Response(data=result, status=status.HTTP_200_OK)              
+            else:
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",
+                'error': False, 'data': []}
+                return Response(data=result, status=status.HTTP_200_OK)              
+        
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)               
+
 
 # def receipt_calculation(request, daud):
 #     # cart_ids = ItemCart.objects.filter(isactive=True,Appointment=app_obj,is_payment=True)

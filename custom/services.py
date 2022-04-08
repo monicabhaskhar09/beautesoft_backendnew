@@ -15,7 +15,7 @@ from io import BytesIO
 from pyvirtualdisplay import Display
 from Cl_beautesoft import settings
 from cl_table.models import (GstSetting,PosTaud,PosDaud,PosHaud,Fmspw,Title,PackageDtl,PackageHdr,Treatment,
-TreatmentAccount,DepositAccount,PrepaidAccount,TemplateSettings,CreditNote,Tempcustsign)
+TreatmentAccount,DepositAccount,PrepaidAccount,TemplateSettings,CreditNote,Tempcustsign,Systemsetup)
 from custom.models import ItemCart, RoundSales
 from cl_table.serializers import PosdaudSerializer
 from Cl_beautesoft.settings import BASE_DIR
@@ -308,6 +308,30 @@ def GeneratePDF(self,request, sa_transacno):
         path_custsign = BASE_DIR + custsign_ids.cust_sig.url
     # print(path_custsign,"path_custsign")
 
+    prepaid_lst = []
+    pre_queryset = PrepaidAccount.objects.filter(cust_code=hdr[0].sa_custno,
+    status=True,remain__gt=0).only('site_code','cust_code','sa_status').order_by('-pk')
+    if pre_queryset:
+        for i in pre_queryset:
+            val = {'pp_desc':i.pp_desc,'remain':"{:.2f}".format(i.remain)}
+            prepaid_lst.append(val)
+
+    prepaidbal_setup = Systemsetup.objects.filter(title='InvoiceSetting',
+    value_name='showprepaidbalance',isactive=True).first()
+
+    if prepaidbal_setup and prepaidbal_setup.value_data == 'True':
+        prepaidbal = True
+    else:
+        prepaidbal = False
+
+    treatmentbal_setup = Systemsetup.objects.filter(title='InvoiceSetting',
+    value_name='showtreatmentbalance',isactive=True).first()
+    if treatmentbal_setup and treatmentbal_setup.value_data == 'True':
+        treatmentbal = True
+    else:
+        treatmentbal = False
+
+
     # print(treatopen_ids,"treatopen_ids")
     data = {'name': title.trans_h1 if title and title.trans_h1 else '', 
     'address': title.trans_h2 if title and title.trans_h2 else '', 
@@ -320,9 +344,9 @@ def GeneratePDF(self,request, sa_transacno):
     'packages': str(packages),'site':site,'treatment': treatopen_ids,'settings': set_obj,
     'tot_price':tot_price,'prepaid_balance': prepaid_amt,
     'creditnote_balance': credit_amt,'total_netprice':str("{:.2f}".format((total_netprice))),
-    'custsign_ids':path_custsign if path_custsign else ''}
+    'custsign_ids':path_custsign if path_custsign else '','prepaid_lst':prepaid_lst,
+    'prepaidbal':prepaidbal,'treatmentbal':treatmentbal}
     data.update(sub_data)
-
     if site.inv_templatename:
         template = get_template(site.inv_templatename)
     else:
