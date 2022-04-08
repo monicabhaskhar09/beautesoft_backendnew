@@ -23,7 +23,7 @@ from .models import (Gender, Employee, Fmspw, Attendance2, Customer, Images, Tre
                      Securitylevellist, DailysalesdataSummary, DailysalesdataDetail, Multilanguage, MultiLanguageWord, Workschedule,
                      Religious, Nationality, Races, DailysalestdSummary,
                      MrRewardItemType,CustomerPoint,TreatmentDuration,Smsreceivelog,TreatmentProtocol,CustomerTitle,CustomerPointDtl,
-                     ItemDiv,Tempcustsign,CustomerDocument,ApptChannel)
+                     ItemDiv,Tempcustsign,CustomerDocument)
 from cl_app.models import ItemSitelist, SiteGroup, LoggedInUser
 from custom.models import Room,ItemCart,VoucherRecord,EmpLevel,PosPackagedeposit,payModeChangeLog
 from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializer, Attendance2Serializer,
@@ -58,7 +58,7 @@ from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializ
                           AppointmentCalSerializer,AboutSerializer,
                           CustomerPointSerializer, MGMSerializer,SMSReplySerializer,ConfirmBookingApptSerializer,
                           ItemDescSerializer,TempcustsignSerializer,CustomerDocumentSerializer,
-                          ApptChannelSerializer)
+                          )
 from datetime import date, timedelta, datetime
 import datetime
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
@@ -12263,25 +12263,25 @@ class ApptTypeAPIView(generics.ListAPIView):
             invalid_message = str(e)
             return general_error_response(invalid_message)     
 
-class ApptChannelAPIView(generics.ListAPIView):
-    authentication_classes = [ExpiringTokenAuthentication]
-    permission_classes = [IsAuthenticated & authenticated_only]
-    queryset = ApptChannel.objects.filter(isactive=True).order_by('-pk')
-    serializer_class = ApptChannelSerializer
+# class ApptChannelAPIView(generics.ListAPIView):
+#     authentication_classes = [ExpiringTokenAuthentication]
+#     permission_classes = [IsAuthenticated & authenticated_only]
+#     queryset = ApptChannel.objects.filter(isactive=True).order_by('-pk')
+#     serializer_class = ApptChannelSerializer
 
-    def list(self, request):
-        try:
-            queryset = self.filter_queryset(self.get_queryset())
-            if queryset:
-                serializer = self.get_serializer(queryset, many=True)
-                result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 'data':  serializer.data}
-            else:
-                serializer = self.get_serializer()
-                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
-            return Response(data=result, status=status.HTTP_200_OK) 
-        except Exception as e:
-            invalid_message = str(e)
-            return general_error_response(invalid_message)     
+#     def list(self, request):
+#         try:
+#             queryset = self.filter_queryset(self.get_queryset())
+#             if queryset:
+#                 serializer = self.get_serializer(queryset, many=True)
+#                 result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 'data':  serializer.data}
+#             else:
+#                 serializer = self.get_serializer()
+#                 result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+#             return Response(data=result, status=status.HTTP_200_OK) 
+#         except Exception as e:
+#             invalid_message = str(e)
+#             return general_error_response(invalid_message)     
 
 
 class TmpItemHelperViewset(viewsets.ModelViewSet):

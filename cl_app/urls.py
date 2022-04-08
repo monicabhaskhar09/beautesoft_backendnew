@@ -75,11 +75,11 @@ urlpatterns = [
     # path('getpdfPage',views.getPdfPage,name='getpdfpage'),
     path('api/servicelist/', views.ServiceListAPIView.as_view(), name='servicelist'),
     path('api/productlist/', views.ProductListAPIView.as_view(), name='productlist'),
-    path('api/prepaidaccpage/', views.PrepaidAccountListAPIView.as_view(), name='prepaidaccpage'),
-    path('api/treatmentopenaccpage/', views.TreatmentOpenListAPIView.as_view(), name='treatmentopenaccpage'),
-    path('api/treatmentdoneaccpage/', views.TreatmentDoneListAPIView.as_view(), name='treatmentdoneaccpage'),
-    path('api/voucheraccpage/', views.VoucherAccListAPIView.as_view(), name='treatmentdoneaccpage'),
-    path('api/holditemaccpage/', views.HoldItemListAPIView.as_view(), name='treatmentdoneaccpage'),
+    # path('api/prepaidaccpage/', views.PrepaidAccountListAPIView.as_view(), name='prepaidaccpage'),
+    # path('api/treatmentopenaccpage/', views.TreatmentOpenListAPIView.as_view(), name='treatmentopenaccpage'),
+    # path('api/treatmentdoneaccpage/', views.TreatmentDoneListAPIView.as_view(), name='treatmentdoneaccpage'),
+    # path('api/voucheraccpage/', views.VoucherAccListAPIView.as_view(), name='treatmentdoneaccpage'),
+    # path('api/holditemaccpage/', views.HoldItemListAPIView.as_view(), name='treatmentdoneaccpage'),
 
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
