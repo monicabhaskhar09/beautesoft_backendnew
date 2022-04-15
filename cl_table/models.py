@@ -2837,6 +2837,7 @@ class EmpSitelist(models.Model):
     isactive = models.BooleanField(db_column='IsActive',default=True)  # Field name made lowercase.
     updated_at = models.DateTimeField(auto_now=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
+    hide_in_appt = models.BooleanField(db_column='hide_in_appt',default=False)  # Field name made lowercase.
 
     class Meta:
         db_table = 'Emp_SiteList'
@@ -2913,6 +2914,7 @@ class Appointment(models.Model):
         ('LastMinCancel', 'Cancelled Last Minute'),
         ('Late', 'Late'),
         ('No Show', 'No Show'),
+        ('Block', 'Block'),
     ]
 
     SEC_STATUS = [

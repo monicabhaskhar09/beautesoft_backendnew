@@ -271,8 +271,10 @@ class ItemCart(models.Model):
     sessiondone = models.CharField(db_column='Session_Done', max_length=700, blank=True, null=True)
     multi_treat = models.ManyToManyField('cl_table.Treatment', blank=True)
     is_service = models.BooleanField(default=False,null=True)
-
-
+    treat_expiry = models.DateField(db_column='Treatment_Expiry', blank=True, null=True)  # Field name made lowercase.
+    treat_type = models.CharField(db_column='treat_type', max_length=50, blank=True, null=True)  # Field name made lowercase.
+    treatment_limit_times = models.FloatField(db_column='Treatment_Limit_Times', blank=True, null=True)  # Field name made lowercase.
+    is_flexi = models.BooleanField(default=False)
 
     class Meta:
         db_table = 'item_Cart'

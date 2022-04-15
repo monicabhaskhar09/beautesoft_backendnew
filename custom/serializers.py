@@ -462,7 +462,8 @@ class CartServiceCourseSerializer(serializers.ModelSerializer):
     class Meta:
         model = ItemCart
         fields = ['id','itemdesc','quantity','price','total_price','discount_price','trans_amt','deposit',
-        'discount','discount_amt','cart_id','treatment_no','free_sessions','sessiondone']
+        'discount','discount_amt','cart_id','treatment_no','free_sessions','sessiondone',
+        'treat_expiry','treat_type','treatment_limit_times','is_flexi']
 
 
     def to_representation(self, obj):
@@ -522,7 +523,11 @@ class CartServiceCourseSerializer(serializers.ModelSerializer):
             'is_done': is_done,
             'tstaff' : lst,
             'is_treat' : False if obj.treatment_no else True,
-            'is_service' : obj.is_service
+            'is_service' : obj.is_service,
+            'is_flexi': obj.is_flexi,
+            'treat_expiry': obj.treat_expiry,
+            'treat_type':obj.treat_type,
+            'treatment_limit_times': obj.treatment_limit_times
             }
        
         return mapped_object

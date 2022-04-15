@@ -1,3 +1,4 @@
+from django.forms import Field
 import pyotp
 import time
 from twilio.rest import Client
@@ -36,7 +37,7 @@ from rest_framework.authentication import TokenAuthentication
 from rest_framework.permissions import IsAuthenticated
 from django.http import Http404
 from django.utils import timezone
-from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
+from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator,InvalidPage
 from custom.views import response, get_client_ip
 from django.db.models import Q
 from django.core.exceptions import ValidationError
@@ -2368,7 +2369,7 @@ class TreatmentDoneViewset(viewsets.ModelViewSet):
             value_name='Default TD List Years Ago',isactive=True).first()
 
             current_year = date.today().year
-         
+            
             
             queryset = Treatment.objects.none()
 
@@ -2483,7 +2484,6 @@ class TreatmentDoneViewset(viewsets.ModelViewSet):
                         # print(row,row.pk,"RRRRRRRRRRRRRRRRRRRRRR")
                         # here you can do what you want with the row
             
-            
                         session = 0;balance = "0.00"; ar= "0.00"
                         treatmentids=[];is_allow=False;
                         trmt_obj = row
@@ -2587,12 +2587,26 @@ class TreatmentDoneViewset(viewsets.ModelViewSet):
                         'treatmentids' : treatmentids,
                         'open' : len(treatmentids),
                         'session' : session,
-                        'sel' : sel
+                        'sel' : sel,
+                        'type': row.type,
                         })
                         # print( q_val[0]," q_val[0]")
+                        expiry = False
+                        if row.expiry:
+                            splte = str(row.expiry).split(' ')
+                            expiry = splte[0]
+                        treatment_limit_times = False
+                        if row.treatment_limit_times:
+                            treatment_limit_times = row.treatment_limit_times
 
                         # print(q_val[0],"vv")
-                        lst.extend([q_val[0]])
+                        if row.type == 'N':
+                            lst.extend([q_val[0]])
+                        elif row.type in ['FFd','FFi']:
+                            if expiry and treatment_limit_times:
+                                if expiry >= str(date.today()):
+                                    if treatment_limit_times > int(row.times) or treatment_limit_times == 0:
+                                        lst.extend([q_val[0]])       
                         # print(lst,"lst")
                         # site_code,treatment_date,course,transacno_ref,unit_amount,treatment_code,td,rev,open,ar,session,session_flag,iscurrentloggedinsalon,is_reversal,is_allow,
 
@@ -4132,19 +4146,43 @@ class ReversalListViewset(viewsets.ModelViewSet):
 
                     desc = "CANCEL" +" "+ str(j.course)+" "+str(j.times)+"/"+str(j.treatment_no)
                     #treatment Account creation 
-                    if acc_ids.balance > queryset[0].unit_amount: 
-                        balance = acc_ids.balance - queryset[0].unit_amount 
-                        tamount =  queryset[0].unit_amount
-                        total += j.unit_amount
-                    elif acc_ids.balance <= queryset[0].unit_amount:  
-                        balance = acc_ids.balance - acc_ids.balance  
-                        tamount = acc_ids.balance 
-                        total += acc_ids.balance
-    
+                    # if acc_ids.balance > queryset[0].unit_amount: 
+                    #     balance = acc_ids.balance - queryset[0].unit_amount 
+                    #     tamount =  queryset[0].unit_amount
+                    #     total += j.unit_amount
+                    # elif acc_ids.balance <= queryset[0].unit_amount:  
+                    #     balance = acc_ids.balance - acc_ids.balance  
+                    #     tamount = acc_ids.balance 
+                    #     total += acc_ids.balance
+
+                    # tamount = Treatmentaccount account Field
+                    # balance = Treatmentaccount balance Field
+                    # outstanding = Treatmentaccount outstanding Field
+                    # total = creditnote amount & balance
+
+                    if acc_ids.outstanding > queryset[0].unit_amount:
+                        tamount = queryset[0].unit_amount
+                        balance = acc_ids.balance
+                        outstanding = acc_ids.outstanding - queryset[0].unit_amount
+                        total = 0
+                    elif queryset[0].unit_amount > acc_ids.outstanding and acc_ids.outstanding > 0:
+                        tamount = queryset[0].unit_amount 
+                        remaining = queryset[0].unit_amount - acc_ids.outstanding
+                        if remaining > 0:
+                            balance = acc_ids.balance - remaining
+                            total += remaining
+                        outstanding = 0    
+                    else:
+                        if queryset[0].unit_amount > 0 and acc_ids.outstanding == 0:
+                            tamount = queryset[0].unit_amount
+                            outstanding = acc_ids.outstanding
+                            balance = acc_ids.balance - queryset[0].unit_amount
+                            total += queryset[0].unit_amount
+
                     treatacc = TreatmentAccount(Cust_Codeid=cust_obj,cust_code=cust_obj.cust_code,
                     description=desc,ref_no=j.treatment_parentcode,type='CANCEL',amount=-float("{:.2f}".format(float(tamount))) if tamount else 0,
                     balance="{:.2f}".format(float(balance)),User_Nameid=fmspw,user_name=fmspw.pw_userlogin,ref_transacno=j.sa_transacno,
-                    sa_transacno="",qty=1,outstanding="{:.2f}".format(float(acc_ids.outstanding)) if acc_ids and acc_ids.outstanding is not None and acc_ids.outstanding > 0 else 0,deposit=None,treatment_parentcode=j.treatment_parentcode,
+                    sa_transacno="",qty=1,outstanding="{:.2f}".format(float(outstanding)) if acc_ids and acc_ids.outstanding is not None and acc_ids.outstanding > 0 else 0,deposit=None,treatment_parentcode=j.treatment_parentcode,
                     treatment_code=None,sa_status="VT",cas_name=fmspw.pw_userlogin,sa_staffno=acc_ids.sa_staffno,sa_staffname=acc_ids.sa_staffname,
                     next_paydate=None,hasduedate=0,dt_lineno=j.dt_lineno,Site_Codeid=site,
                     site_code=j.site_code,treat_code=j.treatment_parentcode)
@@ -13176,8 +13214,386 @@ class PayModePieDashboardViewset(viewsets.ModelViewSet):
 #             invalid_message = str(e)
 #             return general_error_response(invalid_message)    
 
+class PrepaidAccountListAPIView(generics.ListAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    # serializer_class = PrepaidAccountListSerializer
+    serializer_class = []
+
+    def list(self, request):
+        try:
+           
+            query_set = PrepaidAccount.objects.filter(status=True).values('cust_code').order_by('cust_code'
+            ).annotate(qty=Count('pp_no'),cust_name=F('cust_name'),pp_amt=Sum('pp_amt'),
+            pp_total=Sum('pp_total'),remain=Sum('remain'))
+            # print(query_set,"query_set")
+
+            q = self.request.GET.get('search',None)
+
+            if q is not None:
+                query_set = PrepaidAccount.objects.filter(status=True).filter(Q(cust_name__icontains=q) 
+                | Q(cust_code__icontains=q)).values('cust_code').order_by('cust_code'
+                ).annotate(qty=Count('cust_code'),cust_name=F('cust_name'),pp_amt=Sum('pp_amt'),
+                pp_total=Sum('pp_total'),remain=Sum('remain'))
+
+            if query_set:
+                full_tot = query_set.count()
+                try:
+                    limit = int(request.GET.get("limit",10))
+                except:
+                    limit = 10
+                try:
+                    page = int(request.GET.get("page",1))
+                except:
+                    page = 1
+
+                paginator = Paginator(query_set, limit)
+                total_page = paginator.num_pages
+
+                try:
+                    queryset = paginator.page(page)
+                except (EmptyPage, InvalidPage):
+                    queryset = paginator.page(total_page) # last page
+
+                # print(queryset,"queryset") 
+                # print(queryset.object_list,"object_list") 
+               
+                # serializer = self.get_serializer(queryset, many=True)
+                # print(serializer.data,"serializer")
+                resData = {
+                    'dataList': queryset.object_list,
+                    'pagination': {
+                           "per_page":limit,
+                           "current_page":page,
+                           "total":full_tot,
+                           "total_pages":total_page
+                    }
+                }
+                result = {'status': status.HTTP_200_OK,"message": "Listed Succesfully",'error': False, 'data':  resData}
+                v = result.get('data')
+                d = v.get("dataList")
+                for dat in d:
+                    dat["pp_amt"] = "{:.2f}".format(float(dat['pp_amt']))
+                    dat["pp_total"] = "{:.2f}".format(float(dat['pp_total']))
+                    dat["remain"] = "{:.2f}".format(float(dat['remain']))
+                       
+            else:
+                serializer = self.get_serializer()
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+            return Response(data=result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)    
 
     
+class TreatmentOpenListAPIView(generics.ListAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    serializer_class = []
+
+    def list(self, request):
+        try:
+            query_set = Treatment.objects.filter(status='Open').values('course','cust_code').order_by('course'
+            ).annotate(qty=Count('status'),cust_name=F('cust_name'),unit_amount=Sum('unit_amount'))
+            q = self.request.GET.get('search',None)
+
+            if q is not None:
+                query_set = Treatment.objects.filter(status='Open').filter(Q(cust_name__icontains=q) 
+                | Q(cust_code__icontains=q)).values('course','cust_code').order_by('course'
+                ).annotate(qty=Count('status'),cust_name=F('cust_name'),unit_amount=Sum('unit_amount'))
+
+                        
+            if query_set:
+                full_tot = query_set.count()
+                try:
+                    limit = int(request.GET.get("limit",10))
+                except:
+                    limit = 10
+                try:
+                    page = int(request.GET.get("page",1))
+                except:
+                    page = 1
+
+                paginator = Paginator(query_set, limit)
+                total_page = paginator.num_pages
+
+                try:
+                    queryset = paginator.page(page)
+                except (EmptyPage, InvalidPage):
+                    queryset = paginator.page(total_page) # last page
+
+                # serializer = self.get_serializer(queryset, many=True)
+                resData = {
+                    'dataList': queryset.object_list,
+                    'pagination': {
+                           "per_page":limit,
+                           "current_page":page,
+                           "total":full_tot,
+                           "total_pages":total_page
+                    }
+                }
+                result = {'status': status.HTTP_200_OK,"message": "Listed Succesfully",'error': False, 'data':  resData}
+                v = result.get('data')
+                d = v.get("dataList")
+                for dat in d:
+                    dat["unit_amount"] = "{:.2f}".format(float(dat['unit_amount']))
+                       
+            
+            else:
+                serializer = self.get_serializer()
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+            return Response(data=result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)    
+
+class TreatmentDoneListAPIView(generics.ListAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    serializer_class = []
+
+    def list(self, request):
+        try:
+            query_set = Treatment.objects.filter(status='Done').values('course','cust_code').order_by('course'
+            ).annotate(qty=Count('status'),cust_name=F('cust_name'),unit_amount=Sum('unit_amount'))    
+            q = self.request.GET.get('search',None)
+
+            if q is not None: 
+                query_set = Treatment.objects.filter(status='Done').filter(Q(cust_name__icontains=q) 
+                | Q(cust_code__icontains=q)).values('course','cust_code').order_by('course'
+                ).annotate(qty=Count('status'),cust_name=F('cust_name'),unit_amount=Sum('unit_amount'))    
+                  
+            if query_set:
+                full_tot = query_set.count()
+                try:
+                    limit = int(request.GET.get("limit",10))
+                except:
+                    limit = 10
+                try:
+                    page = int(request.GET.get("page",1))
+                except:
+                    page = 1
+
+                paginator = Paginator(query_set, limit)
+                total_page = paginator.num_pages
+                print(total_page,"total_page")
+                try:
+                    queryset = paginator.page(page)
+                except (EmptyPage, InvalidPage):
+                    queryset = paginator.page(total_page) # last page
+
+                # serializer = self.get_serializer(queryset, many=True)
+                resData = {
+                    'dataList': queryset.object_list,
+                    'pagination': {
+                           "per_page":limit,
+                           "current_page":page,
+                           "total":full_tot,
+                           "total_pages":total_page
+                    }
+                }
+                result = {'status': status.HTTP_200_OK,"message": "Listed Succesfully",'error': False, 'data':  resData}
+                v = result.get('data')
+                d = v.get("dataList")
+                for dat in d:
+                    dat["unit_amount"] = "{:.2f}".format(float(dat['unit_amount']))
+                       
+            else:
+                serializer = self.get_serializer()
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+            return Response(data=result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)    
+
+
+class VoucherAccListAPIView(generics.ListAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    serializer_class = []
+
+    def list(self, request):
+        try:
+            query_set =  VoucherRecord.objects.filter(isvalid=True).values('cust_code').order_by('cust_code'
+            ).annotate(qty=Count('cust_code'),cust_name=F('cust_name'),value=Sum('value'))
+
+            q = self.request.GET.get('search',None)
+
+            if q is not None: 
+                query_set =  VoucherRecord.objects.filter(isvalid=True).filter(Q(cust_name__icontains=q) 
+                | Q(cust_code__icontains=q)).values('cust_code').order_by('cust_code'
+                ).annotate(qty=Count('cust_code'),cust_name=F('cust_name'),value=Sum('value'))
+
+
+            if query_set:
+                full_tot = query_set.count()
+                try:
+                    limit = int(request.GET.get("limit",10))
+                except:
+                    limit = 10
+                try:
+                    page = int(request.GET.get("page",1))
+                except:
+                    page = 1
+
+                paginator = Paginator(query_set, limit)
+                total_page = paginator.num_pages
+
+                try:
+                    queryset = paginator.page(page)
+                except (EmptyPage, InvalidPage):
+                    queryset = paginator.page(total_page) # last page
+
+                # serializer = self.get_serializer(queryset, many=True)
+                resData = {
+                    'dataList': queryset.object_list,
+                    'pagination': {
+                           "per_page":limit,
+                           "current_page":page,
+                           "total":full_tot,
+                           "total_pages":total_page
+                    }
+                }
+                result = {'status': status.HTTP_200_OK,"message": "Listed Succesfully",'error': False, 'data':  resData}
+                v = result.get('data')
+                d = v.get("dataList")
+                for dat in d:
+                    dat["value"] = "{:.2f}".format(float(dat['value']))
+                       
+            
+            else:
+                serializer = self.get_serializer()
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+            return Response(data=result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)    
+
+class HoldItemListAPIView(generics.ListAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    serializer_class = []
+
+    def list(self, request):
+        try:
+            query_set =  Holditemdetail.objects.filter(status='OPEN').values('sa_custno').order_by('sa_custno'
+            ).annotate(sa_custname=F('sa_custname'),qty=Count('status'),hi_amt=Sum('hi_amt'),
+            hi_qty=Sum('hi_qty'),holditemqty=Sum('holditemqty'))
+            q = self.request.GET.get('search',None)
+
+            if q is not None: 
+                query_set =  Holditemdetail.objects.filter(status='OPEN').filter(Q(sa_custname__icontains=q) 
+                | Q(sa_custno__icontains=q)).values('sa_custno').order_by('sa_custno'
+                ).annotate(sa_custname=F('sa_custname'),qty=Count('sa_custno'),hi_amt=Sum('hi_amt'),
+                hi_qty=Sum('hi_qty'),holditemqty=Sum('holditemqty'))
+                        
+            if query_set:
+                full_tot = query_set.count()
+                try:
+                    limit = int(request.GET.get("limit",10))
+                except:
+                    limit = 10
+                try:
+                    page = int(request.GET.get("page",1))
+                except:
+                    page = 1
+
+                paginator = Paginator(query_set, limit)
+                total_page = paginator.num_pages
+
+                try:
+                    queryset = paginator.page(page)
+                except (EmptyPage, InvalidPage):
+                    queryset = paginator.page(total_page) # last page
+
+                # serializer = self.get_serializer(queryset, many=True)
+                resData = {
+                    'dataList': queryset.object_list,
+                    'pagination': {
+                           "per_page":limit,
+                           "current_page":page,
+                           "total":full_tot,
+                           "total_pages":total_page
+                    }
+                }
+                result = {'status': status.HTTP_200_OK,"message": "Listed Succesfully",'error': False, 'data':  resData}
+                v = result.get('data')
+                d = v.get("dataList")
+                for dat in d:
+                    dat["hi_amt"] = "{:.2f}".format(float(dat['hi_amt']))
+                       
+            
+            else:
+                serializer = self.get_serializer()
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+            return Response(data=result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)    
+
+
+class CreditNoteListAPIView(generics.ListAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    serializer_class = []
+
+    def list(self, request):
+        try:
+            query_set =  CreditNote.objects.filter(status='OPEN').values('cust_code').order_by('cust_code'
+            ).annotate(cust_name=F('cust_name'),qty=Count('status'),amount=Sum('amount'),
+            balance=Sum('balance'))
+            q = self.request.GET.get('search',None)
+
+            if q is not None: 
+                query_set =  CreditNote.objects.filter(status='OPEN').filter(Q(cust_code__icontains=q) 
+                | Q(cust_name__icontains=q)).values('cust_code').order_by('cust_code'
+                ).annotate(cust_name=F('cust_name'),qty=Count('cust_code'),amount=Sum('amount'),
+                balance=Sum('balance'))
+
+                        
+            if query_set:
+                full_tot = query_set.count()
+                try:
+                    limit = int(request.GET.get("limit",10))
+                except:
+                    limit = 10
+                try:
+                    page = int(request.GET.get("page",1))
+                except:
+                    page = 1
+
+                paginator = Paginator(query_set, limit)
+                total_page = paginator.num_pages
+
+                try:
+                    queryset = paginator.page(page)
+                except (EmptyPage, InvalidPage):
+                    queryset = paginator.page(total_page) # last page
+
+                # serializer = self.get_serializer(queryset, many=True)
+                resData = {
+                    'dataList': queryset.object_list,
+                    'pagination': {
+                           "per_page":limit,
+                           "current_page":page,
+                           "total":full_tot,
+                           "total_pages":total_page
+                    }
+                }
+                result = {'status': status.HTTP_200_OK,"message": "Listed Succesfully",'error': False, 'data':  resData}
+                v = result.get('data')
+                d = v.get("dataList")
+                for dat in d:
+                    dat["amount"] = "{:.2f}".format(float(dat['amount']))
+                    dat["balance"] = "{:.2f}".format(float(dat['balance']))
+                       
+            else:
+                serializer = self.get_serializer()
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+            return Response(data=result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)    
 
 
         

@@ -1325,6 +1325,12 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                             current_date = datetime.datetime.strptime(str(date.today()), "%Y-%m-%d")
                             expiry = current_date + relativedelta(months=month)
                     
+                    treat_type = "N"
+                    treatment_limit_times = None
+                    if c.is_flexi == True:
+                        expiry = c.treat_expiry
+                        treat_type = c.treat_type
+                        treatment_limit_times = c.treatment_limit_times
                     
                     for i in range(1,int(number)+1):
                         treat = c
@@ -1346,10 +1352,10 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                             treatment_no=treatment_no,price="{:.2f}".format(float(tmptrd_ids.price)),unit_amount="{:.2f}".format(float(tmptrd_ids.unit_amount)),Cust_Codeid=treat.cust_noid,
                             cust_code=treat.customercode,cust_name=treat.cust_noid.cust_name,
                             status="Open",item_code=str(treat.itemcodeid.item_code)+"0000",Item_Codeid=treat.itemcodeid,
-                            sa_transacno=sa_transacno,sa_status="SA",type="N",trmt_is_auto_proportion=False,
+                            sa_transacno=sa_transacno,sa_status="SA",type=treat_type,trmt_is_auto_proportion=False,
                             dt_lineno=c.lineno,site_code=site.itemsite_code,Site_Codeid=site,isfoc=tmptrd_ids.isfoc,
                             treatment_account=treatacc,service_itembarcode=str(treat.itemcodeid.item_code)+"0000",
-                            expiry=expiry,next_appt=tmptrd_ids.next_appt)
+                            expiry=expiry,next_appt=tmptrd_ids.next_appt,treatment_limit_times=treatment_limit_times)
                         else:
                             treatmentid = Treatment(treatment_code=str(treatment_parentcode)+"-"+str(times),
                             treatment_parentcode=treatment_parentcode,course=course_val,times=times,
@@ -2418,6 +2424,29 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                 trmt_up = Treatment.objects.filter(pk=ct.pk).update(status="Done",treatment_date=pay_date,
                 trmt_room_code=helper.Room_Codeid.room_code if helper.Room_Codeid else None,record_status='PENDING',
                 transaction_time=timezone.now(),treatment_count_done=1)
+                if ct.type in ['FFd','FFi']:
+                    if ct.expiry and ct.treatment_limit_times:
+                        splte = str(ct.expiry).split(' ')
+                        expiry = splte[0]
+                        if expiry >= str(date.today()):
+                            if ct.treatment_limit_times > int(ct.times) or ct.treatment_limit_times == 0:
+                                times_v = str(int(ct.times) + 1).zfill(2)
+                                treatment_code = ct.treatment_parentcode+"-"+times_v
+                                treatids = Treatment(treatment_code=treatment_code,course=ct.course,times=times_v,
+                                treatment_no=times_v,price=ct.price,treatment_date=ct.treatment_date,
+                                next_appt=ct.next_appt,cust_name=ct.cust_name,Cust_Codeid=ct.Cust_Codeid,
+                                cust_code=ct.cust_code,status="Open",unit_amount=ct.unit_amount,
+                                Item_Codeid=ct.Item_Codeid,item_code=ct.item_code,treatment_parentcode=ct.treatment_parentcode,
+                                prescription=ct.prescription,allergy=ct.allergy,sa_transacno=ct.sa_transacno,
+                                sa_status=ct.sa_status,record_status=ct.record_status,appt_time=ct.appt_time,
+                                remarks=ct.remarks,duration=ct.duration,hold_item=ct.hold_item,transaction_time=ct.transaction_time,
+                                dt_lineno=ct.dt_lineno,expiry=ct.expiry,lpackage=ct.lpackage,package_code=ct.package_code,
+                                Site_Codeid=ct.Site_Codeid,site_code=ct.site_code,type=ct.type,treatment_limit_times=ct.treatment_limit_times,
+                                treatment_count_done=ct.treatment_count_done,treatment_history_last_modify=ct.treatment_history_last_modify,
+                                service_itembarcode=ct.service_itembarcode,isfoc=ct.isfoc,Trmt_Room_Codeid=ct.Trmt_Room_Codeid,
+                                trmt_room_code=ct.trmt_room_code,trmt_is_auto_proportion=ct.trmt_is_auto_proportion,
+                                smsout=ct.smsout,emailout=ct.emailout,treatment_account=ct.treatment_account).save()
+                                
                
 
 

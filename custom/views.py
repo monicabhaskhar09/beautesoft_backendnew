@@ -44,7 +44,7 @@ from rest_framework.authentication import TokenAuthentication
 from rest_framework.permissions import IsAuthenticated
 from django.http import Http404
 from django.utils import timezone
-from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
+from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator, InvalidPage
 import math
 from rest_framework import serializers
 from rest_framework.views import APIView
@@ -7430,7 +7430,12 @@ class CartServiceCourseViewset(viewsets.ModelViewSet):
                 if not help_ids:
                     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Sessions should not greater than 0,TD staffs not mapped!",'error': False}
                     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-            
+
+            if 'is_flexi' in request.data and request.data['is_flexi'] == True:
+                if request.data['quantity'] > 1 or request.data['free_sessions'] >= 1:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Flexi Treatment free sessions not allowed,qty must be 1!",'error': False}
+                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
 
             serializer = self.get_serializer(cart, data=request.data, partial=True)
             if serializer.is_valid():
