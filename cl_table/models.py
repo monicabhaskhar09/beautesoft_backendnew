@@ -471,11 +471,37 @@ class Treatment(models.Model):
     is_payment = models.BooleanField(default=False,null=True)
     treatment_account = models.ForeignKey('cl_table.TreatmentAccount', on_delete=models.PROTECT, null=True)
     helper_ids = models.ManyToManyField('cl_table.TmpItemHelper', related_name='tmpitemhelper', blank=True)
-
+    is_datainsert = models.BooleanField(default=False)
 
     class Meta:
         db_table = 'Treatment'
         # unique_together = (('treatment_code', 'site_code'),)
+
+    def __str__(self):
+        return str(self.course) 
+
+
+class TreatmentPackage(models.Model):
+    id = models.AutoField(db_column='ID', primary_key=True)
+    treatment_parentcode = models.CharField(db_column='Treatment_ParentCode', max_length=20, blank=True, null=True)  # Field name made lowercase.
+    item_code = models.CharField(db_column='Item_Code', max_length=20, blank=True, null=True)  # Field name made lowercase.
+    course = models.CharField(db_column='Course', max_length=255, blank=True, null=True)  # Field name made lowercase.
+    treatment_no = models.CharField(db_column='Treatment_No', max_length=10, blank=True, null=True)  # Field name made lowercase.
+    open_session = models.IntegerField(db_column='open_session', blank=True, null=True)  # Field name made lowercase.
+    done_session = models.IntegerField(db_column='done_session', blank=True, null=True)  # Field name made lowercase.
+    cancel_session = models.IntegerField(db_column='cancel_session', blank=True, null=True)  # Field name made lowercase.
+    expiry_date = models.DateTimeField(db_column='Expiry_Date', blank=True, null=True)  # Field name made lowercase.
+    unit_amount = models.FloatField(db_column='Unit_Amount', blank=True, null=True)  # Field name made lowercase.
+    customerid = models.ForeignKey('cl_table.Customer', on_delete=models.PROTECT, null=True)
+    cust_name = models.CharField(db_column='Cust_Name', max_length=100, blank=True, null=True)  # Field name made lowercase.
+    cust_code = models.CharField(db_column='Cust_Code', max_length=50, blank=True, null=True)  # Field name made lowercase.
+    treatment_accountid = models.ForeignKey('cl_table.TreatmentAccount', on_delete=models.PROTECT, null=True)
+    totalprice = models.FloatField(db_column='Price', blank=True, null=True)  # Field name made lowercase.
+    packagetype = models.CharField(db_column='Type', max_length=50, blank=True, null=True)  # Field name made lowercase.
+    lastsession_unit_amount = models.FloatField(db_column='lastsession_unit_amount', blank=True, null=True)  # Field name made lowercase.
+
+    class Meta:
+        db_table = 'Treatment_Package'
 
     def __str__(self):
         return str(self.course) 

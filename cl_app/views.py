@@ -19,7 +19,7 @@ CartPrepaidSerializer, VoidCancelSerializer,HolditemdetailSerializer,HolditemSer
 TreatmentHistorySerializer,StockUsageSerializer,StockUsageProductSerializer,TreatmentUsageSerializer,
 StockUsageMemoSerializer,TreatmentfaceSerializer,SiteApptSettingSerializer,HolditemAccListSerializer,
 PodhaudSerializer,CustomerAccountSerializer,TreatmentUsageListSerializer,TreatmentUsageStockSerializer,
-ItemDivSerializer)
+ItemDivSerializer,ProductPurchaseSerializer)
 from cl_table.serializers import PostaudSerializer, TmpItemHelperSerializer
 from .models import (SiteGroup, ItemSitelist, ReverseTrmtReason, VoidReason,TreatmentUsage,UsageMemo,
 Treatmentface,Usagelevel,priceChangeLog)
@@ -2476,158 +2476,159 @@ class TreatmentDoneViewset(viewsets.ModelViewSet):
             # print(per,"PPPPPPPPPPPPPPPPPP")
             
             # print(paginator.num_pages,"paginator.num_pages")
-            for page_idx in range(1, paginator.num_pages+1):
-                # print(page_idx,"KKKKKKKKKKKKKKKKKKKKK")
-                if page_idx == page:
-                    lst = [] 
-                    for row in paginator.page(page_idx).object_list:
-                        # print(row,row.pk,"RRRRRRRRRRRRRRRRRRRRRR")
-                        # here you can do what you want with the row
-            
-                        session = 0;balance = "0.00"; ar= "0.00"
-                        treatmentids=[];is_allow=False;
-                        trmt_obj = row
-                        
-                        splt = str(trmt_obj.treatment_date).split(' ')
-                        treatment_date = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d-%m-%Y")
-                        unit_amount =  "{:.2f}".format(float(trmt_obj.unit_amount)) if trmt_obj.unit_amount else "0.00"
-                        item_code = str(trmt_obj.item_code)
-                        if len(item_code) > 8:
-                            itm_code = item_code[:-4]
-                        else:
-                            itm_code = item_code    
-
-                        stockobj = Stock.objects.filter(item_code=itm_code,item_isactive=True).order_by('pk').first()  
-                        stockid = stockobj.pk if stockobj else 0      
-                        
-                        trmtAccObj = TreatmentAccount.objects.filter(treatment_parentcode=trmt_obj.treatment_parentcode).order_by('sa_date','sa_time','id').last()
-                        # print(trmtAccObj,"trmtAccObj")
-                        if trmtAccObj:
-                            balance = "{:.2f}".format(float(trmtAccObj.balance)) if trmtAccObj.balance else "0.00"
-                            ar = "{:.2f}".format(float(trmtAccObj.outstanding)) if trmtAccObj.outstanding else "0.00"
-                        
-                        if TreatmentAccount.objects.filter(treatment_parentcode=trmt_obj.treatment_parentcode).order_by('pk').exists():
-                            acc_obj = TreatmentAccount.objects.filter(treatment_parentcode=trmt_obj.treatment_parentcode).order_by('pk').first().pk
-                        else:
-                            acc_obj = 0
-
-                        # print(trmt_obj.helper_ids.all(),"trmt_obj.helper_ids.all()")    
-                        trmtparobj = Treatment.objects.filter(treatment_parentcode=trmt_obj.treatment_parentcode,status="Open").only('pk').order_by('pk')
-                        # print(trmtparobj,"trmtparobj")
-                        for oneids in trmtparobj:
-                            # print(oneids.pk,"oneids PKK")
-                            # print(oneids.helper_ids.all(),"oneids.helper_ids.all()")
-                            treatmentids.append(oneids.pk)
-
-                            var = TmpItemHelper.objects.filter(treatment=oneids,created_at__date__lt=date.today(),line_no__isnull=True).delete()
-                            if trmt_obj.helper_ids.all().exists():
-                                if oneids.helper_ids.all().exists():
-                                    session += 1
-                            else:
-                                for existing in oneids.helper_ids.all():
-                                    existing.delete() 
-                        
-                        # print(treatmentids,"treatmentids")
-                        # print(session,"session")
-                        for existing in trmt_obj.helper_ids.all():
-                            trmt_obj.helper_ids.remove(existing) 
-                        
-                        #for t in TmpItemHelper.objects.filter(treatment=trmt_obj,site_code=site.itemsite_code):
-                        #    trmt_obj.helper_ids.add(t)
-                        for t in TmpItemHelper.objects.filter(treatment=trmt_obj):
-                            trmt_obj.helper_ids.add(t)  
-
-                        pos_haud = PosHaud.objects.filter(sa_custno=cust_obj.cust_code,
-                        sa_transacno_type__in=('Receipt', 'Non Sales'),sa_transacno=trmt_obj.sa_transacno).order_by('-pk').first()
-        
-                        transacno_ref = pos_haud.sa_transacno_ref if pos_haud and pos_haud.sa_transacno_ref else ""
-                        if system_setup and system_setup.value_data == 'True' and system_obj and system_obj.value_data == 'True':
-                            if trmt_obj.site_code != site.itemsite_code or trmt_obj.site_code == site.itemsite_code:
-                                is_allow = True
-                        else:
-                            if trmt_obj.site_code == site.itemsite_code:
-                                is_allow = True               
-
-
-                        staff = ','.join([v.helper_id.display_name for v in trmt_obj.helper_ids.all() if v.helper_id.display_name]) if trmt_obj.helper_ids.all().exists() else None
-                        sel = True if trmt_obj.helper_ids.all().exists() else None 
-                        iscurrentloggedinsalon = True if site.itemsite_code == trmt_obj.site_code else False 
-
-                        session_flag = False if session == 0 else True 
-                        exchange_flag = True if session == 1 else False 
-
-                       
-                        # Thing.objects.annotate(favorited=Count(Case(When(favorites__user=john_cleese, then=1),default=0,output_field=BooleanField(),)),)
-                        # print(fmspw[0].is_reversal,"fmspw[0].is_reversal")
-                        q_val = list(Treatment.objects.filter(pk=trmt_obj.pk).order_by('-pk').values('pk').annotate(id=F('pk'),
-                        TreatmentAccountid=Value(acc_obj, output_field=IntegerField()) ,
-                        stockid=Value(stockid, output_field=IntegerField()),
-                        transacno_ref= Value(transacno_ref, output_field=CharField()),
-                        session_flag =  Value(session_flag, output_field=BooleanField()),
-                        exchange_flag =  Value(exchange_flag, output_field=BooleanField()),
-                        iscurrentloggedinsalon=Value(iscurrentloggedinsalon, output_field=BooleanField()),
-                        limit=Value(None, output_field=CharField()),
-                        staff=Value(staff, output_field=CharField()), 
-                        rev=Concat(Value('0/'), Value(' '), F('treatment_no'), output_field=CharField()),
-                        td=Concat(Value(len(treatmentids)), Value('/'), F('treatment_no'), output_field=CharField()),
-                        is_reversal=Value(fmspw[0].is_reversal, output_field=BooleanField()),
-                        is_allow=Value(is_allow, output_field=BooleanField())
-                        ).order_by('-pk'))
-                        # print(q_val,"q_val")
-                        # print(q_val[0],"kk")
-                        q_val[0].update({'course':trmt_obj.course,'treatment_date': treatment_date,
-                        # 'expiry':trmt_obj.expiry,
-                        # 'isfoc':trmt_obj.isfoc,'sa_transacno':trmt_obj.sa_transacno,
-                        'treatment_code':trmt_obj.treatment_code,
-                        # 'type':trmt_obj.type,'status':trmt_obj.status,
-                        # 'times':trmt_obj.times,'treatment_parentcode':trmt_obj.treatment_parentcode,
-                        # 'treatment_no': trmt_obj.treatment_no,
-                        'site_code': trmt_obj.site_code,
-                        'unit_amount': unit_amount,'balance':balance,'ar':ar,
-                        'treatmentids' : treatmentids,
-                        'open' : len(treatmentids),
-                        'session' : session,
-                        'sel' : sel,
-                        'type': row.type,
-                        })
-                        # print( q_val[0]," q_val[0]")
-                        expiry = False
-                        if row.expiry:
-                            splte = str(row.expiry).split(' ')
-                            expiry = splte[0]
-                        treatment_limit_times = False
-                        if row.treatment_limit_times:
-                            treatment_limit_times = row.treatment_limit_times
-
-                        # print(q_val[0],"vv")
-                        if row.type == 'N':
-                            lst.extend([q_val[0]])
-                        elif row.type in ['FFd','FFi']:
-                            if expiry and treatment_limit_times:
-                                if expiry >= str(date.today()):
-                                    if treatment_limit_times > int(row.times) or treatment_limit_times == 0:
-                                        lst.extend([q_val[0]])       
-                        # print(lst,"lst")
-                        # site_code,treatment_date,course,transacno_ref,unit_amount,treatment_code,td,rev,open,ar,session,session_flag,iscurrentloggedinsalon,is_reversal,is_allow,
-
-                    
+            # for page_idx in range(1, paginator.num_pages+1):
+            #     # print(page_idx,"KKKKKKKKKKKKKKKKKKKKK")
+            #     if page_idx == page:
+            lst = [] 
+            # for row in paginator.page(page_idx).object_list:
+            for row in paginator.page(page).object_list:
+                # print(row,row.pk,"RRRRRRRRRRRRRRRRRRRRRR")
+                # here you can do what you want with the row
+    
+                session = 0;balance = "0.00"; ar= "0.00"
+                treatmentids=[];is_allow=False;
+                trmt_obj = row
                 
-                    if lst != []:
-                        now1 = timezone.now()
-                        # print(str(now1.hour) + '  ' +  str(now1.minute) + '  ' +  str(now1.second),"End hour, minute, second\n")
-                        totalh = now1.second - now.second
-                        # print(totalh,"total")
-                        result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
-                        'data': {'meta': {'pagination': {"per_page":limit,"current_page":page,"total":total,
-                        "total_pages":total_page}}, 'dataList': lst},
-                        'cust_data': {'cust_name': cust_obj.cust_name if cust_obj.cust_name else "", 
-                        'cust_refer': cust_obj.cust_refer if cust_obj.cust_refer else ""},
-                        }
-                        return Response(result, status=status.HTTP_200_OK) 
+                splt = str(trmt_obj.treatment_date).split(' ')
+                treatment_date = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d-%m-%Y")
+                unit_amount =  "{:.2f}".format(float(trmt_obj.unit_amount)) if trmt_obj.unit_amount else "0.00"
+                item_code = str(trmt_obj.item_code)
+                if len(item_code) > 8:
+                    itm_code = item_code[:-4]
+                else:
+                    itm_code = item_code    
+
+                stockobj = Stock.objects.filter(item_code=itm_code).order_by('pk').first()  
+                stockid = stockobj.pk if stockobj else 0      
+                
+                trmtAccObj = TreatmentAccount.objects.filter(treatment_parentcode=trmt_obj.treatment_parentcode).order_by('sa_date','sa_time','id').last()
+                # print(trmtAccObj,"trmtAccObj")
+                if trmtAccObj:
+                    balance = "{:.2f}".format(float(trmtAccObj.balance)) if trmtAccObj.balance else "0.00"
+                    ar = "{:.2f}".format(float(trmtAccObj.outstanding)) if trmtAccObj.outstanding else "0.00"
+                
+                if TreatmentAccount.objects.filter(treatment_parentcode=trmt_obj.treatment_parentcode).order_by('pk').exists():
+                    acc_obj = TreatmentAccount.objects.filter(treatment_parentcode=trmt_obj.treatment_parentcode).order_by('pk').first().pk
+                else:
+                    acc_obj = 0
+
+                # print(trmt_obj.helper_ids.all(),"trmt_obj.helper_ids.all()")    
+                trmtparobj = Treatment.objects.filter(treatment_parentcode=trmt_obj.treatment_parentcode,status="Open").only('pk').order_by('pk')
+                # print(trmtparobj,"trmtparobj")
+                for oneids in trmtparobj:
+                    # print(oneids.pk,"oneids PKK")
+                    # print(oneids.helper_ids.all(),"oneids.helper_ids.all()")
+                    treatmentids.append(oneids.pk)
+
+                    var = TmpItemHelper.objects.filter(treatment=oneids,created_at__date__lt=date.today(),line_no__isnull=True).delete()
+                    if trmt_obj.helper_ids.all().exists():
+                        if oneids.helper_ids.all().exists():
+                            session += 1
                     else:
-                        result = {'status':status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False,  'data': []}
-                        return Response(data=result, status=status.HTTP_200_OK)  
+                        for existing in oneids.helper_ids.all():
+                            existing.delete() 
+                
+                # print(treatmentids,"treatmentids")
+                # print(session,"session")
+                for existing in trmt_obj.helper_ids.all():
+                    trmt_obj.helper_ids.remove(existing) 
+                
+                #for t in TmpItemHelper.objects.filter(treatment=trmt_obj,site_code=site.itemsite_code):
+                #    trmt_obj.helper_ids.add(t)
+                for t in TmpItemHelper.objects.filter(treatment=trmt_obj):
+                    trmt_obj.helper_ids.add(t)  
+
+                pos_haud = PosHaud.objects.filter(sa_custno=cust_obj.cust_code,
+                sa_transacno_type__in=('Receipt', 'Non Sales'),sa_transacno=trmt_obj.sa_transacno).order_by('-pk').first()
+
+                transacno_ref = pos_haud.sa_transacno_ref if pos_haud and pos_haud.sa_transacno_ref else ""
+                if system_setup and system_setup.value_data == 'True' and system_obj and system_obj.value_data == 'True':
+                    if trmt_obj.site_code != site.itemsite_code or trmt_obj.site_code == site.itemsite_code:
+                        is_allow = True
+                else:
+                    if trmt_obj.site_code == site.itemsite_code:
+                        is_allow = True               
+
+
+                staff = ','.join([v.helper_id.display_name for v in trmt_obj.helper_ids.all() if v.helper_id.display_name]) if trmt_obj.helper_ids.all().exists() else None
+                sel = True if trmt_obj.helper_ids.all().exists() else None 
+                iscurrentloggedinsalon = True if site.itemsite_code == trmt_obj.site_code else False 
+
+                session_flag = False if session == 0 else True 
+                exchange_flag = True if session == 1 else False 
+
+                
+                # Thing.objects.annotate(favorited=Count(Case(When(favorites__user=john_cleese, then=1),default=0,output_field=BooleanField(),)),)
+                # print(fmspw[0].is_reversal,"fmspw[0].is_reversal")
+                q_val = list(Treatment.objects.filter(pk=trmt_obj.pk).order_by('-pk').values('pk').annotate(id=F('pk'),
+                TreatmentAccountid=Value(acc_obj, output_field=IntegerField()) ,
+                stockid=Value(stockid, output_field=IntegerField()),
+                transacno_ref= Value(transacno_ref, output_field=CharField()),
+                session_flag =  Value(session_flag, output_field=BooleanField()),
+                exchange_flag =  Value(exchange_flag, output_field=BooleanField()),
+                iscurrentloggedinsalon=Value(iscurrentloggedinsalon, output_field=BooleanField()),
+                limit=Value(None, output_field=CharField()),
+                staff=Value(staff, output_field=CharField()), 
+                rev=Concat(Value('0/'), Value(' '), F('treatment_no'), output_field=CharField()),
+                td=Concat(Value(len(treatmentids)), Value('/'), F('treatment_no'), output_field=CharField()),
+                is_reversal=Value(fmspw[0].is_reversal, output_field=BooleanField()),
+                is_allow=Value(is_allow, output_field=BooleanField())
+                ).order_by('-pk'))
+                # print(q_val,"q_val")
+                # print(q_val[0],"kk")
+                q_val[0].update({'course':trmt_obj.course,'treatment_date': treatment_date,
+                # 'expiry':trmt_obj.expiry,
+                # 'isfoc':trmt_obj.isfoc,'sa_transacno':trmt_obj.sa_transacno,
+                'treatment_code':trmt_obj.treatment_code,
+                # 'type':trmt_obj.type,'status':trmt_obj.status,
+                # 'times':trmt_obj.times,'treatment_parentcode':trmt_obj.treatment_parentcode,
+                # 'treatment_no': trmt_obj.treatment_no,
+                'site_code': trmt_obj.site_code,
+                'unit_amount': unit_amount,'balance':balance,'ar':ar,
+                'treatmentids' : treatmentids,
+                'open' : len(treatmentids),
+                'session' : session,
+                'sel' : sel,
+                'type': row.type,
+                })
+                # print( q_val[0]," q_val[0]")
+                expiry = False
+                if row.expiry:
+                    splte = str(row.expiry).split(' ')
+                    expiry = splte[0]
+                treatment_limit_times = False
+                if row.treatment_limit_times:
+                    treatment_limit_times = row.treatment_limit_times
+
+                # print(q_val[0],"vv")
+                if row.type == 'N':
+                    lst.extend([q_val[0]])
+                elif row.type in ['FFd','FFi']:
+                    if expiry and treatment_limit_times:
+                        if expiry >= str(date.today()):
+                            if treatment_limit_times > int(row.times) or treatment_limit_times == 0:
+                                lst.extend([q_val[0]])       
+                # print(lst,"lst")
+                # site_code,treatment_date,course,transacno_ref,unit_amount,treatment_code,td,rev,open,ar,session,session_flag,iscurrentloggedinsalon,is_reversal,is_allow,
+
             
+        
+            if lst != []:
+                now1 = timezone.now()
+                # print(str(now1.hour) + '  ' +  str(now1.minute) + '  ' +  str(now1.second),"End hour, minute, second\n")
+                totalh = now1.second - now.second
+                # print(totalh,"total")
+                result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
+                'data': {'meta': {'pagination': {"per_page":limit,"current_page":page,"total":total,
+                "total_pages":total_page}}, 'dataList': lst},
+                'cust_data': {'cust_name': cust_obj.cust_name if cust_obj.cust_name else "", 
+                'cust_refer': cust_obj.cust_refer if cust_obj.cust_refer else ""},
+                }
+                return Response(result, status=status.HTTP_200_OK) 
+            else:
+                result = {'status':status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False,  'data': []}
+                return Response(data=result, status=status.HTTP_200_OK)  
+    
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)        
@@ -7111,7 +7112,7 @@ class CreditNoteListViewset(viewsets.ModelViewSet):
 class ProductPurchaseListViewset(viewsets.ModelViewSet):
     authentication_classes = [ExpiringTokenAuthentication]
     permission_classes = [IsAuthenticated & authenticated_only]
-    serializer_class = []
+    serializer_class = ProductPurchaseSerializer
 
     def list(self, request):
         try:
@@ -7123,31 +7124,46 @@ class ProductPurchaseListViewset(viewsets.ModelViewSet):
 
             fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True)[0]
             site = fmspw.loginsite
-            haud_ids = PosHaud.objects.filter(sa_custno=cust_obj.cust_code,
-            isvoid=False).order_by('pk')
-            lst = []; data ={}
-            for i in haud_ids:
-                daud_ids = PosDaud.objects.filter(sa_transacno=i.sa_transacno,dt_status="SA",
-                record_detail_type='PRODUCT').order_by('-pk')
-                if daud_ids:
-                    for d in daud_ids:
-                        data['transaction'] = i.sa_transacno_ref if i.sa_transacno_ref else ""
-                        if i.sa_date:
-                            splt = str(i.sa_date).split(" ")
-                            data['sa_date'] = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d-%b-%y")
-                        data['dt_qty'] = d.dt_qty
-                        data['dt_staffname'] = d.dt_staffname
-                        data['dt_promoprice'] = d.dt_promoprice
-                        data['dt_transacamt'] = d.dt_transacamt
-                        lst.append(data)
+            haud_ids = list(set(PosHaud.objects.filter(sa_custno=cust_obj.cust_code,
+            isvoid=False).order_by('pk').values_list('sa_transacno',flat=True).distinct()))
+           
+            query_set = PosDaud.objects.filter(sa_transacno__in=haud_ids,dt_status="SA",
+            record_detail_type='PRODUCT').order_by('-pk')
+            # print(query_set,"query_set")
+           
+            if query_set:
+                full_tot = query_set.count()
+                try:
+                    limit = int(request.GET.get("limit",10))
+                except:
+                    limit = 10
+                try:
+                    page = int(request.GET.get("page",1))
+                except:
+                    page = 1
 
-            if lst != []:
-                result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
-                'data': lst}
-                return Response(data=result, status=status.HTTP_200_OK)
+                paginator = Paginator(query_set, limit)
+                total_page = paginator.num_pages
+
+                try:
+                    queryset = paginator.page(page)
+                except (EmptyPage, InvalidPage):
+                    queryset = paginator.page(total_page) # last page
+
+                serializer = self.get_serializer(queryset, many=True)
+                resData = {
+                    'dataList': serializer.data,
+                    'pagination': {
+                           "per_page":limit,
+                           "current_page":page,
+                           "total":full_tot,
+                           "total_pages":total_page
+                    }
+                }
+                result = {'status': status.HTTP_200_OK,"message": "Listed Succesfully",'error': False, 'data':  resData}
             else:
                 result = {'status': status.HTTP_204_NO_CONTENT, 'message': "No Content", 'error': False, 'data': []}
-                return Response(data=result, status=status.HTTP_200_OK)
+            return Response(data=result, status=status.HTTP_200_OK)
        
         except Exception as e:
             invalid_message = str(e)

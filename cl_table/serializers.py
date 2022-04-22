@@ -6,7 +6,7 @@ BlockReason,AppointmentLog,Title, Workschedule, CustomerFormControl,Country,Stat
 CustomerClass, RewardPolicy, RedeemPolicy, Diagnosis, DiagnosisCompare, Securitylevellist,
 DailysalesdataDetail, DailysalesdataSummary,Holditemdetail,PrepaidAccount,CreditNote,TreatmentAccount,
 DepositAccount, CustomerPoint, MrRewardItemType,Smsreceivelog,Systemsetup,TreatmentProtocol,
-CustomerTitle,ItemDiv,Tempcustsign,CustomerDocument)
+CustomerTitle,ItemDiv,Tempcustsign,CustomerDocument,TreatmentPackage)
 from cl_app.models import ItemSitelist, SiteGroup
 from custom.models import EmpLevel,Room,VoucherRecord
 from django.contrib.auth.models import User
@@ -2973,3 +2973,33 @@ class CustomerDocumentSerializer(serializers.ModelSerializer):
 
         data['file'] = file
         return data        
+
+
+class TreatmentPackageSerializer(serializers.ModelSerializer): 
+
+    class Meta:
+        model = TreatmentPackage
+        fields = ['id','treatment_parentcode','course','treatment_no','open_session','done_session',
+        'cancel_session','unit_amount','cust_name']  
+            
+    def to_representation(self, obj):
+        data = super(TreatmentPackageSerializer, self).to_representation(obj)
+        
+        data['unit_amount'] = "{:.2f}".format(data['unit_amount'])
+        return data  
+        
+class ItemSitelistIntialSerializer(serializers.ModelSerializer): 
+    id = serializers.IntegerField(source='pk',required=False)
+
+    class Meta:
+        model = ItemSitelist
+        fields = ['id','itemsite_code','itemsite_desc']  
+                            
+
+class StaffInsertSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='pk',required=False)
+
+    class Meta:
+        model = Employee
+        fields = ['id','emp_name']  
+                                  

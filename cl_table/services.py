@@ -1870,9 +1870,14 @@ def invoice_topup(self, request, topup_ids,sa_transacno, cust_obj, outstanding, 
                 #acc_ids = DepositAccount.objects.filter(ref_transacno=c.deposit_account.sa_transacno,
                 #ref_productcode=c.deposit_account.treat_code,Site_Codeid=site,type__in=('Deposit', 'Top Up'),
                 #cust_code=cust_obj.cust_code).order_by('id').last()
-                acc_ids = DepositAccount.objects.filter(ref_transacno=c.deposit_account.sa_transacno,
-                ref_productcode=c.deposit_account.treat_code,
+                # acc_ids = DepositAccount.objects.filter(ref_transacno=c.deposit_account.sa_transacno,
+                # ref_productcode=c.deposit_account.treat_code,
+                # cust_code=cust_obj.cust_code).order_by('sa_date','sa_time','id').last()
+
+                acc_ids = DepositAccount.objects.filter(sa_transacno=c.deposit_account.sa_transacno,
+                treat_code=c.deposit_account.treat_code,
                 cust_code=cust_obj.cust_code).order_by('sa_date','sa_time','id').last()
+
 
                 treat_code = acc_ids.treat_code
                 multi_itemcode = treat_code

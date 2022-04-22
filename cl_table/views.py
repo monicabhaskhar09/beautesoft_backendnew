@@ -23,7 +23,7 @@ from .models import (Gender, Employee, Fmspw, Attendance2, Customer, Images, Tre
                      Securitylevellist, DailysalesdataSummary, DailysalesdataDetail, Multilanguage, MultiLanguageWord, Workschedule,
                      Religious, Nationality, Races, DailysalestdSummary,
                      MrRewardItemType,CustomerPoint,TreatmentDuration,Smsreceivelog,TreatmentProtocol,CustomerTitle,CustomerPointDtl,
-                     ItemDiv,Tempcustsign,CustomerDocument)
+                     ItemDiv,Tempcustsign,CustomerDocument,TreatmentPackage)
 from cl_app.models import ItemSitelist, SiteGroup, LoggedInUser
 from custom.models import Room,ItemCart,VoucherRecord,EmpLevel,PosPackagedeposit,payModeChangeLog
 from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializer, Attendance2Serializer,
@@ -58,7 +58,7 @@ from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializ
                           AppointmentCalSerializer,AboutSerializer,
                           CustomerPointSerializer, MGMSerializer,SMSReplySerializer,ConfirmBookingApptSerializer,
                           ItemDescSerializer,TempcustsignSerializer,CustomerDocumentSerializer,
-                          )
+                          TreatmentPackageSerializer,ItemSitelistIntialSerializer,StaffInsertSerializer)
 from datetime import date, timedelta, datetime
 import datetime
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
@@ -121,6 +121,7 @@ from django.core.files.storage import FileSystemStorage
 from operator import itemgetter
 from itertools import chain
 from django.db.models import Case, When, Value, IntegerField,CharField, DateField,BooleanField,FloatField
+from tablib import Dataset
 
 
 type_ex = ['VT-Deposit','VT-Top Up','VT-Sales']
@@ -202,7 +203,7 @@ class UserLoginAPIView(GenericAPIView):
                     fmspw.loginsite = siteid
                     fmspw.save()
                     branch = siteid.itemsite_code
-                    salon = siteid.Site_Groupid.description
+                    salon = siteid.Site_Groupid.description if siteid.Site_Groupid  else ""
             
             empcode=fmspw.emp_code
             # siteids = EmpSitelist.objects.filter(emp_code=empcode,isactive=True).only('site_code')
@@ -228,7 +229,7 @@ class UserLoginAPIView(GenericAPIView):
                    if branch == "":
                        branch = d.itemsite_code
                    if salon == "":
-                       salon = d.Site_Groupid.description
+                       salon = d.Site_Groupid.description if d.Site_Groupid else "" 
 
             # salon = siteid.Site_Groupid.description
             webbe = fmspw.flgallcom
@@ -18295,6 +18296,8 @@ class CustomerPointsViewsets(viewsets.ModelViewSet):
    
     def list(self, request):
         try:
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True).order_by('-pk').first()
+            site = fmspw.loginsite
             if not request.GET.get('cust_noid',None) is None:
                 cust_obj = Customer.objects.filter(pk=request.GET.get('cust_noid',None),cust_isactive=True).first()
                 if not cust_obj:
@@ -18305,6 +18308,45 @@ class CustomerPointsViewsets(viewsets.ModelViewSet):
             if not request.GET.get('enter_pointamt',0) or request.GET.get('enter_pointamt',0) == 0:
                 raise Exception('Please Give Valid Point Amount!!')
 
+            cart_id = request.GET.get('cart_id')
+            if not cart_id:
+                raise Exception('Please Give Cart!!')
+            
+            cart_date = timezone.now().date()
+
+            queryset = ItemCart.objects.filter(cust_noid=cust_obj,cart_id=cart_id,cart_date=cart_date,
+            cart_status="Inprogress",isactive=True,is_payment=False).exclude(type__in=type_ex).order_by('id')
+
+            service_only = 0.0 ; product_only = 0.0 ; all_only = 0.0
+
+            for i in queryset:
+               
+                all_only += i.deposit
+
+                if int(i.itemcodeid.item_div) == 3 and i.type in ['Deposit', 'Top Up']:
+                    if i.itemcodeid.item_type != 'PACKAGE':
+                        service_only += i.deposit
+                    elif i.itemcodeid.item_type == 'PACKAGE':
+                        pos_ids = PosPackagedeposit.objects.filter(itemcart=i,site_code=site.itemsite_code)
+                        if pos_ids:
+                            for p in pos_ids:
+                                pa_code = str(p.code)
+                                itm_code = pa_code[:-4]
+                                # print(itm_code,"itm_code")
+                                itmstock = Stock.objects.filter(item_code=itm_code,item_isactive=True).order_by('-pk').first()
+                                if itmstock:
+                                    if int(itmstock.item_div) == 3:
+                                        service_only += p.deposit_amt
+                                    elif int(itmstock.item_div) == 1:
+                                        product_only += p.deposit_amt 
+
+                elif int(i.itemcodeid.item_div) == 1 and i.type in ['Deposit', 'Top Up','Exchange']:
+                    product_only += i.deposit
+
+            if not queryset:
+                raise Exception('Itemcart is does not exist!!')   
+
+            print(service_only,product_only)
             enterpt_amt = float(request.GET.get('enter_pointamt',0))
 
             now_point = 0;
@@ -18323,7 +18365,7 @@ class CustomerPointsViewsets(viewsets.ModelViewSet):
             'cust_point_value': "{:.2f}".format(float(now_point)),'enter_pointamt': "{:.2f}".format(float(enterpt_amt)) if enterpt_amt  else "0.00"}
             
             table_list = []
-            if custredeem_ids:
+            if custredeem_ids and now_point > 0:
 
                 # table_list = [ for i in custredeem_ids]
 
@@ -18348,19 +18390,33 @@ class CustomerPointsViewsets(viewsets.ModelViewSet):
                             'useamt': "0.00",'item_divids_desc':item_div_desc,'dept_ids_desc':dept_ids_desc,
                             'brand_ids_desc':brand_ids_desc}
 
+                        useamt = 0
+                        if bro_obj.item_divids.filter(itm_code=3).exists():
+                            print(bro_obj.item_divids)
+                            print( bro_obj.cur_value," bro_obj.cur_value")  
+                            if bro_obj.cur_value < service_only:
+                                val.update({'useamt':  "{:.2f}".format(bro_obj.cur_value)})
+                            elif service_only < bro_obj.cur_value:
+                                val.update({'useamt':  "{:.2f}".format(service_only)})    
+                        elif bro_obj.item_divids.filter(itm_code=1).exists():
+                            if bro_obj.cur_value < product_only:
+                                val.update({'useamt':  "{:.2f}".format(bro_obj.cur_value)})
+                            elif product_only < bro_obj.cur_value:
+                                val.update({'useamt':  "{:.2f}".format(product_only)}) 
                         
-                        if enterpt_amt == bro_obj.point_value:
-                            val.update({'useamt':  "{:.2f}".format(bro_obj.cur_value)})
-                        elif enterpt_amt < bro_obj.point_value:
-                            val.update({'useamt': "0.00"}) 
-                        elif enterpt_amt > bro_obj.point_value: 
-                            useamt = 0    
-                            amt = enterpt_amt
-                            while amt >= bro_obj.point_value:
-                                useamt += bro_obj.cur_value
-                                amt = amt - bro_obj.point_value
+                        # if enterpt_amt == bro_obj.point_value:
+                        #     val.update({'useamt':  "{:.2f}".format(bro_obj.cur_value)})
+                        # elif enterpt_amt < bro_obj.point_value:
+                        #     val.update({'useamt': "0.00"}) 
+                        # elif enterpt_amt > bro_obj.point_value: 
+                        #     useamt = 0    
+                        #     amt = enterpt_amt
+                        #     while amt >= bro_obj.point_value:
+                        #         useamt += bro_obj.cur_value
+                        #         amt = amt - bro_obj.point_value
 
-                            val.update({'useamt': "{:.2f}".format(useamt)}) 
+                        #     val.update({'useamt': "{:.2f}".format(useamt)}) 
+                        
                                  
                         if val != {}:
                             table_list.append(val)
@@ -18827,4 +18883,474 @@ class CustomerDocumentViewset(viewsets.ModelViewSet):
             invalid_message = str(e)
             return general_error_response(invalid_message)             
      
+
+class TreatmentPackageInsertAPIView(GenericAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
     
+    # @transaction.atomic
+    def post(self, request):
+        try:  
+            # with transaction.atomic():
+                treatment_ids = Treatment.objects.filter().count()
+                # print(treatment_ids,"treatment_ids")
+                parent_ids = list(set(Treatment.objects.filter(is_datainsert=False).order_by('-pk').values_list('treatment_parentcode', flat=True).distinct()))
+                # print(len(parent_ids),"parent_ids")
+                # print(parent_ids[:5],"parent_ids[:5]")
+                for p in parent_ids[:66000]:
+                    # print(p,"p")
+                    treat_ids = Treatment.objects.filter(treatment_parentcode=p).order_by('pk').first()
+                    # print(treat_ids,"treat_ids")
+                    ltreat_ids = Treatment.objects.filter(treatment_parentcode=p).order_by('-pk').first()
+                    # print(ltreat_ids.unit_amount,"ltreat_ids.unit_amount")
+                    open_ids = Treatment.objects.filter(treatment_parentcode=p,status='Open').count()
+                    done_ids = Treatment.objects.filter(treatment_parentcode=p,status='Done').count()
+                    cancel_ids = Treatment.objects.filter(treatment_parentcode=p,status='Cancel').count()
+
+                    package_ids = TreatmentPackage.objects.filter(treatment_parentcode=p)
+                    if not package_ids:
+                        TreatmentPackage(treatment_parentcode=p,item_code=treat_ids.item_code,
+                        course=treat_ids.course,treatment_no=treat_ids.treatment_no,
+                        open_session=open_ids,done_session=done_ids,cancel_session=cancel_ids,
+                        expiry_date=treat_ids.expiry,unit_amount=treat_ids.unit_amount,
+                        customerid=treat_ids.Cust_Codeid,cust_name=treat_ids.cust_name,
+                        cust_code=treat_ids.cust_code,treatment_accountid=treat_ids.treatment_account,
+                        totalprice=treat_ids.price,packagetype=treat_ids.type,
+                        lastsession_unit_amount=ltreat_ids.unit_amount).save()
+
+                    update_ids = Treatment.objects.filter(treatment_parentcode=p).update(is_datainsert=True)
+
+                result = {'status': status.HTTP_200_OK,"message":"Created Succesfully",'error': False}
+                return Response(data=result, status=status.HTTP_200_OK)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)             
+       
+class TreatmentPackageListAPIView(GenericAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    serializer_class = TreatmentPackageSerializer
+    queryset = TreatmentPackage.objects.filter().order_by('-pk')
+             
+    
+    def get(self, request):
+        try:
+            customer_id = self.request.GET.get('cust_id',None)
+            cust_obj = Customer.objects.filter(pk=customer_id,
+            cust_isactive=True).first()
+            if not cust_obj:
+                result = {'status': status.HTTP_200_OK,"message":"Please give customer id!!",'error': True} 
+                return Response(data=result, status=status.HTTP_200_OK) 
+
+            query_set = TreatmentPackage.objects.filter(cust_code=cust_obj.cust_code).order_by('-pk')
+            if query_set:
+                full_tot = query_set.count()
+                try:
+                    limit = int(request.GET.get("limit",10))
+                except:
+                    limit = 10
+                try:
+                    page = int(request.GET.get("page",1))
+                except:
+                    page = 1
+
+                paginator = Paginator(query_set, limit)
+                total_page = paginator.num_pages
+
+                try:
+                    queryset = paginator.page(page)
+                except (EmptyPage, InvalidPage):
+                    queryset = paginator.page(total_page) # last page
+
+                serializer = self.get_serializer(queryset, many=True)
+                resData = {
+                    'dataList': serializer.data,
+                    'pagination': {
+                           "per_page":limit,
+                           "current_page":page,
+                           "total":full_tot,
+                           "total_pages":total_page
+                    }
+                }
+                result = {'status': status.HTTP_200_OK,"message": "Listed Succesfully",'error': False, 'data':  resData}
+            else:
+                serializer = self.get_serializer()
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+            return Response(data=result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)             
+
+
+class ItemSitelistIntialAPIView(GenericAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    serializer_class = ItemSitelistIntialSerializer
+
+    @transaction.atomic
+    def post(self, request):
+        try:  
+            with transaction.atomic():
+                serializer = ItemSitelistIntialSerializer(data=request.data)
+                if serializer.is_valid():
+                    if 'itemsite_code' in request.data and request.data['itemsite_code']:
+                        itemsite_code = request.data['itemsite_code']
+                    else:
+                        if not request.data['itemsite_code']:
+                            v = str(request.data['itemsite_desc']).split(" ") 
+                            s_ids = ItemSitelist.objects.filter().order_by('pk')
+                            if not s_ids:
+                               itemsite_code =  v[0][0] + v[1][0] +"01" 
+                            else:
+                               itcode = str(len(s_ids)+1).zfill(2) 
+                               itemsite_code =  v[0][0] + v[1][0] +itcode      
+                       
+
+                    k=serializer.save(itemsite_code=itemsite_code)
+                    # site_ids = SiteGroup.objects.filter()
+                    # if not site_ids:
+                    #     SiteGroup(code="100001",description=request.data['itemsite_desc'],is_delete=False).save()
+                    # else:
+                    #     siteids = SiteGroup.objects.filter().order_by('-pk').first()
+                    #     code = int(siteids.code) + 1
+                    controlobj = ControlNo.objects.filter(control_description__iexact="Site Group").first()
+                    if not controlobj:
+                        controlobj = ControlNo(control_no="100001",control_description="Site Group",
+                        controldate=date.today(),Site_Codeid=k,site_code=itemsite_code)
+
+                    h=SiteGroup(code=controlobj.control_no,description=request.data['itemsite_desc'],is_delete=False)
+                    h.save()
+                    
+
+                    control_obj = ControlNo.objects.filter(control_description__iexact="EMP CODE",
+                    site_code=itemsite_code)
+                    if not control_obj:
+                        ControlNo(control_no="100001",control_prefix=itemsite_code,
+                        control_description="EMP CODE",controldate=date.today(),
+                        Site_Codeid=k,site_code=itemsite_code).save()
+
+                    k.site_group = controlobj.control_no
+                    k.Site_Groupid = h
+                    k.save()
+                    controlobj.control_no = int(controlobj.control_no) + 1
+                    controlobj.save()
+                     
+                    result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully",
+                    'error': False}
+                    return Response(result, status=status.HTTP_201_CREATED)            
+            
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)             
+
+         
+class StaffInsertAPIView(GenericAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    serializer_class = StaffInsertSerializer
+    
+    @transaction.atomic
+    def post(self, request):
+        try:  
+            with transaction.atomic():
+                serializer = StaffInsertSerializer(data=request.data)
+                if serializer.is_valid():
+                    if 'site_code' in request.data and request.data['site_code']:
+                        site_ids = ItemSitelist.objects.filter(itemsite_code=request.data['site_code']).first()
+                        if not site_ids:
+                            site_ids =ItemSitelist(itemsite_code=request.data['site_code'])
+                            site_ids.save()
+                    else:
+                        site_ids = ItemSitelist.objects.filter().order_by('pk').first() 
+                        if not site_ids:
+                            raise Exception('Please give sitecode!!') 
+
+                    control_obj = ControlNo.objects.filter(control_description__iexact="EMP CODE",
+                    site_code=site_ids.itemsite_code).first()
+                    if not control_obj:
+                        control_obj = ControlNo(control_no="100001",control_prefix="EMP",
+                        control_description="EMP CODE",controldate=date.today(),
+                        Site_Codeid=site_ids,site_code=site_ids.itemsite_code)
+                        control_obj.save()
+           
+                    emp_code = str(control_obj.control_prefix) + str(control_obj.control_no)
+
+                    emp_typeids = EmpLevel.objects.filter(level_desc="Therapist").first()
+                    if not emp_typeids:
+                        emp_typeids = EmpLevel(level_code="100001",level_desc="Therapist")
+                        emp_typeids.save()
+
+                    emp_levelids = Securities.objects.filter(level_name='Therapist').first()
+                    if not emp_levelids:
+                        emp_levelids = Securities(level_name='Therapist',
+                        level_description='Therapist',level_code="31")
+                        emp_levelids.save()
+
+
+
+                    defaultobj = site_ids
+                    site_unique = EmpSitelist.objects.filter(emp_code=emp_code, site_code=defaultobj.itemsite_code,
+                                                                isactive=True)
+                    if site_unique:
+                       
+                        raise ValueError("Unique Constrain for emp_code and site_code!!")
+                    user_obj = User.objects.filter(username=request.data['emp_name'])
+                    if user_obj:
+                        raise ValueError("Username already exist!!")
+                    emp_obj = Employee.objects.filter(emp_name=request.data['emp_name'])
+                    if emp_obj:
+                        raise ValueError("Employee already exist!!")
+
+                    fmspw_obj = Fmspw.objects.filter(pw_userlogin=request.data['emp_name'])
+                    if fmspw_obj:
+                        raise ValueError("Fmspw already exist!!")
+
+                    token_obj = Fmspw.objects.filter(user__username=request.data['emp_name'])
+                    if token_obj:
+                        
+                        raise ValueError("Token for this employee user is already exist!!")
+
+                    # self.perform_create(serializer) # commented this line to fix sitecode () issue.
+                    
+                    s = serializer.save(emp_code=emp_code,itemsite_code=site_ids.itemsite_code,
+                    EMP_TYPEid=emp_typeids,emp_type=emp_typeids.level_code,
+                    defaultsitecode=site_ids.itemsite_code,Site_Codeid=site_ids,
+                    site_code=site_ids.itemsite_code,defaultSiteCodeid=site_ids)
+
+                    # s.emp_code = emp_code
+                    s.type_code = emp_typeids.level_code
+                    # s.emp_type = jobtitle.level_code
+                    s.save()
+                    token = False
+                    
+
+                    EmpSitelist(Emp_Codeid=s, emp_code=emp_code, Site_Codeid=s.defaultSiteCodeid,
+                                site_code=s.defaultSiteCodeid.itemsite_code).save()
+                    user = User.objects.create_user(username=s.emp_name, 
+                                                    password="123")
+                    levelobj = emp_levelids
+                    Fmspw(pw_userlogin=request.data['emp_name'],
+                            pw_password="123",
+                            LEVEL_ItmIDid=levelobj,
+                            level_itmid=levelobj.level_code,
+                            level_desc=levelobj.level_description,
+                            Emp_Codeid=s,
+                            emp_code=emp_code,
+                            user=user,
+                            loginsite=None,
+                            flgappt = s.show_in_appt,
+                            flgsales = s.show_in_sales,
+                            ).save()
+                    s.pw_userlogin = s.emp_name
+                    s.pw_password = "123"
+                    s.LEVEL_ItmIDid = levelobj
+                    s.save()
+                    token = Token.objects.create(user=user)
+                    if s.pk:
+                        control_obj.control_no = int(control_obj.control_no) + 1
+                        control_obj.save()
+                    
+                    result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully",
+                    'error': False}
+                    return Response(result, status=status.HTTP_201_CREATED)            
+            
+                data = serializer.errors
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":data['non_field_errors'][0],'error': True, 'data': serializer.errors} 
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)             
+        
+
+class ExcelStaffInsertAPIView(GenericAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    serializer_class = StaffInsertSerializer
+    
+    @transaction.atomic
+    def post(self, request):
+        # try:  
+            with transaction.atomic(): 
+                dataset = Dataset()
+                staffs_excel = request.FILES['staffs_file']
+
+                imported_data = dataset.load(staffs_excel.read(),format='xlsx')
+                #print(imported_data)
+                for data in imported_data:
+                    print(data,"data")
+                    print(data[1])
+                    phone = data[1] if data[1] else None
+                    password = data[2] if data[2] else "123"
+                    emp_type = data[3] if data[3] else None
+                    level = data[4] if data[4] else None
+                    site_codev = str(data[5]).split(',') if data[5] else None
+                    sitelst = [];siteidlst = []
+                    if site_codev:
+                        for i in site_codev:
+                            sp = str(i).split(" ")
+                            if len(sp) == 1:
+                                v = sp[0][0] + sp[0][1] 
+                            else:
+                                v = sp[0][0] + sp[1][0]    
+
+                            s_ids = ItemSitelist.objects.filter().order_by('pk')
+                            if not s_ids:
+                                itemsite_code =  v +"01" 
+                            else:
+                                itcode = str(len(s_ids)+1).zfill(2)
+                                itemsite_code = v + itcode
+
+                            sitelst.append(itemsite_code)
+                            site_ids = ItemSitelist.objects.filter(itemsite_desc=i).order_by('pk')
+                            sitegroup_ids = SiteGroup.objects.filter().order_by('pk').first()
+                            if not site_ids:
+                                site_ids = ItemSitelist(itemsite_code=itemsite_code,itemsite_desc=i,
+                                Site_Groupid=sitegroup_ids,site_group=sitegroup_ids.code)
+                                site_ids.save()
+                                siteidlst.append(site_ids.pk)
+                            else:
+                                siteidlst.append(site_ids.pk)  
+
+                        defaultsite_ids = ItemSitelist.objects.filter(pk=siteidlst[0]).order_by('pk').first()         
+                    else:
+                        defaultsite_ids = ItemSitelist.objects.filter().order_by('pk').first()         
+
+                       
+                    emp_typeids = EmpLevel.objects.filter(level_desc=emp_type).first()
+                    if not emp_typeids:
+                        control_obj = ControlNo.objects.filter(control_description__iexact="EmpLevel Code").first()
+                        if not control_obj:
+                            control_obj = ControlNo(control_no="100001",control_prefix="",
+                            control_description="EmpLevel Code",controldate=date.today(),
+                            Site_Codeid=site_ids,site_code=site_ids.itemsite_code)
+                            control_obj.save()
+           
+                        emp_typeids = EmpLevel(level_code=control_obj.control_no,level_desc=emp_type)
+                        emp_typeids.save()
+                        control_obj.control_no = int(control_obj.control_no) + 1
+                        control_obj.save()
+                    
+
+                    emp_levelids = Securities.objects.filter(level_name=level).first()
+                    if not emp_levelids:
+                        control_objse = ControlNo.objects.filter(control_description__iexact="SECURITIES CODE").first()
+                        if not control_objse:
+                            control_objse = ControlNo(control_no="10",control_prefix="",
+                            control_description="SECURITIES CODE",controldate=date.today())
+                            control_objse.save()
+           
+                        emp_levelids = Securities(level_name=level,
+                        level_description=level,level_code=control_objse.control_no)
+                        emp_levelids.save()
+                        control_objse.control_no = int(control_objse.control_no) + 1
+                        control_objse.save()
+                    
+
+                    
+                    serializer = StaffInsertSerializer(data=request.data)
+                    if serializer.is_valid():
+                        
+                        control_objs = ControlNo.objects.filter(control_description__iexact="EMP CODE",
+                        site_code=defaultsite_ids.itemsite_code).first()
+                        if not control_objs:
+                            control_objs = ControlNo(control_no="100001",control_prefix=defaultsite_ids.itemsite_code,
+                            control_description="EMP CODE",controldate=date.today(),
+                            Site_Codeid=defaultsite_ids,site_code=defaultsite_ids.itemsite_code)
+                            control_objs.save()
+            
+                        emp_code = str(control_objs.control_prefix) + str(control_objs.control_no)
+
+                        defaultobj = defaultsite_ids
+                        
+                        user_obj = User.objects.filter(username=data[0])
+                        if user_obj:
+                            raise ValueError("Username already exist!!")
+                        emp_obj = Employee.objects.filter(emp_name=data[0])
+                        if emp_obj:
+                            raise ValueError("Employee already exist!!")
+
+                        fmspw_obj = Fmspw.objects.filter(pw_userlogin=data[0])
+                        if fmspw_obj:
+                            raise ValueError("Fmspw already exist!!")
+
+                        token_obj = Fmspw.objects.filter(user__username=data[0])
+                        if token_obj:
+                            
+                            raise ValueError("Token for this employee user is already exist!!")
+                        
+                        s = serializer.save(emp_code=emp_code,itemsite_code=defaultsite_ids.itemsite_code,
+                        EMP_TYPEid=emp_typeids,emp_type=emp_typeids.level_code,
+                        defaultsitecode=defaultsite_ids.itemsite_code,Site_Codeid=defaultsite_ids,
+                        site_code=defaultsite_ids.itemsite_code,defaultSiteCodeid=defaultsite_ids,
+                        emp_phone1=phone,emp_name=data[0],emp_barcode=data[7] if data[7] else None)
+
+                        # s.emp_code = emp_code
+                        s.type_code = emp_typeids.level_code
+                        # s.emp_type = jobtitle.level_code
+                        s.save()
+                        token = False
+                        
+                        for j in siteidlst:
+                            siteobj = ItemSitelist.objects.filter(pk=j).order_by('pk').first() 
+                            print(siteobj,"siteobj")
+                            if siteobj:        
+                                site_unique = EmpSitelist.objects.filter(emp_code=emp_code, site_code=siteobj.itemsite_code,
+                                                                            isactive=True)
+                                print(site_unique,"site_unique")
+                                if site_unique:
+                                    raise ValueError("Unique Constrain for emp_code and site_code!!")
+                            
+                                sitelst = EmpSitelist(Emp_Codeid=s, emp_code=emp_code, Site_Codeid=siteobj,
+                                            site_code=siteobj.itemsite_code)
+                                sitelst.save() 
+                                print(sitelst,"sitelst")           
+                        user = User.objects.create_user(username=s.emp_name, 
+                                                        password=password)
+                        print(user,"user")
+                        levelobj = emp_levelids
+                        Fmspw(pw_userlogin=data[0],
+                                pw_password=password,
+                                LEVEL_ItmIDid=levelobj,
+                                level_itmid=levelobj.level_code,
+                                level_desc=levelobj.level_description,
+                                Emp_Codeid=s,
+                                emp_code=emp_code,
+                                user=user,
+                                loginsite=None,
+                                flgappt = s.show_in_appt,
+                                flgsales = s.show_in_sales,
+                                ).save()
+                        s.pw_userlogin = s.emp_name
+                        s.pw_password = password
+                        s.LEVEL_ItmIDid = levelobj
+                        s.save()
+                        token = Token.objects.create(user=user)
+                        print(token,"token")
+                        if s.pk:
+                            control_objs.control_no = int(control_objs.control_no) + 1
+                            control_objs.save()
+                        
+                        
+                    # data = serializer.errors
+                    # result = {'status': status.HTTP_400_BAD_REQUEST,"message":data['non_field_errors'][0],'error': True, 'data': serializer.errors} 
+                    # return Response(result, status=status.HTTP_400_BAD_REQUEST)
+            
+                result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully",
+                'error': False}
+                return Response(result, status=status.HTTP_201_CREATED)            
+         
+                    # value = Person(
+                    #     data[0],
+                    #     data[1],
+                    #     data[2],
+                    #     data[3]
+                    #     )
+                    # value.save() 
+
+        # except Exception as e:
+        #     invalid_message = str(e)
+        #     return general_error_response(invalid_message)             
+                

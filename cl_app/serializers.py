@@ -765,3 +765,21 @@ class TreatmentUsageStockSerializer(serializers.ModelSerializer):
         fields = ['id','item_desc','item_name','item_code']
 
 
+class ProductPurchaseSerializer(serializers.ModelSerializer): 
+    id = serializers.IntegerField(source='pk',required=False)
+
+    class Meta:
+        model = PosDaud
+        fields = ['id','sa_date','dt_qty','dt_staffname','dt_promoprice','dt_transacamt']
+
+    
+    def to_representation(self, instance):
+       
+        data = super(ProductPurchaseSerializer, self).to_representation(instance)
+        splt = str(data['sa_date']).split("T")
+        data['sa_date'] = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d-%b-%y")
+        haud_ids = PosHaud.objects.filter(sa_transacno=instance.sa_transacno).first()
+        data['transaction'] = haud_ids.sa_transacno_ref if haud_ids and haud_ids.sa_transacno_ref else ""           
+        data['dt_promoprice'] = "{:.2f}".format(float(data['dt_promoprice']))
+        data['dt_transacamt'] = "{:.2f}".format(float(data['dt_transacamt']))
+        return data   

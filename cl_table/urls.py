@@ -95,6 +95,10 @@ urlpatterns = [
     # path('api/securitylevellistpost', views.SecuritylevellistPostAPI.as_view(), name='securitylevellistpost'),
     path('api/schedulemonthappt/', views.ScheduleMonthAppointListAPIView.as_view(), name='schedulemonthappt'),
     # path('api/apptchannel/', views.ApptChannelAPIView.as_view(), name='apptchannel'),
+    path('api/treatmentpackageinsert', views.TreatmentPackageInsertAPIView.as_view(), name='treatmentpackageinsert'),
+    path('api/treatmentpackagelist', views.TreatmentPackageListAPIView.as_view(), name='treatmentpackagelist'),
+    path('api/itemsitelistinitial/', views.ItemSitelistIntialAPIView.as_view(), name='itemsitelistinitial'),
+    path('api/staffinsert/', views.StaffInsertAPIView.as_view(), name='staffinsert'),
+    path('api/excelstaffinsert/', views.ExcelStaffInsertAPIView.as_view(), name='excelstaffinsert'),
 
-    
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
