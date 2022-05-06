@@ -5,7 +5,8 @@ ItemBatchModel, ItemBrandModel, ItemRangeModel, ItemDeptModel, EmployeeListModel
 ItemSupplyModel, DOModel, DODetailModel, StockModel, MovHdrModel, MovDtlModel, PHYHdrModel, PHYDtlModel, 
 StktrnModel, SystemLogModel, SupplyContactInfoModel, ControlNoModel,CommissionProfile,CommTarget,CommDeduction, SalarySubTypeLookup,
 ManualInvoiceModel,ManualInvoiceDetailModel,ManualInvoiceAddrModel,ManualInvoiceItemModel,WorkOrderInvoiceModel,
-WorkOrderInvoiceDetailModel,WorkOrderInvoiceAddrModel,WorkOrderInvoiceItemModel)
+WorkOrderInvoiceDetailModel,WorkOrderInvoiceAddrModel,WorkOrderInvoiceItemModel,DeliveryOrderModel,DeliveryOrderAddrModel,
+DeliveryOrderDetailModel,DeliveryOrderItemModel,DeliveryOrdersign)
 from cl_table.models import (Treatment, Stock, PackageDtl, ItemClass, ItemRange, Employee, Tmptreatment,
 TmpItemHelper,PosHaud,City, State, Country, Stock )
 from cl_table.serializers import get_client_ip
@@ -194,6 +195,21 @@ class VoucherRecordAccSerializer(serializers.ModelSerializer):
     class Meta:
         model = VoucherRecord
         fields = ['id','voucher_name','voucher_no','value','issued_expiry_date','sa_date']
+
+    def to_representation(self, obj):
+        data = super(VoucherRecordAccSerializer, self).to_representation(obj)
+
+        if obj.sa_date:
+            splt = str(obj.sa_date).split(" ")
+            data['sa_date'] = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d-%b-%y")
+        
+        data['value'] = "{:.2f}".format(float(data['value']))
+        if obj.issued_expiry_date:
+            splti = str(obj.issued_expiry_date).split(" ")
+            data['issued_expiry_date'] = datetime.datetime.strptime(str(splti[0]), "%Y-%m-%d").strftime("%d-%b-%y")
+                              
+        
+        return data    
          
 
 
@@ -685,7 +701,14 @@ class WorkOrderInvoiceSerializer(serializers.ModelSerializer):
     class Meta:
         model = WorkOrderInvoiceModel
         fields = '__all__'
-            
+
+class DeliveryOrderSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='pk',required=False)
+
+    class Meta:
+        model = DeliveryOrderModel
+        fields = '__all__'
+                    
 
 class POSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source='pk',required=False)
@@ -716,6 +739,13 @@ class WorkOrderInvoiceAddrSerializer(serializers.ModelSerializer):
         model = WorkOrderInvoiceAddrModel
         fields = '__all__'
 
+class DeliveryOrderAddrSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='pk',required=False)
+
+    class Meta:
+        model = DeliveryOrderAddrModel
+        fields = '__all__'        
+
 class POAddrSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source='pk',required=False)
 
@@ -742,6 +772,13 @@ class WorkOrderDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = WorkOrderInvoiceDetailModel
+        fields = '__all__'
+
+class DeliveryOrderDetailSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='pk',required=False)
+
+    class Meta:
+        model = DeliveryOrderDetailModel
         fields = '__all__'
 
 
@@ -771,6 +808,13 @@ class WorkOrderInvoiceItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = WorkOrderInvoiceItemModel
+        fields = '__all__'
+
+class DeliveryOrderItemSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='pk',required=False)
+
+    class Meta:
+        model = DeliveryOrderItemModel
         fields = '__all__'
 
 
@@ -1008,3 +1052,19 @@ class ModeOfPaymentSerializer(serializers.ModelSerializer):
         model = ModeOfPayment
         fields = ['id','modename','accountcode']
 
+class DeliveryOrdersignSerializer(serializers.ModelSerializer):
+    
+    class Meta:
+        model = DeliveryOrdersign
+        fields = ['id','do_id','deliveryorder_no','do_sig']  
+    
+    def to_representation(self, obj):
+        request = self.context['request']
+        data = super(DeliveryOrdersignSerializer, self).to_representation(obj)
+        ip = "http://"+request.META['HTTP_HOST']
+        do_sig = ""
+        if obj.do_sig:
+            do_sig = ip+str(obj.do_sig.url)
+
+        data['do_sig'] = do_sig
+        return data

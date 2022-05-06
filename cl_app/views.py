@@ -81,7 +81,7 @@ from django.db.models import Case, When, Value, IntegerField,CharField, DateFiel
 type_ex = ['VT-Deposit','VT-Top Up','VT-Sales']
 type_tx = ['Deposit','Top Up','Sales']
 # Create your views here.
-
+#sitegroup creation
 class SalonViewset(viewsets.ModelViewSet):
     authentication_classes = [ExpiringTokenAuthentication]
     permission_classes = [IsAuthenticated & authenticated_only]
@@ -243,6 +243,7 @@ class SalonViewset(viewsets.ModelViewSet):
         site = ItemSitelist.objects.filter(Site_Groupid=instance).update(Site_Groupid=None)
         instance.save()   
 
+#ItemDept listing
 class DepartmentViewset(viewsets.ModelViewSet):
     authentication_classes = [ExpiringTokenAuthentication]
     permission_classes = [IsAuthenticated & authenticated_only]
@@ -261,7 +262,8 @@ class DepartmentViewset(viewsets.ModelViewSet):
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)
-             
+
+ #ItemBrand listing            
 class BrandViewset(viewsets.ModelViewSet):
     authentication_classes = [ExpiringTokenAuthentication]
     permission_classes = [IsAuthenticated & authenticated_only]
@@ -285,7 +287,7 @@ class BrandViewset(viewsets.ModelViewSet):
             return general_error_response(invalid_message)
              
 
-
+#ItemDept listing
 class CatalogItemDeptViewset(viewsets.ModelViewSet):
     authentication_classes = [ExpiringTokenAuthentication]
     permission_classes = [IsAuthenticated & authenticated_only]
@@ -338,7 +340,7 @@ class CatalogItemDeptViewset(viewsets.ModelViewSet):
             invalid_message = str(e)
             return general_error_response(invalid_message)
          
-
+#ItemRange listing
 class CatalogItemRangeViewset(viewsets.ModelViewSet):
     authentication_classes = [ExpiringTokenAuthentication]
     permission_classes = [IsAuthenticated & authenticated_only]
@@ -371,7 +373,7 @@ class CatalogItemRangeViewset(viewsets.ModelViewSet):
             invalid_message = str(e)
             return general_error_response(invalid_message)
 
-
+#ItemDiv listing
 class CatalogItemDivViewset(viewsets.ModelViewSet):
     authentication_classes = [ExpiringTokenAuthentication]
     permission_classes = [IsAuthenticated & authenticated_only]
@@ -407,7 +409,7 @@ class CatalogItemDivViewset(viewsets.ModelViewSet):
             invalid_message = str(e)
             return general_error_response(invalid_message)
                          
-             
+#services stock listing             
 class ServiceStockViewset(viewsets.ModelViewSet):
     authentication_classes = [ExpiringTokenAuthentication]
     permission_classes = [IsAuthenticated & authenticated_only]
@@ -461,7 +463,7 @@ class ServiceStockViewset(viewsets.ModelViewSet):
             v = result.get('data')
             d = v.get("dataList")
             for dat in d:
-                dat["item_price"] = "{:.2f}".format(float(dat['item_price']))
+                dat["item_price"] = "{:.2f}".format(float(dat['item_price'])) if dat['item_price'] else "0.00"
             return Response(result, status=status.HTTP_200_OK)  
         except Exception as e:
             invalid_message = str(e)
@@ -490,7 +492,7 @@ class ServiceStockViewset(viewsets.ModelViewSet):
             return general_error_response(invalid_message)
          
 
-
+#retail stock listing
 class RetailStockListViewset(viewsets.ModelViewSet):
     authentication_classes = [ExpiringTokenAuthentication]
     permission_classes = [IsAuthenticated & authenticated_only]
@@ -731,7 +733,7 @@ class RetailStockListViewset(viewsets.ModelViewSet):
     #         result = {'status': status.HTTP_400_BAD_REQUEST, "message": "Failed to create ", 'error': False}
     #     return Response(data=result, status=status.HTTP_200_OK)
 
-
+#package stock listing
 class PackageStockViewset(viewsets.ModelViewSet):
     authentication_classes = [ExpiringTokenAuthentication]
     permission_classes = [IsAuthenticated & authenticated_only]
@@ -812,7 +814,7 @@ class PackageStockViewset(viewsets.ModelViewSet):
             invalid_message = str(e)
             return general_error_response(invalid_message)
                 
-
+#PackageDtl listing
 class PackageDtlViewset(viewsets.ModelViewSet):
     authentication_classes = [ExpiringTokenAuthentication]
     permission_classes = [IsAuthenticated & authenticated_only]
@@ -851,7 +853,7 @@ class PackageDtlViewset(viewsets.ModelViewSet):
             invalid_message = str(e)
             return general_error_response(invalid_message)
                     
-
+#prepaid stock listing
 class PrepaidStockViewset(viewsets.ModelViewSet):
     authentication_classes = [ExpiringTokenAuthentication]
     permission_classes = [IsAuthenticated & authenticated_only]
@@ -934,7 +936,7 @@ class PrepaidStockViewset(viewsets.ModelViewSet):
             invalid_message = str(e)
             return general_error_response(invalid_message)
                 
-
+#voucher stock listing
 class VoucherStockViewset(viewsets.ModelViewSet):
     authentication_classes = [ExpiringTokenAuthentication]
     permission_classes = [IsAuthenticated & authenticated_only]
@@ -1019,7 +1021,7 @@ class VoucherStockViewset(viewsets.ModelViewSet):
             invalid_message = str(e)
             return general_error_response(invalid_message)
                 
-
+#catalog search api
 class CatalogSearchViewset(viewsets.ModelViewSet):
     authentication_classes = [ExpiringTokenAuthentication]
     permission_classes = [IsAuthenticated & authenticated_only]

@@ -58,7 +58,8 @@ from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializ
                           AppointmentCalSerializer,AboutSerializer,
                           CustomerPointSerializer, MGMSerializer,SMSReplySerializer,ConfirmBookingApptSerializer,
                           ItemDescSerializer,TempcustsignSerializer,CustomerDocumentSerializer,
-                          TreatmentPackageSerializer,ItemSitelistIntialSerializer,StaffInsertSerializer)
+                          TreatmentPackageSerializer,ItemSitelistIntialSerializer,StaffInsertSerializer,
+                          )
 from datetime import date, timedelta, datetime
 import datetime
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
@@ -18362,13 +18363,13 @@ class CustomerPointsViewsets(viewsets.ModelViewSet):
             custredeem_ids = RedeemPolicy.objects.filter(cust_type=cust_class,isactive=True).order_by('-pk')
             # print(custredeem_ids,"custredeem_ids")
             header_data = {'customer_class': custclass_ids.class_desc if custclass_ids and custclass_ids.class_desc else "",
-            'cust_point_value': "{:.2f}".format(float(now_point)),'enter_pointamt': "{:.2f}".format(float(enterpt_amt)) if enterpt_amt  else "0.00"}
-            
+            'cust_point_value': "{:.2f}".format(float(now_point)),'enter_pointamt': "{:.2f}".format(float(enterpt_amt)) if enterpt_amt  else "0.00",
+            'redeem_currency': 0}
             table_list = []
             if custredeem_ids and now_point > 0:
 
                 # table_list = [ for i in custredeem_ids]
-
+                redeem_currency = 0
                 for t in custredeem_ids:
                     bro_obj = RedeemPolicy.objects.filter(pk=t.pk).order_by('-pk').first()
                     if bro_obj and bro_obj.point_value and bro_obj.point_value > 0 and bro_obj.cur_value and bro_obj.cur_value > 0:
@@ -18395,13 +18396,17 @@ class CustomerPointsViewsets(viewsets.ModelViewSet):
                             print(bro_obj.item_divids)
                             print( bro_obj.cur_value," bro_obj.cur_value")  
                             if bro_obj.cur_value < service_only:
+                                redeem_currency += bro_obj.cur_value
                                 val.update({'useamt':  "{:.2f}".format(bro_obj.cur_value)})
                             elif service_only < bro_obj.cur_value:
+                                redeem_currency += service_only
                                 val.update({'useamt':  "{:.2f}".format(service_only)})    
                         elif bro_obj.item_divids.filter(itm_code=1).exists():
                             if bro_obj.cur_value < product_only:
+                                redeem_currency += bro_obj.cur_value
                                 val.update({'useamt':  "{:.2f}".format(bro_obj.cur_value)})
                             elif product_only < bro_obj.cur_value:
+                                redeem_currency += product_only
                                 val.update({'useamt':  "{:.2f}".format(product_only)}) 
                         
                         # if enterpt_amt == bro_obj.point_value:
@@ -18420,6 +18425,7 @@ class CustomerPointsViewsets(viewsets.ModelViewSet):
                                  
                         if val != {}:
                             table_list.append(val)
+                            header_data.update({'redeem_currency': "{:.2f}".format(redeem_currency)})
 
 
                 result = {'status': status.HTTP_200_OK,"message": "Listed Succesfully",'error': False, 
@@ -18998,12 +19004,17 @@ class ItemSitelistIntialAPIView(GenericAPIView):
                     else:
                         if not request.data['itemsite_code']:
                             v = str(request.data['itemsite_desc']).split(" ") 
+                            if len(v) == 1:
+                                s = v[0][0] + v[0][1] 
+                            else:
+                                s = v[0][0] + v[1][0]    
+
                             s_ids = ItemSitelist.objects.filter().order_by('pk')
                             if not s_ids:
-                               itemsite_code =  v[0][0] + v[1][0] +"01" 
+                               itemsite_code =  s +"01" 
                             else:
                                itcode = str(len(s_ids)+1).zfill(2) 
-                               itemsite_code =  v[0][0] + v[1][0] +itcode      
+                               itemsite_code =  s +itcode      
                        
 
                     k=serializer.save(itemsite_code=itemsite_code)
@@ -19017,6 +19028,7 @@ class ItemSitelistIntialAPIView(GenericAPIView):
                     if not controlobj:
                         controlobj = ControlNo(control_no="100001",control_description="Site Group",
                         controldate=date.today(),Site_Codeid=k,site_code=itemsite_code)
+                        controlobj.save()
 
                     h=SiteGroup(code=controlobj.control_no,description=request.data['itemsite_desc'],is_delete=False)
                     h.save()
@@ -19070,7 +19082,7 @@ class StaffInsertAPIView(GenericAPIView):
                     control_obj = ControlNo.objects.filter(control_description__iexact="EMP CODE",
                     site_code=site_ids.itemsite_code).first()
                     if not control_obj:
-                        control_obj = ControlNo(control_no="100001",control_prefix="EMP",
+                        control_obj = ControlNo(control_no="100001",control_prefix=site_ids.itemsite_code,
                         control_description="EMP CODE",controldate=date.today(),
                         Site_Codeid=site_ids,site_code=site_ids.itemsite_code)
                         control_obj.save()
@@ -19176,7 +19188,8 @@ class ExcelStaffInsertAPIView(GenericAPIView):
             with transaction.atomic(): 
                 dataset = Dataset()
                 staffs_excel = request.FILES['staffs_file']
-
+                datav = request.data
+                print(datav,"hh")   
                 imported_data = dataset.load(staffs_excel.read(),format='xlsx')
                 #print(imported_data)
                 for data in imported_data:
@@ -19204,7 +19217,7 @@ class ExcelStaffInsertAPIView(GenericAPIView):
                                 itemsite_code = v + itcode
 
                             sitelst.append(itemsite_code)
-                            site_ids = ItemSitelist.objects.filter(itemsite_desc=i).order_by('pk')
+                            site_ids = ItemSitelist.objects.filter(itemsite_desc=i).order_by('pk').first()
                             sitegroup_ids = SiteGroup.objects.filter().order_by('pk').first()
                             if not site_ids:
                                 site_ids = ItemSitelist(itemsite_code=itemsite_code,itemsite_desc=i,
@@ -19218,35 +19231,42 @@ class ExcelStaffInsertAPIView(GenericAPIView):
                     else:
                         defaultsite_ids = ItemSitelist.objects.filter().order_by('pk').first()         
 
-                       
-                    emp_typeids = EmpLevel.objects.filter(level_desc=emp_type).first()
-                    if not emp_typeids:
-                        control_obj = ControlNo.objects.filter(control_description__iexact="EmpLevel Code").first()
-                        if not control_obj:
-                            control_obj = ControlNo(control_no="100001",control_prefix="",
-                            control_description="EmpLevel Code",controldate=date.today(),
-                            Site_Codeid=site_ids,site_code=site_ids.itemsite_code)
-                            control_obj.save()
-           
-                        emp_typeids = EmpLevel(level_code=control_obj.control_no,level_desc=emp_type)
-                        emp_typeids.save()
-                        control_obj.control_no = int(control_obj.control_no) + 1
-                        control_obj.save()
-                    
 
-                    emp_levelids = Securities.objects.filter(level_name=level).first()
-                    if not emp_levelids:
-                        control_objse = ControlNo.objects.filter(control_description__iexact="SECURITIES CODE").first()
-                        if not control_objse:
-                            control_objse = ControlNo(control_no="10",control_prefix="",
-                            control_description="SECURITIES CODE",controldate=date.today())
+                    if emp_type:    
+                        emp_typeids = EmpLevel.objects.filter(level_desc=emp_type).first()
+                        if not emp_typeids:
+                            control_obj = ControlNo.objects.filter(control_description__iexact="EmpLevel Code").first()
+                            if not control_obj:
+                                control_obj = ControlNo(control_no="100001",control_prefix="",
+                                control_description="EmpLevel Code",controldate=date.today(),
+                                Site_Codeid=site_ids,site_code=site_ids.itemsite_code)
+                                control_obj.save()
+            
+                            emp_typeids = EmpLevel(level_code=control_obj.control_no,level_desc=emp_type)
+                            emp_typeids.save()
+                            control_obj.control_no = int(control_obj.control_no) + 1
+                            control_obj.save()
+                    else:
+                        emp_typeids = EmpLevel.objects.filter().order_by('pk').first()
+
+                    
+                    
+                    if level:
+                        emp_levelids = Securities.objects.filter(level_name=level).first()
+                        if not emp_levelids:
+                            control_objse = ControlNo.objects.filter(control_description__iexact="SECURITIES CODE").first()
+                            if not control_objse:
+                                control_objse = ControlNo(control_no="10",control_prefix="",
+                                control_description="SECURITIES CODE",controldate=date.today())
+                                control_objse.save()
+            
+                            emp_levelids = Securities(level_name=level,
+                            level_description=level,level_code=control_objse.control_no)
+                            emp_levelids.save()
+                            control_objse.control_no = int(control_objse.control_no) + 1
                             control_objse.save()
-           
-                        emp_levelids = Securities(level_name=level,
-                        level_description=level,level_code=control_objse.control_no)
-                        emp_levelids.save()
-                        control_objse.control_no = int(control_objse.control_no) + 1
-                        control_objse.save()
+                    else:
+                        emp_levelids = Securities.objects.filter().order_by('pk').first()       
                     
 
                     
@@ -19342,15 +19362,109 @@ class ExcelStaffInsertAPIView(GenericAPIView):
                 'error': False}
                 return Response(result, status=status.HTTP_201_CREATED)            
          
-                    # value = Person(
-                    #     data[0],
-                    #     data[1],
-                    #     data[2],
-                    #     data[3]
-                    #     )
-                    # value.save() 
+                  
 
         # except Exception as e:
         #     invalid_message = str(e)
         #     return general_error_response(invalid_message)             
                 
+
+class ExcelCustomerInsertAPIView(GenericAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    serializer_class = []
+    
+    @transaction.atomic
+    def post(self, request):
+        # try:  
+            with transaction.atomic(): 
+                dataset = Dataset()
+                customer_excel = request.FILES['customer_file']
+
+                imported_data = dataset.load(customer_excel.read(),format='xlsx')
+                #print(imported_data)
+                for data in imported_data:
+                    # print(data,"data")
+                    cust_ids = Customer.objects.filter(cust_name=data[1]).order_by('pk')
+                    # print(cust_ids,"cust_ids")
+                    if not cust_ids:
+                        if data[10]:
+                            sp = str(data[10]).split(" ")
+                            if len(sp) == 1:
+                                v = sp[0][0] + sp[0][1] 
+                            else:
+                                v = sp[0][0] + sp[1][0]    
+
+                            s_ids = ItemSitelist.objects.filter().order_by('pk')
+                            if not s_ids:
+                                itemsite_code =  v +"01" 
+                            else:
+                                itcode = str(len(s_ids)+1).zfill(2)
+                                itemsite_code = v + itcode
+
+                            site_ids = ItemSitelist.objects.filter(itemsite_desc=data[10]).order_by('pk').first()
+                            sitegroup_ids = SiteGroup.objects.filter().order_by('pk').first()
+                            if not site_ids:
+                                site_ids = ItemSitelist(itemsite_code=itemsite_code,itemsite_desc=data[10],
+                                Site_Groupid=sitegroup_ids,site_group=sitegroup_ids.code)
+                                site_ids.save()
+                            
+                        else:
+                            site_ids = ItemSitelist.objects.filter().order_by('pk').first()         
+
+                        control_objs = ControlNo.objects.filter(control_description__iexact="VIP CODE",
+                        site_code=site_ids.itemsite_code).first()
+                        if not control_objs:
+                            control_objs = ControlNo(control_no="1000001",control_prefix="",
+                            control_description="VIP CODE",controldate=date.today(),
+                            Site_Codeid=site_ids,site_code=site_ids.itemsite_code)
+                            control_objs.save()
+            
+                        cust_code = str(control_objs.Site_Codeid.itemsite_code) + str(control_objs.control_no)
+                        
+                        if data[9]:
+                            class_ids = CustomerClass.objects.filter(class_desc=data[9]).first()
+                            if not class_ids:
+                                control_obj = ControlNo.objects.filter(control_description__iexact="Customer Class Code").first()
+                                if not control_obj:
+                                    control_obj = ControlNo(control_no="100001",control_prefix="",
+                                    control_description="Customer Class Code",controldate=date.today(),
+                                    Site_Codeid=site_ids,site_code=site_ids.itemsite_code)
+                                    control_obj.save()
+                
+                                class_ids = CustomerClass(class_code=control_obj.control_no,class_desc=data[9],
+                                class_product=0,class_service=0)
+                                class_ids.save()
+                                control_obj.control_no = int(control_obj.control_no) + 1
+                                control_obj.save()
+                        else:
+                            class_ids = CustomerClass.objects.filter().order_by('pk').first()        
+                        
+                        gender_ids = Gender.objects.filter(itm_name=data[8]).first()
+                        if not gender_ids:
+                            if data[8] == "MALE":
+                                gender_ids = Gender(itm_name=data[8],itm_code=1)
+                                gender_ids.save()
+                            elif data[8] == "FEMALE":
+                                gender_ids = Gender(itm_name=data[8],itm_code=2)
+                                gender_ids.save()
+
+                        c = Customer(cust_joindate=data[0],cust_name=data[1],cust_address=data[2],
+                        cust_phone2=data[3],cust_email=data[4],cust_nric=data[5],cust_dob=data[6],
+                        cust_refer=data[7],cust_sexes=gender_ids.itm_code,Cust_sexesid=gender_ids,
+                        cust_class=class_ids.class_code,Cust_Classid=class_ids,site_code=site_ids.itemsite_code,
+                        Site_Codeid=site_ids,join_status=1,cust_code=cust_code) 
+                        c.save()
+                        if c.pk:
+                            control_objs.control_no = int(control_objs.control_no) + 1
+                            control_objs.save()
+                        
+                result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully",
+                'error': False}
+                return Response(result, status=status.HTTP_201_CREATED)            
+         
+
+        # except Exception as e:
+        #     invalid_message = str(e)
+        #     return general_error_response(invalid_message)             
+                         

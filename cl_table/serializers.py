@@ -3003,3 +3003,4 @@ class StaffInsertSerializer(serializers.ModelSerializer):
         model = Employee
         fields = ['id','emp_name']  
                                   
+

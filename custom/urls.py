@@ -38,20 +38,25 @@ router.register(r'activitylist', views.ActivityListViewset, 'activitylist')
 router.register(r'quotationlist', views.QuotationListViewset, 'quotationlist')
 router.register(r'manualinvoicelist', views.ManualInvoiceListViewset, 'manualinvoicelist')
 router.register(r'workorderinvoicelist', views.WorkOrderInvoiceListViewset, 'workorderinvoicelist')
+router.register(r'deliveryorderlist', views.DeliveryOrderListViewset, 'deliveryorderlist')
+
 router.register(r'polist', views.POListViewset, 'polist')
 router.register(r'quotationaddr', views.QuotationAddrViewset, 'quotationaddr')
 router.register(r'manualinvoiceaddr', views.ManualInvoiceAddrViewset, 'manualinvoiceaddr')
 router.register(r'workorderinvoiceaddr', views.WorkOrderInvoiceAddrViewset, 'workorderinvoiceaddr')
+router.register(r'deliveryorderaddr', views.DeliveryOrderAddrViewset, 'deliveryorderaddr')
 
 router.register(r'poaddr', views.POAddrViewset, 'poaddr')
 router.register(r'quotationdetail', views.QuotationDetailViewset, 'quotationdetail')
 router.register(r'manualinvoicedetail', views.ManualInvoiceDetailViewset, 'manualinvoicedetail')
 router.register(r'workorderinvoicedetail', views.WorkOrderInvoiceDetailViewset, 'workorderinvoicedetail')
+router.register(r'deliveryorderdetail', views.DeliveryOrderDetailViewset, 'deliveryorderdetail')
 
 router.register(r'podetail', views.PODetailViewset, 'podetail')
 router.register(r'quotationitem', views.QuotationItemViewset, 'quotationitem')
 router.register(r'manualinvoiceitem', views.ManualInvoiceItemViewset, 'manualinvoiceitem')
 router.register(r'workorderinvoiceitem', views.WorkOrderInvoiceItemViewset, 'workorderinvoiceitem')
+router.register(r'deliveryorderitem', views.DeliveryOrderItemViewset, 'deliveryorderitem')
 
 router.register(r'poitem', views.POItemViewset, 'poitem')
 router.register(r'dropdown', views.DropdownViewset, 'dropdown')
@@ -101,6 +106,8 @@ router.register(r'poapprovalitem', views.POApprovalItemViewset, 'poapprovalitem'
 router.register(r'poapprovalhqonlylist', views.POApprovalHQonlyListViewset, 'poapprovalhqonlylist')
 router.register(r'authorise', views.AuthoriseViewset, 'authorise')
 router.register(r'commissionprofile', views.CommissionProfiles, 'commissionprofile')
+router.register(r'customerprojectlist', views.CustomerProjectListViewset)
+router.register(r'deliveryordersign', views.DeliveryOrderSignViewset)
 
 
 # The API URLs are now determined automatically by the router.
@@ -118,6 +125,11 @@ urlpatterns = [
     path('api/userauthorizationpopup/', views.UserAuthorizationPopup.as_view(), name='userauthorizationpopup'),
     path('api/manualinvoicepdf/', views.ManualInvoiceFormatAPIView.as_view(), name='manualinvoicepdf'),
     path('api/workorderinvoicepdf/', views.WorkOrderInvoiceFormatAPIView.as_view(), name='workorderinvoicepdf'),
+    path('api/quotationtocart/', views.QuotationToCartAPIView.as_view(), name='quotationtocart'),
+    path('api/carttomanualinvoice/', views.CartToManualInvoiceAPIView.as_view(), name='carttomanualinvoice'),
+    path('api/carttoworkorderinvoice/', views.CartToWorkOrderInvoiceAPIView.as_view(), name='carttoworkorderinvoice'),
+    path('api/workordertodelivery/', views.WorkOrderITODeliveryAPIView.as_view(), name='workordertodelivery'),
+    path('api/deliveryinvoicepdf/', views.DeliveryOrderFormatAPIView.as_view(), name='deliveryinvoicepdf'),
 
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 

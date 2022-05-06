@@ -100,5 +100,6 @@ urlpatterns = [
     path('api/itemsitelistinitial/', views.ItemSitelistIntialAPIView.as_view(), name='itemsitelistinitial'),
     path('api/staffinsert/', views.StaffInsertAPIView.as_view(), name='staffinsert'),
     path('api/excelstaffinsert/', views.ExcelStaffInsertAPIView.as_view(), name='excelstaffinsert'),
+    path('api/excelcustomerinsert/', views.ExcelCustomerInsertAPIView.as_view(), name='excelcustomerinsert'),
 
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

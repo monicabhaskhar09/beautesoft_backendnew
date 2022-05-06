@@ -275,6 +275,7 @@ class ItemCart(models.Model):
     treat_type = models.CharField(db_column='treat_type', max_length=50, blank=True, null=True)  # Field name made lowercase.
     treatment_limit_times = models.FloatField(db_column='Treatment_Limit_Times', blank=True, null=True)  # Field name made lowercase.
     is_flexi = models.BooleanField(default=False)
+    quotationitem_id = models.ForeignKey('custom.QuotationItemModel', on_delete=models.PROTECT,blank=True, null=True)
 
     class Meta:
         db_table = 'item_Cart'
@@ -531,7 +532,8 @@ class ManualInvoiceModel(models.Model):
     active = models.CharField(db_column='Active', blank=True, max_length = 255, default='active', null=True)  # Field name made lowercase.
     fk_project = models.ForeignKey('custom.ProjectModel', on_delete=models.PROTECT, null=True)
     created_at = models.DateTimeField(db_column='ManualInvoice_Date',null=True)
-
+    cart_id = models.CharField(max_length=20, null=True)
+   
     class Meta:
         db_table = 'ManualInvoice_List'
 
@@ -551,14 +553,32 @@ class WorkOrderInvoiceModel(models.Model):
     active = models.CharField(db_column='Active', blank=True, max_length = 255, default='active', null=True)  # Field name made lowercase.
     fk_project = models.ForeignKey('custom.ProjectModel', on_delete=models.PROTECT, null=True)
     created_at = models.DateTimeField(db_column='WorkOrderInvoice_Date',null=True)
-
+    cart_id = models.CharField(max_length=20, null=True)
+    
     class Meta:
         db_table = 'WorkOrderInvoice_List'
             
-    
+class DeliveryOrderModel(models.Model):
+    id = models.AutoField(db_column='DeliveryOrder_ID',primary_key=True)  # Field name made lowercase.
+    do_number = models.CharField(db_column='Do_Number', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    title = models.CharField(db_column='Do_Project', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    company = models.CharField(db_column='Do_Company', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    contact_person = models.CharField(db_column='Do_ContactPerson', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    status = models.CharField(db_column='Do_Status', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    validity = models.CharField(db_column='Do_Validity', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    terms = models.CharField(db_column='Do_Terms', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    in_charge = models.CharField(db_column='Do_InCharge', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    remarks = models.CharField(db_column='Do_Remarks', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    footer = models.CharField(db_column='Do_Footer', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    active = models.CharField(db_column='Active', blank=True, max_length = 255, default='active', null=True)  # Field name made lowercase.
+    fk_project = models.ForeignKey('custom.ProjectModel', on_delete=models.PROTECT, null=True)
+    created_at = models.DateTimeField(db_column='Do_Date',null=True)
+    fk_workorder = models.ForeignKey('custom.WorkOrderInvoiceModel', on_delete=models.PROTECT, null=True)
 
+    class Meta:
+        db_table = 'DeliveryOrder_List'
+        
 
-    
 
 class QuotationAddrModel(models.Model):
     id = models.AutoField(db_column='Quotation_Addr_ID',primary_key=True)  # Field name made lowercase.
@@ -632,7 +652,29 @@ class WorkOrderInvoiceAddrModel(models.Model):
     class Meta:
         db_table = 'WorkOrderInvoice_Address'        
     
+class DeliveryOrderAddrModel(models.Model):
+    id = models.AutoField(db_column='Do_Addr_ID',primary_key=True)  # Field name made lowercase.
+    billto = models.CharField(db_column='Do_Bill_To', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    bill_addr1 = models.CharField(db_column='Do_Bill_Addr1', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    bill_addr2 = models.CharField(db_column='Do_Bill_Addr2', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    bill_addr3 = models.CharField(db_column='Do_Bill_Addr3', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    bill_postalcode = models.CharField(db_column='Do_Bill_PostalCode', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    bill_city = models.CharField(db_column='Do_Bill_City', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    bill_state = models.CharField(db_column='Do_Bill_State', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    bill_country = models.CharField(db_column='Do_Bill_Country', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    shipto = models.CharField(db_column='Do_Ship_To', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    ship_addr1 = models.CharField(db_column='Do_Ship_Addr1', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    ship_addr2 = models.CharField(db_column='Do_Ship_Addr2', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    ship_addr3 = models.CharField(db_column='Do_Ship_Addr3', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    ship_postalcode = models.CharField(db_column='Do_Ship_PostalCode', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    ship_city = models.CharField(db_column='Do_Ship_City', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    ship_state = models.CharField(db_column='Do_Ship_State', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    ship_country = models.CharField(db_column='Do_Ship_Country', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    active = models.CharField(db_column='Active', blank=True, max_length = 255, default='active', null=True)  # Field name made lowercase.
+    fk_deliveryorder = models.ForeignKey('custom.DeliveryOrderModel', on_delete=models.PROTECT, null=True, default=1)
 
+    class Meta:
+        db_table = 'DeliveryOrder_Address'
     
 
 class POAddrModel(models.Model):
@@ -696,7 +738,19 @@ class WorkOrderInvoiceDetailModel(models.Model):
 
     class Meta:
         db_table = 'WorkOrderInvoice_Detail'
-           
+
+class DeliveryOrderDetailModel(models.Model):
+    id = models.AutoField(db_column='Do_Detail_ID',primary_key=True)  # Field name made lowercase.
+    q_shipcost = models.CharField(db_column='Do_ShipCost', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    q_discount = models.CharField(db_column='Do_Discount', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    q_taxes = models.CharField(db_column='Do_Taxes', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    q_total = models.CharField(db_column='Do_Total', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    active = models.CharField(db_column='Active', blank=True, max_length = 255, default='active', null=True)  # Field name made lowercase.
+    fk_deliveryorder = models.ForeignKey('custom.DeliveryOrderModel', on_delete=models.PROTECT, null=True, default=1)
+
+    class Meta:
+        db_table = 'DeliveryOrder_Detail'
+
 
 class PODetailModel(models.Model):
     id = models.AutoField(db_column='PO_Detail_ID',primary_key=True)  # Field name made lowercase.
@@ -749,10 +803,21 @@ class WorkOrderInvoiceItemModel(models.Model):
 
     class Meta:
         db_table = 'WorkOrderInvoice_Item'
-                    
-            
-    
 
+class DeliveryOrderItemModel(models.Model):
+    id = models.AutoField(db_column='Do_Item_ID',primary_key=True)  # Field name made lowercase.
+    quotation_quantity = models.CharField(db_column='Do_Item_Quantity', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    quotation_unitprice = models.CharField(db_column='Do_Item_UnitPrice', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    quotation_itemremarks = models.CharField(db_column='Do_Item_Remarks', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    quotation_itemcode = models.CharField(db_column='Do_Item_Code', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    quotation_itemdesc = models.CharField(db_column='Do_Item_Desc', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    active = models.CharField(db_column='Active', blank=True, max_length = 255, default='active', null=True)  # Field name made lowercase.
+    fk_deliveryorder = models.ForeignKey('custom.DeliveryOrderModel', on_delete=models.PROTECT, null=True, default=1)
+
+    class Meta:
+        db_table = 'DeliveryOrder_Item'
+
+            
 class POItemModel(models.Model):
     id = models.AutoField(db_column='PO_Item_ID',primary_key=True)  # Field name made lowercase.
     po_quantity = models.CharField(db_column='PO_Item_Quantity', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
@@ -1809,7 +1874,15 @@ class ModeOfPayment(models.Model):
         return str(self.accountcode) 
 
 
+class DeliveryOrdersign(models.Model):
 
+    id = models.AutoField(db_column='ID', primary_key=True)
+    do_id = models.ForeignKey('custom.DeliveryOrderModel', on_delete=models.PROTECT,null=True)   
+    deliveryorder_no = models.CharField(db_column='DeliveryOrder_No', max_length=50, blank=True, null=True)  
+    do_sig = models.ImageField(db_column='DO_Sig', blank=True, null=True,upload_to='img') 
+
+    class Meta:
+        db_table = 'DeliveryOrdersign'
 
 
 
