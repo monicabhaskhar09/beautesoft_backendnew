@@ -9,7 +9,7 @@ ExchangeProductSerializer,SmtpSettingsSerializer,CartItemStatusSerializer,CartDi
 CartStaffsSerializer,CartServiceCourseSerializer,CourseTmpSerializer,CartPrepaidSerializer,ChangePaymentDateSerializer,
 AddRemoveSalesStaffSerializer,ItemSitelistSerializer, TimeLogSerializer, CitySerializer, StateSerializer, 
 CountrySerializer, QPOItemSerializer, DateFormatSerializer, ProjectSerializer, ActivitySerializer, QuotationSerializer,
-POSerializer, QuotationAddrSerializer, POAddrSerializer, QuotationDetailSerializer, PODetailSerializer, QuotationItemSerializer, POItemSerializer, DropdownSerializer,
+POSerializer, QuotationAddrSerializer, POAddrSerializer, QuotationDetailSerializer, QuotationItemSerializer, POItemSerializer, DropdownSerializer,
 SystemLogSerializer,StktrnSerializer,SystemLogSerializer,POSerializer,PODetailSerializer,
 POApprovalSerializer,ItemUOMPriceSerializer,ItemBatchSerializer,ItemBrandSerializer,ItemRangeSerializer,ItemDeptSerializer,
 EmployeeListSerializer,SiteCodeSerializer,ItemSupplySerializer,DOSerializer,DODetailSerializer,AuthoriseSerializer,
@@ -20,11 +20,11 @@ ManualInvoiceSerializer,ManualInvoiceDetailSerializer,
 ManualInvoiceAddrSerializer,ManualInvoiceItemSerializer,WorkOrderInvoiceSerializer,
 WorkOrderDetailSerializer,WorkOrderInvoiceAddrSerializer,WorkOrderInvoiceItemSerializer,
 VoucherRecordAccSerializer,DeliveryOrderSerializer,DeliveryOrderAddrSerializer,DeliveryOrderDetailSerializer,
-DeliveryOrderItemSerializer,DeliveryOrdersignSerializer)
+DeliveryOrderItemSerializer,DeliveryOrdersignSerializer,InvoiceListingSerializer)
 from .models import (EmpLevel, Room, Combo_Services, ItemCart,VoucherRecord,RoundPoint, RoundSales,
 PaymentRemarks, HolditemSetup,PosPackagedeposit,SmtpSettings,MultiPricePolicy,salesStaffChangeLog,
 serviceStaffChangeLog,dateChangeLog,  TimeLogModel, ProjectModel, ActivityModel, QuotationModel, POModel, QuotationAddrModel, 
-POAddrModel, QuotationDetailModel, PODetailModel, QuotationItemModel, POItemModel, DropdownModel,
+POAddrModel, QuotationDetailModel, QuotationItemModel, POItemModel, DropdownModel,
 POModel,PODetailModel,POApprovalModel,DOModel,DODetailModel,ModeOfPayment,
 AuthoriseModel,ItemUOMPriceModel,ItemBatchModel,ItemBrandModel,ItemRangeModel,ItemDeptModel,EmployeeListModel,
 SiteCodeModel,ItemSupplyModel,StockModel,StktrnModel,MovHdrModel,MovDtlModel,PHYHdrModel,PHYDtlModel,
@@ -1065,6 +1065,48 @@ class ComboServicesViewset(viewsets.ModelViewSet):
     def perform_destroy(self, instance):
         instance.Isactive = False
         instance.save() 
+
+class EmployeeListAPI(generics.ListAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = Employee.objects.filter(emp_isactive=True).order_by('-pk')
+    serializer_class = []
+
+    def list(self, request):
+        try:
+            if self.request.GET.get('sales_staff',None) is None:
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give sales_staff in parms!!",'error': True} 
+                return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True).first()
+            site = fmspw.loginsite 
+            emp_siteids = EmpSitelist.objects.filter(Site_Codeid__pk=site.pk,isactive=True)
+            staffs = list(set([e.Emp_Codeid.pk for e in emp_siteids if e.Emp_Codeid and e.Emp_Codeid.emp_isactive == True]))
+            if self.request.GET.get('sales_staff',None) == "1":
+                queryset = Employee.objects.filter(pk__in=staffs,emp_isactive=True,show_in_sales=True).order_by('emp_seq_webappt').values('pk','display_name')
+                result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully ",'error': False,
+                'data': queryset}
+                return Response(result, status=status.HTTP_200_OK)
+            elif self.request.GET.get('sales_staff',None) == "0":
+                queryset = Fmspw.objects.filter(pw_isactive=True,level_desc="ADMINISTRATOR").order_by('pk').values('pk','pw_userlogin')
+                result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully ",'error': False,
+                'data': queryset}
+                return Response(result, status=status.HTTP_200_OK)
+            elif self.request.GET.get('sales_staff',None) == "2":
+                query1 = list(set(Fmspw.objects.filter(pw_isactive=True,level_desc="ADMINISTRATOR").values_list('Emp_Codeid', flat=True).distinct()))
+                query2 = list(set(Employee.objects.filter(pk__in=staffs,emp_isactive=True,show_in_sales=True).values_list('pk', flat=True).distinct())) 
+                lst = query1 + query2
+                queryset = Employee.objects.filter(emp_isactive=True).exclude(pk__in=lst).order_by('pk').values('pk','display_name')
+                result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully ",'error': False,
+                'data': queryset}
+                return Response(result, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)             
+            
+
+
+
 
 class EmployeeCartAPI(viewsets.ModelViewSet):
     authentication_classes = [ExpiringTokenAuthentication]
@@ -10503,8 +10545,8 @@ class CustomerProjectListViewset(viewsets.ModelViewSet):
 
 
 class ProjectListViewset(viewsets.ModelViewSet):
-    #authentication_classes = [ExpiringTokenAuthentication]
-    #permission_classes = [IsAuthenticated & authenticated_only]
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
     queryset = ProjectModel.objects.filter().order_by('-pk')
     serializer_class = ProjectSerializer
 
@@ -10605,7 +10647,10 @@ class ProjectListViewset(viewsets.ModelViewSet):
                         "contact_person": allquery.contact_person,
                         "contact_number": allquery.contact_number,
                         "active": allquery.active,
-                        "created_at": serializer["created_at"]
+                        "created_at": serializer["created_at"],
+                        "sales_staff": allquery.sales_staff,
+                        "admin_staff" :allquery.admin_staff,
+                        "operation_staff": allquery.operation_staff
                     })        
                     
                 
@@ -11140,10 +11185,11 @@ class WorkOrderInvoiceListViewset(viewsets.ModelViewSet):
                     
                     for allqueryt in queryt:
                         if not allqueryt.q_total == '' and allqueryt.q_total is not None:
-                            try:
-                                t_amount += int(allqueryt.q_total)
-                            except:
-                                t_amount += 0
+                            t_amount += float(allqueryt.q_total)
+                            # try:
+                            #     t_amount += int(allqueryt.q_total)
+                            # except:
+                            #     t_amount += 0
                     serializer = DateFormatSerializer.datetime_formatting(self,allquery)
                     data_list.append({
                         "id": allquery.id,
@@ -11160,7 +11206,7 @@ class WorkOrderInvoiceListViewset(viewsets.ModelViewSet):
                         "active": allquery.active,
                         "fk_project_id": allquery.fk_project_id,
                         "created_at": serializer["created_at"],
-                        "total_amount": t_amount
+                        "total_amount": "{:.2f}".format(float(t_amount))
                     })    
                 
 
@@ -11580,13 +11626,14 @@ class ManualInvoiceListViewset(viewsets.ModelViewSet):
                 for allquery in queryset:
                     t_amount = 0
                     queryt = ManualInvoiceDetailModel.objects.filter(fk_manualinvoice_id=allquery.id,active='active').order_by('-pk')        
-                    
                     for allqueryt in queryt:
                         if not allqueryt.q_total == '' and allqueryt.q_total is not None:
-                            try:
-                                t_amount += int(allqueryt.q_total)
-                            except:
-                                t_amount += 0
+                            t_amount += float(allqueryt.q_total)
+                            # try:
+                            #     t_amount += int(allqueryt.q_total)
+                            # except:
+                            #     t_amount += 0
+
                     serializer = DateFormatSerializer.datetime_formatting(self,allquery)
                     data_list.append({
                         "id": allquery.id,
@@ -11603,7 +11650,7 @@ class ManualInvoiceListViewset(viewsets.ModelViewSet):
                         "active": allquery.active,
                         "fk_project_id": allquery.fk_project_id,
                         "created_at": serializer["created_at"],
-                        "total_amount": t_amount
+                        "total_amount": "{:.2f}".format(float(t_amount))
                     })    
                 
 
@@ -11990,8 +12037,8 @@ class QuotationListViewset(viewsets.ModelViewSet):
                                         
         
 class POListViewset(viewsets.ModelViewSet):
-    #authentication_classes = [ExpiringTokenAuthentication]
-    #permission_classes = [IsAuthenticated & authenticated_only]
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
     queryset = POModel.objects.filter().order_by('-pk')
     serializer_class = POSerializer
     
@@ -12030,6 +12077,7 @@ class POListViewset(viewsets.ModelViewSet):
                     fk_project_id = request.data["fk_project"]
                 ActivityListViewset.all_project("Purchase Order Created",request.data["username"],"active","po",fk_project_id)
                 fk_id = self.all_project()
+                # print(fk_id,"fk_id")
                 TimeLogViewset.all_project(request.data["username"],"create",None,None,fk_id)
                 state = status.HTTP_201_CREATED
                 message = "Created Succesfully"
@@ -12721,8 +12769,8 @@ class QuotationAddrViewset(viewsets.ModelViewSet):
 
 
 class POAddrViewset(viewsets.ModelViewSet):
-    #authentication_classes = [ExpiringTokenAuthentication]
-    #permission_classes = [IsAuthenticated & authenticated_only]
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
     queryset = POAddrModel.objects.filter().order_by('-pk')
     serializer_class = POAddrSerializer
     
@@ -13331,8 +13379,8 @@ class QuotationDetailViewset(viewsets.ModelViewSet):
             raise Http404
 
 class PODetailViewset(viewsets.ModelViewSet):
-    #authentication_classes = [ExpiringTokenAuthentication]
-    #permission_classes = [IsAuthenticated & authenticated_only]
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
     queryset = PODetailModel.objects.filter().order_by('-pk')
     serializer_class = PODetailSerializer
     
@@ -13528,7 +13576,7 @@ class DeliveryOrderItemViewset(viewsets.ModelViewSet):
                     data_list.append({
                         "id": allquery.id,
                         "quotation_quantity": allquery.quotation_quantity,
-                        "quotation_unitprice": allquery.quotation_unitprice,
+                        "quotation_unitprice": "{:.2f}".format(float(allquery.quotation_unitprice)),
                         "quotation_itemremarks": allquery.quotation_itemremarks,
                         "quotation_itemcode": allquery.quotation_itemcode,
                         "quotation_itemdesc": allquery.quotation_itemdesc,
@@ -13696,7 +13744,7 @@ class WorkOrderInvoiceItemViewset(viewsets.ModelViewSet):
                     data_list.append({
                         "id": allquery.id,
                         "quotation_quantity": allquery.quotation_quantity,
-                        "quotation_unitprice": allquery.quotation_unitprice,
+                        "quotation_unitprice": "{:.2f}".format(float(allquery.quotation_unitprice)),
                         "quotation_itemremarks": allquery.quotation_itemremarks,
                         "quotation_itemcode": allquery.quotation_itemcode,
                         "quotation_itemdesc": allquery.quotation_itemdesc,
@@ -13865,7 +13913,7 @@ class ManualInvoiceItemViewset(viewsets.ModelViewSet):
                     data_list.append({
                         "id": allquery.id,
                         "quotation_quantity": allquery.quotation_quantity,
-                        "quotation_unitprice": allquery.quotation_unitprice,
+                        "quotation_unitprice": "{:.2f}".format(float(allquery.quotation_unitprice)),
                         "quotation_itemremarks": allquery.quotation_itemremarks,
                         "quotation_itemcode": allquery.quotation_itemcode,
                         "quotation_itemdesc": allquery.quotation_itemdesc,
@@ -14126,171 +14174,171 @@ class QuotationItemViewset(viewsets.ModelViewSet):
             raise Http404
 
 
-# class POItemViewset(viewsets.ModelViewSet):
-#     #authentication_classes = [ExpiringTokenAuthentication]
-#     #permission_classes = [IsAuthenticated & authenticated_only]
-#     queryset = POItemModel.objects.filter().order_by('-pk')
-#     serializer_class = POItemSerializer
+class POItemViewset(viewsets.ModelViewSet):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = POItemModel.objects.filter().order_by('-pk')
+    serializer_class = POItemSerializer
     
-#     def create(self, request):
-#         try:
-#             queryset = None
-#             serializer_class = None
-#             total = None
-#             request.POST._mutable = True
-#             serializer = self.get_serializer(data=request.data)
-#             if serializer.is_valid():
-#                 self.perform_create(serializer)
-#                 serializer.save()
-#                 state = status.HTTP_201_CREATED
-#                 message = "Created Succesfully"
-#                 error = False
-#                 data = serializer.data
-#                 result=response(self,request, queryset, total, state, message, error, serializer_class, data, action=self.action)
-#                 return Response(result, status=status.HTTP_201_CREATED)
+    def create(self, request):
+        try:
+            queryset = None
+            serializer_class = None
+            total = None
+            request.POST._mutable = True
+            serializer = self.get_serializer(data=request.data)
+            if serializer.is_valid():
+                self.perform_create(serializer)
+                serializer.save()
+                state = status.HTTP_201_CREATED
+                message = "Created Succesfully"
+                error = False
+                data = serializer.data
+                result=response(self,request, queryset, total, state, message, error, serializer_class, data, action=self.action)
+                return Response(result, status=status.HTTP_201_CREATED)
 
-#             state = status.HTTP_400_BAD_REQUEST
-#             message = "Invalid Input"
-#             error = True
-#             data = serializer.errors
-#             result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
-#             return Response(result, status=status.HTTP_400_BAD_REQUEST)
-#         except Exception as e:
-#             invalid_message = str(e)
-#             return general_error_response(invalid_message)  
+            state = status.HTTP_400_BAD_REQUEST
+            message = "Invalid Input"
+            error = True
+            data = serializer.errors
+            result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)  
 
-#     def get_queryset(self):
-#         queryset = POItemModel.objects.filter().order_by('-pk')
-#         searchid = self.request.GET.get('searchpoitemid','')
-#         searchitemcode = self.request.GET.get('searchpoitemcode','')
+    def get_queryset(self):
+        queryset = POItemModel.objects.filter().order_by('-pk')
+        searchid = self.request.GET.get('searchpoitemid','')
+        searchitemcode = self.request.GET.get('searchpoitemcode','')
 
-#         if searchid == '' and searchitemcode == '':
-#             queryset = POItemModel.objects.filter(active='active').order_by('-pk') 
-#         elif not searchid == '' and searchitemcode == '':
-#             queryset = POItemModel.objects.filter(fk_po_id=searchid,active='active').order_by('-pk') 
-#         elif searchid == '' and not searchitemcode == '':
-#             queryset = POItemModel.objects.filter(po_itemcode=searchitemcode,active='active').order_by('-pk') 
-#         else:
-#             queryset = POItemModel.objects.filter(fk_po_id=searchid,po_itemcode=searchitemcode,active='active').order_by('-pk') 
+        if searchid == '' and searchitemcode == '':
+            queryset = POItemModel.objects.filter(active='active').order_by('-pk') 
+        elif not searchid == '' and searchitemcode == '':
+            queryset = POItemModel.objects.filter(fk_po_id=searchid,active='active').order_by('-pk') 
+        elif searchid == '' and not searchitemcode == '':
+            queryset = POItemModel.objects.filter(po_itemcode=searchitemcode,active='active').order_by('-pk') 
+        else:
+            queryset = POItemModel.objects.filter(fk_po_id=searchid,po_itemcode=searchitemcode,active='active').order_by('-pk') 
         
-#         return queryset
+        return queryset
 
-#     def list(self, request):
-#         try:
-#             serializer_class = POItemSerializer
-#             queryset = self.filter_queryset(self.get_queryset())
-#             if queryset:
-#                 full_tot = queryset.count()
-#                 try:
-#                     limit = int(request.GET.get("limit",8))
-#                 except:
-#                     limit = 8
-#                 try:
-#                     page = int(request.GET.get("page",1))
-#                 except:
-#                     page = 1
+    def list(self, request):
+        try:
+            serializer_class = POItemSerializer
+            queryset = self.filter_queryset(self.get_queryset())
+            if queryset:
+                full_tot = queryset.count()
+                try:
+                    limit = int(request.GET.get("limit",8))
+                except:
+                    limit = 8
+                try:
+                    page = int(request.GET.get("page",1))
+                except:
+                    page = 1
 
-#                 paginator = Paginator(queryset, limit)
-#                 total_page = paginator.num_pages
+                paginator = Paginator(queryset, limit)
+                total_page = paginator.num_pages
 
-#                 try:
-#                     queryset = paginator.page(page)
-#                 except (EmptyPage, InvalidPage):
-#                     queryset = paginator.page(total_page) # last page
-#                 data_list= []
-#                 for allquery in queryset:
+                try:
+                    queryset = paginator.page(page)
+                except (EmptyPage, InvalidPage):
+                    queryset = paginator.page(total_page) # last page
+                data_list= []
+                for allquery in queryset:
 
-#                     data_list.append({
-#                         "id": allquery.id,
-#                         "po_quantity": allquery.po_quantity,
-#                         "po_unitprice": allquery.po_unitprice,
-#                         "po_itemremarks": allquery.po_itemremarks,
-#                         "po_itemcode": allquery.po_itemcode,
-#                         "po_itemdesc": allquery.po_itemdesc,
-#                         "active": allquery.active,
-#                         "fk_po_id": allquery.fk_po_id
-#                     })        
+                    data_list.append({
+                        "id": allquery.id,
+                        "po_quantity": allquery.po_quantity,
+                        "po_unitprice": allquery.po_unitprice,
+                        "po_itemremarks": allquery.po_itemremarks,
+                        "po_itemcode": allquery.po_itemcode,
+                        "po_itemdesc": allquery.po_itemdesc,
+                        "active": allquery.active,
+                        "fk_po_id": allquery.fk_po_id
+                    })        
                     
                 
 
-#                 resData = {
-#                     'dataList': data_list,
-#                     'pagination': {
-#                            "per_page":limit,
-#                            "current_page":page,
-#                            "total":full_tot,
-#                            "total_pages":total_page
-#                     }
-#                 }
-#                 result = {'status': status.HTTP_200_OK,"message": "Listed Succesfully",'error': False, 'data':  resData}
-#             else:
-#                 serializer = self.get_serializer()
-#                 result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
-#             return Response(data=result, status=status.HTTP_200_OK) 
-#         except Exception as e:
-#             invalid_message = str(e)
-#             return general_error_response(invalid_message)          
+                resData = {
+                    'dataList': data_list,
+                    'pagination': {
+                           "per_page":limit,
+                           "current_page":page,
+                           "total":full_tot,
+                           "total_pages":total_page
+                    }
+                }
+                result = {'status': status.HTTP_200_OK,"message": "Listed Succesfully",'error': False, 'data':  resData}
+            else:
+                serializer = self.get_serializer()
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+            return Response(data=result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)          
 
-#     def update(self, request, pk=None):
-#         try:
-#             queryset = None
-#             total = None
-#             serializer_class = None
-#             poitem = self.get_object(pk)
-#             serializer = POItemSerializer(poitem, data=request.data)
-#             if serializer.is_valid():
-#                 serializer.save()
-#                 state = status.HTTP_200_OK
-#                 message = "Updated Succesfully"
-#                 error = False
-#                 data = serializer.data
-#                 result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
-#                 return Response(result, status=status.HTTP_200_OK)
+    def update(self, request, pk=None):
+        try:
+            queryset = None
+            total = None
+            serializer_class = None
+            poitem = self.get_object(pk)
+            serializer = POItemSerializer(poitem, data=request.data)
+            if serializer.is_valid():
+                serializer.save()
+                state = status.HTTP_200_OK
+                message = "Updated Succesfully"
+                error = False
+                data = serializer.data
+                result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+                return Response(result, status=status.HTTP_200_OK)
 
-#             state = status.HTTP_400_BAD_REQUEST
-#             message = "Invalid Input"
-#             error = True
-#             data = serializer.errors
-#             result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
-#             return Response(result, status=status.HTTP_200_OK)
-#         except Exception as e:
-#             invalid_message = str(e)
-#             return general_error_response(invalid_message)    
+            state = status.HTTP_400_BAD_REQUEST
+            message = "Invalid Input"
+            error = True
+            data = serializer.errors
+            result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+            return Response(result, status=status.HTTP_200_OK)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)    
 
           
-#     def destroy(self, request, pk=None):
-#         try:
-#             data = None
-#             queryset = None
-#             total = None
-#             serializer_class = None
-#             request.data["active"] = "inactive"
-#             poitem = self.get_object(pk)
-#             serializer = POItemSerializer(poitem, data=request.data)
-#             state = status.HTTP_204_NO_CONTENT
-#             if serializer.is_valid():
-#                 serializer.save()
-#                 message = "Deleted Succesfully"
-#                 error = False
-#                 state = status.HTTP_200_OK
-#                 result=response(self,request, queryset, total,  state, message, error, serializer_class, data, action=self.action)
-#                 return Response(result,status=status.HTTP_200_OK)    
+    def destroy(self, request, pk=None):
+        try:
+            data = None
+            queryset = None
+            total = None
+            serializer_class = None
+            request.data["active"] = "inactive"
+            poitem = self.get_object(pk)
+            serializer = POItemSerializer(poitem, data=request.data)
+            state = status.HTTP_204_NO_CONTENT
+            if serializer.is_valid():
+                serializer.save()
+                message = "Deleted Succesfully"
+                error = False
+                state = status.HTTP_200_OK
+                result=response(self,request, queryset, total,  state, message, error, serializer_class, data, action=self.action)
+                return Response(result,status=status.HTTP_200_OK)    
             
 
-#             message = "No Content"
-#             error = True
-#             result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
-#             return Response(result,status=state)
-#         except Exception as e:
-#             invalid_message = str(e)
-#             return general_error_response(invalid_message)          
+            message = "No Content"
+            error = True
+            result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+            return Response(result,status=state)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)          
 
 
-#     def get_object(self, pk):
-#         try:
-#             return POItemModel.objects.get(pk=pk)
-#         except POItemModel.DoesNotExist:
-#             raise Http404
+    def get_object(self, pk):
+        try:
+            return POItemModel.objects.get(pk=pk)
+        except POItemModel.DoesNotExist:
+            raise Http404
 
 class DropdownProjectViewset(viewsets.ModelViewSet):
     #authentication_classes = [ExpiringTokenAuthentication]
@@ -20543,188 +20591,188 @@ class VGRNItemViewset(viewsets.ModelViewSet):
 #         return str(doccontrolobj.control_prefix)+str(doccontrolobj.Site_Code)+str(doccontrolobj.control_no)
                                         
 
-class POItemViewset(viewsets.ModelViewSet):
-    #authentication_classes = [ExpiringTokenAuthentication]
-    #permission_classes = [IsAuthenticated & authenticated_only]
-    queryset = PODetailModel.objects.filter().order_by('-pk')
-    serializer_class = PODetailSerializer
+# class POItemViewset(viewsets.ModelViewSet):
+#     #authentication_classes = [ExpiringTokenAuthentication]
+#     #permission_classes = [IsAuthenticated & authenticated_only]
+#     queryset = PODetailModel.objects.filter().order_by('-pk')
+#     serializer_class = PODetailSerializer
     
-    def create(self, request):
-        try:
-            queryset = None
-            serializer_class = None
-            total = None
-            request.POST._mutable = True
-            request.data["IsApproved"] = 0
-            request.data["PostStatus"] = 0
-            serializer = self.get_serializer(data=request.data)
-            if serializer.is_valid():
-                self.perform_create(serializer)
-                serializer.save()
-                state = status.HTTP_201_CREATED
-                message = "Created Succesfully"
-                error = False
-                data = serializer.data
-                result=response(self,request, queryset, total, state, message, error, serializer_class, data, action=self.action)
-                return Response(result, status=status.HTTP_201_CREATED)
+#     def create(self, request):
+#         try:
+#             queryset = None
+#             serializer_class = None
+#             total = None
+#             request.POST._mutable = True
+#             request.data["IsApproved"] = 0
+#             request.data["PostStatus"] = 0
+#             serializer = self.get_serializer(data=request.data)
+#             if serializer.is_valid():
+#                 self.perform_create(serializer)
+#                 serializer.save()
+#                 state = status.HTTP_201_CREATED
+#                 message = "Created Succesfully"
+#                 error = False
+#                 data = serializer.data
+#                 result=response(self,request, queryset, total, state, message, error, serializer_class, data, action=self.action)
+#                 return Response(result, status=status.HTTP_201_CREATED)
 
-            state = status.HTTP_400_BAD_REQUEST
-            message = "Invalid Input"
-            error = True
-            data = serializer.errors
-            result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
-            return Response(result, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            invalid_message = str(e)
-            return general_error_response(invalid_message)  
+#             state = status.HTTP_400_BAD_REQUEST
+#             message = "Invalid Input"
+#             error = True
+#             data = serializer.errors
+#             result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+#             return Response(result, status=status.HTTP_400_BAD_REQUEST)
+#         except Exception as e:
+#             invalid_message = str(e)
+#             return general_error_response(invalid_message)  
 
-    def get_queryset(self):
-        queryset = PODetailModel.objects.filter().order_by('-pk')
-        searchuom = self.request.GET.get('searchuom','')
-        searchitemid = self.request.GET.get('searchitemid','')
-        searchpono = self.request.GET.get('searchpono','')
-        searchitemcode = self.request.GET.get('searchitemcode','')
-        searchitemdesc = self.request.GET.get('searchitemdesc','')
+#     def get_queryset(self):
+#         queryset = PODetailModel.objects.filter().order_by('-pk')
+#         searchuom = self.request.GET.get('searchuom','')
+#         searchitemid = self.request.GET.get('searchitemid','')
+#         searchpono = self.request.GET.get('searchpono','')
+#         searchitemcode = self.request.GET.get('searchitemcode','')
+#         searchitemdesc = self.request.GET.get('searchitemdesc','')
 
-        if searchitemcode == '':
-            queryset = PODetailModel.objects.filter(PO_ID__icontains=searchitemid,PO_No__icontains=searchpono,BrandName__icontains=searchuom,POD_ITEMDESC__icontains=searchitemdesc).order_by('-pk') 
-        else:
-            queryset = PODetailModel.objects.filter(PO_ID__icontains=searchitemid,PO_No__icontains=searchpono,BrandName__icontains=searchuom,POD_ITEMCODE__icontains=searchitemcode,POD_ITEMDESC__icontains=searchitemdesc).order_by('-pk') 
+#         if searchitemcode == '':
+#             queryset = PODetailModel.objects.filter(PO_ID__icontains=searchitemid,PO_No__icontains=searchpono,BrandName__icontains=searchuom,POD_ITEMDESC__icontains=searchitemdesc).order_by('-pk') 
+#         else:
+#             queryset = PODetailModel.objects.filter(PO_ID__icontains=searchitemid,PO_No__icontains=searchpono,BrandName__icontains=searchuom,POD_ITEMCODE__icontains=searchitemcode,POD_ITEMDESC__icontains=searchitemdesc).order_by('-pk') 
         
-        return queryset
+#         return queryset
 
-    def list(self, request):
-        try:
-            serializer_class = PODetailSerializer
-            queryset = self.filter_queryset(self.get_queryset())
-            if queryset:
-                full_tot = queryset.count()
-                try:
-                    limit = int(request.GET.get("limit",8))
-                except:
-                    limit = 8
-                try:
-                    page = int(request.GET.get("page",1))
-                except:
-                    page = 1
+#     def list(self, request):
+#         try:
+#             serializer_class = PODetailSerializer
+#             queryset = self.filter_queryset(self.get_queryset())
+#             if queryset:
+#                 full_tot = queryset.count()
+#                 try:
+#                     limit = int(request.GET.get("limit",8))
+#                 except:
+#                     limit = 8
+#                 try:
+#                     page = int(request.GET.get("page",1))
+#                 except:
+#                     page = 1
 
-                paginator = Paginator(queryset, limit)
-                total_page = paginator.num_pages
+#                 paginator = Paginator(queryset, limit)
+#                 total_page = paginator.num_pages
 
-                try:
-                    queryset = paginator.page(page)
-                except (EmptyPage, InvalidPage):
-                    queryset = paginator.page(total_page) # last page
-                data_list= []
-                for allquery in queryset:
+#                 try:
+#                     queryset = paginator.page(page)
+#                 except (EmptyPage, InvalidPage):
+#                     queryset = paginator.page(total_page) # last page
+#                 data_list= []
+#                 for allquery in queryset:
 
-                    data_list.append({
-                        "PO_ID": allquery.PO_ID,
-                        "POD_ID": allquery.POD_ID,
-                        "ITEMSITE_CODE": allquery.ITEMSITE_CODE,
-                        "STATUS": allquery.STATUS,
-                        "POD_ITEMCODE": allquery.POD_ITEMCODE,
-                        "POD_ITEMDESC": allquery.POD_ITEMDESC,
-                        "POD_ITEMPRICE": allquery.POD_ITEMPRICE,
-                        "POD_QTY": allquery.POD_QTY,
-                        "POD_FOCQTY": allquery.POD_FOCQTY,
-                        "POD_TTLQTY": allquery.POD_TTLQTY,
-                        "POD_PRICE": allquery.POD_PRICE,
-                        "POD_DISCPER": allquery.POD_DISCPER,
-                        "POD_DISCAMT": allquery.POD_DISCAMT,
-                        "POD_AMT": allquery.POD_AMT,
-                        "POD_RECQTY": allquery.POD_RECQTY,
-                        "POD_CANCELQTY": allquery.POD_CANCELQTY,
-                        "POD_OUTQTY": allquery.POD_OUTQTY,
-                        "POD_DATE": allquery.POD_DATE,
-                        "POD_TIME": allquery.POD_TIME,
-                        "BrandCode": allquery.BrandCode,
-                        "BrandName": allquery.BrandName,
-                        "LineNumber": allquery.LineNumber,
-                        "PO_No": allquery.PO_No,
-                        "PostStatus": allquery.PostStatus
-                    })        
+#                     data_list.append({
+#                         "PO_ID": allquery.PO_ID,
+#                         "POD_ID": allquery.POD_ID,
+#                         "ITEMSITE_CODE": allquery.ITEMSITE_CODE,
+#                         "STATUS": allquery.STATUS,
+#                         "POD_ITEMCODE": allquery.POD_ITEMCODE,
+#                         "POD_ITEMDESC": allquery.POD_ITEMDESC,
+#                         "POD_ITEMPRICE": allquery.POD_ITEMPRICE,
+#                         "POD_QTY": allquery.POD_QTY,
+#                         "POD_FOCQTY": allquery.POD_FOCQTY,
+#                         "POD_TTLQTY": allquery.POD_TTLQTY,
+#                         "POD_PRICE": allquery.POD_PRICE,
+#                         "POD_DISCPER": allquery.POD_DISCPER,
+#                         "POD_DISCAMT": allquery.POD_DISCAMT,
+#                         "POD_AMT": allquery.POD_AMT,
+#                         "POD_RECQTY": allquery.POD_RECQTY,
+#                         "POD_CANCELQTY": allquery.POD_CANCELQTY,
+#                         "POD_OUTQTY": allquery.POD_OUTQTY,
+#                         "POD_DATE": allquery.POD_DATE,
+#                         "POD_TIME": allquery.POD_TIME,
+#                         "BrandCode": allquery.BrandCode,
+#                         "BrandName": allquery.BrandName,
+#                         "LineNumber": allquery.LineNumber,
+#                         "PO_No": allquery.PO_No,
+#                         "PostStatus": allquery.PostStatus
+#                     })        
                     
                 
 
-                resData = {
-                    'dataList': data_list,
-                    'pagination': {
-                           "per_page":limit,
-                           "current_page":page,
-                           "total":full_tot,
-                           "total_pages":total_page
-                    }
-                }
-                result = {'status': status.HTTP_200_OK,"message": "Listed Succesfully",'error': False, 'data':  resData}
-            else:
-                serializer = self.get_serializer()
-                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
-            return Response(data=result, status=status.HTTP_200_OK) 
-        except Exception as e:
-            invalid_message = str(e)
-            return general_error_response(invalid_message)          
+#                 resData = {
+#                     'dataList': data_list,
+#                     'pagination': {
+#                            "per_page":limit,
+#                            "current_page":page,
+#                            "total":full_tot,
+#                            "total_pages":total_page
+#                     }
+#                 }
+#                 result = {'status': status.HTTP_200_OK,"message": "Listed Succesfully",'error': False, 'data':  resData}
+#             else:
+#                 serializer = self.get_serializer()
+#                 result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+#             return Response(data=result, status=status.HTTP_200_OK) 
+#         except Exception as e:
+#             invalid_message = str(e)
+#             return general_error_response(invalid_message)          
 
-    def update(self, request, pk=None):
-        try:
-            queryset = None
-            total = None
-            serializer_class = None
-            PODetail = self.get_object(pk)
-            request.POST._mutable = True
-            request.data["PostStatus"] = 1
-            serializer = PODetailSerializer(PODetail, data=request.data)
-            if serializer.is_valid():
-                serializer.save()
-                state = status.HTTP_200_OK
-                message = "Updated Succesfully"
-                error = False
-                data = serializer.data
-                result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
-                return Response(result, status=status.HTTP_200_OK)
+#     def update(self, request, pk=None):
+#         try:
+#             queryset = None
+#             total = None
+#             serializer_class = None
+#             PODetail = self.get_object(pk)
+#             request.POST._mutable = True
+#             request.data["PostStatus"] = 1
+#             serializer = PODetailSerializer(PODetail, data=request.data)
+#             if serializer.is_valid():
+#                 serializer.save()
+#                 state = status.HTTP_200_OK
+#                 message = "Updated Succesfully"
+#                 error = False
+#                 data = serializer.data
+#                 result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+#                 return Response(result, status=status.HTTP_200_OK)
 
-            state = status.HTTP_400_BAD_REQUEST
-            message = "Invalid Input"
-            error = True
-            data = serializer.errors
-            result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
-            return Response(result, status=status.HTTP_200_OK)
-        except Exception as e:
-            invalid_message = str(e)
-            return general_error_response(invalid_message)    
+#             state = status.HTTP_400_BAD_REQUEST
+#             message = "Invalid Input"
+#             error = True
+#             data = serializer.errors
+#             result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+#             return Response(result, status=status.HTTP_200_OK)
+#         except Exception as e:
+#             invalid_message = str(e)
+#             return general_error_response(invalid_message)    
 
-    def destroy(self, request, pk=None):
-        try:
-            queryset = None
-            total = None
-            serializer_class = None
-            data = None
-            state = status.HTTP_204_NO_CONTENT
-            try:
-                instance = self.get_object(pk)
-                self.perform_destroy(instance)
-                message = "Deleted Succesfully"
-                error = False
-                result=response(self,request, queryset, total,  state, message, error, serializer_class, data, action=self.action)
-                return Response(result,status=status.HTTP_200_OK)    
-            except Http404:
-                pass
+#     def destroy(self, request, pk=None):
+#         try:
+#             queryset = None
+#             total = None
+#             serializer_class = None
+#             data = None
+#             state = status.HTTP_204_NO_CONTENT
+#             try:
+#                 instance = self.get_object(pk)
+#                 self.perform_destroy(instance)
+#                 message = "Deleted Succesfully"
+#                 error = False
+#                 result=response(self,request, queryset, total,  state, message, error, serializer_class, data, action=self.action)
+#                 return Response(result,status=status.HTTP_200_OK)    
+#             except Http404:
+#                 pass
 
-            message = "No Content"
-            error = True
-            result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
-            return Response(result,status=state)
-        except Exception as e:
-            invalid_message = str(e)
-            return general_error_response(invalid_message)                
+#             message = "No Content"
+#             error = True
+#             result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+#             return Response(result,status=state)
+#         except Exception as e:
+#             invalid_message = str(e)
+#             return general_error_response(invalid_message)                
        
 
 
-    def get_object(self, pk):
-        try:
-            return PODetailModel.objects.get(pk=pk)
-        except PODetailModel.DoesNotExist:
-            raise Http404
+#     def get_object(self, pk):
+#         try:
+#             return PODetailModel.objects.get(pk=pk)
+#         except PODetailModel.DoesNotExist:
+#             raise Http404
 
 
 class POApprovalListViewset(viewsets.ModelViewSet):
@@ -23368,6 +23416,9 @@ class UserAuthorizationPopup(generics.CreateAPIView):
             return general_error_response(invalid_message)        
     
 
+
+
+
 class QuotationToCartAPIView(generics.CreateAPIView):
     authentication_classes = [ExpiringTokenAuthentication]
     permission_classes = [IsAuthenticated & authenticated_only]
@@ -23414,7 +23465,8 @@ class QuotationToCartAPIView(generics.CreateAPIView):
                     emp_obj = Employee.objects.filter(Q(emp_name=quotation_ids.in_charge) | 
                     Q(display_name=quotation_ids.in_charge)).first()
                 if not emp_obj:
-                    raise Exception('Employee ID does not exist!!.')
+                    fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True).first()
+                    emp_obj = fmspw.Emp_Codeid
 
                     
                 cartlst = []
@@ -23481,9 +23533,9 @@ class QuotationToCartAPIView(generics.CreateAPIView):
                     uom_id = None
                     if int(stock_obj.item_div) == 1:
                         itemuomprice = ItemUomprice.objects.filter(isactive=True, item_code=stock_obj.item_code).order_by('id').first()
-                        print(itemuomprice,"itemuomprice")
+                        # print(itemuomprice,"itemuomprice")
                         uom_id = ItemUom.objects.filter(uom_isactive=True,uom_code=itemuomprice.item_uom).order_by('id').first()
-                        print(uom_id,"uom_id")    
+                        # print(uom_id,"uom_id")    
 
                     if int(stock_obj.item_div) == 1:
                         recorddetail="Product"
@@ -23559,7 +23611,32 @@ class QuotationToCartAPIView(generics.CreateAPIView):
             return general_error_response(invalid_message)        
     
 
-class CartToManualInvoiceAPIView(generics.CreateAPIView):
+class SaTransacnorefAPIView(generics.ListAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = PosHaud.objects.filter().order_by('-pk')
+    serializer_class = InvoiceListingSerializer
+
+    def list(self, request):
+        try:
+            serializer_class = InvoiceListingSerializer
+            cust_name = self.request.GET.get('cust_name',None)
+            if not cust_name:
+                raise Exception('Please Give customer name!!') 
+            queryset = PosHaud.objects.filter(sa_custname=cust_name,isvoid=False).order_by('pk')
+            if queryset:
+                serializer = self.get_serializer(queryset, many=True)
+                result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 'data':  serializer.data}
+            else:
+                serializer = self.get_serializer()
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+            return Response(data=result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)             
+        
+
+class SatransacToManualInvoiceAPIView(generics.CreateAPIView):
     authentication_classes = [ExpiringTokenAuthentication]
     permission_classes = [IsAuthenticated & authenticated_only]
     serializer_class = []
@@ -23570,26 +23647,43 @@ class CartToManualInvoiceAPIView(generics.CreateAPIView):
             with transaction.atomic():  
                 fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True).order_by('-pk').first()
                 site = fmspw.loginsite
-                cart_id = request.data['cart_id']
-                if not cart_id:
-                    raise Exception('Please give cart id!!.')
+                sa_transacno_ref = request.data['sa_transacno_ref']
+                if not sa_transacno_ref:
+                    raise Exception('Please give sa transacno ref!!.')
 
                 global type_ex
-                cart_date = timezone.now().date() 
-                cartcuids = ItemCart.objects.filter(isactive=True,cart_date=cart_date,
-                cart_id=cart_id,cart_status="Completed",is_payment=True,sitecodeid=site).exclude(type__in=type_ex).order_by('lineno')   
-                if not cartcuids:
-                    raise Exception('Itemcart Does not Exist!!.')
+                cart_date = timezone.now().date()
+                pos_haudids = PosHaud.objects.filter(sa_transacno_ref=sa_transacno_ref).order_by("pk").first() 
+                if not pos_haudids:
+                    raise Exception('PosHaud Does not Exist!!.')
 
-                manual_ids = ManualInvoiceModel(cart_id=cart_id).order_by('pk')
+                manual_ids = ManualInvoiceModel.objects.filter(sa_transacno_ref=sa_transacno_ref).order_by('pk').first()
                 if manual_ids:
-                    result = {'status': status.HTTP_200_OK,"message":"Manual Invoice Value ",'error': False,
-                    'manualinv': manual_ids[0].pk}
+
+                    mserializer = ManualInvoiceSerializer(manual_ids)
+                    maddr_ids = ManualInvoiceAddrModel.objects.filter(fk_manualinvoice=manual_ids).first()
+                    maddr_ser = ManualInvoiceAddrSerializer(maddr_ids)
+                    maddr_data = maddr_ser.data 
+
+                    m_det_ids = ManualInvoiceDetailModel.objects.filter(fk_manualinvoice=manual_ids).first()
+                    m_det_ser = ManualInvoiceDetailSerializer(m_det_ids) 
+                    m_det_data = m_det_ser.data 
+
+                    m_item_ids = ManualInvoiceItemModel.objects.filter(fk_manualinvoice=manual_ids) 
+                    m_item_ser = ManualInvoiceItemSerializer(m_item_ids, many=True)
+                    m_item_data = m_item_ser.data   
+
+
+                    val = {'manualinv': mserializer.data,'manualinv_addr': maddr_data,
+                    'manualinv_detail': m_det_data,'manualinv_item': m_item_data,'manualinv_id': manual_ids.pk}
+                    result = {'status': status.HTTP_200_OK,"message":"Manual Invoice Listed Succesfully ",'error': False,
+                    'data': val}
                     return Response(result, status=status.HTTP_200_OK)
 
+                   
 
-                if cartcuids:
-                    cust_name =cartcuids[0].cust_noid.cust_name
+                if pos_haudids:
+                    cust_name =pos_haudids.sa_custname
                     qcontrolobj = ControlNo.objects.filter(control_description__iexact="ManualInvoice").first()
                     # print(qcontrolobj,"qcontrolobj")
                     if not qcontrolobj:
@@ -23599,16 +23693,18 @@ class CartToManualInvoiceAPIView(generics.CreateAPIView):
                     qcontrolobj.control_no = int(qcontrolobj.control_no) + 1
                     qcontrolobj.save()
                     manualinv =ManualInvoiceModel(manualinv_number=mo_no,company=cust_name,
-                    cart_id=cart_id)
+                    sa_transacno_ref=sa_transacno_ref,created_at=timezone.now(),status="Open")
                     manualinv.save() 
+
+                    daud_ids = PosDaud.objects.filter(sa_transacno=pos_haudids.sa_transacno)
                     
                     total = 0
-                    for i in cartcuids:
-                        total_v = i.quantity * i.price 
+                    for i in daud_ids:
+                        total_v = i.dt_qty * i.dt_price 
                         total += total_v
-                        item =ManualInvoiceItemModel(quotation_quantity=i.quantity,
-                        quotation_unitprice=i.price,quotation_itemcode=i.itemcode,
-                        quotation_itemdesc=i.itemdesc,fk_manualinvoice=manualinv)
+                        item =ManualInvoiceItemModel(quotation_quantity=i.dt_qty,
+                        quotation_unitprice=i.dt_price,quotation_itemcode=i.dt_itemnoid.item_code,
+                        quotation_itemdesc=i.dt_itemdesc,fk_manualinvoice=manualinv)
                         item.save()
 
                     detial = ManualInvoiceDetailModel(q_total=total,fk_manualinvoice=manualinv)
@@ -23617,8 +23713,25 @@ class CartToManualInvoiceAPIView(generics.CreateAPIView):
                     addr = ManualInvoiceAddrModel(fk_manualinvoice=manualinv)
                     addr.save()
 
-                    result = {'status': status.HTTP_201_CREATED,"message":"Manual Invoice Created Succesfully ",'error': False,
-                    'manualinv': manualinv.pk}
+                    m_ids = ManualInvoiceModel.objects.filter(pk=manualinv.pk).first()
+                    mserializer = ManualInvoiceSerializer(m_ids)
+                    maddr_ids = ManualInvoiceAddrModel.objects.filter(fk_manualinvoice__pk=manualinv.pk).first()
+                    maddr_ser = ManualInvoiceAddrSerializer(maddr_ids)
+                    maddr_data = maddr_ser.data 
+
+                    m_det_ids = ManualInvoiceDetailModel.objects.filter(fk_manualinvoice__pk=manualinv.pk).first()
+                    m_det_ser = ManualInvoiceDetailSerializer(m_det_ids) 
+                    m_det_data = m_det_ser.data 
+
+                    m_item_ids = ManualInvoiceItemModel.objects.filter(fk_manualinvoice__pk=manualinv.pk) 
+                    m_item_ser = ManualInvoiceItemSerializer(m_item_ids, many=True)
+                    m_item_data = m_item_ser.data   
+
+
+                    val = {'manualinv': mserializer.data,'manualinv_addr': maddr_data,
+                    'manualinv_detail': m_det_data,'manualinv_item': m_item_data,'manualinv_id': manualinv.pk}
+                    result = {'status': status.HTTP_200_OK,"message":"Manual Invoice Created Succesfully ",'error': False,
+                    'data': val}
                     return Response(result, status=status.HTTP_201_CREATED)
 
                      
@@ -23627,7 +23740,7 @@ class CartToManualInvoiceAPIView(generics.CreateAPIView):
             return general_error_response(invalid_message)        
             
 
-class CartToWorkOrderInvoiceAPIView(generics.CreateAPIView):
+class SatransacToWorkOrderInvoiceAPIView(generics.CreateAPIView):
     authentication_classes = [ExpiringTokenAuthentication]
     permission_classes = [IsAuthenticated & authenticated_only]
     serializer_class = []
@@ -23638,26 +23751,41 @@ class CartToWorkOrderInvoiceAPIView(generics.CreateAPIView):
             with transaction.atomic():  
                 fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True).order_by('-pk').first()
                 site = fmspw.loginsite
-                cart_id = request.data['cart_id']
-                if not cart_id:
-                    raise Exception('Please give cart id!!.')
+                sa_transacno_ref = request.data['sa_transacno_ref']
+                if not sa_transacno_ref:
+                    raise Exception('Please give sa transacno ref!!.')
 
                 global type_ex
                 cart_date = timezone.now().date() 
-                cartcuids = ItemCart.objects.filter(isactive=True,cart_date=cart_date,
-                cart_id=cart_id,cart_status="Completed",is_payment=True,sitecodeid=site).exclude(type__in=type_ex).order_by('lineno')   
-                if not cartcuids:
-                    raise Exception('Itemcart Does not Exist!!.')
-                
-                workorder_ids = WorkOrderInvoiceModel.objects.filter(cart_id=cart_id).order_by('pk')
+                pos_haudids = PosHaud.objects.filter(sa_transacno_ref=sa_transacno_ref).order_by("pk").first() 
+                if not pos_haudids:
+                    raise Exception('PosHaud Does not Exist!!.')
+
+                workorder_ids = WorkOrderInvoiceModel.objects.filter(sa_transacno_ref=sa_transacno_ref).order_by('pk').first()
                 if workorder_ids:
-                    result = {'status': status.HTTP_200_OK,"message":"WorkOrder Invoice",'error': False,
-                    'manualinv': workorder_ids[0].pk}
+                    wserializer = WorkOrderInvoiceSerializer(workorder_ids)
+                    waddr_ids = WorkOrderInvoiceAddrModel.objects.filter(fk_workorderinvoice=workorder_ids).first()
+                    waddr_ser = WorkOrderInvoiceAddrSerializer(waddr_ids)
+                    waddr_data = waddr_ser.data 
+
+                    w_det_ids = WorkOrderInvoiceDetailModel.objects.filter(fk_workorderinvoice=workorder_ids).first()
+                    w_det_ser = WorkOrderDetailSerializer(w_det_ids) 
+                    w_det_data = w_det_ser.data 
+
+                    w_item_ids = WorkOrderInvoiceItemModel.objects.filter(fk_workorderinvoice=workorder_ids) 
+                    w_item_ser = WorkOrderInvoiceItemSerializer(w_item_ids, many=True)
+                    w_item_data = w_item_ser.data   
+
+
+                    val = {'workorderinv': wserializer.data,'workorderinv_addr': waddr_data,
+                    'workorderinv_detail': w_det_data,'workorderinv_item': w_item_data,'workorderinv_id': workorder_ids.pk}
+                    result = {'status': status.HTTP_200_OK,"message":"WorkOrder Invoice Listed Succesfully ",'error': False,
+                    'data': val}
                     return Response(result, status=status.HTTP_200_OK)
 
 
-                if cartcuids: 
-                    cust_name =cartcuids[0].cust_noid.cust_name
+                if pos_haudids: 
+                    cust_name = pos_haudids.sa_custname
                     qcontrolobj = ControlNo.objects.filter(control_description__iexact="WorkOrderInvoice",).first()
                     # print(qcontrolobj,"qcontrolobj")
                     if not qcontrolobj:
@@ -23668,16 +23796,17 @@ class CartToWorkOrderInvoiceAPIView(generics.CreateAPIView):
                     qcontrolobj.save()
 
                     workorder = WorkOrderInvoiceModel(workorderinv_number=qno,company=cust_name,
-                    cart_id=cart_id)
+                    sa_transacno_ref=sa_transacno_ref,created_at=timezone.now(),status="Open")
                     workorder.save()
-
+                    
+                    daud_ids = PosDaud.objects.filter(sa_transacno=pos_haudids.sa_transacno)
                     total = 0
-                    for i in cartcuids:
-                        total_v = i.quantity * i.price 
+                    for i in daud_ids:
+                        total_v = i.dt_qty * i.dt_price 
                         total += total_v
-                        item =WorkOrderInvoiceItemModel(quotation_quantity=i.quantity,
-                        quotation_unitprice=i.price,quotation_itemcode=i.itemcode,
-                        quotation_itemdesc=i.itemdesc,fk_workorderinvoice=workorder)
+                        item =WorkOrderInvoiceItemModel(quotation_quantity=i.dt_qty,
+                        quotation_unitprice=i.dt_price,quotation_itemcode=i.dt_itemnoid.item_code,
+                        quotation_itemdesc=i.dt_itemdesc,fk_workorderinvoice=workorder)
                         item.save()
 
                     detial = WorkOrderInvoiceDetailModel(q_total=total,fk_workorderinvoice=workorder)
@@ -23686,8 +23815,24 @@ class CartToWorkOrderInvoiceAPIView(generics.CreateAPIView):
                     addr = WorkOrderInvoiceAddrModel(fk_workorderinvoice=workorder)
                     addr.save()
 
-                    result = {'status': status.HTTP_201_CREATED,"message":"Work Order Invoice Created Succesfully ",'error': False,
-                    'workorderinv': workorder.pk}
+                    wserializer = WorkOrderInvoiceSerializer(workorder)
+                    waddr_ids = WorkOrderInvoiceAddrModel.objects.filter(fk_workorderinvoice=workorder).first()
+                    waddr_ser = WorkOrderInvoiceAddrSerializer(waddr_ids)
+                    waddr_data = waddr_ser.data 
+
+                    w_det_ids = WorkOrderInvoiceDetailModel.objects.filter(fk_workorderinvoice=workorder).first()
+                    w_det_ser = WorkOrderDetailSerializer(w_det_ids) 
+                    w_det_data = w_det_ser.data 
+
+                    w_item_ids = WorkOrderInvoiceItemModel.objects.filter(fk_workorderinvoice=workorder) 
+                    w_item_ser = WorkOrderInvoiceItemSerializer(w_item_ids, many=True)
+                    w_item_data = w_item_ser.data   
+
+
+                    val = {'workorderinv': wserializer.data,'workorderinv_addr': waddr_data,
+                    'workorderinv_detail': w_det_data,'workorderinv_item': w_item_data,'workorderinv_id': workorder.pk}
+                    result = {'status': status.HTTP_200_OK,"message":"WorkOrder Invoice Created Succesfully ",'error': False,
+                    'data': val}
                     return Response(result, status=status.HTTP_201_CREATED)
 
 
@@ -23730,10 +23875,10 @@ class WorkOrderITODeliveryAPIView(generics.CreateAPIView):
                         company=workorder.company,contact_person=workorder.contact_person,
                         status=workorder.status,validity=workorder.validity,terms=workorder.terms,
                         in_charge=workorder.in_charge,remarks=workorder.remarks,footer=workorder.footer,
-                        fk_project=workorder.fk_project,created_at=date.today(),fk_workorder=workorder)
+                        fk_project=workorder.fk_project,created_at=timezone.now(),fk_workorder=workorder)
                         do.save()
-                        do_ids = DeliveryOrderModel.objects.filter(pk=do.pk)
-                        doserializer = DeliveryOrderSerializer(do_ids, many=True)
+                        do_ids = DeliveryOrderModel.objects.filter(pk=do.pk).first()
+                        doserializer = DeliveryOrderSerializer(do_ids)
                         
                         doaddr_data = []
                         waddr_ids = WorkOrderInvoiceAddrModel.objects.filter(fk_workorderinvoice=workorder).first()
@@ -23746,8 +23891,8 @@ class WorkOrderITODeliveryAPIView(generics.CreateAPIView):
                             ship_city=waddr_ids.ship_city,ship_state=waddr_ids.ship_state,ship_country=waddr_ids.ship_country,
                             fk_deliveryorder=do)
                             doaddr.save()
-                            doaddr_ids = DeliveryOrderAddrModel.objects.filter(pk=doaddr.pk)
-                            doaddr_ser = DeliveryOrderAddrSerializer(doaddr_ids,many=True)
+                            # doaddr_ids = DeliveryOrderAddrModel.objects.filter(pk=doaddr.pk)
+                            doaddr_ser = DeliveryOrderAddrSerializer(doaddr)
                             doaddr_data = doaddr_ser.data
                         
                         do_det_data = []
@@ -23756,8 +23901,8 @@ class WorkOrderITODeliveryAPIView(generics.CreateAPIView):
                             do_det = DeliveryOrderDetailModel(q_shipcost=det_ids.q_shipcost,q_discount=det_ids.q_discount,
                             q_taxes=det_ids.q_taxes,q_total=det_ids.q_total,fk_deliveryorder=do) 
                             do_det.save()
-                            do_det_ids = DeliveryOrderDetailModel.objects.filter(pk=do_det.pk)
-                            do_det_ser = DeliveryOrderDetailSerializer(do_det_ids , many=True) 
+                            # do_det_ids = DeliveryOrderDetailModel.objects.filter(pk=do_det.pk)
+                            do_det_ser = DeliveryOrderDetailSerializer(do_det) 
                             do_det_data = do_det_ser.data    
                         
                         do_item_data = []
@@ -23778,23 +23923,23 @@ class WorkOrderITODeliveryAPIView(generics.CreateAPIView):
                         
 
                         val = {'deliveryorder': doserializer.data,'doaddr': doaddr_data,
-                        'do_detail': do_det_data,'do_item': do_item_data}
+                        'do_detail': do_det_data,'do_item': do_item_data,'deliveryorder_id': do.pk}
                         result = {'status': status.HTTP_201_CREATED,"message":"Delivery Order Created Succesfully ",'error': False,
                         'data': val}
                         return Response(result, status=status.HTTP_201_CREATED)
                     else:
-                        donew_ids = DeliveryOrderModel.objects.filter(fk_workorder=workorder)
-                        doserializer = DeliveryOrderSerializer(donew_ids, many=True)
+                        donew_ids = DeliveryOrderModel.objects.filter(fk_workorder=workorder).first()
+                        doserializer = DeliveryOrderSerializer(donew_ids)
                         # print(doserializer,"doserializer")
-                        doaddr_ids = DeliveryOrderAddrModel.objects.filter(fk_deliveryorder=donew_ids[0])
-                        doaddr_ser = DeliveryOrderAddrSerializer(doaddr_ids,many=True)
+                        doaddr_ids = DeliveryOrderAddrModel.objects.filter(fk_deliveryorder=donew_ids).first()
+                        doaddr_ser = DeliveryOrderAddrSerializer(doaddr_ids)
                         doaddr_data = doaddr_ser.data 
 
-                        do_det_ids = DeliveryOrderDetailModel.objects.filter(fk_deliveryorder=donew_ids[0])
-                        do_det_ser = DeliveryOrderDetailSerializer(do_det_ids , many=True) 
+                        do_det_ids = DeliveryOrderDetailModel.objects.filter(fk_deliveryorder=donew_ids).first()
+                        do_det_ser = DeliveryOrderDetailSerializer(do_det_ids) 
                         do_det_data = do_det_ser.data 
 
-                        do_item_ids = DeliveryOrderItemModel.objects.filter(fk_deliveryorder=donew_ids[0]) 
+                        do_item_ids = DeliveryOrderItemModel.objects.filter(fk_deliveryorder=donew_ids) 
                         do_item_ser = DeliveryOrderItemSerializer(do_item_ids, many=True)
                         do_item_data = do_item_ser.data   
 
@@ -23802,7 +23947,7 @@ class WorkOrderITODeliveryAPIView(generics.CreateAPIView):
                         
 
                         val = {'deliveryorder': doserializer.data,'doaddr': doaddr_data,
-                        'do_detail': do_det_data,'do_item': do_item_data}
+                        'do_detail': do_det_data,'do_item': do_item_data,'deliveryorder_id': donew_ids.pk}
                         result = {'status': status.HTTP_200_OK,"message":"Delivery Order Listed Succesfully ",'error': False,
                         'data': val}
                         return Response(result, status=status.HTTP_200_OK)

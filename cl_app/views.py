@@ -5665,7 +5665,7 @@ class VoidViewset(viewsets.ModelViewSet):
                     total_outstanding="{:.2f}".format(float(total_outstanding)) if total_outstanding is not None and total_outstanding > 0 else 0,trans_user_login=h.trans_user_login,
                     trans_user_loginid=h.trans_user_loginid,sa_transacno_ref=sa_transacno_ref,
                     sa_transacno_type='Void Transaction',cust_sig_path=h.cust_sig_path,sa_transacno_title="VOID",
-                    issuestrans_user_login=h.trans_user_login)
+                    issuestrans_user_login=h.trans_user_login,trans_remark=void_obj[0].reason_desc if void_obj and void_obj[0].reason_desc else None)
                     haud.save()
 
                     if haud.pk:
@@ -6039,7 +6039,7 @@ class VoidViewset(viewsets.ModelViewSet):
                     total_outstanding="{:.2f}".format(float(h.total_outstanding)) if h and h.total_outstanding is not None and h.total_outstanding > 0 else 0,trans_user_login=h.trans_user_login,
                     trans_user_loginid=h.trans_user_loginid,sa_transacno_ref=sa_transacno_ref,
                     sa_transacno_type='Void Transaction',cust_sig_path=h.cust_sig_path,sa_transacno_title="VOID",
-                    issuestrans_user_login=fmspw[0].pw_userlogin)
+                    issuestrans_user_login=fmspw[0].pw_userlogin,trans_remark=void_obj[0].reason_desc if void_obj and void_obj[0].reason_desc else None)
                     haud.save()
 
                     if haud.pk:
@@ -12247,7 +12247,7 @@ class CustomerAccountViewset(viewsets.ModelViewSet):
                 # print(datetimep,"datetimep")
                 sadate = datetime.datetime.strptime(str(datetimep), "%Y-%m-%d").strftime("%d-%m-%Y")
                 if not any(rowp['cust_code'] == pe['CustCode'] for pe in final_lst):
-                    p_val = {'CustCode': rowp['cust_code'],'Site_Code': d['Site_Code'],'CustName': rowp['cust_name'],'sa_date':sadate,'pre_bal': float("{:.2f}".format(rowp['total_remain'])) if rowp['total_remain'] else 0,'pre_out': float("{:.2f}".format(rowp['total_outstanding'])) if rowp['total_outstanding'] else 0}
+                    p_val = {'CustCode': rowp['cust_code'],'Site_Code': rowp['Site_Code'],'CustName': rowp['cust_name'],'sa_date':sadate,'pre_bal': float("{:.2f}".format(rowp['total_remain'])) if rowp['total_remain'] else 0,'pre_out': float("{:.2f}".format(rowp['total_outstanding'])) if rowp['total_outstanding'] else 0}
                     final_lst.append(p_val)
                 else:
                     for k in final_lst:

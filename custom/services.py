@@ -331,6 +331,18 @@ def GeneratePDF(self,request, sa_transacno):
     else:
         treatmentbal = False
 
+    postaud_ids = PosTaud.objects.filter(sa_transacno=sa_transacno,pay_group="PREPAID")
+    if postaud_ids:
+        showprepaid = True
+    else:
+        showprepaid = False
+    
+    if hdr[0].isvoid == True and hdr[0].sa_status == "VT":
+        showvoidreason = True
+    else:
+        showvoidreason = False
+
+
 
     # print(treatopen_ids,"treatopen_ids")
     data = {'name': title.trans_h1 if title and title.trans_h1 else '', 
@@ -345,7 +357,8 @@ def GeneratePDF(self,request, sa_transacno):
     'tot_price':tot_price,'prepaid_balance': prepaid_amt,
     'creditnote_balance': credit_amt,'total_netprice':str("{:.2f}".format((total_netprice))),
     'custsign_ids':path_custsign if path_custsign else '','prepaid_lst':prepaid_lst,
-    'prepaidbal':prepaidbal,'treatmentbal':treatmentbal}
+    'prepaidbal':prepaidbal,'treatmentbal':treatmentbal,'showprepaid': showprepaid,
+    'showvoidreason':showvoidreason}
     data.update(sub_data)
     if site.inv_templatename:
         template = get_template(site.inv_templatename)

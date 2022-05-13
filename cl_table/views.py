@@ -59,7 +59,7 @@ from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializ
                           CustomerPointSerializer, MGMSerializer,SMSReplySerializer,ConfirmBookingApptSerializer,
                           ItemDescSerializer,TempcustsignSerializer,CustomerDocumentSerializer,
                           TreatmentPackageSerializer,ItemSitelistIntialSerializer,StaffInsertSerializer,
-                          )
+                          FmspwSerializer)
 from datetime import date, timedelta, datetime
 import datetime
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
@@ -122,8 +122,9 @@ from django.core.files.storage import FileSystemStorage
 from operator import itemgetter
 from itertools import chain
 from django.db.models import Case, When, Value, IntegerField,CharField, DateField,BooleanField,FloatField
-from tablib import Dataset
-
+from tablib import Dataset, Databook
+import xlrd
+ 
 
 type_ex = ['VT-Deposit','VT-Top Up','VT-Sales']
 
@@ -3052,6 +3053,11 @@ class AppointmentViewset(viewsets.ModelViewSet):
             else:
                 room_ids = False
 
+            if 'bookedby' in Appt and Appt['bookedby']:
+                bookedby = Appt['bookedby']
+            else:
+                bookedby = None
+
         
             apptsite = fmspw[0].loginsite
             
@@ -3291,7 +3297,8 @@ class AppointmentViewset(viewsets.ModelViewSet):
                         Appt_typeid=channel if channel else None,appt_type=channel.appt_type_code if channel and channel.appt_type_code else None,requesttherapist=requesttherapist,
                         appt_fr_time=start_time,appt_to_time=req['end_time'],item_code=stock_obj.item_code,appt_remark=req['item_text'] if req['item_text'] else stock_obj.item_desc,
                         linkcode=linkcode,link_flag=link_flag,add_duration=req['add_duration'],Item_Codeid=stock_obj,
-                        checktype=req['checktype'],treat_parentcode=req['treat_parentcode'])
+                        checktype=req['checktype'],treat_parentcode=req['treat_parentcode'],
+                        bookedby=bookedby)
                         
                         if obj.pk:
                             if idx == 0:
@@ -5306,6 +5313,8 @@ class AppointmentEditViewset(viewsets.ModelViewSet):
                         #         master_ids.emp_no.remove(existing) 
                         #     master_ids.emp_no.add(cemp_obj)
 
+                    if 'editedby' in appt and appt['editedby']:
+                        appt_obj.editedby = appt['editedby']
 
                 else:
                     preapp_ids = Appointment.objects.filter(cust_no=appobj.cust_noid.cust_code,appt_date=appt['appt_date'],
@@ -5327,7 +5336,8 @@ class AppointmentEditViewset(viewsets.ModelViewSet):
                         Appt_typeid=channel_ids if channel_ids else None,appt_type=channel_ids.appt_type_code if channel_ids and channel_ids.appt_type_code else None,requesttherapist=j['requesttherapist'],
                         appt_fr_time=j['start_time'],appt_to_time=j['end_time'],item_code=stockobj.item_code,appt_remark=j['item_text'] if j['item_text'] else stockobj.item_desc,
                         appt_status=appt['appt_status'],sec_status=appt['sec_status'],linkcode=appobj.linkcode,link_flag=True,
-                        add_duration=j['add_duration'],Item_Codeid=stockobj,checktype=j['checktype'],treat_parentcode=j['treat_parentcode'])
+                        add_duration=j['add_duration'],Item_Codeid=stockobj,checktype=j['checktype'],treat_parentcode=j['treat_parentcode'],
+                        bookedby=appt['editedby'] if 'editedby' in appt and appt['editedby'] else None)
                         app_nobj.save()
                         old_empcode = None
 
@@ -5582,7 +5592,6 @@ class AppointmentEditViewset(viewsets.ModelViewSet):
                     appment = appt_obj    
                 else:
                     app_nobj.save()
-                    trt_re.save()
                     appment = app_nobj
                 
                       
@@ -19184,7 +19193,7 @@ class ExcelStaffInsertAPIView(GenericAPIView):
     
     @transaction.atomic
     def post(self, request):
-        # try:  
+        try:  
             with transaction.atomic(): 
                 dataset = Dataset()
                 staffs_excel = request.FILES['staffs_file']
@@ -19195,164 +19204,167 @@ class ExcelStaffInsertAPIView(GenericAPIView):
                 for data in imported_data:
                     print(data,"data")
                     print(data[1])
-                    phone = data[1] if data[1] else None
-                    password = data[2] if data[2] else "123"
-                    emp_type = data[3] if data[3] else None
-                    level = data[4] if data[4] else None
-                    site_codev = str(data[5]).split(',') if data[5] else None
-                    sitelst = [];siteidlst = []
-                    if site_codev:
-                        for i in site_codev:
-                            sp = str(i).split(" ")
-                            if len(sp) == 1:
-                                v = sp[0][0] + sp[0][1] 
-                            else:
-                                v = sp[0][0] + sp[1][0]    
+                    check_ids = Employee.objects.filter(Q(emp_name=data[0]) | Q(display_name=data[0]))
 
-                            s_ids = ItemSitelist.objects.filter().order_by('pk')
-                            if not s_ids:
-                                itemsite_code =  v +"01" 
-                            else:
-                                itcode = str(len(s_ids)+1).zfill(2)
-                                itemsite_code = v + itcode
+                    if not check_ids:
+                        phone = data[1] if data[1] else None
+                        password = data[2] if data[2] else "123"
+                        emp_type = data[3] if data[3] else None
+                        level = data[4] if data[4] else None
+                        site_codev = str(data[5]).split(',') if data[5] else None
+                        sitelst = [];siteidlst = []
+                        if site_codev:
+                            for i in site_codev:
+                                sp = str(i).split(" ")
+                                if len(sp) == 1:
+                                    v = sp[0][0] + sp[0][1] 
+                                else:
+                                    v = sp[0][0] + sp[1][0]    
 
-                            sitelst.append(itemsite_code)
-                            site_ids = ItemSitelist.objects.filter(itemsite_desc=i).order_by('pk').first()
-                            sitegroup_ids = SiteGroup.objects.filter().order_by('pk').first()
-                            if not site_ids:
-                                site_ids = ItemSitelist(itemsite_code=itemsite_code,itemsite_desc=i,
-                                Site_Groupid=sitegroup_ids,site_group=sitegroup_ids.code)
-                                site_ids.save()
-                                siteidlst.append(site_ids.pk)
-                            else:
-                                siteidlst.append(site_ids.pk)  
+                                s_ids = ItemSitelist.objects.filter().order_by('pk')
+                                if not s_ids:
+                                    itemsite_code =  v +"01" 
+                                else:
+                                    itcode = str(len(s_ids)+1).zfill(2)
+                                    itemsite_code = v + itcode
 
-                        defaultsite_ids = ItemSitelist.objects.filter(pk=siteidlst[0]).order_by('pk').first()         
-                    else:
-                        defaultsite_ids = ItemSitelist.objects.filter().order_by('pk').first()         
+                                sitelst.append(itemsite_code)
+                                site_ids = ItemSitelist.objects.filter(itemsite_desc=i).order_by('pk').first()
+                                sitegroup_ids = SiteGroup.objects.filter().order_by('pk').first()
+                                if not site_ids:
+                                    site_ids = ItemSitelist(itemsite_code=itemsite_code,itemsite_desc=i,
+                                    Site_Groupid=sitegroup_ids,site_group=sitegroup_ids.code)
+                                    site_ids.save()
+                                    siteidlst.append(site_ids.pk)
+                                else:
+                                    siteidlst.append(site_ids.pk)  
+
+                            defaultsite_ids = ItemSitelist.objects.filter(pk=siteidlst[0]).order_by('pk').first()         
+                        else:
+                            defaultsite_ids = ItemSitelist.objects.filter().order_by('pk').first()         
 
 
-                    if emp_type:    
-                        emp_typeids = EmpLevel.objects.filter(level_desc=emp_type).first()
-                        if not emp_typeids:
-                            control_obj = ControlNo.objects.filter(control_description__iexact="EmpLevel Code").first()
-                            if not control_obj:
-                                control_obj = ControlNo(control_no="100001",control_prefix="",
-                                control_description="EmpLevel Code",controldate=date.today(),
-                                Site_Codeid=site_ids,site_code=site_ids.itemsite_code)
+                        if emp_type:    
+                            emp_typeids = EmpLevel.objects.filter(level_desc=emp_type).first()
+                            if not emp_typeids:
+                                control_obj = ControlNo.objects.filter(control_description__iexact="EmpLevel Code").first()
+                                if not control_obj:
+                                    control_obj = ControlNo(control_no="100001",control_prefix="",
+                                    control_description="EmpLevel Code",controldate=date.today(),
+                                    Site_Codeid=site_ids,site_code=site_ids.itemsite_code)
+                                    control_obj.save()
+                
+                                emp_typeids = EmpLevel(level_code=control_obj.control_no,level_desc=emp_type)
+                                emp_typeids.save()
+                                control_obj.control_no = int(control_obj.control_no) + 1
                                 control_obj.save()
-            
-                            emp_typeids = EmpLevel(level_code=control_obj.control_no,level_desc=emp_type)
-                            emp_typeids.save()
-                            control_obj.control_no = int(control_obj.control_no) + 1
-                            control_obj.save()
-                    else:
-                        emp_typeids = EmpLevel.objects.filter().order_by('pk').first()
+                        else:
+                            emp_typeids = EmpLevel.objects.filter().order_by('pk').first()
 
-                    
-                    
-                    if level:
-                        emp_levelids = Securities.objects.filter(level_name=level).first()
-                        if not emp_levelids:
-                            control_objse = ControlNo.objects.filter(control_description__iexact="SECURITIES CODE").first()
-                            if not control_objse:
-                                control_objse = ControlNo(control_no="10",control_prefix="",
-                                control_description="SECURITIES CODE",controldate=date.today())
+                        
+                        
+                        if level:
+                            emp_levelids = Securities.objects.filter(level_name=level).first()
+                            if not emp_levelids:
+                                control_objse = ControlNo.objects.filter(control_description__iexact="SECURITIES CODE").first()
+                                if not control_objse:
+                                    control_objse = ControlNo(control_no="10",control_prefix="",
+                                    control_description="SECURITIES CODE",controldate=date.today())
+                                    control_objse.save()
+                
+                                emp_levelids = Securities(level_name=level,
+                                level_description=level,level_code=control_objse.control_no)
+                                emp_levelids.save()
+                                control_objse.control_no = int(control_objse.control_no) + 1
                                 control_objse.save()
-            
-                            emp_levelids = Securities(level_name=level,
-                            level_description=level,level_code=control_objse.control_no)
-                            emp_levelids.save()
-                            control_objse.control_no = int(control_objse.control_no) + 1
-                            control_objse.save()
-                    else:
-                        emp_levelids = Securities.objects.filter().order_by('pk').first()       
-                    
-
-                    
-                    serializer = StaffInsertSerializer(data=request.data)
-                    if serializer.is_valid():
+                        else:
+                            emp_levelids = Securities.objects.filter().order_by('pk').first()       
                         
-                        control_objs = ControlNo.objects.filter(control_description__iexact="EMP CODE",
-                        site_code=defaultsite_ids.itemsite_code).first()
-                        if not control_objs:
-                            control_objs = ControlNo(control_no="100001",control_prefix=defaultsite_ids.itemsite_code,
-                            control_description="EMP CODE",controldate=date.today(),
-                            Site_Codeid=defaultsite_ids,site_code=defaultsite_ids.itemsite_code)
-                            control_objs.save()
-            
-                        emp_code = str(control_objs.control_prefix) + str(control_objs.control_no)
 
-                        defaultobj = defaultsite_ids
                         
-                        user_obj = User.objects.filter(username=data[0])
-                        if user_obj:
-                            raise ValueError("Username already exist!!")
-                        emp_obj = Employee.objects.filter(emp_name=data[0])
-                        if emp_obj:
-                            raise ValueError("Employee already exist!!")
-
-                        fmspw_obj = Fmspw.objects.filter(pw_userlogin=data[0])
-                        if fmspw_obj:
-                            raise ValueError("Fmspw already exist!!")
-
-                        token_obj = Fmspw.objects.filter(user__username=data[0])
-                        if token_obj:
+                        serializer = StaffInsertSerializer(data=request.data)
+                        if serializer.is_valid():
                             
-                            raise ValueError("Token for this employee user is already exist!!")
-                        
-                        s = serializer.save(emp_code=emp_code,itemsite_code=defaultsite_ids.itemsite_code,
-                        EMP_TYPEid=emp_typeids,emp_type=emp_typeids.level_code,
-                        defaultsitecode=defaultsite_ids.itemsite_code,Site_Codeid=defaultsite_ids,
-                        site_code=defaultsite_ids.itemsite_code,defaultSiteCodeid=defaultsite_ids,
-                        emp_phone1=phone,emp_name=data[0],emp_barcode=data[7] if data[7] else None)
+                            control_objs = ControlNo.objects.filter(control_description__iexact="EMP CODE",
+                            site_code=defaultsite_ids.itemsite_code).first()
+                            if not control_objs:
+                                control_objs = ControlNo(control_no="100001",control_prefix=defaultsite_ids.itemsite_code,
+                                control_description="EMP CODE",controldate=date.today(),
+                                Site_Codeid=defaultsite_ids,site_code=defaultsite_ids.itemsite_code)
+                                control_objs.save()
+                
+                            emp_code = str(control_objs.control_prefix) + str(control_objs.control_no)
 
-                        # s.emp_code = emp_code
-                        s.type_code = emp_typeids.level_code
-                        # s.emp_type = jobtitle.level_code
-                        s.save()
-                        token = False
-                        
-                        for j in siteidlst:
-                            siteobj = ItemSitelist.objects.filter(pk=j).order_by('pk').first() 
-                            print(siteobj,"siteobj")
-                            if siteobj:        
-                                site_unique = EmpSitelist.objects.filter(emp_code=emp_code, site_code=siteobj.itemsite_code,
-                                                                            isactive=True)
-                                print(site_unique,"site_unique")
-                                if site_unique:
-                                    raise ValueError("Unique Constrain for emp_code and site_code!!")
+                            defaultobj = defaultsite_ids
                             
-                                sitelst = EmpSitelist(Emp_Codeid=s, emp_code=emp_code, Site_Codeid=siteobj,
-                                            site_code=siteobj.itemsite_code)
-                                sitelst.save() 
-                                print(sitelst,"sitelst")           
-                        user = User.objects.create_user(username=s.emp_name, 
-                                                        password=password)
-                        print(user,"user")
-                        levelobj = emp_levelids
-                        Fmspw(pw_userlogin=data[0],
-                                pw_password=password,
-                                LEVEL_ItmIDid=levelobj,
-                                level_itmid=levelobj.level_code,
-                                level_desc=levelobj.level_description,
-                                Emp_Codeid=s,
-                                emp_code=emp_code,
-                                user=user,
-                                loginsite=None,
-                                flgappt = s.show_in_appt,
-                                flgsales = s.show_in_sales,
-                                ).save()
-                        s.pw_userlogin = s.emp_name
-                        s.pw_password = password
-                        s.LEVEL_ItmIDid = levelobj
-                        s.save()
-                        token = Token.objects.create(user=user)
-                        print(token,"token")
-                        if s.pk:
-                            control_objs.control_no = int(control_objs.control_no) + 1
-                            control_objs.save()
-                        
+                            user_obj = User.objects.filter(username=data[0])
+                            if user_obj:
+                                raise ValueError("Username already exist!!")
+                            emp_obj = Employee.objects.filter(emp_name=data[0])
+                            if emp_obj:
+                                raise ValueError("Employee already exist!!")
+
+                            fmspw_obj = Fmspw.objects.filter(pw_userlogin=data[0])
+                            if fmspw_obj:
+                                raise ValueError("Fmspw already exist!!")
+
+                            token_obj = Fmspw.objects.filter(user__username=data[0])
+                            if token_obj:
+                                
+                                raise ValueError("Token for this employee user is already exist!!")
+                            
+                            s = serializer.save(emp_code=emp_code,itemsite_code=defaultsite_ids.itemsite_code,
+                            EMP_TYPEid=emp_typeids,emp_type=emp_typeids.level_code,
+                            defaultsitecode=defaultsite_ids.itemsite_code,Site_Codeid=defaultsite_ids,
+                            site_code=defaultsite_ids.itemsite_code,defaultSiteCodeid=defaultsite_ids,
+                            emp_phone1=phone,emp_name=data[0],emp_barcode=data[7] if data[7] else None)
+
+                            # s.emp_code = emp_code
+                            s.type_code = emp_typeids.level_code
+                            # s.emp_type = jobtitle.level_code
+                            s.save()
+                            token = False
+                            
+                            for j in siteidlst:
+                                siteobj = ItemSitelist.objects.filter(pk=j).order_by('pk').first() 
+                                print(siteobj,"siteobj")
+                                if siteobj:        
+                                    site_unique = EmpSitelist.objects.filter(emp_code=emp_code, site_code=siteobj.itemsite_code,
+                                                                                isactive=True)
+                                    print(site_unique,"site_unique")
+                                    if site_unique:
+                                        raise ValueError("Unique Constrain for emp_code and site_code!!")
+                                
+                                    sitelst = EmpSitelist(Emp_Codeid=s, emp_code=emp_code, Site_Codeid=siteobj,
+                                                site_code=siteobj.itemsite_code)
+                                    sitelst.save() 
+                                    print(sitelst,"sitelst")           
+                            user = User.objects.create_user(username=s.emp_name, 
+                                                            password=password)
+                            print(user,"user")
+                            levelobj = emp_levelids
+                            Fmspw(pw_userlogin=data[0],
+                                    pw_password=password,
+                                    LEVEL_ItmIDid=levelobj,
+                                    level_itmid=levelobj.level_code,
+                                    level_desc=levelobj.level_description,
+                                    Emp_Codeid=s,
+                                    emp_code=emp_code,
+                                    user=user,
+                                    loginsite=None,
+                                    flgappt = s.show_in_appt,
+                                    flgsales = s.show_in_sales,
+                                    ).save()
+                            s.pw_userlogin = s.emp_name
+                            s.pw_password = password
+                            s.LEVEL_ItmIDid = levelobj
+                            s.save()
+                            token = Token.objects.create(user=user)
+                            print(token,"token")
+                            if s.pk:
+                                control_objs.control_no = int(control_objs.control_no) + 1
+                                control_objs.save()
+                            
                         
                     # data = serializer.errors
                     # result = {'status': status.HTTP_400_BAD_REQUEST,"message":data['non_field_errors'][0],'error': True, 'data': serializer.errors} 
@@ -19364,9 +19376,9 @@ class ExcelStaffInsertAPIView(GenericAPIView):
          
                   
 
-        # except Exception as e:
-        #     invalid_message = str(e)
-        #     return general_error_response(invalid_message)             
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)             
                 
 
 class ExcelCustomerInsertAPIView(GenericAPIView):
@@ -19376,7 +19388,7 @@ class ExcelCustomerInsertAPIView(GenericAPIView):
     
     @transaction.atomic
     def post(self, request):
-        # try:  
+        try:  
             with transaction.atomic(): 
                 dataset = Dataset()
                 customer_excel = request.FILES['customer_file']
@@ -19464,7 +19476,89 @@ class ExcelCustomerInsertAPIView(GenericAPIView):
                 return Response(result, status=status.HTTP_201_CREATED)            
          
 
-        # except Exception as e:
-        #     invalid_message = str(e)
-        #     return general_error_response(invalid_message)             
-                         
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)             
+
+class ExcelStockInsertAPIView(GenericAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    serializer_class = []
+    
+    @transaction.atomic
+    def post(self, request):
+        try:  
+            with transaction.atomic(): 
+                stock_excel = request.FILES['stock_file']
+               
+                databook = Databook()    
+                imported_data= databook.load(stock_excel.read(), format= 'xlsx')
+                        
+                for dataset in imported_data.sheets():
+                    print(dataset.title,"sheet")  # returns the names of the sheets
+                    print(dataset,"ll")
+                    for d in dataset:
+                        print(d,"dd")
+                        stock_ids = Stock.objects.filter(item_name=d[5])
+                        if not stock_ids:
+                            control_objs = ControlNo.objects.filter(control_description__iexact="STOCK CODE").first()
+                            if not control_objs:
+                                control_objs = ControlNo(control_no="1000001",control_prefix="",
+                                control_description="STOCK CODE",controldate=date.today(),
+                                site_code="HQ")
+                                control_objs.save()
+                
+                            item_code = str(control_objs.control_no)
+
+                            if d[1]:
+                                dept_ids = ItemDept.objects.filter(itm_desc=d[1]).first()
+                                if not dept_ids:
+                                    control_obj = ControlNo.objects.filter(control_description__iexact="Department Code").first()
+                                    if not control_obj:
+                                        control_obj = ControlNo(control_no="100001",control_prefix="",
+                                        control_description="Customer Class Code",controldate=date.today(),
+                                        Site_Codeid=site_ids,site_code=site_ids.itemsite_code)
+                                        control_obj.save()
+                    
+                                    class_ids = CustomerClass(class_code=control_obj.control_no,class_desc=data[9],
+                                    class_product=0,class_service=0)
+                                    class_ids.save()
+                                    control_obj.control_no = int(control_obj.control_no) + 1
+                                    control_obj.save()
+                            else:
+                                class_ids = CustomerClass.objects.filter().order_by('pk').first()        
+                        
+
+
+                            
+
+
+
+                    
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)             
+          
+    
+
+class FmspwListAPIView(generics.ListAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = Fmspw.objects.filter(pw_isactive=True).order_by('-pk')
+    serializer_class = FmspwSerializer
+
+    def list(self, request):
+        try:
+            queryset = Fmspw.objects.filter(pw_isactive=True).order_by('-pk')
+            if queryset:
+                serializer = self.get_serializer(queryset, many=True)
+                result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 'data':  serializer.data}
+            else:
+                serializer = self.get_serializer()
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":message,'error': False, 'data': []}
+            return Response(data=result, status=status.HTTP_200_OK)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)     
+
+

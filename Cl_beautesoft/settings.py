@@ -139,6 +139,20 @@ DATABASES = {
     }
 }
 
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'sql_server.pyodbc',
+#         'NAME': 'citibellatrain',
+#         'HOST': '103.253.15.184',
+#         'PORT': '3307',
+#         'USER': 'sa',
+#         'PASSWORD': 'Doodle@123',
+#         'OPTIONS': {
+#             'driver': 'ODBC Driver 17 for SQL Server',
+#         }
+#     }
+# }
+
 
 #mysql
 # DATABASES =  {

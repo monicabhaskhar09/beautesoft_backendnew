@@ -3042,6 +3042,9 @@ class Appointment(models.Model):
     add_duration = models.TimeField(null=True)
     checktype = models.CharField(db_column='CheckType',choices=CHECK_TYPE, max_length=50, blank=True, null=True)  # Field name made lowercase.
     treat_parentcode = models.CharField(db_column='Treat_ParentCode', max_length=20, blank=True, null=True)  # Field name made lowercase.
+    bookedby = models.CharField(db_column='bookedby', max_length=200, blank=True, null=True)  # Field name made lowercase.
+    editedby = models.CharField(db_column='editedby', max_length=200, blank=True, null=True)  # Field name made lowercase.
+
     class Meta:
         db_table = 'Appointment'
 

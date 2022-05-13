@@ -126,10 +126,12 @@ urlpatterns = [
     path('api/manualinvoicepdf/', views.ManualInvoiceFormatAPIView.as_view(), name='manualinvoicepdf'),
     path('api/workorderinvoicepdf/', views.WorkOrderInvoiceFormatAPIView.as_view(), name='workorderinvoicepdf'),
     path('api/quotationtocart/', views.QuotationToCartAPIView.as_view(), name='quotationtocart'),
-    path('api/carttomanualinvoice/', views.CartToManualInvoiceAPIView.as_view(), name='carttomanualinvoice'),
-    path('api/carttoworkorderinvoice/', views.CartToWorkOrderInvoiceAPIView.as_view(), name='carttoworkorderinvoice'),
+    path('api/satransactomanualinvoice/', views.SatransacToManualInvoiceAPIView.as_view(), name='satransactomanualinvoice'),
+    path('api/satransactoworkorderinvoice/', views.SatransacToWorkOrderInvoiceAPIView.as_view(), name='satransactoworkorderinvoice'),
     path('api/workordertodelivery/', views.WorkOrderITODeliveryAPIView.as_view(), name='workordertodelivery'),
     path('api/deliveryinvoicepdf/', views.DeliveryOrderFormatAPIView.as_view(), name='deliveryinvoicepdf'),
+    path('api/employeestafflist/', views.EmployeeListAPI.as_view(), name='employeestafflist'),
+    path('api/satransacnoreflist/', views.SaTransacnorefAPIView.as_view(), name='satransacnoreflist'),
 
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 

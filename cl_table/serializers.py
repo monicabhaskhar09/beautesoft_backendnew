@@ -3003,4 +3003,10 @@ class StaffInsertSerializer(serializers.ModelSerializer):
         model = Employee
         fields = ['id','emp_name']  
                                   
+class FmspwSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='pk',required=False)
 
+    class Meta:
+        model = Fmspw
+        fields = ['id','pw_userlogin']  
+     

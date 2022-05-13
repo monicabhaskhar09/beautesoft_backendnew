@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import (TimeLogModel, ProjectModel, ActivityModel, QuotationModel, POModel, QuotationAddrModel, POAddrModel, QuotationDetailModel, PODetailModel, QuotationItemModel, POItemModel, DropdownModel, EmpLevel, Room, Combo_Services,ItemCart,VoucherRecord, PaymentRemarks, HolditemSetup,
+from .models import (TimeLogModel, ProjectModel, ActivityModel, QuotationModel, POModel, QuotationAddrModel, POAddrModel, QuotationDetailModel, QuotationItemModel, POItemModel, DropdownModel, EmpLevel, Room, Combo_Services,ItemCart,VoucherRecord, PaymentRemarks, HolditemSetup,
 PosPackagedeposit,SmtpSettings,AuthoriseModel, POModel, PODetailModel, POApprovalModel, ItemUOMPriceModel, 
 ItemBatchModel, ItemBrandModel, ItemRangeModel, ItemDeptModel, EmployeeListModel, SiteCodeModel, ModeOfPayment,
 ItemSupplyModel, DOModel, DODetailModel, StockModel, MovHdrModel, MovDtlModel, PHYHdrModel, PHYDtlModel, 
@@ -767,6 +767,12 @@ class ManualInvoiceDetailSerializer(serializers.ModelSerializer):
         model = ManualInvoiceDetailModel
         fields = '__all__'
 
+    def to_representation(self, obj):
+        data = super(ManualInvoiceDetailSerializer, self).to_representation(obj)
+       
+        data['q_total'] = "{:.2f}".format(float(obj.q_total))
+        return data     
+
 class WorkOrderDetailSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source='pk',required=False)
 
@@ -774,12 +780,24 @@ class WorkOrderDetailSerializer(serializers.ModelSerializer):
         model = WorkOrderInvoiceDetailModel
         fields = '__all__'
 
+    def to_representation(self, obj):
+        data = super(WorkOrderDetailSerializer, self).to_representation(obj)
+       
+        data['q_total'] = "{:.2f}".format(float(obj.q_total))
+        return data     
+
 class DeliveryOrderDetailSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source='pk',required=False)
 
     class Meta:
         model = DeliveryOrderDetailModel
         fields = '__all__'
+
+    def to_representation(self, obj):
+        data = super(DeliveryOrderDetailSerializer, self).to_representation(obj)
+       
+        data['q_total'] = "{:.2f}".format(float(obj.q_total))
+        return data    
 
 
 class PODetailSerializer(serializers.ModelSerializer):
@@ -802,6 +820,12 @@ class ManualInvoiceItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = ManualInvoiceItemModel
         fields = '__all__'
+        
+    def to_representation(self, obj):
+        data = super(ManualInvoiceItemSerializer, self).to_representation(obj)
+       
+        data['quotation_unitprice'] = "{:.2f}".format(float(obj.quotation_unitprice))
+        return data    
 
 class WorkOrderInvoiceItemSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source='pk',required=False)
@@ -810,12 +834,24 @@ class WorkOrderInvoiceItemSerializer(serializers.ModelSerializer):
         model = WorkOrderInvoiceItemModel
         fields = '__all__'
 
+    def to_representation(self, obj):
+        data = super(WorkOrderInvoiceItemSerializer, self).to_representation(obj)
+       
+        data['quotation_unitprice'] = "{:.2f}".format(float(obj.quotation_unitprice))
+        return data     
+
 class DeliveryOrderItemSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source='pk',required=False)
 
     class Meta:
         model = DeliveryOrderItemModel
         fields = '__all__'
+
+    def to_representation(self, obj):
+        data = super(DeliveryOrderItemSerializer, self).to_representation(obj)
+       
+        data['quotation_unitprice'] = "{:.2f}".format(float(obj.quotation_unitprice))
+        return data      
 
 
 class POItemSerializer(serializers.ModelSerializer):
@@ -1068,3 +1104,9 @@ class DeliveryOrdersignSerializer(serializers.ModelSerializer):
 
         data['do_sig'] = do_sig
         return data
+
+
+class InvoiceListingSerializer(serializers.ModelSerializer): 
+    class Meta:
+        model = PosHaud
+        fields = ['id','sa_transacno_ref']

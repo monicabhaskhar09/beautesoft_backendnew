@@ -479,6 +479,9 @@ class ProjectModel(models.Model):
     contact_number = models.CharField(db_column='Contact_Number', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
     active = models.CharField(db_column='Active', blank=True, max_length = 255, default='active', null=True)  # Field name made lowercase.
     created_at = models.DateTimeField(db_column='Project_Date',auto_now_add=True,null=True)
+    sales_staff = models.CharField(db_column='sales_staff', blank=True, max_length = 255, null=True)  # Field name made lowercase.
+    admin_staff = models.CharField(db_column='admin_staff', blank=True, max_length = 255, null=True)  # Field name made lowercase.
+    operation_staff = models.CharField(db_column='operation_staff', blank=True, max_length = 255, null=True)  # Field name made lowercase.
 
     class Meta:
         db_table = 'Project_List'
@@ -532,7 +535,7 @@ class ManualInvoiceModel(models.Model):
     active = models.CharField(db_column='Active', blank=True, max_length = 255, default='active', null=True)  # Field name made lowercase.
     fk_project = models.ForeignKey('custom.ProjectModel', on_delete=models.PROTECT, null=True)
     created_at = models.DateTimeField(db_column='ManualInvoice_Date',null=True)
-    cart_id = models.CharField(max_length=20, null=True)
+    sa_transacno_ref = models.CharField(max_length=255, null=True)
    
     class Meta:
         db_table = 'ManualInvoice_List'
@@ -553,7 +556,7 @@ class WorkOrderInvoiceModel(models.Model):
     active = models.CharField(db_column='Active', blank=True, max_length = 255, default='active', null=True)  # Field name made lowercase.
     fk_project = models.ForeignKey('custom.ProjectModel', on_delete=models.PROTECT, null=True)
     created_at = models.DateTimeField(db_column='WorkOrderInvoice_Date',null=True)
-    cart_id = models.CharField(max_length=20, null=True)
+    sa_transacno_ref = models.CharField(max_length=255, null=True)
     
     class Meta:
         db_table = 'WorkOrderInvoice_List'

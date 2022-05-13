@@ -307,7 +307,7 @@ body{
      
       <div style="padding-top: 30%">
 
-        {% if prepaidbal %}  
+        {% if showprepaid %}
           <div class="row">
             <table style="width: 40%;border: 1px solid black;text-align: center">
               <tr>
@@ -345,7 +345,12 @@ body{
             </table>
           </div>
         {% endif %}
-      
+        {% if showvoidreason %}
+          <tr>
+            <p>Void Reason:  <td style="font-size: 12px;">{% if hdr.trans_remark %} {{ hdr.trans_remark }}  {% else %} {% endif %}</td></p>
+          </tr>
+
+        {% endif %}
         <tr>
           <p>Remarks:  </p>
         </tr>
