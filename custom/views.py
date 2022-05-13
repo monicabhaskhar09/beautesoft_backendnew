@@ -20,7 +20,7 @@ ManualInvoiceSerializer,ManualInvoiceDetailSerializer,
 ManualInvoiceAddrSerializer,ManualInvoiceItemSerializer,WorkOrderInvoiceSerializer,
 WorkOrderDetailSerializer,WorkOrderInvoiceAddrSerializer,WorkOrderInvoiceItemSerializer,
 VoucherRecordAccSerializer,DeliveryOrderSerializer,DeliveryOrderAddrSerializer,DeliveryOrderDetailSerializer,
-DeliveryOrderItemSerializer,DeliveryOrdersignSerializer,InvoiceListingSerializer)
+DeliveryOrderItemSerializer,DeliveryOrdersignSerializer,InvoiceListingSerializer,WorkOrderInvNoSerializer)
 from .models import (EmpLevel, Room, Combo_Services, ItemCart,VoucherRecord,RoundPoint, RoundSales,
 PaymentRemarks, HolditemSetup,PosPackagedeposit,SmtpSettings,MultiPricePolicy,salesStaffChangeLog,
 serviceStaffChangeLog,dateChangeLog,  TimeLogModel, ProjectModel, ActivityModel, QuotationModel, POModel, QuotationAddrModel, 
@@ -23624,6 +23624,29 @@ class SaTransacnorefAPIView(generics.ListAPIView):
             if not cust_name:
                 raise Exception('Please Give customer name!!') 
             queryset = PosHaud.objects.filter(sa_custname=cust_name,isvoid=False).order_by('pk')
+            if queryset:
+                serializer = self.get_serializer(queryset, many=True)
+                result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 'data':  serializer.data}
+            else:
+                serializer = self.get_serializer()
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+            return Response(data=result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)             
+        
+class WorkOrderInvoiceNoAPIView(generics.ListAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = WorkOrderInvoiceModel.objects.filter(active='active').order_by('-pk')
+    serializer_class = WorkOrderInvNoSerializer
+
+    def list(self, request):
+        try:
+            cust_name = self.request.GET.get('cust_name',None)
+            if not cust_name:
+                raise Exception('Please Give customer name!!') 
+            queryset = WorkOrderInvoiceModel.objects.filter(company=cust_name,active='active').order_by('pk')
             if queryset:
                 serializer = self.get_serializer(queryset, many=True)
                 result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 'data':  serializer.data}

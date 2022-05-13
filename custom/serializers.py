@@ -1110,3 +1110,8 @@ class InvoiceListingSerializer(serializers.ModelSerializer):
     class Meta:
         model = PosHaud
         fields = ['id','sa_transacno_ref']
+
+class WorkOrderInvNoSerializer(serializers.ModelSerializer): 
+    class Meta:
+        model = WorkOrderInvoiceModel
+        fields = ['id','workorderinv_number']
