@@ -271,6 +271,7 @@ def GeneratePDF(self,request, sa_transacno):
     path = None
     if title and title.logo_pic:
         path = BASE_DIR + title.logo_pic.url
+    print(path,"path")    
     taud_f = PosTaud.objects.filter(sa_transacno=sa_transacno,ItemSIte_Codeid__pk=site.pk).first()
 
 
@@ -342,6 +343,18 @@ def GeneratePDF(self,request, sa_transacno):
     else:
         showvoidreason = False
 
+    cretaud_ids = PosTaud.objects.filter(sa_transacno=sa_transacno,pay_group="Credit")
+    if cretaud_ids:
+        showcredit = True
+    else:
+        showcredit = False
+    
+    creditlst = []
+    credit_ids = CreditNote.objects.filter(cust_code=hdr[0].sa_custno, status='OPEN').only('cust_code','status').order_by('-pk','-sa_date')
+    if credit_ids:
+        for ce in credit_ids:
+            cval = {'creditnote_no':ce.credit_code,'balance':"{:.2f}".format(ce.balance)}
+            creditlst.append(cval)
 
 
     # print(treatopen_ids,"treatopen_ids")
@@ -358,7 +371,7 @@ def GeneratePDF(self,request, sa_transacno):
     'creditnote_balance': credit_amt,'total_netprice':str("{:.2f}".format((total_netprice))),
     'custsign_ids':path_custsign if path_custsign else '','prepaid_lst':prepaid_lst,
     'prepaidbal':prepaidbal,'treatmentbal':treatmentbal,'showprepaid': showprepaid,
-    'showvoidreason':showvoidreason}
+    'showvoidreason':showvoidreason,'showcredit':showcredit,'creditlst': creditlst}
     data.update(sub_data)
     if site.inv_templatename:
         template = get_template(site.inv_templatename)

@@ -88,6 +88,7 @@ from django.db.models.functions import RowNumber, Coalesce
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login , logout, get_user_model
 from itertools import chain 
+from fpdf import FPDF 
 
 
 type_ex = ['VT-Deposit','VT-Top Up','VT-Sales']
@@ -3740,37 +3741,38 @@ class itemCartViewset(viewsets.ModelViewSet):
 
                 tmp_treat_ids = Tmptreatment.objects.filter(itemcart=itemcart).order_by('pk') 
                 if tmp_treat_ids:
-                    if int(self.request.GET.get('auto',None)) == 0:
-                        number = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk').count()
-                        price = itemcart.price * number
+                    if self.request.GET.get('auto',None):
+                        if int(self.request.GET.get('auto',None)) == 0:
+                            number = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk').count()
+                            price = itemcart.price * number
 
-                        Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk'
-                        ).update(price="{:.2f}".format(float(price)),unit_amount="{:.2f}".format(float(itemcart.price)),trmt_is_auto_proportion=False)
+                            Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk'
+                            ).update(price="{:.2f}".format(float(price)),unit_amount="{:.2f}".format(float(itemcart.price)),trmt_is_auto_proportion=False)
 
-                        Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True).order_by('pk'
-                        ).update(price=0,unit_amount=0.00,trmt_is_auto_proportion=False)
+                            Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True).order_by('pk'
+                            ).update(price=0,unit_amount=0.00,trmt_is_auto_proportion=False)
 
-                    elif int(self.request.GET.get('auto',None)) == 1: 
-                        no = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk').count()
-                        price = itemcart.price * no
-                        # print(price, type(price),"kk")
-                        number = Tmptreatment.objects.filter(itemcart=itemcart).order_by('pk').count()
-                        
-                        d_price = price / number
+                        elif int(self.request.GET.get('auto',None)) == 1: 
+                            no = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk').count()
+                            price = itemcart.price * no
+                            # print(price, type(price),"kk")
+                            number = Tmptreatment.objects.filter(itemcart=itemcart).order_by('pk').count()
+                            
+                            d_price = price / number
 
-                        Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk'
-                        ).update(price="{:.2f}".format(float(price)),unit_amount="{:.2f}".format(float(d_price)),trmt_is_auto_proportion=True)
-                        
-                        l_ids = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True).order_by('pk').last()
+                            Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk'
+                            ).update(price="{:.2f}".format(float(price)),unit_amount="{:.2f}".format(float(d_price)),trmt_is_auto_proportion=True)
+                            
+                            l_ids = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True).order_by('pk').last()
 
-                        Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True).order_by('pk'
-                        ).exclude(pk=l_ids.pk).update(price=0,unit_amount="{:.2f}".format(float(d_price)),trmt_is_auto_proportion=True)
-                        
-                        amt = "{:.2f}".format(float(d_price))   
-                        lval = float(price) - (float(amt) * (number -1))
+                            Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True).order_by('pk'
+                            ).exclude(pk=l_ids.pk).update(price=0,unit_amount="{:.2f}".format(float(d_price)),trmt_is_auto_proportion=True)
+                            
+                            amt = "{:.2f}".format(float(d_price))   
+                            lval = float(price) - (float(amt) * (number -1))
 
-                        Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True,pk=l_ids.pk).order_by('pk'
-                        ).update(price=0,unit_amount="{:.2f}".format(float(lval)),trmt_is_auto_proportion=True)
+                            Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True,pk=l_ids.pk).order_by('pk'
+                            ).update(price=0,unit_amount="{:.2f}".format(float(lval)),trmt_is_auto_proportion=True)
 
 
 
@@ -3824,7 +3826,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                                 if discpercent > disclimit:
                                     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Discount Should not be greater than Stock Disc Limit!!",'error': True} 
                                     return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-                            if emp_maxdisclimit > 0:
+                            if emp_maxdisclimit and emp_maxdisclimit > 0:
                                 if discpercent > emp_maxdisclimit:
                                     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Discount Should not be greater than Emp MaxDisc Limit!!",'error': True} 
                                     return Response(result, status=status.HTTP_400_BAD_REQUEST) 
@@ -3946,36 +3948,37 @@ class itemCartViewset(viewsets.ModelViewSet):
 
                         if disamt['disc_amt__sum']:
                             dprice = float(itemcart.price) - disamt['disc_amt__sum']
-                            if int(self.request.GET.get('auto',None)) == 0:
-                                number = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk').count()
-                                price = dprice * number
+                            if self.request.GET.get('auto',None):
+                                if int(self.request.GET.get('auto',None)) == 0:
+                                    number = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk').count()
+                                    price = dprice * number
 
-                                Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk'
-                                ).update(price="{:.2f}".format(float(price)),unit_amount="{:.2f}".format(float(dprice)),trmt_is_auto_proportion=False)
+                                    Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk'
+                                    ).update(price="{:.2f}".format(float(price)),unit_amount="{:.2f}".format(float(dprice)),trmt_is_auto_proportion=False)
 
-                                Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True).order_by('pk'
-                                ).update(price=0,unit_amount=0.00,trmt_is_auto_proportion=False)
+                                    Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True).order_by('pk'
+                                    ).update(price=0,unit_amount=0.00,trmt_is_auto_proportion=False)
 
-                            elif int(self.request.GET.get('auto',None)) == 1: 
-                                no = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk').count()
-                                price = dprice * no
-                                number = Tmptreatment.objects.filter(itemcart=itemcart).order_by('pk').count()
-                                
-                                d_price = price / number
+                                elif int(self.request.GET.get('auto',None)) == 1: 
+                                    no = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk').count()
+                                    price = dprice * no
+                                    number = Tmptreatment.objects.filter(itemcart=itemcart).order_by('pk').count()
+                                    
+                                    d_price = price / number
 
-                                l_ids = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True).order_by('pk').last()
+                                    l_ids = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True).order_by('pk').last()
 
-                                Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk'
-                                ).exclude(pk=l_ids.pk).update(price="{:.2f}".format(float(price)),unit_amount="{:.2f}".format(float(d_price)),trmt_is_auto_proportion=True)
+                                    Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk'
+                                    ).exclude(pk=l_ids.pk).update(price="{:.2f}".format(float(price)),unit_amount="{:.2f}".format(float(d_price)),trmt_is_auto_proportion=True)
 
-                                Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True).order_by('pk'
-                                ).update(price=0,unit_amount="{:.2f}".format(float(d_price)),trmt_is_auto_proportion=True)
-                                
-                                amt = "{:.2f}".format(float(d_price))   
-                                lval = price - (float(amt) * (number -1))
+                                    Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True).order_by('pk'
+                                    ).update(price=0,unit_amount="{:.2f}".format(float(d_price)),trmt_is_auto_proportion=True)
+                                    
+                                    amt = "{:.2f}".format(float(d_price))   
+                                    lval = price - (float(amt) * (number -1))
 
-                                Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True,pk=l_ids.pk).order_by('pk'
-                                ).update(price=0,unit_amount="{:.2f}".format(float(lval)),trmt_is_auto_proportion=True)
+                                    Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True,pk=l_ids.pk).order_by('pk'
+                                    ).update(price=0,unit_amount="{:.2f}".format(float(lval)),trmt_is_auto_proportion=True)
 
 
 
@@ -24035,3 +24038,252 @@ class DeliveryOrderSignViewset(viewsets.ModelViewSet):
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)     
+
+
+class StudioPdfGeneration(APIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+
+    def post(self, request, format=None):
+        try:
+            if request.GET.get('sa_transacno',None) is None:
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give sa_transacno!!",'error': True} 
+                return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True).first()
+            site = fmspw.loginsite 
+            sa_transacno = request.GET.get('sa_transacno',None)
+            hdr = PosHaud.objects.filter(sa_transacno=sa_transacno).order_by("pk").first()
+            if not hdr:
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Sa Transacno Does not exist in Poshaud!!",'error': True} 
+                return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+            
+            title = Title.objects.filter(product_license=site.itemsite_code).first()
+            path = None
+            if title and title.logo_pic:
+                path = BASE_DIR + title.logo_pic.url
+            # print(path,"path")
+            cust_class = hdr.sa_custnoid.cust_class
+            # print(cust_class,"cust_class")
+            custclass_ids = CustomerClass.objects.filter(class_code=cust_class,class_isactive=True).order_by('-pk').first()
+            member = ""
+            if custclass_ids:
+                member = custclass_ids.class_desc
+
+            split = str(hdr.sa_date).split(" ")
+            #date = datetime.datetime.strptime(str(split[0]), '%Y-%m-%d').strftime('%d.%m.%Y')
+            esplit = str(hdr.sa_time).split(" ")
+            Time = str(esplit[1]).split(":")
+
+            time = Time[0]+":"+Time[1] 
+            date = datetime.datetime.strptime(str(split[0]), '%Y-%m-%d').strftime("%d-%b-%Y")
+            
+            date_ofchoose_dress = ""
+            if hdr.date_ofchoose_dress:
+                date_ofchoose_dress = datetime.datetime.strptime(str(hdr.date_ofchoose_dress), '%Y-%m-%d').strftime("%d-%b-%Y")
+            
+            date_ofphotoshooting = ""
+            if hdr.date_ofphotoshooting:
+                date_ofphotoshooting = datetime.datetime.strptime(str(hdr.date_ofphotoshooting), '%Y-%m-%d').strftime("%d-%b-%Y")
+            
+            daud = PosDaud.objects.filter(sa_transacno=sa_transacno)
+            if not daud:
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"sa_transacno PosDaud Does not exist!!",'error': True}
+                return Response(data=result, status=status.HTTP_400_BAD_REQUEST)   
+            
+            daud_lst = []
+            sub_total = 0;discount = 0; total = 0;advance = 0; paid = 0; balance = 0
+            for i in daud:
+                if i.record_detail_type == 'TP SERVICE':
+                    treat_ids = TreatmentAccount.objects.filter(treatment_parentcode=i.topup_service_trmt_code,
+                    type='Deposit').first()
+                    if treat_ids:
+                        tdaud_ids = PosDaud.objects.filter(sa_transacno=treat_ids.ref_transacno,
+                        dt_lineno=treat_ids.dt_lineno).first()
+                        if tdaud_ids:
+
+                            package_desc = [];  packages = ""
+                            if tdaud_ids.record_detail_type == "PACKAGE":
+                                package_dtl = PackageDtl.objects.filter(package_code=tdaud_ids.dt_combocode,isactive=True)
+                                for j in package_dtl:
+                                    desc = j.description
+                                    package_desc.append(desc)
+                                packages = tuple(package_desc)    
+
+                            amount = tdaud_ids.dt_qty * tdaud_ids.dt_price
+                            val = {'dt_itemdesc': tdaud_ids.dt_itemdesc, 'dt_qty': tdaud_ids.dt_qty,
+                            'dt_price': tdaud_ids.dt_price, 'amount': tdaud_ids.dt_qty * tdaud_ids.dt_price,
+                            'record_detail_type': tdaud_ids.record_detail_type,
+                            'package_desc': packages}
+
+                            daud_lst.append(val)
+                            sub_total += amount
+                            discount += tdaud_ids.dt_discamt
+                            total += tdaud_ids.dt_transacamt
+                            atreat_ids = TreatmentAccount.objects.filter(ref_transacno=treat_ids.ref_transacno,
+                            treatment_parentcode=treat_ids.treatment_parentcode,type__in=['Deposit','Top Up'])
+                            adamount = sum([i.amount for i in atreat_ids])
+                            advance += adamount
+                            if tdaud_ids.dt_transacamt == tdaud_ids.dt_deposit:
+                                paid += tdaud_ids.dt_deposit
+                            else:
+                                paid += 0 
+                            balance += tdaud_ids.dt_transacamt - adamount 
+
+                elif i.record_detail_type == 'TP PRODUCT': 
+                    depo_ids = DepositAccount.objects.filter(treat_code=i.topup_product_treat_code,
+                    type='Deposit').first()
+                    if depo_ids:
+                        ddaud_ids = PosDaud.objects.filter(sa_transacno=depo_ids.sa_transacno,
+                        dt_lineno=depo_ids.dt_lineno).first() 
+                        if ddaud_ids:
+                            package_desc = []; packages = ""
+                            if ddaud_ids.record_detail_type == "PACKAGE":
+                                package_dtl = PackageDtl.objects.filter(package_code=ddaud_ids.dt_combocode,isactive=True)
+                                for j in package_dtl:
+                                    desc = j.description
+                                    package_desc.append(desc)
+                                packages = tuple(package_desc)
+    
+
+
+                            amount = ddaud_ids.dt_qty * ddaud_ids.dt_price
+                            val = {'dt_itemdesc': ddaud_ids.dt_itemdesc, 'dt_qty': ddaud_ids.dt_qty,
+                            'dt_price': ddaud_ids.dt_price, 'amount': ddaud_ids.dt_qty * ddaud_ids.dt_price,
+                            'record_detail_type': ddaud_ids.record_detail_type,
+                            'package_desc': packages}
+
+                            daud_lst.append(val)
+                            sub_total += amount
+                            discount += ddaud_ids.dt_discamt
+                            total += ddaud_ids.dt_transacamt
+                            adepo_ids = DepositAccount.objects.filter(sa_transacno=depo_ids.sa_transacno,
+                            treat_code=depo_ids.treat_code,type__in=['Deposit','Top Up'])
+                            adamount = sum([i.amount for i in adepo_ids])
+                            advance += adamount
+                            if ddaud_ids.dt_transacamt == ddaud_ids.dt_deposit:
+                                paid += ddaud_ids.dt_deposit
+                            else:
+                                paid += 0
+                            balance += ddaud_ids.dt_transacamt - adamount 
+               
+                else:
+                    package_desc = []; packages = ""; 
+                    
+                    if i.record_detail_type == "PACKAGE":
+                        package_dtl = PackageDtl.objects.filter(package_code=i.dt_combocode,isactive=True)
+                        for j in package_dtl:
+                            desc = j.description
+                            package_desc.append(desc)
+                        packages = tuple(package_desc)
+
+                    amount = i.dt_qty * i.dt_price
+                    dt_itemdesc = i.dt_itemdesc
+                    val = {'dt_itemdesc': dt_itemdesc, 'dt_qty': i.dt_qty,
+                    'dt_price': i.dt_price, 'amount': i.dt_qty * i.dt_price,
+                    'record_detail_type': i.record_detail_type,
+                    'package_desc': packages,
+                    }
+                    sub_total += amount
+                    discount += i.dt_discamt
+                    total += i.dt_transacamt
+                    if i.dt_transacamt == i.dt_deposit:
+                        advance += 0
+                    else:
+                        advance += i.dt_deposit
+
+                    if i.dt_transacamt == i.dt_deposit:
+                        paid += i.dt_deposit
+                    else:
+                        paid += 0 
+                         
+                    balance += i.dt_transacamt - i.dt_deposit      
+                    daud_lst.append(val)
+            
+            # print(daud_lst,"daud_lst")
+            taud = PosTaud.objects.filter(sa_transacno=sa_transacno)
+            if not taud:
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"sa_transacno Does not exist!!",'error': True} 
+                return Response(data=result, status=status.HTTP_400_BAD_REQUEST)   
+            
+            tot_payamt = 0.0
+            for ta in taud:
+                pay_amt = float(ta.pay_amt)
+                tot_payamt += pay_amt
+
+ 
+            data = {'name': title.trans_h1 if title and title.trans_h1 else '', 
+            'address': title.trans_h2 if title and title.trans_h2 else '', 
+            'footer1':title.trans_footer1 if title and title.trans_footer1 else '',
+            'footer2':title.trans_footer2 if title and title.trans_footer2 else '',
+            'footer3':title.trans_footer3 if title and title.trans_footer3 else '',
+            'footer4':title.trans_footer4 if title and title.trans_footer4 else '',
+            'hdr': hdr,'daud_lst': daud_lst, 'member':member,'date':date,'time':time,
+            'sub_total': "{:.2f}".format(float(sub_total)),
+            'discount': "{:.2f}".format(float(discount)),
+            'total': "{:.2f}".format(float(total)),
+            'advance':  "{:.2f}".format(float(advance)),
+            'paid':  "{:.2f}".format(float(paid)),
+            'balance':  "{:.2f}".format(float(balance)),
+            'taud':taud,'date_ofchoose_dress':date_ofchoose_dress,
+            'date_ofphotoshooting':date_ofphotoshooting,
+            'billing_amount':"{:.2f}".format(float(tot_payamt))}  
+            
+           
+            
+            template = get_template('studioinoivce.html')
+
+
+            display = Display(visible=0, size=(800, 600))
+            display.start()
+            html = template.render(data)
+            options = {
+                'margin-top': '.25in',
+                'margin-right': '.25in',
+                'margin-bottom': '.25in',
+                'margin-left': '.25in',
+                'encoding': "UTF-8",
+                'no-outline': None,
+                
+            }
+            
+            # existing = os.listdir(settings.PDF_ROOT)
+            dst ="studio_receipt_" + str(str(hdr.sa_transacno_ref)) + ".pdf"
+
+            # src = settings.PDF_ROOT + existing[0] 
+            # dst = settings.PDF_ROOT + dst 
+                
+            # os.rename(src, dst) 
+            p=pdfkit.from_string(html,False,options=options)
+            PREVIEW_PATH = dst
+            pdf = FPDF() 
+
+            pdf.add_page() 
+            
+            pdf.set_font("Arial", size = 15) 
+            file_path = os.path.join(settings.PDF_ROOT, PREVIEW_PATH)
+            pdf.output(file_path) 
+
+            if p:
+                file_path = os.path.join(settings.PDF_ROOT, PREVIEW_PATH)
+                report = os.path.isfile(file_path)
+                if report:
+                    file_path = os.path.join(settings.PDF_ROOT, PREVIEW_PATH)
+                    with open(file_path, 'wb') as fh:
+                        fh.write(p)
+                    display.stop()
+
+                    ip_link = "http://"+request.META['HTTP_HOST']+"/media/pdf/studio_receipt_"+str(hdr.sa_transacno_ref)+".pdf"
+                    if ip_link:
+                        result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 'data': ip_link}
+                        return Response(data=result, status=status.HTTP_200_OK) 
+                    else:
+                        result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Data",'error': True}
+                        return Response(data=result, status=status.HTTP_200_OK)  
+        
+            
+        except Exception as e:
+           invalid_message = str(e)
+           return general_error_response(invalid_message)               
+
+
+

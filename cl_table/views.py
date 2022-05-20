@@ -4780,6 +4780,8 @@ class AppointmentEditViewset(viewsets.ModelViewSet):
                     'permanent_remark': app.cust_noid.cust_remark if app.cust_noid.cust_remark else "",
                     'cust_phone1' : app.cust_noid.cust_phone2 if app.cust_noid.cust_phone2 else "",
                     'cust_StoreCard' : app.cust_noid.cust_StoreCard if app.cust_noid and app.cust_noid.cust_StoreCard else "",
+                    'bookedby': app.bookedby,
+                    'editedby': app.editedby,
                     }
                 data = {'appointment': apoint,'treatment': treatlst}   
 
@@ -8450,28 +8452,57 @@ class postaudViewset(viewsets.ModelViewSet):
                                     #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Prepaid pay amt should not be greater than selected prepaid remain!!",'error': True} 
                                     #     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
                 
-                                    remain = float(pac_ids.remain) - float(req['pay_amt'])
-                                    PrepaidAccount.objects.filter(pk=pac_ids.pk).update(status=False)
-                                    acc = PrepaidAccountCondition.objects.filter(pk=open_ids.pk).update(use_amt=float(req['pay_amt']),
-                                    remain=remain)
-                                    vstatus = True
-                                    if remain == 0 and pac_ids.outstanding == 0:
-                                        vstatus = False
-                                    prepacc = PrepaidAccount(pp_no=pac_ids.pp_no,pp_type=pac_ids.pp_type,
-                                    pp_desc=pac_ids.pp_desc,exp_date=pac_ids.exp_date,cust_code=pac_ids.cust_code,
-                                    cust_name=pac_ids.cust_name,pp_amt=pac_ids.pp_amt,pp_total=pac_ids.pp_total,
-                                    pp_bonus=pac_ids.pp_bonus,transac_no=sa_transacno,item_no="",use_amt=float(req['pay_amt']),
-                                    remain=remain,ref1=pac_ids.ref1,ref2=pac_ids.ref2,status=vstatus,site_code=site.itemsite_code,sa_status="SA",exp_status=pac_ids.exp_status,
-                                    voucher_no=pac_ids.voucher_no,isvoucher=pac_ids.isvoucher,has_deposit=pac_ids.has_deposit,topup_amt=0,
-                                    outstanding=pac_ids.outstanding if pac_ids and pac_ids.outstanding is not None and pac_ids.outstanding > 0 else 0,active_deposit_bonus=pac_ids.active_deposit_bonus,topup_no="",topup_date=None,
-                                    line_no=pac_ids.line_no,staff_name=None,staff_no=None,
-                                    pp_type2=open_ids.conditiontype2,condition_type1=open_ids.conditiontype1,pos_daud_lineno=pac_ids.line_no,Cust_Codeid=cust_obj,Site_Codeid=site,
-                                    Item_Codeid=pac_ids.Item_Codeid,item_code=pac_ids.item_code)
-                                    prepacc.save()
-                                    prepacc.sa_date = pay_date 
-                                    prepacc.start_date = pay_date
-                                    prepacc.save()
+                                   
+                                    all_ids = False
+                                    if open_ids.conditiontype1 == "All":
+                                        all_ids = depo_ids.filter(itemcodeid__item_div__in=[3,1,4])
+                                       
+                                    elif open_ids.conditiontype1 == "Service Only": 
+                                        all_ids = depo_ids.filter(itemcodeid__item_div=3)
+                                        
+                                    elif open_ids.conditiontype1 == "Product Only": 
+                                        all_ids = depo_ids.filter(itemcodeid__item_div=1)
+                                        
+                                    check_amt = float(req['pay_amt'])
+                                    for i in all_ids:
+                                        if check_amt > 0:
+                                            checkamt = check_amt
+                                            p_pac_ids = PrepaidAccount.objects.filter(pp_no=pp_no,line_no=line_no,
+                                            cust_code=cust_obj.cust_code,status=True).only('pp_no','line_no','site_code','cust_code','status').order_by('pk').last()
+                                            
+                                            PrepaidAccount.objects.filter(pk=p_pac_ids.pk).update(status=False)
+                                            
+                                            check_amt -= i.deposit 
+                                            if check_amt > 0:
+                                                use_amt = i.deposit
+                                                remain = float(p_pac_ids.remain) - float(i.deposit)
+                                            else:
+                                                use_amt = checkamt
+                                                remain = float(p_pac_ids.remain) - float(use_amt)
 
+                                            vstatus = True
+                                            if remain == 0 and p_pac_ids.outstanding == 0:
+                                                vstatus = False
+       
+                                            prepacc = PrepaidAccount(pp_no=pac_ids.pp_no,pp_type=pac_ids.pp_type,
+                                            pp_desc=pac_ids.pp_desc,exp_date=pac_ids.exp_date,cust_code=pac_ids.cust_code,
+                                            cust_name=pac_ids.cust_name,pp_amt=pac_ids.pp_amt,pp_total=pac_ids.pp_total,
+                                            pp_bonus=pac_ids.pp_bonus,transac_no=sa_transacno,item_no=i.itemcodeid.item_code,use_amt=use_amt,
+                                            remain=remain,ref1=pac_ids.ref1,ref2=pac_ids.ref2,status=vstatus,site_code=site.itemsite_code,sa_status="SA",exp_status=pac_ids.exp_status,
+                                            voucher_no=pac_ids.voucher_no,isvoucher=pac_ids.isvoucher,has_deposit=pac_ids.has_deposit,topup_amt=0,
+                                            outstanding=pac_ids.outstanding if pac_ids and pac_ids.outstanding is not None and pac_ids.outstanding > 0 else 0,active_deposit_bonus=pac_ids.active_deposit_bonus,topup_no="",topup_date=None,
+                                            line_no=pac_ids.line_no,staff_name=None,staff_no=None,
+                                            pp_type2=open_ids.conditiontype2,condition_type1=open_ids.conditiontype1,pos_daud_lineno=pac_ids.line_no,Cust_Codeid=cust_obj,Site_Codeid=site,
+                                            Item_Codeid=i.itemcodeid,item_code=i.itemcodeid.item_code)
+                                            prepacc.save()
+                                            prepacc.sa_date = pay_date 
+                                            prepacc.start_date = pay_date
+                                            prepacc.save()
+                                            
+                                    if all_ids:
+                                        acc = PrepaidAccountCondition.objects.filter(pk=open_ids.pk).update(use_amt=float(req['pay_amt']),
+                                        remain=remain)
+                                    
                                 check.remove("PREPAID")
                             # elif req['pay_typeid'] == 17:
                             elif payByCredit:

@@ -345,6 +345,26 @@ body{
             </table>
           </div>
         {% endif %}
+        <br/>
+        {% if showcredit %}  
+          <div class="row">
+            <table style="width: 40%;border: 1px solid black;text-align: center">
+              <tr>
+                <th style="border: 1px solid black;">CreditNote</th>
+                <th style="border: 1px solid black;">Balance</th>
+              </tr>
+      
+              {% for ce in creditlst %}
+                <tr>
+                  <td>{{ ce.creditnote_no }}</td>
+                  <td>{{ ce.balance }}</td>
+                </tr>
+              {% endfor %}
+      
+            </table>
+          </div>
+        {% endif %}
+
         {% if showvoidreason %}
           <tr>
             <p>Void Reason:  <td style="font-size: 12px;">{% if hdr.trans_remark %} {{ hdr.trans_remark }}  {% else %} {% endif %}</td></p>

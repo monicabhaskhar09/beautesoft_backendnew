@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+  <!-- <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"> -->
+<style>
+hr{
+    border:0;
+    margin:0;
+    width:100%;
+    height:1px;
+    border-bottom: 1px solid black;
+    padding: 6px;
+}
+table {
+  
+    width: 100%;
+}
+td {
+  padding: 5px;
+  text-align: left;
+}
+th {
+
+  text-align: left;
+}
+
+
+
+
+.column {
+  float: left;
+  width: 33.33%;
+  padding: 5px;
+}
+.row::after {
+  content: "";
+  clear: both;
+  display: table;
+}
+header {
+   position: fixed;
+   padding: 10px 16px;
+}
+
+
+body{
+  padding: 20px;
+}
+
+.tax
+{
+  font-size: 19px;
+}
+.operating_hours
+{
+  border: 1px solid black;
+  padding: 10px;
+  border-style: dotted;
+}
+.imgname
+{
+  align-self: flex-start;
+}
+.conatiner
+{
+  display: flex;
+ justify-content: center;
+}
+.Address
+{
+  justify-self: start;
+}
+.operating
+{
+  justify-self: end;
+}
+.childbox
+{
+  display: flex;
+  gap: 60px;
+}
+.childboxsign
+{
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 150px;
+}
+.scan
+{
+  display: flex;
+  gap: 10px;
+}
+.finalflex
+{
+  gap: 20px;
+}
+img.sticky {
+  position: -webkit-sticky;
+  position: sticky;
+  top: 0;
+  width: 200px;}
+
+.box {
+  float: left;
+  width: 50%;
+  padding: 10px;
+}
+
+.clearfix::after {
+  content: "";
+  clear: both;
+  display: table;
+}  
+
+</style>
+</head>
+
+<body>
+
+  
+  <div class="container-fluid">
+    <div>
+      <img src="{{path}}" width="85" height="85" alt="">
+    </div>
+
+    <h5>{{name}}</h5>
+    <p>{{address}}</p>
+
+    <hr>
+    <hr>
+    <h2 style="text-align: center;">INVOICE</h2>
+      <div class="mt-5 d-flex justify-content-between">
+        <div class="d-flex">
+          <div style="margin-top: -50px;line-height: 10px">
+            <p><b>Code&nbsp;:</b></p>
+            <p><b>Name&nbsp;:</b></p>
+            <p><b>Member&nbsp;:</b></p>
+            <p><b>Date of Choose Dress&nbsp;:</b></p>
+            <p><b>Date of Photo Shooting:</b></p>
+            <p><b>Ref: Inv : NUmber&nbsp;:</b></p>
+          </div>
+        
+          <div style="margin-top: -50px;line-height: 10px">
+            <p> &nbsp;{{ hdr.sa_custno }}</p>
+            <p> &nbsp;{{ hdr.sa_custname }}</p>
+            <p> &nbsp;{{ member }} </p> 
+            <p> &nbsp;{{ date_ofchoose_dress }}</p> 
+            <p> &nbsp;{{ date_ofphotoshooting }}</p> 
+            <p> &nbsp;</p> 
+          </div>
+          
+        </div>
+        <div class="d-flex">
+          <div style="margin-top: -50px;line-height: 10px">
+            <p><b>Trans #&nbsp;:</b></p>
+            <p><b>Date&nbsp;:</b></p>
+            <p> <b>Time&nbsp;:</b></p> 
+            <p><b>Issued&nbsp;:</b></p>
+            <p><b>Sold/Service By:</b></p>
+            <p><b>Outstanding&nbsp;:</b></p>
+          </div>
+        
+          <div style="margin-top: -50px;line-height: 10px">
+            <p>&nbsp; {{ hdr.sa_transacno_ref }}</p>
+            <p>&nbsp; {{ date }}</p>
+            <p>&nbsp; {{ time }}</p> 
+            <p>&nbsp; {{ hdr.cas_name }} </p>
+            <p>&nbsp; {{ hdr.sa_staffname }} </p>
+            <p>&nbsp;  {{ balance }}</p>
+          </div>
+          
+        </div>
+      </div>
+  
+    <table cellspacing="15" cellpadding="10" style="font-size: 15px;" class="mt-2">
+      <tr style="border-top: 1px dotted black;
+      border-bottom: 1px dotted black;border-left: none;border-right: none;">
+        <th>No</th>
+        <th>Description</th>
+        <th style="text-align: right;">Service Qty</th>
+        <th style="text-align: right;">Qty</th>
+        <th style="text-align: right;">Unit Price</th>
+        <th style="text-align: right;">Amount</th>
+
+      </tr>
+
+      {% for d in daud_lst %}
+      <tr>
+        <td>{{ forloop.counter }}</td>
+        {% if d.record_detail_type == "PACKAGE" %}
+          <td>{{ d.dt_itemdesc }}&#8209; {{ d.package_desc }}</td>
+         
+        {% else %} 
+          <td>{{ d.dt_itemdesc }}</td>
+        {% endif %}  
+        <td></td>
+        <td style="text-align: right;">{{ d.dt_qty }}</td>
+        <td style="text-align: right;">{{ d.dt_price|floatformat:2 }}</td>
+        <td style="text-align: right;">{{ d.amount|floatformat:2 }}</td>
+      </tr>
+      {% endfor %}
+
+
+      </table>
+
+     
+<div class="d-flex justify-content-between mt-3" style="border: 1px solid black;">
+  <div>
+    <p class="p-3"><b>REMARKS  </b></p>
+  </div>
+  <div style="width:350px;">
+    <table width="100%">
+         <tr>
+           <td  style="border: 1px solid black;border-top: none;"><b>Sub Total</b></td>
+           <td>&nbsp; {{ sub_total }}</td>
+         </tr>
+         <tr  style="border: 1px solid black;">
+          <td  style="border: 1px solid black;"><b>Discount</b></td>
+          <td>&nbsp; {{ discount }}</td>
+        </tr>
+        <tr  style="border: 1px solid black;">
+          <td  style="border: 1px solid black;"><b>Total</b></td>
+          <td>&nbsp; {{ total }}</td>
+        </tr>
+        <tr  style="border: 1px solid black;">
+          <td  style="border: 1px solid black;"><b>Advance</b></td>
+          <td>&nbsp; {{ advance }}</td>
+        </tr>
+        <tr  style="border: 1px solid black;">
+          <td  style="border: 1px solid black;"><b>Paid</b></td>
+          <td>&nbsp; {{ paid }}</td>
+        </tr>
+        <tr  style="border: 1px solid black;border-bottom: none;">
+          <td  style="border: 1px solid black;border-bottom: none;"><b>Balance</b></td>
+          <td>&nbsp; {{ balance }}</td>
+        </tr>
+    </table>
+  </div>  
+</div>
+        
+<div class="d-flex mt-2">
+  <div style="width:250px;">
+    <table width="100%">
+         <tr>
+           <td style="border-bottom: 2px solid black;"><b>Payment Type</b></td>
+           <td style="border-bottom: 2px solid black;text-align: left;">: Amount</td>
+         </tr>
+
+         {% for taud in taud %}
+            <tr>
+              <td><b>{{ taud.pay_typeid.pay_description }}</b> </td>
+              <td>: ${{ taud.pay_amt|floatformat:2 }}</td>
+            </tr>
+          {% endfor %}
+
+        <tr>
+          <td  style="border-bottom: 2px solid black;"><b>Total</b></td>
+          <td style="border-bottom: 2px solid black;text-align: left;">: ${{ billing_amount|floatformat:2 }}</td>
+        </tr>
+    </table>
+  </div>  
+</div>
+
+<!-- <div>
+<div class="clearfix">
+  <div class="box" >
+    <table width="100%" style="border: 1px solid black;font-size: 12px;">
+      <tr>
+        <td>Name of Account</td>
+        <td>: STUDIO A COMPANY LIMITED</td>
+      </tr>
+      <tr>
+       <td>MBA Account</td>
+       <td>: 98765433212345667</td>
+     </tr>
+    </table>
+  </div>
+  <div class="box" >
+    <table width="100%" style="border: 1px solid black;font-size: 12px;">
+      <tr>
+        <td>Name of Account</td>
+        <td>: STUDIO A COMPANY LIMITED</td>
+      </tr>
+      <tr>
+       <td>MBA Account</td>
+       <td>: 98765433212345667</td>
+     </tr>
+    </table>
+  </div>
+</div>
+
+<div class="clearfix">
+  <div class="box" >
+    <table width="100%" style="border: 1px solid black;font-size: 12px;">
+      <tr>
+        <td>Name of Account</td>
+        <td>: STUDIO A COMPANY LIMITED</td>
+      </tr>
+      <tr>
+       <td>MBA Account</td>
+       <td>: 98765433212345667</td>
+     </tr>
+    </table>
+  </div>
+  <div class="box" >
+    <table width="100%" style="border: 1px solid black;font-size: 12px;">
+      <tr>
+        <td>Name of Account</td>
+        <td>: STUDIO A COMPANY LIMITED</td>
+      </tr>
+      <tr>
+       <td>MBA Account</td>
+       <td>: 98765433212345667</td>
+     </tr>
+    </table>
+  </div>
+</div>
+
+
+</div> -->
+
+<div class="d-flex mt-5">
+<div class="col-8">
+  <p style="font-weight: bold;text-align: left;">STUDIO A Co.Ltd Bank Information - </p>
+
+  <div class="clearfix">
+    <div class="box" >
+      <table width="100%" style="border: 1px solid black;font-size: 12px;">
+        <tr>
+          <td>Name of Account</td>
+          <td>: STUDIO A COMPANY LIMITED</td>
+        </tr>
+        <tr>
+         <td>MAB Account</td>
+         <td>: 0960163096000947014</td>
+       </tr>
+      </table>
+    </div>
+    <div class="box" >
+      <table width="100%" style="border: 1px solid black;font-size: 12px;">
+        <tr>
+          <td>Name of Account</td>
+          <td>: STUDIO A COMPANY LIMITED</td>
+        </tr>
+        <tr>
+         <td>AYA Account</td>
+         <td>: 4002414475</td>
+       </tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="clearfix">
+    <div class="box" >
+      <table width="100%" style="border: 1px solid black;font-size: 12px;">
+        <tr>
+          <td>Name of Account</td>
+          <td>: STUDIO A COLTD</td>
+        </tr>
+        <tr>
+         <td>KBZ Account</td>
+         <td>: 23050323002126401</td>
+       </tr>
+      </table>
+    </div>
+    <div class="box" >
+      <table width="100%" style="border: 1px solid black;font-size: 12px;">
+        <tr>
+          <td>Name of Account</td>
+          <td>: STUDIO A </td>
+        </tr>
+        <tr>
+         <td>CB Account</td>
+         <td>: 001600500007897</td>
+       </tr>
+      </table>
+    </div>
+  </div>
+</div>
+<div >
+
+  <p style="font-weight: bold;text-align: center;font-size: 12px;">SCAN FOR YOUR PAYMENT BY KPAY</p>
+  <div>
+    <div class="box" style="width: 200px;border: 1px solid black;height: 160px;background-color: black;color: #fff;">
+      <p style="text-align: center;">STUDIO A COMPANY</p>
+      <p style="text-align: center;">KBZ PAID ID</p>
+      <p style="text-align: center;">100247782</p>
+    </div>
+
+    <div class ="box" style="width: 200px;border: 1px solid black;height: 160px;background-color: black;color: #fff;">
+      QR scan
+    </div>
+  </div>
+</div>
+
+</div>
+
+
+
+<div class="d-flex mt-5 finalflex">
+
+  <div class="childboxsign">
+    <div>
+      <p style="font-weight: bold; text-align: center;">Prepared By.</p>
+      <table width="100%" >
+        <tr>
+          <td>Name.</td>
+          <td style="text-align: left ;border-bottom: 1px solid black;width: 6cm;">&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        </tr>
+      </table>
+    </div>
+    <div>
+      <table width="100%" >
+        <tr>
+          <td>Signature.</td>
+          <td style="text-align: left ;border-bottom: 1px solid black;width: 6cm;">&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        </tr>
+      </table>
+    </div>
+
+    </div>
+
+    <div>
+      <div>
+        <p style="font-weight: bold;text-align: center;">Sales Operation.</p>
+        <table width="100%" >
+          <tr>
+            <td>Name.</td>
+            <td style="text-align: left ;border-bottom: 1px solid black;width: 6cm;">&nbsp;&nbsp;&nbsp;&nbsp;</td>
+          </tr>
+        </table>
+      </div>
+  
+        <div>
+          <table width="100%" >
+            <tr>
+              <td>Signature.</td>
+              <td style="text-align: left ;border-bottom: 1px solid black;width: 6cm;">&nbsp;&nbsp;&nbsp;&nbsp;</td>
+            </tr>
+          </table>
+        </div>
+    </div>
+    
+   <div>
+    <div>
+      <p style="font-weight: bold;text-align: center;">Customer Name.</p>
+      <table width="100%" >
+        <tr>
+          <td>Name.</td>
+          <td style="text-align: left ;border-bottom: 1px solid black;width: 6cm;">&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        </tr>
+      </table>
+    </div>
+    <div>
+      <table width="100%">
+        <tr>
+          <td>Signature.</td>
+          <td style="text-align: left ;border-bottom: 1px solid black;width: 6cm;">&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        </tr>
+      </table>
+    </div>
+   </div>
+  
+  </div>
+  
+
+  
+</body>
+</html>

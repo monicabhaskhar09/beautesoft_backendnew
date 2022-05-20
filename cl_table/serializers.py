@@ -339,10 +339,10 @@ class CustomerdetailSerializer(serializers.ModelSerializer):
 
           
         voucherids = VoucherRecord.objects.filter(isvalid=True,cust_code=obj.cust_code,
-        ).order_by('-pk').count() 
+        used=False).order_by('-pk').count() 
 
         voucher_ids = VoucherRecord.objects.filter(isvalid=True,cust_code=obj.cust_code,
-        ).order_by('-pk').aggregate(amount=Coalesce(Sum('value'), 0))
+        used=False).order_by('-pk').aggregate(amount=Coalesce(Sum('value'), 0))
 
         if voucher_ids['amount'] > 0.0:
             voucher_amt = "{:.2f}".format(voucher_ids['amount'])
