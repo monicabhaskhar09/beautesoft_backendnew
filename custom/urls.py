@@ -108,6 +108,9 @@ router.register(r'authorise', views.AuthoriseViewset, 'authorise')
 router.register(r'commissionprofile', views.CommissionProfiles, 'commissionprofile')
 router.register(r'customerprojectlist', views.CustomerProjectListViewset)
 router.register(r'deliveryordersign', views.DeliveryOrderSignViewset)
+router.register(r'equipmentdropdown', views.EquipmentDropdownViewset, 'equipmentdropdown')
+router.register(r'equipmentusagelist', views.EquipmentUsageViewset, 'equipmentusagelist')
+router.register(r'equipmentusageitem', views.EquipmentUsageItemModelViewset, 'equipmentusageitem')
 
 
 # The API URLs are now determined automatically by the router.
@@ -134,6 +137,7 @@ urlpatterns = [
     path('api/satransacnoreflist/', views.SaTransacnorefAPIView.as_view(), name='satransacnoreflist'),
     path('api/workorderinvno/', views.WorkOrderInvoiceNoAPIView.as_view(), name='workorderinvno'),
     path('api/studioinvoice/', views.StudioPdfGeneration.as_view(), name='studioinvoice'),
+    path('api/equipmentusageissue/', views.EquipmentUsageIssueReturn.as_view(), name='equipmentusageissue'),
 
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 

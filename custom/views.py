@@ -20,7 +20,8 @@ ManualInvoiceSerializer,ManualInvoiceDetailSerializer,
 ManualInvoiceAddrSerializer,ManualInvoiceItemSerializer,WorkOrderInvoiceSerializer,
 WorkOrderDetailSerializer,WorkOrderInvoiceAddrSerializer,WorkOrderInvoiceItemSerializer,
 VoucherRecordAccSerializer,DeliveryOrderSerializer,DeliveryOrderAddrSerializer,DeliveryOrderDetailSerializer,
-DeliveryOrderItemSerializer,DeliveryOrdersignSerializer,InvoiceListingSerializer,WorkOrderInvNoSerializer)
+DeliveryOrderItemSerializer,DeliveryOrdersignSerializer,InvoiceListingSerializer,WorkOrderInvNoSerializer,
+EquipmentDropdownSerializer,EquipmentUsageSerializer,EquipmentUsageItemModelSerializer)
 from .models import (EmpLevel, Room, Combo_Services, ItemCart,VoucherRecord,RoundPoint, RoundSales,
 PaymentRemarks, HolditemSetup,PosPackagedeposit,SmtpSettings,MultiPricePolicy,salesStaffChangeLog,
 serviceStaffChangeLog,dateChangeLog,  TimeLogModel, ProjectModel, ActivityModel, QuotationModel, POModel, QuotationAddrModel, 
@@ -31,7 +32,8 @@ SiteCodeModel,ItemSupplyModel,StockModel,StktrnModel,MovHdrModel,MovDtlModel,PHY
 SystemLogModel,SupplyContactInfoModel,ControlNoModel, CommTarget,CommDeduction,CommissionProfile, SalarySubTypeLookup,
 ManualInvoiceModel,ManualInvoiceDetailModel,ManualInvoiceAddrModel,ManualInvoiceItemModel,WorkOrderInvoiceModel,
 WorkOrderInvoiceDetailModel,WorkOrderInvoiceAddrModel,WorkOrderInvoiceItemModel,DeliveryOrderModel,
-DeliveryOrderDetailModel,DeliveryOrderAddrModel,DeliveryOrderItemModel,DeliveryOrdersign)
+DeliveryOrderDetailModel,DeliveryOrderAddrModel,DeliveryOrderItemModel,DeliveryOrdersign,
+EquipmentDropdownModel,EquipmentUsage,EquipmentUsageItemModel)
 from cl_table.models import(Treatment, Employee, Fmspw, Stock, ItemClass, ItemRange, Appointment,Customer,Treatment_Master,
 GstSetting,PosTaud,PosDaud,PosHaud,ControlNo,EmpSitelist,ItemStatus, TmpItemHelper, FocReason, PosDisc,
 TreatmentAccount, PosDaud, ItemDept, DepositAccount, PrepaidAccount, ItemDiv, Systemsetup, Title,
@@ -3242,402 +3244,410 @@ class itemCartViewset(viewsets.ModelViewSet):
     #         invalid_message = str(e)
     #         return general_error_response(invalid_message)  
 
-
+    @transaction.atomic
     @action(methods=['post'], detail=False, permission_classes=[IsAuthenticated & authenticated_only],
     authentication_classes=[ExpiringTokenAuthentication])
     def TrmtDoneCartCreate(self, request):
         try:
-            global type_ex
-            cartdate = timezone.now().date()
-            for idx, req in enumerate(request.data, start=1):
-                cust_obj = Customer.objects.filter(pk=req['cust_noid'],cust_isactive=True).first()
-                if not cust_obj:
-                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer ID does not exist!!",'error': True} 
-                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+            with transaction.atomic():
+                global type_ex
+                cartdate = timezone.now().date()
+                for idx, req in enumerate(request.data, start=1):
+                    cust_obj = Customer.objects.filter(pk=req['cust_noid'],cust_isactive=True).first()
+                    if not cust_obj:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer ID does not exist!!",'error': True} 
+                        return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
-                fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
-            
-                site = fmspw[0].loginsite    
+                    fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
                 
-                
-            
-            cart_lst = [];subtotal = 0.0; discount=0.0; billable_amount=0.0;trans_amt=0.0;deposit_amt = 0.0
-            for idx, req in enumerate(request.data, start=1):
-                cart_id = request.GET.get('cart_id',None)
-                if cart_id:
-                    cartchids = ItemCart.objects.filter(isactive=True,cart_date=cartdate,
-                    cust_noid=cust_obj,cart_status="Inprogress",is_payment=False,sitecodeid=site).exclude(type__in=type_ex)
-                    if not cartchids:
-                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cart Inprogress record is not there for this cutomer,Give Without cart_id in parms!!",'error': True} 
-                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-
-                    check = "Old"
-                    #cust_noid=cust_obj,
-                    cartc_ids = ItemCart.objects.filter(isactive=True,cart_date=cartdate,
-                    cart_id=cart_id,cart_status="Completed",is_payment=True,sitecodeid=site).exclude(type__in=type_ex)
-                    if cartc_ids:
-                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Invalid Cart ID,Send correct Cart Id,Given Cart ID Payment done!!",'error': True} 
-                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-                else:
-                    cartcids = ItemCart.objects.filter(isactive=True,cart_date=cartdate,
-                    cust_noid=cust_obj,cart_status="Inprogress",is_payment=False,sitecodeid=site).exclude(type__in=type_ex).order_by('-pk')
-                    if cartcids:
-                        cart_id = cartcids[0].cart_id
-                        check = "Old"
-                        # result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cart Inprogress record is there for this cutomer!!",'error': True} 
-                        # return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-
-                    if not cartcids:   
-                        check = "New"
-
-                        control_obj = ControlNo.objects.filter(control_description__iexact="ITEM CART",Site_Codeid__pk=fmspw[0].loginsite.pk).first()
-                        if not control_obj:
-                            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Item Cart Control No does not exist!!",'error': True} 
-                            return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-                            
-                        #cartre = ItemCart.objects.filter(sitecodeid=site).order_by('cart_id')
-                        cartre = ItemCart.objects.filter(sitecodeid=site).order_by('-cart_id')[:2]
-                        final = list(set([r.cart_id for r in cartre]))
-                        code_site = site.itemsite_code
-                        prefix = control_obj.control_prefix
-
-                        silicon = 6
-                        cosystem_setup = Systemsetup.objects.filter(title='ICControlnoslice',value_name='ICControlnoslice',isactive=True).first()
-                        if cosystem_setup and cosystem_setup.value_data: 
-                            silicon = int(cosystem_setup.value_data)
-
-
-                        lst = []
-                        if final != []:
-                            for f in final:
-                                fhstr = int(f[silicon:])
-                                # newstr = f.replace(prefix,"")
-                                # new_str = newstr.replace(code_site, "")
-                                lst.append(fhstr)
-                                lst.sort(reverse=True)
-
-                            # print(lst,"lst")
-                            c_no = int(lst[0]) + 1
-                            # c_no = int(lst[0][-6:]) + 1
-
-                            cart_id = str(control_obj.control_prefix)+str(control_obj.Site_Codeid.itemsite_code)+str(c_no)
-                        else:
-                            cart_id = str(control_obj.control_prefix)+str(control_obj.Site_Codeid.itemsite_code)+str(control_obj.control_no)
-
-                        #same customer
-                        cartcu_ids = ItemCart.objects.filter(isactive=True,cust_noid=cust_obj,cart_date=cartdate,
-                        cart_id=cart_id,cart_status="Inprogress",is_payment=False,sitecodeid=site,check="New").exclude(type__in=type_ex)   
-                        if len(cartcu_ids) == 1:
-                            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Invalid Cart ID,Send correct Cart Id!!",'error': True} 
-                            return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-
-                        #Different customer
-                        cartcut_ids = ItemCart.objects.filter(isactive=True,cart_date=cartdate,
-                        cart_id=cart_id,cart_status="Inprogress",is_payment=False,sitecodeid=site,check="New").exclude(type__in=type_ex,cust_noid__pk=cust_obj.pk)   
-                        if len(cartcut_ids) == 1:
-                            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Invalid Cart ID,Send correct Cart Id!!",'error': True} 
-                            return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-                        
-                        
-                    #cust_noid=cust_obj,
-                    cartc_ids = ItemCart.objects.filter(isactive=True,cart_date=cartdate,
-                    cart_id=cart_id,cart_status="Completed",is_payment=True,sitecodeid=site).exclude(type__in=type_ex)
-                    if cartc_ids:
-                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Invalid Cart ID,Send correct Cart Id,Given Cart ID Payment done!!",'error': True} 
-                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-                
+                    site = fmspw[0].loginsite    
                     
-                cag_ids = ItemCart.objects.filter(isactive=True,cart_date=cartdate,
-                cart_id=cart_id,cart_status="Inprogress",is_payment=False,sitecode=site.itemsite_code).exclude(type__in=type_ex)
-                if cag_ids:
-                    lst = list(set([e.cust_noid.pk for e in cag_ids if e.cust_noid]))
-                    if len(lst) > 1:
-                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Each Item Cart ID should have one customer not multiple",'error': True} 
-                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                    
+                
+                cart_lst = [];subtotal = 0.0; discount=0.0; billable_amount=0.0;trans_amt=0.0;deposit_amt = 0.0
+                for idx, req in enumerate(request.data, start=1):
+                    cart_id = request.GET.get('cart_id',None)
+                    if cart_id:
+                        cartchids = ItemCart.objects.filter(isactive=True,cart_date=cartdate,
+                        cust_noid=cust_obj,cart_status="Inprogress",is_payment=False,sitecodeid=site).exclude(type__in=type_ex)
+                        if not cartchids:
+                            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cart Inprogress record is not there for this cutomer,Give Without cart_id in parms!!",'error': True} 
+                            return Response(result, status=status.HTTP_400_BAD_REQUEST) 
 
-                    if lst[0] != (cust_obj.pk):
-                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"This Item Cart ID already one customer id is there",'error': True} 
-                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                        check = "Old"
+                        #cust_noid=cust_obj,
+                        cartc_ids = ItemCart.objects.filter(isactive=True,cart_date=cartdate,
+                        cart_id=cart_id,cart_status="Completed",is_payment=True,sitecodeid=site).exclude(type__in=type_ex)
+                        if cartc_ids:
+                            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Invalid Cart ID,Send correct Cart Id,Given Cart ID Payment done!!",'error': True} 
+                            return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                    else:
+                        cartcids = ItemCart.objects.filter(isactive=True,cart_date=cartdate,
+                        cust_noid=cust_obj,cart_status="Inprogress",is_payment=False,sitecodeid=site).exclude(type__in=type_ex).order_by('-pk')
+                        if cartcids:
+                            cart_id = cartcids[0].cart_id
+                            check = "Old"
+                            # result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cart Inprogress record is there for this cutomer!!",'error': True} 
+                            # return Response(result, status=status.HTTP_400_BAD_REQUEST) 
 
-                # if idx == 1:
-                #     check = "New"
-                # else:
-                #     check = "Old"
+                        if not cartcids:   
+                            check = "New"
 
-                serializer = self.get_serializer(data=req)
+                            control_obj = ControlNo.objects.filter(control_description__iexact="ITEM CART",Site_Codeid__pk=fmspw[0].loginsite.pk).first()
+                            if not control_obj:
+                                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Item Cart Control No does not exist!!",'error': True} 
+                                return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                                
+                            #cartre = ItemCart.objects.filter(sitecodeid=site).order_by('cart_id')
+                            cartre = ItemCart.objects.filter(sitecodeid=site).order_by('-cart_id')[:2]
+                            final = list(set([r.cart_id for r in cartre]))
+                            code_site = site.itemsite_code
+                            prefix = control_obj.control_prefix
 
-                if not 'cart_date' in req:
-                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give cart date",'error': False}
-                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-                else:
-                    if req['cart_date'] is None:
+                            silicon = 6
+                            cosystem_setup = Systemsetup.objects.filter(title='ICControlnoslice',value_name='ICControlnoslice',isactive=True).first()
+                            if cosystem_setup and cosystem_setup.value_data: 
+                                silicon = int(cosystem_setup.value_data)
+
+
+                            lst = []
+                            if final != []:
+                                for f in final:
+                                    fhstr = int(f[silicon:])
+                                    # newstr = f.replace(prefix,"")
+                                    # new_str = newstr.replace(code_site, "")
+                                    lst.append(fhstr)
+                                    lst.sort(reverse=True)
+
+                                # print(lst,"lst")
+                                c_no = int(lst[0]) + 1
+                                # c_no = int(lst[0][-6:]) + 1
+
+                                cart_id = str(control_obj.control_prefix)+str(control_obj.Site_Codeid.itemsite_code)+str(c_no)
+                            else:
+                                cart_id = str(control_obj.control_prefix)+str(control_obj.Site_Codeid.itemsite_code)+str(control_obj.control_no)
+
+                            #same customer
+                            cartcu_ids = ItemCart.objects.filter(isactive=True,cust_noid=cust_obj,cart_date=cartdate,
+                            cart_id=cart_id,cart_status="Inprogress",is_payment=False,sitecodeid=site,check="New").exclude(type__in=type_ex)   
+                            if len(cartcu_ids) == 1:
+                                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Invalid Cart ID,Send correct Cart Id!!",'error': True} 
+                                return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
+                            #Different customer
+                            cartcut_ids = ItemCart.objects.filter(isactive=True,cart_date=cartdate,
+                            cart_id=cart_id,cart_status="Inprogress",is_payment=False,sitecodeid=site,check="New").exclude(type__in=type_ex,cust_noid__pk=cust_obj.pk)   
+                            if len(cartcut_ids) == 1:
+                                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Invalid Cart ID,Send correct Cart Id!!",'error': True} 
+                                return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                            
+                            
+                        #cust_noid=cust_obj,
+                        cartc_ids = ItemCart.objects.filter(isactive=True,cart_date=cartdate,
+                        cart_id=cart_id,cart_status="Completed",is_payment=True,sitecodeid=site).exclude(type__in=type_ex)
+                        if cartc_ids:
+                            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Invalid Cart ID,Send correct Cart Id,Given Cart ID Payment done!!",'error': True} 
+                            return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                    
+                        
+                    cag_ids = ItemCart.objects.filter(isactive=True,cart_date=cartdate,
+                    cart_id=cart_id,cart_status="Inprogress",is_payment=False,sitecode=site.itemsite_code).exclude(type__in=type_ex)
+                    if cag_ids:
+                        lst = list(set([e.cust_noid.pk for e in cag_ids if e.cust_noid]))
+                        if len(lst) > 1:
+                            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Each Item Cart ID should have one customer not multiple",'error': True} 
+                            return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
+                        if lst[0] != (cust_obj.pk):
+                            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"This Item Cart ID already one customer id is there",'error': True} 
+                            return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
+                    # if idx == 1:
+                    #     check = "New"
+                    # else:
+                    #     check = "Old"
+
+                    serializer = self.get_serializer(data=req)
+
+                    if not 'cart_date' in req:
                         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give cart date",'error': False}
                         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-                
-                if not 'cust_noid' in req:
-                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give cust_noid",'error': False}
-                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-                else:
-                    if req['cust_noid'] is None:
+                    else:
+                        if req['cart_date'] is None:
+                            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give cart date",'error': False}
+                            return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+                    
+                    if not 'cust_noid' in req:
                         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give cust_noid",'error': False}
                         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+                    else:
+                        if req['cust_noid'] is None:
+                            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give cust_noid",'error': False}
+                            return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
-                if not 'itemcodeid' in req:
-                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give Item code ",'error': False}
-                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-                else:
-                    if 'itemcodeid' in req and req['itemcodeid'] is None:
+                    if not 'itemcodeid' in req:
                         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give Item code ",'error': False}
                         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+                    else:
+                        if 'itemcodeid' in req and req['itemcodeid'] is None:
+                            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give Item code ",'error': False}
+                            return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
-                if not 'price' in req:
-                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give Item price ",'error': False}
-                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-                else:
-                    if 'price' in req and req['price'] is 0.0:
+                    if not 'price' in req:
                         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give Item price ",'error': False}
                         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-
-                # if str(req['cart_date']) != str(date.today()):
-                #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cart Date must be today date",'error': True}
-                #     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-
-            
-                fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
-                site = fmspw[0].loginsite
-
-            
-                cust_obj = Customer.objects.filter(pk=req['cust_noid'],cust_isactive=True).first()
-                if not cust_obj:
-                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer ID does not exist!!",'error': True} 
-                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-
-                stock_obj = Stock.objects.filter(pk=req['itemcodeid'],item_isactive=True).first()
-                if not stock_obj:
-                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Stock ID does not exist!!",'error': True} 
-                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-
-                recorddetail="TD"
-                itemtype=stock_obj.item_type    
-
-                treat = req['treatment']    
-                firstid = 0
-                qtyid = 1
-                if isinstance(req['treatment'], list):
-                    for tt in req['treatment']:
-                        # print(tt,"tt")
-                        if firstid == 0:
-                            firstid = tt
-                        else:
-                            qtyid+=1           
-                else:
-                    firstid = req['treatment']    
-                # trmtacc_obj = TreatmentAccount.objects.filter(pk=req['treatment_account'],site_code=site.itemsite_code).first()
-                trmtacc_obj = TreatmentAccount.objects.filter(pk=req['treatment_account']).first()
-
-                if not trmtacc_obj:
-                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Treatment Account ID does not exist!!",'error': True} 
-                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-
-                # trmt_obj = Treatment.objects.filter(pk=req['treatment'],site_code=site.itemsite_code).first()
-                trmt_obj = Treatment.objects.filter(pk=firstid).first()
-                # print(trmt_obj,"trmt_obj")
-                # print(trmt_obj.helper_ids.all(),"helper_ids.all()")
-                if not trmt_obj:
-                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Treatment ID does not exist!!",'error': True} 
-                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-            
-                gst = GstSetting.objects.filter(item_desc='GST',isactive=True).first()
-                
-                if not trmt_obj.helper_ids.all():
-                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please Select Service Staffs Treatment Done!!",'error': True} 
-                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-                
-                if float(req['price']) < float(trmt_obj.unit_amount):
-                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Insufficent Amount in Treatment Account. Please Top Up!!",'error': True} 
-                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-
-                if req['ori_stockid']:
-
-                    ori_stockobj = Stock.objects.filter(pk=req['ori_stockid'],item_isactive=True).first()
-
-                    excontrol_obj = ControlNo.objects.filter(control_description__iexact="EXCHANGE NO",Site_Codeid__pk=fmspw[0].loginsite.pk).first()
-                    if not excontrol_obj:
-                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"EXCHANGE NO Control No does not exist!!",'error': True} 
-                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-                            
-                    controlno = str(excontrol_obj.Site_Codeid.itemsite_code)+str(excontrol_obj.control_no)
-                    
-                    ex = ExchangeDtl(exchange_no=controlno,staff_code=fmspw[0].Emp_Codeid.emp_code,
-                    staff_name=fmspw[0].Emp_Codeid.display_name,original_item_code=ori_stockobj.item_code+"0000",
-                    original_item_name=ori_stockobj.item_name,exchange_item_code=stock_obj.item_code+"0000",
-                    exchange_item_name=stock_obj.item_name,trmt_code=trmt_obj.treatment_parentcode,
-                    trmt_full_code=trmt_obj.treatment_code,treatment_time=trmt_obj.times,sa_transacno=trmt_obj.sa_transacno,
-                    status=False,site_code=site.itemsite_code,cust_code=cust_obj.cust_code,cust_name=cust_obj.cust_name)
-                    ex.save()
-
-
-
-                req['treatment'] = firstid
-                if serializer.is_valid():
-                    tax_value = 0.0
-                    if stock_obj.is_have_tax == True:
-                        tax_value = gst.item_value if gst and gst.item_value else 0.0
-
-                    cartcuids = ItemCart.objects.filter(isactive=True,cust_noid=cust_obj,cart_date=cartdate,
-                    cart_id=cart_id,cart_status="Inprogress",is_payment=False,sitecodeid=site).exclude(type__in=type_ex).order_by('lineno')   
-                    if not cartcuids:
-                        lineno = 1
                     else:
-                        rec = cartcuids.last()
-                        lineno = float(rec.lineno) + 1  
+                        if 'price' in req and req['price'] is 0.0:
+                            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give Item price ",'error': False}
+                            return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
-                    # staffsno = str(trmtacc_obj.sa_staffno).split(',')
-                    # empids = Employee.objects.filter(emp_code__in=staffsno,emp_isactive=True)
+                    # if str(req['cart_date']) != str(date.today()):
+                    #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cart Date must be today date",'error': True}
+                    #     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
-                    # is_allow_foc = request.GET.get('is_foc',None)
+                
+                    fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+                    site = fmspw[0].loginsite
 
-                    carttr_ids = ItemCart.objects.filter(isactive=True,cust_noid=cust_obj,cart_date=cartdate,
-                    cart_id=cart_id,cart_status="Inprogress",is_payment=False,sitecodeid=site,
-                    treatment_account__pk=trmtacc_obj.pk,treatment__pk=trmt_obj.pk,type='Sales').exclude(type__in=type_ex).order_by('lineno')   
+                
+                    cust_obj = Customer.objects.filter(pk=req['cust_noid'],cust_isactive=True).first()
+                    if not cust_obj:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer ID does not exist!!",'error': True} 
+                        return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
-                    if not carttr_ids:
-                        if not self.request.GET.get('is_foc',None) is None and int(self.request.GET.get('is_foc',None)) == 1:
-                            if self.request.GET.get('is_foc',None):
-                                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Sales will not have FOC!!",'error': True} 
-                                return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                    stock_obj = Stock.objects.filter(pk=req['itemcodeid'],item_isactive=True).first()
+                    if not stock_obj:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Stock ID does not exist!!",'error': True} 
+                        return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
-                            if not stock_obj.is_allow_foc == True:
-                                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"This Product doesn't have FOC",'error': True} 
-                                return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                    recorddetail="TD"
+                    itemtype=stock_obj.item_type    
 
-                            cart = serializer.save(cart_date=cartdate,phonenumber=cust_obj.cust_phone2,
-                            customercode=cust_obj.cust_code,cust_noid=cust_obj,lineno=lineno,
-                            itemcodeid=stock_obj,itemcode=stock_obj.item_code,itemdesc=stock_obj.item_desc,
-                            quantity=qtyid,price="{:.2f}".format(float(req['price'])),
-                            sitecodeid=site,sitecode=site.itemsite_code,cart_status="Inprogress",cart_id=cart_id,
-                            tax="{:.2f}".format(tax_value),check=check,ratio=100.00,
-                            discount_price=0.0,discount=0.0,discount_amt="{:.2f}".format(float(req['price'])),
-                            total_price=float(req['price']) * qtyid,trans_amt=0.0,deposit=0.0,type="Sales",
-                            recorddetail=recorddetail,itemtype=itemtype)
-                        else:    
-                            cart = serializer.save(cart_date=cartdate,phonenumber=cust_obj.cust_phone2,
-                            customercode=cust_obj.cust_code,cust_noid=cust_obj,lineno=lineno,
-                            itemcodeid=stock_obj,itemcode=stock_obj.item_code,itemdesc=stock_obj.item_desc,
-                            quantity=qtyid,price="{:.2f}".format(float(req['price'])),
-                            sitecodeid=site,sitecode=site.itemsite_code,cart_status="Inprogress",cart_id=cart_id,
-                            tax="{:.2f}".format(tax_value),check=check,ratio=100.00,
-                            discount_price=float(req['price']) * 1.0,total_price=float(req['price']) * qtyid,
-                            trans_amt=float(req['price']) * qtyid,deposit=0.0,type="Sales",recorddetail=recorddetail,
-                            itemtype=itemtype)
+                    treat = req['treatment']    
+                    firstid = 0
+                    qtyid = 1
+                    if isinstance(req['treatment'], list):
+                        for tt in req['treatment']:
+                            # print(tt,"tt")
+                            if firstid == 0:
+                                firstid = tt
+                            else:
+                                qtyid+=1           
+                    else:
+                        firstid = req['treatment']    
+                    # trmtacc_obj = TreatmentAccount.objects.filter(pk=req['treatment_account'],site_code=site.itemsite_code).first()
+                    trmtacc_obj = TreatmentAccount.objects.filter(pk=req['treatment_account']).first()
 
+                    if not trmtacc_obj:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Treatment Account ID does not exist!!",'error': True} 
+                        return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
+                    # trmt_obj = Treatment.objects.filter(pk=req['treatment'],site_code=site.itemsite_code).first()
+                    trmt_obj = Treatment.objects.filter(pk=firstid).first()
+                    # print(trmt_obj,"trmt_obj")
+                    # print(trmt_obj.helper_ids.all(),"helper_ids.all()")
+                    if not trmt_obj:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Treatment ID does not exist!!",'error': True} 
+                        return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+                
+                    gst = GstSetting.objects.filter(item_desc='GST',isactive=True).first()
                     
-                        for s in trmt_obj.helper_ids.all(): 
-                            cart.service_staff.add(s.helper_id)
+                    if not trmt_obj.helper_ids.all():
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please Select Service Staffs Treatment Done!!",'error': True} 
+                        return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+                    
+                    if float(req['price']) < float(trmt_obj.unit_amount):
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Insufficent Amount in Treatment Account. Please Top Up!!",'error': True} 
+                        return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
+                    if req['ori_stockid']:
+
+                        ori_stockobj = Stock.objects.filter(pk=req['ori_stockid'],item_isactive=True).first()
+
+                        excontrol_obj = ControlNo.objects.filter(control_description__iexact="EXCHANGE NO",Site_Codeid__pk=fmspw[0].loginsite.pk).first()
+                        if not excontrol_obj:
+                            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"EXCHANGE NO Control No does not exist!!",'error': True} 
+                            return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                                
+                        controlno = str(excontrol_obj.Site_Codeid.itemsite_code)+str(excontrol_obj.control_no)
                         
-                        # sa = trmt_obj.helper_ids.all().first()
-                        # cart.sales_staff.add(sa.helper_id)
+                        ex = ExchangeDtl(exchange_no=controlno,staff_code=fmspw[0].Emp_Codeid.emp_code,
+                        staff_name=fmspw[0].Emp_Codeid.display_name,original_item_code=ori_stockobj.item_code+"0000",
+                        original_item_name=ori_stockobj.item_name,exchange_item_code=stock_obj.item_code+"0000",
+                        exchange_item_name=stock_obj.item_name,trmt_code=trmt_obj.treatment_parentcode,
+                        trmt_full_code=trmt_obj.treatment_code,treatment_time=trmt_obj.times,sa_transacno=trmt_obj.sa_transacno,
+                        status=False,site_code=site.itemsite_code,cust_code=cust_obj.cust_code,cust_name=cust_obj.cust_name)
+                        ex.save()
 
-                        if isinstance(treat, list):
-                            for tt in treat:
-                                cart.multi_treat.add(tt)
+
+
+                    req['treatment'] = firstid
+                    if serializer.is_valid():
+                        tax_value = 0.0
+                        if stock_obj.is_have_tax == True:
+                            tax_value = gst.item_value if gst and gst.item_value else 0.0
+
+                        cartcuids = ItemCart.objects.filter(isactive=True,cust_noid=cust_obj,cart_date=cartdate,
+                        cart_id=cart_id,cart_status="Inprogress",is_payment=False,sitecodeid=site).exclude(type__in=type_ex).order_by('lineno')   
+                        if not cartcuids:
+                            lineno = 1
                         else:
-                            cart.multi_treat.add(int(treat))
+                            rec = cartcuids.last()
+                            lineno = float(rec.lineno) + 1  
 
-                        # print(cart.multi_treat.all(),"kkk")    
+                        # staffsno = str(trmtacc_obj.sa_staffno).split(',')
+                        # empids = Employee.objects.filter(emp_code__in=staffsno,emp_isactive=True)
 
+                        # is_allow_foc = request.GET.get('is_foc',None)
 
-                        if req['ori_stockid']:
-                            cart.exchange_id = ex
-                            cart.save()
-            
-                        message = "Created Succesfully"
-                        val = serializer.data
-                    
-                        val['price'] = "{:.2f}".format(float(val['price']))
-                        val['total_price'] = "{:.2f}".format(float(val['total_price']))
-                        val['discount_price'] = "{:.2f}".format(float(val['discount_price']))
-                        val['item_class'] = stock_obj.Item_Classid.itm_desc
-                        val['sales_staff'] = ''
-                        val['service_staff'] = ''
-                        # val['tax'] = "{:.2f}".format(float(val['tax']))
-                        # val['deposit'] = "{:.2f}".format(float(val['deposit']))
-                        val['trans_amt'] = "{:.2f}".format(float(val['trans_amt']))
-                        val['treatment_name'] = val['itemdesc']+" "+" "+"("+str(val['quantity'])+")"
-                        val['discount'] = "{:.2f}".format(float(val['discount']))
-                        val['discount_amt'] = "{:.2f}".format(float(val['discount_amt']))
-                        val['additional_discount'] = "{:.2f}".format(float(val['additional_discount']))
-                        val['additional_discountamt'] = "{:.2f}".format(float(val['additional_discountamt']))
+                        carttr_ids = ItemCart.objects.filter(isactive=True,cust_noid=cust_obj,cart_date=cartdate,
+                        cart_id=cart_id,cart_status="Inprogress",is_payment=False,sitecodeid=site,
+                        treatment_account__pk=trmtacc_obj.pk,treatment__pk=trmt_obj.pk,type='Sales').exclude(type__in=type_ex).order_by('lineno')   
 
-                        subtotal +=float(val['total_price'])
-                        # tax += float(val['tax'])
-                        discount += float(val['discount'])
-                        trans_amt += float(val['trans_amt'])
-                        # deposit_amt += float(val['deposit'])
+                        if not carttr_ids:
+                            if not self.request.GET.get('is_foc',None) is None and int(self.request.GET.get('is_foc',None)) == 1:
+                                if self.request.GET.get('is_foc',None):
+                                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Sales will not have FOC!!",'error': True} 
+                                    return Response(result, status=status.HTTP_400_BAD_REQUEST) 
 
-                        cart_lst.append(cart.cart_id)
-                        sub_total = "{:.2f}".format(float(subtotal))
-                        # tax_amt = "{:.2f}".format(float(tax))
-                        # discamt = subtotal * (discount/100)
-                        # disc_amt = "{:.2f}".format(float(discamt))
-                        # if subtotal < discamt:
-                        #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Subtotal Must be greater than Discount Amount!!",'error': True} 
-                        #     return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                                if not stock_obj.is_allow_foc == True:
+                                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"This Product doesn't have FOC",'error': True} 
+                                    return Response(result, status=status.HTTP_400_BAD_REQUEST) 
 
-
-                        # amt = subtotal - discamt
-                        # taxamt = amt * (tax/100)
-                        # if gst.is_exclusive == True:
-                        #     billable_amount = "{:.2f}".format(amt + taxamt)
-                        # else:
-                        #     billable_amount = "{:.2f}".format(amt)
-                    else:
-                        if carttr_ids:
-                            if len(carttr_ids) > 1:
-                                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cart ID for TD len must be one !!",'error': True} 
-                                return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+                                cart = serializer.save(cart_date=cartdate,phonenumber=cust_obj.cust_phone2,
+                                customercode=cust_obj.cust_code,cust_noid=cust_obj,lineno=lineno,
+                                itemcodeid=stock_obj,itemcode=stock_obj.item_code,itemdesc=stock_obj.item_desc,
+                                quantity=qtyid,price="{:.2f}".format(float(req['price'])),
+                                sitecodeid=site,sitecode=site.itemsite_code,cart_status="Inprogress",cart_id=cart_id,
+                                tax="{:.2f}".format(tax_value),check=check,ratio=100.00,
+                                discount_price=0.0,discount=0.0,discount_amt="{:.2f}".format(float(req['price'])),
+                                total_price=float(req['price']) * qtyid,trans_amt=0.0,deposit=0.0,type="Sales",
+                                recorddetail=recorddetail,itemtype=itemtype)
+                            else:    
+                                cart = serializer.save(cart_date=cartdate,phonenumber=cust_obj.cust_phone2,
+                                customercode=cust_obj.cust_code,cust_noid=cust_obj,lineno=lineno,
+                                itemcodeid=stock_obj,itemcode=stock_obj.item_code,itemdesc=stock_obj.item_desc,
+                                quantity=qtyid,price="{:.2f}".format(float(req['price'])),
+                                sitecodeid=site,sitecode=site.itemsite_code,cart_status="Inprogress",cart_id=cart_id,
+                                tax="{:.2f}".format(tax_value),check=check,ratio=100.00,
+                                discount_price=float(req['price']) * 1.0,total_price=float(req['price']) * qtyid,
+                                trans_amt=float(req['price']) * qtyid,deposit=0.0,type="Sales",recorddetail=recorddetail,
+                                itemtype=itemtype)
                             
-                            message = "Already Cart Added"
-                            first = carttr_ids.first()    
-                            cart_lst.append(first.cart_id)
-                else:
-                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Invalid Input",'error': True, 'data': serializer.errors}
-                    return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                            tmp_treatment_ids = Tmptreatment.objects.filter(treatment_id=treat[0],status='Open').first()
+                            if tmp_treatment_ids:
+                                cart.itemcodeid = tmp_treatment_ids.newservice_id
+                                cart.itemcode = tmp_treatment_ids.newservice_id.item_code
+                                cart.itemdesc = tmp_treatment_ids.newservice_id.item_desc
+                                cart.is_flexinewservice = True
+                                cart.save()
+                        
+                            for s in trmt_obj.helper_ids.all(): 
+                                cart.service_staff.add(s.helper_id)
+                            
+                            # sa = trmt_obj.helper_ids.all().first()
+                            # cart.sales_staff.add(sa.helper_id)
+
+                            if isinstance(treat, list):
+                                for tt in treat:
+                                    cart.multi_treat.add(tt)
+                            else:
+                                cart.multi_treat.add(int(treat))
+
+                            # print(cart.multi_treat.all(),"kkk")    
+
+
+                            if req['ori_stockid']:
+                                cart.exchange_id = ex
+                                cart.save()
+                
+                            message = "Created Succesfully"
+                            val = serializer.data
+                        
+                            val['price'] = "{:.2f}".format(float(val['price']))
+                            val['total_price'] = "{:.2f}".format(float(val['total_price']))
+                            val['discount_price'] = "{:.2f}".format(float(val['discount_price']))
+                            val['item_class'] = stock_obj.Item_Classid.itm_desc
+                            val['sales_staff'] = ''
+                            val['service_staff'] = ''
+                            # val['tax'] = "{:.2f}".format(float(val['tax']))
+                            # val['deposit'] = "{:.2f}".format(float(val['deposit']))
+                            val['trans_amt'] = "{:.2f}".format(float(val['trans_amt']))
+                            val['treatment_name'] = val['itemdesc']+" "+" "+"("+str(val['quantity'])+")"
+                            val['discount'] = "{:.2f}".format(float(val['discount']))
+                            val['discount_amt'] = "{:.2f}".format(float(val['discount_amt']))
+                            val['additional_discount'] = "{:.2f}".format(float(val['additional_discount']))
+                            val['additional_discountamt'] = "{:.2f}".format(float(val['additional_discountamt']))
+
+                            subtotal +=float(val['total_price'])
+                            # tax += float(val['tax'])
+                            discount += float(val['discount'])
+                            trans_amt += float(val['trans_amt'])
+                            # deposit_amt += float(val['deposit'])
+
+                            cart_lst.append(cart.cart_id)
+                            sub_total = "{:.2f}".format(float(subtotal))
+                            # tax_amt = "{:.2f}".format(float(tax))
+                            # discamt = subtotal * (discount/100)
+                            # disc_amt = "{:.2f}".format(float(discamt))
+                            # if subtotal < discamt:
+                            #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Subtotal Must be greater than Discount Amount!!",'error': True} 
+                            #     return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
+
+                            # amt = subtotal - discamt
+                            # taxamt = amt * (tax/100)
+                            # if gst.is_exclusive == True:
+                            #     billable_amount = "{:.2f}".format(amt + taxamt)
+                            # else:
+                            #     billable_amount = "{:.2f}".format(amt)
+                        else:
+                            if carttr_ids:
+                                if len(carttr_ids) > 1:
+                                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cart ID for TD len must be one !!",'error': True} 
+                                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+                                
+                                message = "Already Cart Added"
+                                first = carttr_ids.first()    
+                                cart_lst.append(first.cart_id)
+                    else:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Invalid Input",'error': True, 'data': serializer.errors}
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
 
 
-            
-            if cart_lst != []:
-                cart_lst = list(set(cart_lst)) 
-                if len(cart_lst) > 1:
-                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cart ID for TD should be one!!",'error': True} 
-                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+                
+                if cart_lst != []:
+                    cart_lst = list(set(cart_lst)) 
+                    if len(cart_lst) > 1:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cart ID for TD should be one!!",'error': True} 
+                        return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
-                # if check == 'New':
-                #     control_obj.control_no = int(control_obj.control_no) + 1
-                #     control_obj.save()
+                    # if check == 'New':
+                    #     control_obj.control_no = int(control_obj.control_no) + 1
+                    #     control_obj.save()
 
-                state= status.HTTP_201_CREATED
-                error = False
-                # result = {'status': state,"message":message,'error': error, 'data': cart_lst,'subtotal':sub_total,
-                # 'discount':"{:.2f}".format(float(discount)),'trans_amt':"{:.2f}".format(float(trans_amt)),
-                # 'deposit_amt':0.0,'billable_amount':0.0}
-                result = {'status': state,"message":message,'error': error, 'data': {'cart_id':cart_lst[0]}}
-                return Response(result, status=status.HTTP_201_CREATED)
-            else:
-                if carttr_ids:
-                    result = {'status': status.HTTP_201_CREATED,"message":"Already Cart Created",'error': False}
+                    state= status.HTTP_201_CREATED
+                    error = False
+                    # result = {'status': state,"message":message,'error': error, 'data': cart_lst,'subtotal':sub_total,
+                    # 'discount':"{:.2f}".format(float(discount)),'trans_amt':"{:.2f}".format(float(trans_amt)),
+                    # 'deposit_amt':0.0,'billable_amount':0.0}
+                    result = {'status': state,"message":message,'error': error, 'data': {'cart_id':cart_lst[0]}}
                     return Response(result, status=status.HTTP_201_CREATED)
                 else:
-                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Invalid Input",'error': False}
-                    return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                    if carttr_ids:
+                        result = {'status': status.HTTP_201_CREATED,"message":"Already Cart Created",'error': False}
+                        return Response(result, status=status.HTTP_201_CREATED)
+                    else:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Invalid Input",'error': False}
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
-            message = "Invalid Input"
-            error = True
-            data = []
-            result = {'status': status.HTTP_400_BAD_REQUEST,"message":message,'error': error, 'data': data}
-            return Response(result, status=status.HTTP_400_BAD_REQUEST)
-            
+                message = "Invalid Input"
+                error = True
+                data = []
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":message,'error': error, 'data': data}
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)     
@@ -11791,7 +11801,197 @@ class ManualInvoiceListViewset(viewsets.ModelViewSet):
         qcontrolobj.save()
         return mo_no
             
+
+class EquipmentUsageViewset(viewsets.ModelViewSet):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = EquipmentUsage.objects.filter().order_by('-pk')
+    serializer_class = EquipmentUsageSerializer
+
+    def create(self, request):
+        try:
+            queryset = None
+            serializer_class = None
+            total = None
+            request.POST._mutable = True
+            request.data["eq_number"] = self.get_equipmentnumber()
+            serializer = self.get_serializer(data=request.data)
+            if serializer.is_valid():
+                self.perform_create(serializer)
+                serializer.save()
+                state = status.HTTP_201_CREATED
+                message = "Created Succesfully"
+                error = False
+                data = serializer.data
+                result=response(self,request, queryset, total, state, message, error, serializer_class, data, action=self.action)
+                return Response(result, status=status.HTTP_201_CREATED)
+
+            state = status.HTTP_400_BAD_REQUEST
+            message = "Invalid Input"
+            error = True
+            data = serializer.errors
+            result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)  
     
+    def get_queryset(self):
+        queryset = EquipmentUsage.objects.filter().order_by('-pk')
+        searchid = self.request.GET.get('searchid','')
+        title = self.request.GET.get('searchtitle','')
+        status = self.request.GET.get('searchstatus','')
+        name = self.request.GET.get('searchname','')
+        number = self.request.GET.get('searchnumber','')
+        datefrom = self.request.GET.get('searchfrom','2021-01-01')
+        dateto = self.request.GET.get('searchto','2022-01-21')
+        date_select = datetime.datetime.strptime(dateto, '%Y-%m-%d')
+        delta = timedelta(days=1)
+        dateto = date_select + delta
+        
+        if not searchid == '':
+            return EquipmentUsage.objects.filter(id=searchid,active='active').order_by('-pk')
+        elif "," in status:
+            status = status.split(',')
+            return EquipmentUsage.objects.filter(title__istartswith=title,status__in=status,contact_person__istartswith=name,eq_number__istartswith=number,created_at__range=[datefrom, dateto],active='active').order_by('-pk')
+        else:
+            return EquipmentUsage.objects.filter(title__istartswith=title,status__istartswith=status,contact_person__istartswith=name,eq_number__istartswith=number,created_at__range=[datefrom, dateto],active='active').order_by('-pk')
+                
+    
+    def list(self, request):
+        try:
+            serializer_class = EquipmentUsageSerializer
+            queryset = self.filter_queryset(self.get_queryset())
+            # print(queryset,"queryset44")
+            if queryset:
+                full_tot = queryset.count()
+                try:
+                    limit = int(request.GET.get("limit",8))
+                except:
+                    limit = 8
+                try:
+                    page = int(request.GET.get("page",1))
+                except:
+                    page = 1
+
+                paginator = Paginator(queryset, limit)
+                total_page = paginator.num_pages
+
+                try:
+                    queryset = paginator.page(page)
+                except (EmptyPage, InvalidPage):
+                    queryset = paginator.page(total_page) # last page
+                data_list= []
+                for allquery in queryset:
+                   
+                    serializer = DateFormatSerializer.datetime_formatting(self,allquery)
+                    data_list.append({
+                        "id": allquery.id,
+                        "eq_number": allquery.eq_number,
+                        "status": allquery.status,
+                        "title": allquery.title,
+                        "company": allquery.company,
+                        "contact_person": allquery.contact_person,
+                        "validity": allquery.validity,
+                        "terms": allquery.terms,
+                        "in_charge": allquery.in_charge,
+                        "remarks": allquery.remarks,
+                        "footer": allquery.footer,
+                        "active": allquery.active,
+                        "created_at": serializer["created_at"],
+                    })    
+                
+
+                resData = {
+                    'dataList': data_list,
+                    'pagination': {
+                           "per_page":limit,
+                           "current_page":page,
+                           "total":full_tot,
+                           "total_pages":total_page
+                    }
+                }
+                result = {'status': status.HTTP_200_OK,"message": "Listed Succesfully",'error': False, 'data':  resData}
+            else:
+                serializer = self.get_serializer()
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+            return Response(data=result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message) 
+    
+
+    def update(self, request, pk=None):
+        try:
+            queryset = None
+            total = None
+            serializer_class = None
+            equipment = self.get_object(pk)
+            serializer = EquipmentUsageSerializer(equipment, data=request.data)
+            if serializer.is_valid():
+                serializer.save()
+                state = status.HTTP_200_OK
+                message = "Updated Succesfully"
+                error = False
+                data = serializer.data
+                result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+                return Response(result, status=status.HTTP_200_OK)
+
+            state = status.HTTP_400_BAD_REQUEST
+            message = "Invalid Input"
+            error = True
+            data = serializer.errors
+            result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+            return Response(result, status=status.HTTP_200_OK)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)    
+
+           
+    def destroy(self, request, pk=None):
+        try:
+            data = None
+            queryset = None
+            total = None
+            serializer_class = None
+            request.data["active"] = "inactive"
+            equipment = self.get_object(pk)
+            serializer = EquipmentUsageSerializer(equipment, data=request.data)
+            state = status.HTTP_204_NO_CONTENT
+            if serializer.is_valid():
+                serializer.save()
+                message = "Deleted Succesfully"
+                error = False
+                state = status.HTTP_200_OK
+                result=response(self,request, queryset, total,  state, message, error, serializer_class, data, action=self.action)
+                return Response(result,status=status.HTTP_200_OK)    
+            
+
+            message = "No Content"
+            error = True
+            result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+            return Response(result,status=state)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)          
+
+
+    def get_object(self, pk):
+        try:
+            return EquipmentUsage.objects.get(pk=pk)
+        except EquipmentUsage.DoesNotExist:
+            raise Http404
+    
+    def get_equipmentnumber(self):
+        qcontrolobj = ControlNo.objects.filter(control_description__iexact="EquipmentUsage").first()
+        if not qcontrolobj:
+            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"EquipmentUsage Control No does not exist!!",'error': True} 
+            return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+        mo_no = str(qcontrolobj.control_prefix)+str(qcontrolobj.control_no)
+        qcontrolobj.control_no = int(qcontrolobj.control_no) + 1
+        qcontrolobj.save()
+        return mo_no
+
 
         
 class QuotationListViewset(viewsets.ModelViewSet):
@@ -14006,8 +14206,176 @@ class ManualInvoiceItemViewset(viewsets.ModelViewSet):
             raise Exception("ManualInvoiceItemModel Does'nt exist")
 
 
+class EquipmentUsageItemModelViewset(viewsets.ModelViewSet):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = EquipmentUsageItemModel.objects.filter().order_by('-pk')
+    serializer_class = EquipmentUsageItemModelSerializer
 
-    
+    def create(self, request):
+        try:
+            queryset = None
+            serializer_class = None
+            total = None
+            request.POST._mutable = True
+            serializer = self.get_serializer(data=request.data)
+            if serializer.is_valid():
+                self.perform_create(serializer)
+                serializer.save()
+                state = status.HTTP_201_CREATED
+                message = "Created Succesfully"
+                error = False
+                data = serializer.data
+                result=response(self,request, queryset, total, state, message, error, serializer_class, data, action=self.action)
+                return Response(result, status=status.HTTP_201_CREATED)
+
+            state = status.HTTP_400_BAD_REQUEST
+            message = "Invalid Input"
+            error = True
+            data = serializer.errors
+            result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)  
+
+    def get_queryset(self):
+        queryset = EquipmentUsageItemModel.objects.filter().order_by('-pk')
+        searchid = self.request.GET.get('searchqitemid','')
+        searchitemcode = self.request.GET.get('searchqitemcode','')
+
+        if searchid == '' and searchitemcode == '':
+            queryset = EquipmentUsageItemModel.objects.filter(active='active').order_by('-pk') 
+        elif not searchid == '' and searchitemcode == '':
+            queryset = EquipmentUsageItemModel.objects.filter(fk_equipment_id=searchid,active='active').order_by('-pk')
+        elif searchid == '' and not searchitemcode == '':
+            queryset = EquipmentUsageItemModel.objects.filter(quotation_itemcode=searchitemcode,active='active').order_by('-pk')
+        else:
+            queryset = EquipmentUsageItemModel.objects.filter(fk_equipment_id=searchid,quotation_itemcode=searchitemcode,active='active').order_by('-pk')
+             
+        return queryset
+
+    def list(self, request):
+        try:
+            serializer_class = EquipmentUsageItemModelSerializer
+            queryset = self.filter_queryset(self.get_queryset())
+            if queryset:
+                full_tot = queryset.count()
+                try:
+                    limit = int(request.GET.get("limit",8))
+                except:
+                    limit = 8
+                try:
+                    page = int(request.GET.get("page",1))
+                except:
+                    page = 1
+
+                paginator = Paginator(queryset, limit)
+                total_page = paginator.num_pages
+
+                try:
+                    queryset = paginator.page(page)
+                except (EmptyPage, InvalidPage):
+                    queryset = paginator.page(total_page) # last page
+                data_list= []
+                for allquery in queryset:
+
+                    data_list.append({
+                        "id": allquery.id,
+                        "quotation_quantity": allquery.quotation_quantity,
+                        "quotation_unitprice": allquery.quotation_unitprice,
+                        "quotation_itemremarks": allquery.quotation_itemremarks,
+                        "quotation_itemcode": allquery.quotation_itemcode,
+                        "quotation_itemdesc": allquery.quotation_itemdesc,
+                        "item_uom": allquery.item_uom,
+                        "item_div" : allquery.item_div,
+                        "active": allquery.active,
+                        "Item_Codeid" : allquery.Item_Codeid.pk,
+                        "fk_equipment_id": allquery.fk_equipment_id
+                    })    
+                    
+                
+
+                resData = {
+                    'dataList': data_list,
+                    'pagination': {
+                           "per_page":limit,
+                           "current_page":page,
+                           "total":full_tot,
+                           "total_pages":total_page
+                    }
+                }
+                result = {'status': status.HTTP_200_OK,"message": "Listed Succesfully",'error': False, 'data':  resData}
+            else:
+                serializer = self.get_serializer()
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+            return Response(data=result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)  
+
+    def update(self, request, pk=None):
+        try:
+            queryset = None
+            total = None
+            serializer_class = None
+            equipmentitem = self.get_object(pk)
+            serializer = EquipmentUsageItemModelSerializer(equipmentitem, data=request.data)
+            if serializer.is_valid():
+                serializer.save()
+                state = status.HTTP_200_OK
+                message = "Updated Succesfully"
+                error = False
+                data = serializer.data
+                result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+                return Response(result, status=status.HTTP_200_OK)
+
+            state = status.HTTP_400_BAD_REQUEST
+            message = "Invalid Input"
+            error = True
+            data = serializer.errors
+            result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+            return Response(result, status=status.HTTP_200_OK)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)    
+
+         
+    def destroy(self, request, pk=None):
+        try:
+            data = None
+            queryset = None
+            total = None
+            serializer_class = None
+            request.data["active"] = "inactive"
+            equipmentitem = self.get_object(pk)
+            serializer = EquipmentUsageItemModelSerializer(equipmentitem, data=request.data)
+            state = status.HTTP_204_NO_CONTENT
+            if serializer.is_valid():
+                serializer.save()
+                message = "Deleted Succesfully"
+                error = False
+                state = status.HTTP_200_OK
+                result=response(self,request, queryset, total,  state, message, error, serializer_class, data, action=self.action)
+                return Response(result,status=status.HTTP_200_OK)    
+            
+
+            message = "No Content"
+            error = True
+            result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+            return Response(result,status=state)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)          
+
+
+    def get_object(self, pk):
+        try:
+            return EquipmentUsageItemModel.objects.get(pk=pk)
+        except EquipmentUsageItemModel.DoesNotExist:
+            raise Http404
+        
+
 
 
 class QuotationItemViewset(viewsets.ModelViewSet):
@@ -23533,12 +23901,15 @@ class QuotationToCartAPIView(generics.CreateAPIView):
                     if stock_obj.is_have_tax == True:
                         tax_value = gst.item_value if gst and gst.item_value else 0.0
                     
-                    uom_id = None
+                    uom_id = None ; holdreason = None ; holditemqty = None
                     if int(stock_obj.item_div) == 1:
                         itemuomprice = ItemUomprice.objects.filter(isactive=True, item_code=stock_obj.item_code).order_by('id').first()
                         # print(itemuomprice,"itemuomprice")
                         uom_id = ItemUom.objects.filter(uom_isactive=True,uom_code=itemuomprice.item_uom).order_by('id').first()
-                        # print(uom_id,"uom_id")    
+                        # print(uom_id,"uom_id")   
+                        holdobj = HolditemSetup.objects.filter(hold_desc="Pending Delivery").first() 
+                        holdreason = holdobj if holdobj else None
+                        holditemqty = int(i.quotation_quantity)
 
                     if int(stock_obj.item_div) == 1:
                         recorddetail="Product"
@@ -23568,7 +23939,7 @@ class QuotationToCartAPIView(generics.CreateAPIView):
                         trans_amt=float(i.quotation_unitprice) * int(i.quotation_quantity),
                         deposit=float(i.quotation_unitprice) * int(i.quotation_quantity),
                         type="Deposit",quotationitem_id=i,item_uom=uom_id,itemtype=itemtype,
-                        recorddetail=recorddetail)
+                        recorddetail=recorddetail,holdreason=holdreason,holditemqty=holditemqty)
                         cart.save()
 
                         if cart.pk not in cartlst:
@@ -24217,6 +24588,7 @@ class StudioPdfGeneration(APIView):
             'footer2':title.trans_footer2 if title and title.trans_footer2 else '',
             'footer3':title.trans_footer3 if title and title.trans_footer3 else '',
             'footer4':title.trans_footer4 if title and title.trans_footer4 else '',
+            'path':path if path else '',
             'hdr': hdr,'daud_lst': daud_lst, 'member':member,'date':date,'time':time,
             'sub_total': "{:.2f}".format(float(sub_total)),
             'discount': "{:.2f}".format(float(discount)),
@@ -24286,4 +24658,134 @@ class StudioPdfGeneration(APIView):
            return general_error_response(invalid_message)               
 
 
+class EquipmentDropdownViewset(viewsets.ModelViewSet):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = EquipmentDropdownModel.objects.filter().order_by('-pk')
+    serializer_class = EquipmentDropdownSerializer
+    
 
+    def get_queryset(self):
+        queryset = EquipmentDropdownModel.objects.filter(active=True).order_by('pk') 
+
+        return queryset
+
+    def list(self, request):
+        try:
+            serializer_class = EquipmentDropdownSerializer
+            queryset = self.filter_queryset(self.get_queryset())
+            if queryset:
+                serializer = self.get_serializer(queryset, many=True)
+                result = {'status': status.HTTP_200_OK,"message": "Listed Succesfully",'error': False, 'data':  serializer.data}
+            else:
+                serializer = self.get_serializer()
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+            return Response(data=result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)   
+
+
+class EquipmentUsageIssueReturn(APIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    
+    @transaction.atomic
+    def post(self, request, format=None):
+        try:
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+                site = fmspw[0].loginsite
+
+                if self.request.data.get('equipment_id',None) is None:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give equipment_id",'error': True}
+                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+                
+                equip_obj = EquipmentUsage.objects.filter(pk=request.data['equipment_id'],active="active").first()
+                if not equip_obj:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"EquipmentUsage ID does not exist!!",'error': True} 
+                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
+                if request.data['status'] == "Issued":
+                    if equip_obj.is_issued == True:
+                        raise ValueError("Already Product issued!!")  
+
+                    equip_line_ids = EquipmentUsageItemModel.objects.filter(fk_equipment=equip_obj,
+                    active='active')
+                    currenttime = timezone.now()
+                    currentdate = timezone.now().date()
+                        
+                    if equip_line_ids:
+                        for i in equip_line_ids:
+                            qtytodeduct = int(i.quotation_quantity)
+                            batchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=str(i.quotation_itemcode),
+                            uom=i.item_uom).order_by('pk').last() 
+                            #ItemBatch
+                            if batchids and batchids.qty >= qtytodeduct:
+                                deduct = batchids.qty - qtytodeduct
+                                batch = ItemBatch.objects.filter(pk=batchids.pk).update(qty=deduct,updated_at=timezone.now())
+
+                                
+                                post_time = str(currenttime.hour).zfill(2)+str(currenttime.minute).zfill(2)+str(currenttime.second).zfill(2)
+                                stktrn_ids = Stktrn.objects.filter(store_no=site.itemsite_code,itemcode=str(i.quotation_itemcode)+"0000",
+                                item_uom=i.item_uom).order_by('pk').last() 
+
+                                stktrn_id = Stktrn(trn_no=None,post_time=post_time,aperiod=None,itemcode=str(i.quotation_itemcode)+"0000",
+                                store_no=site.itemsite_code,tstore_no=None,fstore_no=None,trn_docno=equip_obj.eq_number,trn_date=currentdate,
+                                trn_type="Issue",trn_db_qty=None,trn_cr_qty=None,trn_qty=-qtytodeduct,trn_balqty=deduct,
+                                trn_balcst=stktrn_ids.trn_balcst if stktrn_ids and stktrn_ids.trn_balcst else 0,
+                                trn_amt="{:.2f}".format(float(i.quotation_unitprice)),trn_post=currentdate,
+                                trn_cost=stktrn_ids.trn_cost if stktrn_ids and stktrn_ids.trn_cost else 0,trn_ref=None,
+                                hq_update=stktrn_ids.hq_update if stktrn_ids and stktrn_ids.hq_update else 0,
+                                line_no=1,item_uom=i.item_uom,item_batch=None,mov_type=None,item_batch_cost=None,
+                                stock_in=None,trans_package_line_no=None)
+                                stktrn_id.save()
+
+                        equip_obj.is_issued = True
+                        equip_obj.save()
+
+                
+                elif request.data['status'] == "Returned":
+                    if equip_obj.status == "Returned":
+                        raise ValueError("Already Product Returned!!")
+
+                    equip_line_ids = EquipmentUsageItemModel.objects.filter(fk_equipment=equip_obj,
+                    active='active') 
+                    if equip_line_ids:
+                        for j in equip_line_ids: 
+                            if j.item_div == "2":
+                                #ItemBatch
+                                batch_ids = ItemBatch.objects.filter(site_code=site.itemsite_code,
+                                item_code=j.quotation_itemcode,uom=j.item_uom).order_by('pk').last()
+                                
+                                if batch_ids:
+                                    addamt = batch_ids.qty + int(j.quotation_quantity)
+                                    batch_ids.qty = addamt
+                                    batch_ids.updated_at = timezone.now()
+                                    batch_ids.save()
+
+                                    #Stktrn
+                                    currenttime = timezone.now()
+
+                                    post_time = str(currenttime.hour)+str(currenttime.minute)+str(currenttime.second)
+                                    
+                                    stktrn_id = Stktrn(trn_no=None,post_time=post_time,aperiod=None,
+                                    itemcode=str(j.quotation_itemcode)+"0000",store_no=site.itemsite_code,
+                                    tstore_no=None,fstore_no=None,trn_docno=equip_obj.eq_number,
+                                    trn_type="Return",trn_db_qty=None,trn_cr_qty=None,
+                                    trn_qty=int(j.quotation_quantity),trn_balqty=addamt,trn_balcst=None,
+                                    trn_amt=None,trn_cost=None,trn_ref=None,
+                                    hq_update=0,line_no=1,item_uom=j.item_uom,
+                                    item_batch=None,mov_type=None,item_batch_cost=None,
+                                    stock_in=None,trans_package_line_no=None).save()
+                                
+                                equip_obj.status = "Returned"
+                                equip_obj.save()
+
+                result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",
+                'error': False}
+                return Response(data=result, status=status.HTTP_200_OK) 
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)   

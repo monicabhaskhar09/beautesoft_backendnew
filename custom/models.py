@@ -276,7 +276,8 @@ class ItemCart(models.Model):
     treatment_limit_times = models.FloatField(db_column='Treatment_Limit_Times', blank=True, null=True)  # Field name made lowercase.
     is_flexi = models.BooleanField(default=False)
     quotationitem_id = models.ForeignKey('custom.QuotationItemModel', on_delete=models.PROTECT,blank=True, null=True)
-
+    is_flexinewservice = models.BooleanField(default=False)
+    
     class Meta:
         db_table = 'item_Cart'
 
@@ -1888,5 +1889,49 @@ class DeliveryOrdersign(models.Model):
         db_table = 'DeliveryOrdersign'
 
 
+class EquipmentUsage(models.Model):
+    id = models.AutoField(db_column='ID',primary_key=True)  # Field name made lowercase.
+    eq_number = models.CharField(db_column='EQ_Number', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    title = models.CharField(db_column='Project', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    company = models.CharField(db_column='Company', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    contact_person = models.CharField(db_column='ContactPerson', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    status = models.CharField(db_column='Status', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    validity = models.CharField(db_column='Validity', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    terms = models.CharField(db_column='Terms', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    in_charge = models.CharField(db_column='InCharge', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    remarks = models.CharField(db_column='Remarks', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    footer = models.CharField(db_column='Footer', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    active = models.CharField(db_column='Active', blank=True, max_length = 255, default='active', null=True)  # Field name made lowercase.
+    created_at = models.DateTimeField(db_column='Issue_Date',null=True)
+    is_issued = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = 'EquipmentUsage'
 
 
+class EquipmentUsageItemModel(models.Model):
+    id = models.AutoField(db_column='ID',primary_key=True)  # Field name made lowercase.
+    quotation_quantity = models.CharField(db_column='Item_Quantity', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    quotation_unitprice = models.CharField(db_column='Item_UnitPrice', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    quotation_itemremarks = models.CharField(db_column='Item_Remarks', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    quotation_itemcode = models.CharField(db_column='Item_Code', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    quotation_itemdesc = models.CharField(db_column='Item_Desc', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    item_uom = models.CharField(db_column='Item_UOM', max_length=600, blank=True, null=True)  # Field name made lowercase.
+    active = models.CharField(db_column='Active', blank=True, max_length = 255, default='active', null=True)  # Field name made lowercase.
+    fk_equipment = models.ForeignKey('custom.EquipmentUsage', on_delete=models.PROTECT, null=True, default=1)
+    Item_Codeid = models.ForeignKey('cl_table.Stock', on_delete=models.PROTECT, null=True) 
+    item_div = models.CharField(db_column='Item_Div', max_length=20, blank=True, null=True)  # Field name made lowercase.
+    
+    class Meta:
+        db_table = 'EquipmentUsage_Item'
+
+
+class EquipmentDropdownModel(models.Model):
+    id = models.AutoField(db_column='Dropdown_ID',primary_key=True)  # Field name made lowercase.
+    dropdown_item = models.CharField(db_column='Dropdown_Item', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    dropdown_desc = models.CharField(db_column='Dropdown_Desc', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    active = models.BooleanField(default=True)
+    
+
+    class Meta:
+        db_table = 'EquipmentDropdownModel'

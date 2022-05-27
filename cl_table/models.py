@@ -540,7 +540,8 @@ class Tmptreatment(models.Model):
     trmt_is_auto_proportion = models.BooleanField(db_column='Trmt_Is_Auto_Proportion')  # Field name made lowercase.
     itemcart = models.ForeignKey('custom.ItemCart', on_delete=models.PROTECT,null=True)
     isfoc = models.BooleanField(db_column='isFOC', blank=True, null=True)  # Field name made lowercase.
-    
+    newservice_id = models.ForeignKey('cl_table.Stock', on_delete=models.PROTECT, null=True) 
+    treatment_id = models.ForeignKey('cl_table.Treatment', on_delete=models.PROTECT,null=True, blank=True)
 
 
     class Meta:
@@ -2044,6 +2045,7 @@ class Paytable(models.Model):
     updated_at = models.DateTimeField(auto_now=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     pay_color = models.CharField(max_length=255, blank=True, null=True)
+    qr_code = models.ImageField(upload_to='img', blank=True, null=True)
 
     class Meta:
         db_table = 'PAYTABLE'

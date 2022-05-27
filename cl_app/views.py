@@ -408,6 +408,65 @@ class CatalogItemDivViewset(viewsets.ModelViewSet):
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)
+
+class FlexiServicesListViewset(viewsets.ModelViewSet):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    serializer_class = StockSerializer 
+
+    def list(self, request):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+            site = fmspw[0].loginsite
+            system_setupids = Systemsetup.objects.filter(title='listDepartmentOnTreatmentForFlexi',value_name='listDepartmentOnTreatmentForFlexi').first()
+            if system_setupids.value_data:
+                depart = system_setupids.value_data.split(',')
+                item_dept = list(set(ItemDept.objects.filter(pk__in=depart, is_service=True, itm_status=True).values_list('itm_code', flat=True).distinct()))
+                queryset = Stock.objects.filter(item_isactive=True, item_type="SINGLE", item_dept__in=item_dept).order_by('item_name')
+                if queryset:
+                    full_tot = queryset.count()
+                    try:
+                        limit = int(request.GET.get("limit",12))
+                    except:
+                        limit = 10
+                    try:
+                        page = int(request.GET.get("page",1))
+                    except:
+                        page = 1
+
+                    paginator = Paginator(queryset, limit)
+                    total_page = paginator.num_pages
+
+                    try:
+                        queryset = paginator.page(page)
+                    except (EmptyPage, InvalidPage):
+                        queryset = paginator.page(total_page) # last page
+
+                    serializer = self.get_serializer(queryset, many=True)
+                    resData = {
+                        'dataList': serializer.data,
+                        'pagination': {
+                            "per_page":limit,
+                            "current_page":page,
+                            "total":full_tot,
+                            "total_pages":total_page
+                        }
+                    }
+                    result = {'status': status.HTTP_200_OK,"message": "Listed Succesfully",'error': False, 'data':  resData}
+                else:
+                    serializer = self.get_serializer()
+                    result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+
+            else:
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+            
+            return Response(data=result, status=status.HTTP_200_OK)  
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+    
+
+
                          
 #services stock listing             
 class ServiceStockViewset(viewsets.ModelViewSet):
@@ -499,12 +558,14 @@ class RetailStockListViewset(viewsets.ModelViewSet):
     serializer_class = StockRetailSerializer
 
     def list(self, request):
-        # try:
+        try:
             fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
             site = fmspw[0].loginsite
             
-           
-            queryset = Stock.objects.filter(item_isactive=True, item_div="1").order_by('item_name')
+            if request.GET.get('stock',None):
+                queryset = Stock.objects.filter(item_isactive=True, item_div__in=["1","2"]).order_by('item_name')
+            else:
+                queryset = Stock.objects.filter(item_isactive=True, item_div="1").order_by('item_name')
             # print(queryset,"8888")
 
             if request.GET.get('Item_Deptid',None):
@@ -656,9 +717,9 @@ class RetailStockListViewset(viewsets.ModelViewSet):
             
             # for dat in d:
                   
-        # except Exception as e:
-        #     invalid_message = str(e)
-        #     return general_error_response(invalid_message)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
          
 
     def get_object(self, pk):
@@ -1681,7 +1742,7 @@ class TopupCombinedViewset(viewsets.ModelViewSet):
                                 acc_ids = PrepaidAccount.objects.filter(pp_no=d.sa_transacno,package_code=d.dt_combocode,
                                 pos_daud_lineno=d.dt_lineno,outstanding__gt = 0,status=True).order_by('id').last()
                             else:
-                                acc_ids = PrepaidAccount.objects.filter(pp_no=d.sa_transacno,Item_Codeid=d.dt_itemnoid,
+                                acc_ids = PrepaidAccount.objects.filter(pp_no=d.sa_transacno,
                                 pos_daud_lineno=d.dt_lineno,outstanding__gt = 0,status=True).order_by('id').last()
 
                             
@@ -1718,8 +1779,7 @@ class TopupCombinedViewset(viewsets.ModelViewSet):
                                         
                                         pdata['qty'] = 1
                                         pdata['sa_transacno'] = pos_haud.sa_transacno_ref if pos_haud.sa_transacno_ref else ""
-                                        # pdata['prepaid_id']  = acc_ids.pk
-                                        pdata['prepaid_id']  = pacc_ids[0].pk
+                                        pdata['prepaid_id']  = acc_ids.pk
 
                                         if int(d.dt_itemnoid.item_div) == 3 and d.dt_itemnoid.item_type == 'PACKAGE':
                                             pdata['stock_id'] = acc_ids.Item_Codeid.pk
@@ -2370,6 +2430,10 @@ class TreatmentDoneViewset(viewsets.ModelViewSet):
             def_setup = Systemsetup.objects.filter(title='Default TD List Years Ago',
             value_name='Default TD List Years Ago',isactive=True).first()
 
+            flexi_setup = Systemsetup.objects.filter(title='showServiceOnTreatmentForFlexi',
+            value_name='showServiceOnTreatmentForFlexi',isactive=True).first()
+
+
             current_year = date.today().year
             
             
@@ -2559,6 +2623,11 @@ class TreatmentDoneViewset(viewsets.ModelViewSet):
                 session_flag = False if session == 0 else True 
                 exchange_flag = True if session == 1 else False 
 
+                if flexi_setup and flexi_setup.value_data == 'True' and row.type == 'FFi':
+                    flexitype = True
+                else:
+                    flexitype = False  
+
                 
                 # Thing.objects.annotate(favorited=Count(Case(When(favorites__user=john_cleese, then=1),default=0,output_field=BooleanField(),)),)
                 # print(fmspw[0].is_reversal,"fmspw[0].is_reversal")
@@ -2592,6 +2661,7 @@ class TreatmentDoneViewset(viewsets.ModelViewSet):
                 'session' : session,
                 'sel' : sel,
                 'type': row.type,
+                'flexitype': flexitype
                 })
                 # print( q_val[0]," q_val[0]")
                 expiry = False
@@ -3126,7 +3196,16 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                 return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
             arrtreatmentid = request.GET.get('treatmentid',None).split(',')
-            t_ids = Treatment.objects.filter(status="Open",pk__in=arrtreatmentid)
+            tids = Treatment.objects.filter(status="Open",pk__in=arrtreatmentid,type="FFi")
+            if tids: 
+                accids = TreatmentAccount.objects.filter(ref_transacno=tids[0].sa_transacno,
+                treatment_parentcode=tids[0].treatment_parentcode).order_by('-sa_date','-sa_time','-id').first()
+                if accids and accids.outstanding > 0:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Treatment Done Cant do!!",'error': True} 
+                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+            
+
+            t_ids = Treatment.objects.filter(status="Open",pk__in=arrtreatmentid,type="N")
             if t_ids:
                 acc_ids = TreatmentAccount.objects.filter(ref_transacno=t_ids[0].sa_transacno,
                 treatment_parentcode=t_ids[0].treatment_parentcode).order_by('-sa_date','-sa_time','-id').first()
@@ -3230,7 +3309,16 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                 return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
             arrtreatmentid = request.GET.get('treatmentid',None).split(',')
-            t_ids = Treatment.objects.filter(status="Open",pk__in=arrtreatmentid)
+
+            tids = Treatment.objects.filter(status="Open",pk__in=arrtreatmentid,type="FFi")
+            if tids: 
+                accids = TreatmentAccount.objects.filter(ref_transacno=tids[0].sa_transacno,
+                treatment_parentcode=tids[0].treatment_parentcode).order_by('-sa_date','-sa_time','-id').first()
+                if accids and accids.outstanding > 0:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Treatment Done Cant do!!",'error': True} 
+                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+            
+            t_ids = Treatment.objects.filter(status="Open",pk__in=arrtreatmentid,type="N")
 
             if t_ids:
                 acc_ids = TreatmentAccount.objects.filter(ref_transacno=t_ids[0].sa_transacno,

@@ -1362,10 +1362,10 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                             treatment_no=treatment_no,price="{:.2f}".format(float(Price)),unit_amount="{:.2f}".format(float(Unit_Amount)),Cust_Codeid=treat.cust_noid,
                             cust_code=treat.customercode,cust_name=treat.cust_noid.cust_name,
                             status="Open",item_code=str(treat.itemcodeid.item_code)+"0000",Item_Codeid=treat.itemcodeid,
-                            sa_transacno=sa_transacno,sa_status="SA",type="N",trmt_is_auto_proportion=False,
+                            sa_transacno=sa_transacno,sa_status="SA",type=treat_type,trmt_is_auto_proportion=False,
                             dt_lineno=c.lineno,site_code=site.itemsite_code,Site_Codeid=site,isfoc=isfoc_val,
                             treatment_account=treatacc,service_itembarcode=str(treat.itemcodeid.item_code)+"0000",
-                            expiry=expiry)
+                            expiry=expiry,treatment_limit_times=treatment_limit_times)
 
                         treatmentid.save() 
                         treatmentid.treatment_date = pay_date
@@ -2396,13 +2396,17 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                 if acc_ids.outstanding:
                     outstanding += acc_ids.outstanding
 
+            amount = -float("{:.2f}".format(float(c.treatment.unit_amount * c.quantity ))) if c.treatment.unit_amount else 0.0 
+            if c.multi_treat.all()[0].type == 'FFi' and acc_ids.balance == 0:
+                amount = 0
+                Balance = 0
             
 
 
             #treatment Account creation
             treatacc = TreatmentAccount(Cust_Codeid=cust_obj,cust_code=cust_obj.cust_code,
             description=dt_itemdesc,ref_no=c.treatment.treatment_code if c.treatment.treatment_code else '',type="Sales",
-            amount=-float("{:.2f}".format(float(c.treatment.unit_amount * c.quantity ))) if c.treatment.unit_amount else 0.0,balance="{:.2f}".format(float(Balance)) if Balance else None,User_Nameid=fmspw,
+            amount=amount,balance="{:.2f}".format(float(Balance)),User_Nameid=fmspw,
             user_name=fmspw.pw_userlogin,ref_transacno=c.treatment.sa_transacno if c.treatment.sa_transacno else None,sa_transacno=sa_transacno,
             qty=c.quantity if c.quantity else None,outstanding="{:.2f}".format(float(acc_ids.outstanding)) if acc_ids and acc_ids.outstanding is not None and acc_ids.outstanding > 0 else 0.0,deposit=0,
             treatment_parentcode=c.treatment.treatment_parentcode if c.treatment.treatment_parentcode else '',treatment_code="",sa_status="SA",
@@ -2426,10 +2430,12 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
             # transaction_time=timezone.now(),treatment_count_done=1)
             for ct in c.multi_treat.all():
                 # print(c.treatment.pk-iqty,"iqty")
-                trmt_up = Treatment.objects.filter(pk=ct.pk).update(status="Done",treatment_date=pay_date,
-                trmt_room_code=helper.Room_Codeid.room_code if helper.Room_Codeid else None,record_status='PENDING',
-                transaction_time=timezone.now(),treatment_count_done=1)
-                if ct.type in ['FFd','FFi']:
+                if ct.type != "FFi":
+                    trmt_up = Treatment.objects.filter(pk=ct.pk).update(status="Done",treatment_date=pay_date,
+                    trmt_room_code=helper.Room_Codeid.room_code if helper.Room_Codeid else None,record_status='PENDING',
+                    transaction_time=timezone.now(),treatment_count_done=1)
+
+                if ct.type in ['FFd']:
                     if ct.expiry and ct.treatment_limit_times:
                         splte = str(ct.expiry).split(' ')
                         expiry = splte[0]
@@ -2451,8 +2457,66 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                                 service_itembarcode=ct.service_itembarcode,isfoc=ct.isfoc,Trmt_Room_Codeid=ct.Trmt_Room_Codeid,
                                 trmt_room_code=ct.trmt_room_code,trmt_is_auto_proportion=ct.trmt_is_auto_proportion,
                                 smsout=ct.smsout,emailout=ct.emailout,treatment_account=ct.treatment_account).save()
-                                
-               
+
+                if c.is_flexinewservice == True and ct.type == "FFi":
+                    tmp_treatment_ids = Tmptreatment.objects.filter(treatment_id=ct,status='Open')
+                    # print(tmp_treatment_ids,"tmp_treatment_ids")
+                    if tmp_treatment_ids:
+                        for tm in tmp_treatment_ids:
+                            etreat_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode).exclude(pk=ct.pk) 
+                            if not etreat_ids:
+                                times_t = "01" ; treatment_no_t = "01"
+                            else:
+                                times_t = str(len(etreat_ids) + 1).zfill(2)
+                                treatment_no_t = str(len(etreat_ids) + 1).zfill(2)
+                            
+                            # print(times_t,"times_t")
+                            # print(treatment_no_t,"treatment_no_t")
+                            f_treatment_code = ct.treatment_parentcode+"-"+times_t 
+                            # print(f_treatment_code,"f_treatment_code")   
+
+                            gtreatids = Treatment(treatment_code=f_treatment_code,course=tm.newservice_id.item_name,times=times_t,
+                            treatment_no=treatment_no_t,price=ct.price,treatment_date=timezone.now(),
+                            next_appt=ct.next_appt,cust_name=ct.cust_name,Cust_Codeid=ct.Cust_Codeid,
+                            cust_code=ct.cust_code,status="Done",unit_amount=ct.unit_amount,
+                            Item_Codeid=tm.newservice_id,item_code=tm.newservice_id.item_code+"0000",treatment_parentcode=ct.treatment_parentcode,
+                            prescription=ct.prescription,allergy=ct.allergy,sa_transacno=ct.sa_transacno,
+                            sa_status=ct.sa_status,record_status=ct.record_status,appt_time=ct.appt_time,
+                            remarks=ct.remarks,duration=ct.duration,hold_item=ct.hold_item,transaction_time=ct.transaction_time,
+                            dt_lineno=ct.dt_lineno,expiry=ct.expiry,lpackage=ct.lpackage,package_code=ct.package_code,
+                            Site_Codeid=ct.Site_Codeid,site_code=ct.site_code,type=ct.type,treatment_limit_times=ct.treatment_limit_times,
+                            treatment_count_done=ct.treatment_count_done,treatment_history_last_modify=ct.treatment_history_last_modify,
+                            service_itembarcode=tm.newservice_id.item_code+"0000",isfoc=ct.isfoc,Trmt_Room_Codeid=ct.Trmt_Room_Codeid,
+                            trmt_room_code=ct.trmt_room_code,trmt_is_auto_proportion=ct.trmt_is_auto_proportion,
+                            smsout=ct.smsout,emailout=ct.emailout,treatment_account=ct.treatment_account).save()
+                            
+                            tm.status = "Done"
+                            tm.save()
+                else:
+                    if ct.type == "FFi":
+                        treat_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode).exclude(pk=ct.pk) 
+                        if not treat_ids:
+                            timest = "01" ; treatment_not = "01"
+                        else:
+                            timest = str(len(treat_ids) + 1).zfill(2)
+                            treatment_not = str(len(treat_ids) + 1).zfill(2)
+                        
+                        ftreatment_code = ct.treatment_parentcode+"-"+timest
+
+                        ftreatids = Treatment(treatment_code=ftreatment_code,course=ct.course,times=timest,
+                        treatment_no=treatment_not,price=ct.price,treatment_date=timezone.now(),
+                        next_appt=ct.next_appt,cust_name=ct.cust_name,Cust_Codeid=ct.Cust_Codeid,
+                        cust_code=ct.cust_code,status="Done",unit_amount=ct.unit_amount,
+                        Item_Codeid=ct.Item_Codeid,item_code=ct.item_code,treatment_parentcode=ct.treatment_parentcode,
+                        prescription=ct.prescription,allergy=ct.allergy,sa_transacno=ct.sa_transacno,
+                        sa_status=ct.sa_status,record_status=ct.record_status,appt_time=ct.appt_time,
+                        remarks=ct.remarks,duration=ct.duration,hold_item=ct.hold_item,transaction_time=ct.transaction_time,
+                        dt_lineno=ct.dt_lineno,expiry=ct.expiry,lpackage=ct.lpackage,package_code=ct.package_code,
+                        Site_Codeid=ct.Site_Codeid,site_code=ct.site_code,type=ct.type,treatment_limit_times=ct.treatment_limit_times,
+                        treatment_count_done=ct.treatment_count_done,treatment_history_last_modify=ct.treatment_history_last_modify,
+                        service_itembarcode=ct.service_itembarcode,isfoc=ct.isfoc,Trmt_Room_Codeid=ct.Trmt_Room_Codeid,
+                        trmt_room_code=ct.trmt_room_code,trmt_is_auto_proportion=ct.trmt_is_auto_proportion,
+                        smsout=ct.smsout,emailout=ct.emailout,treatment_account=ct.treatment_account).save()
 
 
 
@@ -2910,7 +2974,9 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                 PackageAuditingLog(treatment_parentcode=c.treatment.treatment_parentcode if c.treatment.treatment_parentcode else '',
                 user_loginid=fmspw,package_type="Exchange",pa_qty=c.quantity if c.quantity else None).save()    
 
-
+            for clp in c.multi_treat.all():
+                if clp.type == "FFi":   
+                    TmpItemHelper.objects.filter(treatment=clp).delete()
              
             # print(dtl_st_ref_treatmentcode,"dtl_st_ref_treatmentcode") 
             # dtl.st_ref_treatmentcode = dtl_st_ref_treatmentcode

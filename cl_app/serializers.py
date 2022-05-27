@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import (SiteGroup,ItemSitelist,ReverseTrmtReason,VoidReason,TreatmentUsage,UsageMemo,
 Treatmentface)
-from cl_table.models import (ItemDept, ItemRange, Stock, TreatmentAccount, Treatment,DepositAccount,
+from cl_table.models import (ItemDept, ItemRange, Stktrn, Stock, TreatmentAccount, Treatment,DepositAccount,
 PrepaidAccount,PosHaud,PosDaud, Customer, PosTaud,CreditNote,PrepaidAccountCondition,Fmspw,Holditemdetail,
 ItemLink,Systemsetup,Employee,Multistaff,ItemDiv)
 from django.utils import timezone
@@ -53,13 +53,27 @@ class StockSerializer(serializers.ModelSerializer):
     class Meta:
         model = Stock
         fields = ['id','item_name','item_desc','item_div','item_type','Stock_PIC','item_price','prepaid_value']
+    
+    def to_representation(self, instance):
+        data = super(StockSerializer, self).to_representation(instance)
+        data['item_price'] = ""
+        if instance.item_price:
+            data['item_price'] = "{:.2f}".format(float(instance.item_price)) 
+        return data 
 
 class StockRetailSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source='pk',required=False)
 
     class Meta:
         model = Stock
-        fields = ['id','item_name','item_desc','item_div','item_type','Stock_PIC']
+        fields = ['id','item_name','item_desc','item_div','item_type','Stock_PIC','item_code','item_price']
+    
+    def to_representation(self, instance):
+        data = super(StockRetailSerializer, self).to_representation(instance)
+        data['item_price'] = ""
+        if instance.item_price:
+            data['item_price'] = "{:.2f}".format(float(instance.item_price)) 
+        return data 
 
 class StockIdSerializer(serializers.Serializer): 
     stock_id = serializers.IntegerField(required=True)
@@ -770,7 +784,7 @@ class ProductPurchaseSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PosDaud
-        fields = ['id','sa_date','dt_qty','dt_staffname','dt_promoprice','dt_transacamt']
+        fields = ['id','sa_date','dt_qty','dt_staffname','dt_promoprice','dt_transacamt','item_remarks']
 
     
     def to_representation(self, instance):
@@ -782,4 +796,13 @@ class ProductPurchaseSerializer(serializers.ModelSerializer):
         data['transaction'] = haud_ids.sa_transacno_ref if haud_ids and haud_ids.sa_transacno_ref else ""           
         data['dt_promoprice'] = "{:.2f}".format(float(data['dt_promoprice']))
         data['dt_transacamt'] = "{:.2f}".format(float(data['dt_transacamt']))
+
+        stktrn_ids = Stktrn.objects.filter(itemcode=instance.dt_itemno,
+        store_no=instance.itemsite_code,trn_type="GRN").order_by('-trn_date').first()
+        data['replenish_date'] = ""
+        if stktrn_ids:
+            if stktrn_ids.trn_date:
+                rep_date = datetime.datetime.strptime(str(stktrn_ids.trn_date), "%Y-%m-%d %H:%M:%S").strftime("%d-%b-%y")
+                data['replenish_date'] = rep_date
+           
         return data   

@@ -6,7 +6,8 @@ ItemSupplyModel, DOModel, DODetailModel, StockModel, MovHdrModel, MovDtlModel, P
 StktrnModel, SystemLogModel, SupplyContactInfoModel, ControlNoModel,CommissionProfile,CommTarget,CommDeduction, SalarySubTypeLookup,
 ManualInvoiceModel,ManualInvoiceDetailModel,ManualInvoiceAddrModel,ManualInvoiceItemModel,WorkOrderInvoiceModel,
 WorkOrderInvoiceDetailModel,WorkOrderInvoiceAddrModel,WorkOrderInvoiceItemModel,DeliveryOrderModel,DeliveryOrderAddrModel,
-DeliveryOrderDetailModel,DeliveryOrderItemModel,DeliveryOrdersign)
+DeliveryOrderDetailModel,DeliveryOrderItemModel,DeliveryOrdersign,EquipmentDropdownModel,EquipmentUsage,
+EquipmentUsageItemModel)
 from cl_table.models import (Treatment, Stock, PackageDtl, ItemClass, ItemRange, Employee, Tmptreatment,
 TmpItemHelper,PosHaud,City, State, Country, Stock )
 from cl_table.serializers import get_client_ip
@@ -1115,3 +1116,26 @@ class WorkOrderInvNoSerializer(serializers.ModelSerializer):
     class Meta:
         model = WorkOrderInvoiceModel
         fields = ['id','workorderinv_number']
+
+
+class EquipmentDropdownSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='pk',required=False)
+
+    class Meta:
+        model = EquipmentDropdownModel
+        fields = '__all__'
+
+
+class EquipmentUsageSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='pk',required=False)
+
+    class Meta:
+        model = EquipmentUsage
+        fields = '__all__'        
+
+class EquipmentUsageItemModelSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='pk',required=False)
+
+    class Meta:
+        model = EquipmentUsageItemModel
+        fields = '__all__'

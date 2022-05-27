@@ -23,7 +23,7 @@ from .models import (Gender, Employee, Fmspw, Attendance2, Customer, Images, Tre
                      Securitylevellist, DailysalesdataSummary, DailysalesdataDetail, Multilanguage, MultiLanguageWord, Workschedule,
                      Religious, Nationality, Races, DailysalestdSummary,
                      MrRewardItemType,CustomerPoint,TreatmentDuration,Smsreceivelog,TreatmentProtocol,CustomerTitle,CustomerPointDtl,
-                     ItemDiv,Tempcustsign,CustomerDocument,TreatmentPackage)
+                     ItemDiv,Tempcustsign,CustomerDocument,TreatmentPackage,Tmptreatment)
 from cl_app.models import ItemSitelist, SiteGroup, LoggedInUser
 from custom.models import Room,ItemCart,VoucherRecord,EmpLevel,PosPackagedeposit,payModeChangeLog
 from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializer, Attendance2Serializer,
@@ -59,7 +59,7 @@ from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializ
                           CustomerPointSerializer, MGMSerializer,SMSReplySerializer,ConfirmBookingApptSerializer,
                           ItemDescSerializer,TempcustsignSerializer,CustomerDocumentSerializer,
                           TreatmentPackageSerializer,ItemSitelistIntialSerializer,StaffInsertSerializer,
-                          FmspwSerializer)
+                          FmspwSerializernew)
 from datetime import date, timedelta, datetime
 import datetime
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
@@ -14735,6 +14735,17 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
                             #result = {'status': status.HTTP_400_BAD_REQUEST,
                             #          "message": "FMSPW User is not Present.Please map", 'error': True}
                             #return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                if 'LEVEL_ItmIDid' in request.data and not request.data['LEVEL_ItmIDid'] is None:
+                    levelobj = Securities.objects.filter(pk=request.data['LEVEL_ItmIDid'], 
+                    level_isactive=True).first()
+                    fmspwobj = Fmspw.objects.filter(Emp_Codeid=employee, pw_isactive=True).first()
+                    if fmspwobj and levelobj:
+                        fmspwobj.LEVEL_ItmIDid=levelobj
+                        fmspwobj.level_itmid=levelobj.level_code
+                        fmspwobj.level_desc=levelobj.level_description
+                        fmspwobj.save()
+                        employee.LEVEL_ItmIDid = levelobj
+                        employee.save()
 
                 serializer.save(type_code=jobtitle.level_code)
                 state = status.HTTP_200_OK
@@ -15884,6 +15895,11 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
                 k = serializer.save(site_code=site.itemsite_code, cust_code=cus_code,
                                     cust_sexes=gender, cust_joindate=timezone.now(),
                                     cust_title=title,cust_source=source)
+                
+                if request.data['cust_dob'] and request.data['cust_dob'] != str(date.today()):
+                    k.dob_status = True
+                    k.save()
+                                             
                 if k.pk:
                     control_obj.control_no = int(control_obj.control_no) + 1
                     control_obj.save()
@@ -19576,20 +19592,76 @@ class FmspwListAPIView(generics.ListAPIView):
     authentication_classes = [ExpiringTokenAuthentication]
     permission_classes = [IsAuthenticated & authenticated_only]
     queryset = Fmspw.objects.filter(pw_isactive=True).order_by('-pk')
-    serializer_class = FmspwSerializer
+    serializer_class = FmspwSerializernew
 
     def list(self, request):
         try:
-            queryset = Fmspw.objects.filter(pw_isactive=True).order_by('-pk')
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+            site = fmspw[0].loginsite
+
+            emp_ids = EmpSitelist.objects.filter(Site_Codeid__pk=site.pk,isactive=True)
+            emp_lst = list(set([e.Emp_Codeid.pk for e in emp_ids if e.Emp_Codeid and e.Emp_Codeid.emp_isactive == True]))
+            queryset = Fmspw.objects.filter(pw_isactive=True,Emp_Codeid__pk__in=emp_lst).order_by('-pk')
             if queryset:
                 serializer = self.get_serializer(queryset, many=True)
                 result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 'data':  serializer.data}
             else:
                 serializer = self.get_serializer()
-                result = {'status': status.HTTP_204_NO_CONTENT,"message":message,'error': False, 'data': []}
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
             return Response(data=result, status=status.HTTP_200_OK)
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)     
 
 
+class TmpTreatmentNewServiceAPIView(GenericAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = Tmptreatment.objects.filter().order_by('-pk')
+
+    @transaction.atomic
+    def post(self, request):
+        try:  
+            with transaction.atomic():
+                if not request.data['treatment']:
+                    raise ValueError("Please give treatment !!")      
+                if not request.data['newservice_id']:
+                    raise ValueError("Please give newservice_id !!")      
+                    
+                if request.data['treatment'] and request.data['newservice_id']:
+                    trmobj = Treatment.objects.filter(pk=request.data['treatment'],status="Open").first()
+                    if not trmobj:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Treatment ID does not exist!!",'error': True} 
+                        return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+                
+
+                    stock_obj = Stock.objects.filter(pk=request.data['newservice_id'],item_isactive=True).first()
+                    if not stock_obj:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Stock ID does not exist!!",'error': True} 
+                        return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+                
+                    if trmobj and stock_obj:
+                        Tmptreatment(course=stock_obj.item_name,times=trmobj.times,
+                        treatment_no=trmobj.treatment_no,price=trmobj.price,
+                        treatment_date=trmobj.treatment_date,
+                        cust_name=trmobj.cust_name,cust_code=trmobj.cust_code,
+                        status=trmobj.status,unit_amount=trmobj.unit_amount,
+                        item_code=stock_obj.item_code+"0000",
+                        treatment_parentcode=trmobj.treatment_parentcode,
+                        sa_transacno=trmobj.sa_transacno,sa_status=trmobj.sa_status,
+                        dt_lineno=trmobj.dt_lineno,expiry=trmobj.expiry,
+                        site_code=trmobj.site_code,type=trmobj.type,newservice_id=stock_obj,
+                        treatment_id=trmobj,trmt_is_auto_proportion=False).save()
+
+                        result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully",
+                        'error': False}
+                        return Response(result, status=status.HTTP_201_CREATED)  
+                    else:
+                        result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+                        return Response(data=result, status=status.HTTP_200_OK)    
+                else:
+                    raise ValueError("Please give treatment and newserviceID!!")      
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)     
+        
