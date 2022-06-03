@@ -2397,27 +2397,25 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                     outstanding += acc_ids.outstanding
 
             amount = -float("{:.2f}".format(float(c.treatment.unit_amount * c.quantity ))) if c.treatment.unit_amount else 0.0 
-            if c.multi_treat.all()[0].type == 'FFi' and acc_ids.balance == 0:
-                amount = 0
-                Balance = 0
+            
             
 
-
-            #treatment Account creation
-            treatacc = TreatmentAccount(Cust_Codeid=cust_obj,cust_code=cust_obj.cust_code,
-            description=dt_itemdesc,ref_no=c.treatment.treatment_code if c.treatment.treatment_code else '',type="Sales",
-            amount=amount,balance="{:.2f}".format(float(Balance)),User_Nameid=fmspw,
-            user_name=fmspw.pw_userlogin,ref_transacno=c.treatment.sa_transacno if c.treatment.sa_transacno else None,sa_transacno=sa_transacno,
-            qty=c.quantity if c.quantity else None,outstanding="{:.2f}".format(float(acc_ids.outstanding)) if acc_ids and acc_ids.outstanding is not None and acc_ids.outstanding > 0 else 0.0,deposit=0,
-            treatment_parentcode=c.treatment.treatment_parentcode if c.treatment.treatment_parentcode else '',treatment_code="",sa_status="SA",
-            cas_name=fmspw.pw_userlogin,sa_staffno=service_staff.emp_code if service_staff.emp_code else '',
-            sa_staffname=service_staff.display_name if service_staff.display_name else '',dt_lineno=c.lineno,
-            Site_Codeid=site,site_code=site.itemsite_code,treat_code=c.treatment.treatment_parentcode if c.treatment.treatment_parentcode else None,itemcart=c,
-            focreason=item_remarks)
-            treatacc.save()
-            treatacc.sa_date = pay_date
-            treatacc.sa_time = pay_time
-            treatacc.save()
+            if not c.multi_treat.all()[0].type == 'FFi':
+                #treatment Account creation
+                treatacc = TreatmentAccount(Cust_Codeid=cust_obj,cust_code=cust_obj.cust_code,
+                description=dt_itemdesc,ref_no=c.treatment.treatment_code if c.treatment.treatment_code else '',type="Sales",
+                amount=amount,balance="{:.2f}".format(float(Balance)),User_Nameid=fmspw,
+                user_name=fmspw.pw_userlogin,ref_transacno=c.treatment.sa_transacno if c.treatment.sa_transacno else None,sa_transacno=sa_transacno,
+                qty=c.quantity if c.quantity else None,outstanding="{:.2f}".format(float(acc_ids.outstanding)) if acc_ids and acc_ids.outstanding is not None and acc_ids.outstanding > 0 else 0.0,deposit=0,
+                treatment_parentcode=c.treatment.treatment_parentcode if c.treatment.treatment_parentcode else '',treatment_code="",sa_status="SA",
+                cas_name=fmspw.pw_userlogin,sa_staffno=service_staff.emp_code if service_staff.emp_code else '',
+                sa_staffname=service_staff.display_name if service_staff.display_name else '',dt_lineno=c.lineno,
+                Site_Codeid=site,site_code=site.itemsite_code,treat_code=c.treatment.treatment_parentcode if c.treatment.treatment_parentcode else None,itemcart=c,
+                focreason=item_remarks)
+                treatacc.save()
+                treatacc.sa_date = pay_date
+                treatacc.sa_time = pay_time
+                treatacc.save()
 
             if not c.exchange_id: 
                 PackageAuditingLog(treatment_parentcode=c.treatment.treatment_parentcode if c.treatment.treatment_parentcode else '',
@@ -2492,6 +2490,25 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                             
                             tm.status = "Done"
                             tm.save()
+                            
+                            if c.multi_treat.all()[0].type == 'FFi':
+                                if c.multi_treat.all()[0].type == 'FFi' and acc_ids.balance == 0:
+                                    amount = 0
+                                    Balance = 0
+
+                                dtitemdesc = str(times_t)+"/"+str(treatment_no_t)+" "+str(tm.newservice_id.item_name)
+
+                                treatacc_id = TreatmentAccount(Cust_Codeid=cust_obj,cust_code=cust_obj.cust_code,
+                                description=dtitemdesc,ref_no=f_treatment_code,type="Sales",
+                                amount=amount,balance="{:.2f}".format(float(Balance)),User_Nameid=fmspw,
+                                user_name=fmspw.pw_userlogin,ref_transacno=c.treatment.sa_transacno if c.treatment.sa_transacno else None,sa_transacno=sa_transacno,
+                                qty=c.quantity if c.quantity else None,outstanding="{:.2f}".format(float(acc_ids.outstanding)) if acc_ids and acc_ids.outstanding is not None and acc_ids.outstanding > 0 else 0.0,deposit=0,
+                                treatment_parentcode=c.treatment.treatment_parentcode if c.treatment.treatment_parentcode else '',treatment_code="",sa_status="SA",
+                                cas_name=fmspw.pw_userlogin,sa_staffno=service_staff.emp_code if service_staff.emp_code else '',
+                                sa_staffname=service_staff.display_name if service_staff.display_name else '',dt_lineno=c.lineno,
+                                Site_Codeid=site,site_code=site.itemsite_code,treat_code=c.treatment.treatment_parentcode if c.treatment.treatment_parentcode else None,itemcart=c,
+                                focreason=item_remarks)
+                                treatacc_id.save()
                 else:
                     if ct.type == "FFi":
                         treat_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode).exclude(pk=ct.pk) 
@@ -2518,7 +2535,23 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                         trmt_room_code=ct.trmt_room_code,trmt_is_auto_proportion=ct.trmt_is_auto_proportion,
                         smsout=ct.smsout,emailout=ct.emailout,treatment_account=ct.treatment_account).save()
 
+                        if c.multi_treat.all()[0].type == 'FFi' and acc_ids.balance == 0:
+                            amount = 0
+                            Balance = 0
 
+                        dtitemdesc_n = str(timest)+"/"+str(treatment_not)+" "+str(c.itemcodeid.item_name)
+
+                        treatacc_ids = TreatmentAccount(Cust_Codeid=cust_obj,cust_code=cust_obj.cust_code,
+                        description=dtitemdesc_n,ref_no=ftreatment_code,type="Sales",
+                        amount=amount,balance="{:.2f}".format(float(Balance)),User_Nameid=fmspw,
+                        user_name=fmspw.pw_userlogin,ref_transacno=c.treatment.sa_transacno if c.treatment.sa_transacno else None,sa_transacno=sa_transacno,
+                        qty=c.quantity if c.quantity else None,outstanding="{:.2f}".format(float(acc_ids.outstanding)) if acc_ids and acc_ids.outstanding is not None and acc_ids.outstanding > 0 else 0.0,deposit=0,
+                        treatment_parentcode=c.treatment.treatment_parentcode if c.treatment.treatment_parentcode else '',treatment_code="",sa_status="SA",
+                        cas_name=fmspw.pw_userlogin,sa_staffno=service_staff.emp_code if service_staff.emp_code else '',
+                        sa_staffname=service_staff.display_name if service_staff.display_name else '',dt_lineno=c.lineno,
+                        Site_Codeid=site,site_code=site.itemsite_code,treat_code=c.treatment.treatment_parentcode if c.treatment.treatment_parentcode else None,itemcart=c,
+                        focreason=item_remarks)
+                        treatacc_ids.save()  
 
             totaldisc = c.discount_amt + c.additional_discountamt
             totalpercent = c.discount + c.additional_discount

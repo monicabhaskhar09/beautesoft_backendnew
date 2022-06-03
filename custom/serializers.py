@@ -517,7 +517,7 @@ class CartServiceCourseSerializer(serializers.ModelSerializer):
             hl_obj = TmpItemHelper.objects.filter(itemcart=obj,helper_id__pk=i).order_by('pk').last()
             emp = Employee.objects.filter(pk=i,emp_isactive=True).first() 
             if emp and hl_obj:
-                lst.append({'name': emp.display_name,'wp1': "{:.2f}".format(float(hl_obj.wp1)),'session': "{:.2f}".format(float(hl_obj.session))})
+                lst.append({'name': emp.display_name,'wp1': "{:.2f}".format(float(hl_obj.wp1)),'session': "{:.2f}".format(float(hl_obj.session)) if hl_obj.session else "0"})
 
     
         mapped_object = {

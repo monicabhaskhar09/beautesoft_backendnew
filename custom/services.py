@@ -353,7 +353,7 @@ def GeneratePDF(self,request, sa_transacno):
     credit_ids = CreditNote.objects.filter(cust_code=hdr[0].sa_custno, status='OPEN').only('cust_code','status').order_by('-pk','-sa_date')
     if credit_ids:
         for ce in credit_ids:
-            cval = {'creditnote_no':ce.credit_code,'balance':"{:.2f}".format(ce.balance)}
+            cval = {'creditnote_no':ce.credit_code,'balance':"{:.2f}".format(ce.balance) if ce.balance else "0.00"}
             creditlst.append(cval)
 
 

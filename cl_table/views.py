@@ -59,7 +59,7 @@ from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializ
                           CustomerPointSerializer, MGMSerializer,SMSReplySerializer,ConfirmBookingApptSerializer,
                           ItemDescSerializer,TempcustsignSerializer,CustomerDocumentSerializer,
                           TreatmentPackageSerializer,ItemSitelistIntialSerializer,StaffInsertSerializer,
-                          FmspwSerializernew)
+                          FmspwSerializernew,GenderSerializer)
 from datetime import date, timedelta, datetime
 import datetime
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
@@ -558,6 +558,31 @@ class CustomerViewset(viewsets.ModelViewSet):
 #     serializer_class = CustomerSerializer
 #     filter_backends = [filters.SearchFilter]
 #     search_fields = ['cust_name', 'cust_address','last_visit','upcoming_appointments','Cust_DOB','cust_phone2','cust_email','cust_isactive','created_at','Sync_LstUpd']
+
+class GenderListAPIView(generics.ListAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = Gender.objects.filter(itm_isactive=True).order_by('-pk')
+    serializer_class = GenderSerializer
+
+    def list(self, request):
+        try:
+            queryset = Gender.objects.filter(itm_isactive=True).order_by('-pk')
+            if queryset:
+                serializer = self.get_serializer(queryset, many=True)
+                result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
+                'data':  serializer.data}
+            else:
+                serializer = self.get_serializer()
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+            return Response(data=result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)             
+    
+
+
+
 
 class CustomerListAPIView(generics.ListAPIView):
     authentication_classes = [ExpiringTokenAuthentication]
@@ -3851,7 +3876,6 @@ class AppointmentViewset(viewsets.ModelViewSet):
                     emp_queryset = Employee.objects.filter(pk__in=emp_siteids,emp_isactive=True,
                     show_in_appt=True,show_in_trmt=True) 
                     staffs_f = list(set([e.pk for e in emp_queryset if e.pk and e.emp_isactive == True]))
-                    # print(staffs_f,"staffs_f") 
                     if sc_system_obj and sc_system_obj.value_data == 'True':
                         month = ScheduleMonth.objects.filter(itm_date=date,Emp_Codeid__pk__in=staffs_f,
                         site_code=outlet.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007'))
@@ -3864,8 +3888,8 @@ class AppointmentViewset(viewsets.ModelViewSet):
                         queryset = Employee.objects.filter(pk__in=final,emp_isactive=True,show_in_appt=True,
                         show_in_trmt=True).order_by('emp_seq_webappt') 
                     else:
-                        queryset = Employee.objects.none
-
+                        queryset = Employee.objects.none()
+                    
                     serializer = StaffsAvailableSerializer(queryset, many=True, context={'request': self.request})
                     result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 'data': serializer.data}
                     return Response(result, status=status.HTTP_200_OK)
@@ -5489,6 +5513,7 @@ class AppointmentEditViewset(viewsets.ModelViewSet):
                                             trans_amt=float(trmt_obj.unit_amount) * 1.0,deposit=0.0,type="Sales",treatment_account=trmt_obj.treatment_account,
                                             treatment=trmt_obj,Appointment=appment)
                                             cart.save()
+                                            cart.multi_treat.add(trmt_obj)
 
                                             # print(cart.pk,"cart pk")
                                             
@@ -5964,11 +5989,11 @@ class StockListViewset(viewsets.ModelViewSet):
                             equeryset = Employee.objects.filter(pk__in=final,emp_isactive=True,show_in_appt=True,
                             show_in_trmt=True).order_by('emp_seq_webappt') 
                         else:
-                            equeryset = Employee.objects.none
+                            equeryset = Employee.objects.none()
 
                         
             else:
-                equeryset = Employee.objects.none       
+                equeryset = Employee.objects.none()       
 
             # now = time()
             # now = timezone.now()
@@ -6010,7 +6035,7 @@ class StockListViewset(viewsets.ModelViewSet):
                         srvduration = dict_v['srv_duration']     
 
                     dict_v['name'] = str(dict_v['item_desc'])+" "+"["+str(int(srvduration))+" "+"Mins"+""+"]"
-                    dict_v['item_price'] = "{:.2f}".format(float(dict_v['item_price']))
+                    dict_v['item_price'] = "{:.2f}".format(float(dict_v['item_price'])) if dict_v['item_price'] else "0.00"
 
                     # if int(dict_v['srv_duration']) == 0.0 or dict_v['srv_duration'] is None:
                     #     stk_duration = 60

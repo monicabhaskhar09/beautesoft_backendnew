@@ -4403,7 +4403,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                     print("l: ", c.total_price)
                     total_amount += c.total_price
                     other_disc += c.discount_amt * int(c.treatment_no) if c.treatment_no else c.discount_amt * c.quantity
-                    tran_disc += c.additional_discountamt * int(c.treatment_no) if c.treatment_no else c.additional_discountamt * c.quantity
+                    tran_disc += c.additional_discountamt 
                     net_amount += c.trans_amt
                     deposit_amount += c.deposit
 
@@ -4587,7 +4587,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                             if o_percent > t_emp_maxdisclimit:
                                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Discount Should not be greater than Emp MaxDisc Limit!!",'error': True} 
                                 return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-                print(net_lst)
+                # print(net_lst)
                 for idxa, cta in enumerate(net_lst,start=1):
                     if idxa != len(net_lst):
                         ItemCart.objects.filter(id=cta['cart_id']).update(additional_discount=cta['additional_discount'],additional_discountamt=cta['additional_discountamt'],
@@ -4631,7 +4631,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                 # print(opercent,"opercent")
                 tdisclimit = sum([j.itemcodeid.disclimit for j in per_cartids if j.auto == True]) 
                 # print(tdisclimit,"tdisclimit")
-                temp_maxdisclimit = sum([empl.max_disc for j in per_cartids if j.auto == True])  
+                temp_maxdisclimit = sum([empl.max_disc for j in per_cartids if j.auto == True]) if empl.max_disc else 0  
                 # print(temp_maxdisclimit,"temp_maxdisclimit")
                 if opercent > 0:
                     if tdisclimit > 0:

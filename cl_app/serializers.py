@@ -784,7 +784,7 @@ class ProductPurchaseSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PosDaud
-        fields = ['id','sa_date','dt_qty','dt_staffname','dt_promoprice','dt_transacamt','item_remarks']
+        fields = ['id','sa_date','dt_qty','dt_staffname','dt_promoprice','dt_transacamt','item_remarks','dt_itemdesc']
 
     
     def to_representation(self, instance):

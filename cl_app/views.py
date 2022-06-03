@@ -4116,12 +4116,13 @@ class ReversalListViewset(viewsets.ModelViewSet):
                         if queryset[0].treatment_parentcode not in checklst:
                             checklst.append(queryset[0].treatment_parentcode)
                             if acc_ids:
-                                tot_balance += acc_ids.balance
-
-                            if float(acc_ids.balance) > float(queryset[0].unit_amount):
-                                tot_credit += queryset[0].unit_amount
-                            elif float(acc_ids.balance) <= float(queryset[0].unit_amount):
-                                tot_credit += acc_ids.balance
+                                tot_balance += acc_ids.balance if acc_ids.balance else 0
+                            
+                            if acc_ids.balance:
+                                if float(acc_ids.balance) > float(queryset[0].unit_amount):
+                                    tot_credit += queryset[0].unit_amount
+                                elif float(acc_ids.balance) <= float(queryset[0].unit_amount):
+                                    tot_credit += acc_ids.balance
 
                         data['no'] = count
                         sum += data['unit_amount']
@@ -4151,287 +4152,291 @@ class ReversalListViewset(viewsets.ModelViewSet):
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)      
-
+    
+    @transaction.atomic
     def create(self, request):
         try:
-            if not self.request.user.is_authenticated:
-                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Unauthenticated Users are not allowed!!",'error': True} 
-                return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+            with transaction.atomic():
+                if not self.request.user.is_authenticated:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Unauthenticated Users are not allowed!!",'error': True} 
+                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
-            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
-            if not fmspw:
-                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Unauthenticated Users are not Permitted!!",'error': True} 
-                return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-            site = fmspw[0].loginsite
-            if not site:
-                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Users Item Site is not mapped!!",'error': True} 
-                return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+                fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+                if not fmspw:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Unauthenticated Users are not Permitted!!",'error': True} 
+                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+                site = fmspw[0].loginsite
+                if not site:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Users Item Site is not mapped!!",'error': True} 
+                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
-            treatment_id = self.request.GET.get('treatment_id',None)
-            if treatment_id is None:
-                result = {'status': status.HTTP_200_OK,"message":"Please give Treatment id!!",'error': True} 
-                return Response(data=result, status=status.HTTP_200_OK) 
-            
-            recontrol_obj = ControlNo.objects.filter(control_description__iexact="Reverse No",Site_Codeid=site).first()
-            if not recontrol_obj:
-                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Reverse Control No does not exist!!",'error': True} 
-                return Response(result, status=status.HTTP_400_BAD_REQUEST)
-            rev_code = str(recontrol_obj.control_prefix)+str(recontrol_obj.Site_Codeid.itemsite_code)+str(recontrol_obj.control_no)
-            
-            control_obj = ControlNo.objects.filter(control_description__iexact="Reference Credit Note No",Site_Codeid=site).first()
-            if not control_obj:
-                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Reverse Control No does not exist!!",'error': True} 
-                return Response(result, status=status.HTTP_400_BAD_REQUEST)
-            credit_code = str(control_obj.control_prefix)+str(control_obj.Site_Codeid.itemsite_code)+str(control_obj.control_no)
-
-            fmspw = fmspw.first()
-            treat_id = treatment_id.split(',')
-            # print(treat_id,"treat_id")
-            sum = 0; lst = [];total = 0;trm_lst = [];total_r = 0.0;rea_obj = False
-            
-            if treat_id:
-                for i in treat_id:
-                    #queryset = Treatment.objects.filter(pk=i,status='Open',site_code=site.itemsite_code).order_by('-pk')
-                    queryset = Treatment.objects.filter(pk=i,status='Open').order_by('-pk')
-                    if not queryset:
-                        result = {'status': status.HTTP_200_OK,"message":"Treatment ID does not exist/Not in Open Status!!",'error': True} 
-                        return Response(data=result, status=status.HTTP_200_OK) 
-                    
-                    # type__in=('Deposit', 'Top Up','CANCEL')
-                    #acc_ids = TreatmentAccount.objects.filter(ref_transacno=queryset[0].sa_transacno,
-                    #treatment_parentcode=queryset[0].treatment_parentcode,Site_Codeid=queryset[0].Site_Codeid).order_by('id').last()
-                    acc_ids = TreatmentAccount.objects.filter(ref_transacno=queryset[0].sa_transacno,
-                    treatment_parentcode=queryset[0].treatment_parentcode).order_by('sa_date','sa_time','id').last()
-
-                    # if acc_ids.balance == 0.0:
-                    #     result = {'status': status.HTTP_200_OK,"message":"Treatment Account for this customer is Zero so cant create Credit Note!!",'error': True} 
-                    #     return Response(data=result, status=status.HTTP_200_OK) 
-
-
-                    j = queryset.first()
-                    #treatment update
-                    j.status = 'Cancel'
-                    j.transaction_time = timezone.now()
-                    j.save()
-
-                    # cust_obj = Customer.objects.filter(cust_code=j.cust_code,cust_isactive=True).first()
-                    cust_obj = j.Cust_Codeid
-
-                    # pos_haud = PosHaud.objects.filter(sa_custno=cust_obj.cust_code,itemsite_code=site.itemsite_code,
-                    # sa_transacno=j.sa_transacno).first()
-                    pos_haud = PosHaud.objects.filter(sa_custno=cust_obj.cust_code,
-                    sa_transacno=j.sa_transacno).first()
-
-
-                    val = {'invoice': "Credit for Invoice Number : "+str(pos_haud.sa_transacno_ref) if pos_haud and pos_haud.sa_transacno_ref else "",
-                    'desc':j.course,'amount':j.unit_amount}
-                    trm_lst.append(val)
-                    total_r += j.unit_amount
-                    
-                    
-                    #reversedtl creation
-                    reversedtl = ReverseDtl(treatment_no=j.treatment_code,treatment_desc=j.course,
-                    treatment_price=j.unit_amount,transac_no=j.sa_transacno,reverse_no=rev_code,
-                    site_code=j.site_code)
-                    reversedtl.save()
-
-                    desc = "CANCEL" +" "+ str(j.course)+" "+str(j.times)+"/"+str(j.treatment_no)
-                    #treatment Account creation 
-                    # if acc_ids.balance > queryset[0].unit_amount: 
-                    #     balance = acc_ids.balance - queryset[0].unit_amount 
-                    #     tamount =  queryset[0].unit_amount
-                    #     total += j.unit_amount
-                    # elif acc_ids.balance <= queryset[0].unit_amount:  
-                    #     balance = acc_ids.balance - acc_ids.balance  
-                    #     tamount = acc_ids.balance 
-                    #     total += acc_ids.balance
-
-                    # tamount = Treatmentaccount account Field
-                    # balance = Treatmentaccount balance Field
-                    # outstanding = Treatmentaccount outstanding Field
-                    # total = creditnote amount & balance
-
-                    if acc_ids.outstanding > queryset[0].unit_amount:
-                        tamount = queryset[0].unit_amount
-                        balance = acc_ids.balance
-                        outstanding = acc_ids.outstanding - queryset[0].unit_amount
-                        total = 0
-                    elif queryset[0].unit_amount > acc_ids.outstanding and acc_ids.outstanding > 0:
-                        tamount = queryset[0].unit_amount 
-                        remaining = queryset[0].unit_amount - acc_ids.outstanding
-                        if remaining > 0:
-                            balance = acc_ids.balance - remaining
-                            total += remaining
-                        outstanding = 0    
-                    else:
-                        if queryset[0].unit_amount > 0 and acc_ids.outstanding == 0:
-                            tamount = queryset[0].unit_amount
-                            outstanding = acc_ids.outstanding
-                            balance = acc_ids.balance - queryset[0].unit_amount
-                            total += queryset[0].unit_amount
-
-                    treatacc = TreatmentAccount(Cust_Codeid=cust_obj,cust_code=cust_obj.cust_code,
-                    description=desc,ref_no=j.treatment_parentcode,type='CANCEL',amount=-float("{:.2f}".format(float(tamount))) if tamount else 0,
-                    balance="{:.2f}".format(float(balance)),User_Nameid=fmspw,user_name=fmspw.pw_userlogin,ref_transacno=j.sa_transacno,
-                    sa_transacno="",qty=1,outstanding="{:.2f}".format(float(outstanding)) if acc_ids and acc_ids.outstanding is not None and acc_ids.outstanding > 0 else 0,deposit=None,treatment_parentcode=j.treatment_parentcode,
-                    treatment_code=None,sa_status="VT",cas_name=fmspw.pw_userlogin,sa_staffno=acc_ids.sa_staffno,sa_staffname=acc_ids.sa_staffname,
-                    next_paydate=None,hasduedate=0,dt_lineno=j.dt_lineno,Site_Codeid=site,
-                    site_code=j.site_code,treat_code=j.treatment_parentcode)
-                    treatacc.save()
-                            
-                #creditnote creation  
-                creditnote = CreditNote(treatment_code=j.treatment_parentcode,treatment_name=j.course,
-                treatment_parentcode=j.treatment_parentcode,type="CANCEL",cust_code=j.cust_code,
-                cust_name=j.cust_name,sa_transacno=j.sa_transacno,status="OPEN",
-                credit_code=credit_code,deposit_type="TREATMENT",site_code=j.site_code,
-                treat_code=j.treatment_parentcode)
-                creditnote.save()
-                if creditnote.pk:
-                    control_obj.control_no = int(control_obj.control_no) + 1
-                    control_obj.save()
-                    if creditnote.pk not in lst:
-                        lst.append(creditnote.pk)
-
-                    PackageAuditingLog(treatment_parentcode=j.treatment_parentcode,
-                    user_loginid=fmspw,package_type="Reversal",pa_qty=len(treat_id)).save()    
-
-
-
-                #reversehdr creation
-                reversehdr = ReverseHdr(reverse_no=rev_code,staff_code="",staff_name="",
-                cust_code=j.cust_code,cust_name=j.cust_name,site_code=j.site_code,
-                ref_creditnote=creditnote.credit_code,total_balance=total)
-
-                reversehdr.save()
-                if reversehdr.pk:
-                    recontrol_obj.control_no = int(recontrol_obj.control_no) + 1
-                    recontrol_obj.save()
-
-                if self.request.GET.get('adjustment_value',None) and float(self.request.GET.get('adjustment_value',None)) != 0.0:
-                    amount = self.request.GET.get('adjustment_value',None)
-
-                    reversehdr.has_adjustment = True  
-                    reversehdr.adjustment_value = amount 
-                    split = str(amount).split('-')
-                    if '-' in split:
-                        reversehdr.credit_note_amt = total - float(amount)
-                        creditnote.amount = total - float(amount)
-                        creditnote.balance = total - float(amount)
-                    else:
-                        reversehdr.credit_note_amt = total + float(amount)
-                        creditnote.amount = total + float(amount)
-                        creditnote.balance = total + float(amount)
-
-                    if creditnote.amount == 0.0 and creditnote.balance == 0.0:     
-                        creditnote.status = "CLOSE"
-                        
-                    creditnote.save()
-                    if not self.request.GET.get('reason_id',None) is None:
-                        rea_obj = ReverseTrmtReason.objects.filter(id=self.request.GET.get('reason_id',None),
-                        is_active=True)
-
-                        if not rea_obj:
-                            result = {'status': status.HTTP_200_OK,"message":"Reason ID does not exist!!",'error': True} 
-                            return Response(data=result, status=status.HTTP_200_OK)  
-
-                        reversehdr.reason = rea_obj[0].rev_desc
-                      
-
-                    if not self.request.GET.get('remark',None) is None:
-                        reversehdr.remark = self.request.GET.get('remark',None)
-
-                    if rea_obj[0].rev_no == '100001':
-                        if rea_obj:
-                            reversehdr.reason1 = rea_obj[0].rev_desc 
-                        if amount:
-                            reversehdr.reason_adj_value1 = amount
-
-                    reversehdr.save()
-                else:
-                    creditnote.amount = total
-                    creditnote.balance = total
-                    if creditnote.amount == 0.0 and creditnote.balance == 0.0:     
-                        creditnote.status = "CLOSE"
-                    creditnote.save() 
-                    reversehdr.credit_note_amt = total
-                    reversehdr.save()
-
-
-           
-            if lst != [] and trm_lst != []:
-                title = Title.objects.filter(product_license=site.itemsite_code).first()
-
-                credit_ids = CreditNote.objects.filter(pk__in=lst).order_by('pk')
-                    
-
-                path = None
-                if title and title.logo_pic:
-                    path = BASE_DIR + title.logo_pic.url
-
-                split = str(credit_ids[0].sa_date).split(" ")
-                date = datetime.datetime.strptime(str(split[0]), '%Y-%m-%d').strftime("%d/%m/%Y")
-                adjustamt = self.request.GET.get('adjustment_value',None)
-                remark = self.request.GET.get('remark',None)
-                if adjustamt:
-                    total_credit = float(total_r) + float(adjustamt)
-                else:
-                    total_credit = float(total_r)
-
-
-                data = {'name': title.trans_h1 if title and title.trans_h1 else '', 
-                'address': title.trans_h2 if title and title.trans_h2 else '', 
-                'footer1':title.trans_footer1 if title and title.trans_footer1 else '',
-                'footer2':title.trans_footer2 if title and title.trans_footer2 else '',
-                'footer3':title.trans_footer3 if title and title.trans_footer3 else '',
-                'footer4':title.trans_footer4 if title and title.trans_footer4 else '',
-                'credit_ids': credit_ids[0], 'date':date,'total':total_r,'credit_balance': reversehdr.total_balance,'adjustamt':adjustamt if adjustamt else "",
-                'reason':reversehdr.reason if reversehdr.reason else "",'remark':remark if remark else "",'total_credit':reversehdr.credit_note_amt,
-                'credit': trm_lst,'cust': cust_obj,'creditno': credit_ids[0].credit_code,'fmspw':fmspw,'adjustamtstr': "0.00",
-                'path':path if path else '','title':title if title else None,
-                }
-
-                template = get_template('creditnote.html')
-                display = Display(visible=0, size=(800, 600))
-                display.start()
-                html = template.render(data)
-                options = {
-                    'margin-top': '.25in',
-                    'margin-right': '.25in',
-                    'margin-bottom': '.25in',
-                    'margin-left': '.25in',
-                    'encoding': "UTF-8",
-                    'no-outline': None,
-                    
-                }
-
-                dst ="creditnote_" + str(str(credit_ids[0].credit_code)) + ".pdf"
-
-                p=pdfkit.from_string(html,False,options=options)
-                PREVIEW_PATH = dst
-                pdf = FPDF() 
-
-                pdf.add_page() 
+                treatment_id = self.request.GET.get('treatment_id',None)
+                if treatment_id is None:
+                    result = {'status': status.HTTP_200_OK,"message":"Please give Treatment id!!",'error': True} 
+                    return Response(data=result, status=status.HTTP_200_OK) 
                 
-                pdf.set_font("Arial", size = 15) 
-                file_path = os.path.join(settings.PDF_ROOT, PREVIEW_PATH)
-                pdf.output(file_path) 
+                recontrol_obj = ControlNo.objects.filter(control_description__iexact="Reverse No",Site_Codeid=site).first()
+                if not recontrol_obj:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Reverse Control No does not exist!!",'error': True} 
+                    return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                rev_code = str(recontrol_obj.control_prefix)+str(recontrol_obj.Site_Codeid.itemsite_code)+str(recontrol_obj.control_no)
+                
+                control_obj = ControlNo.objects.filter(control_description__iexact="Reference Credit Note No",Site_Codeid=site).first()
+                if not control_obj:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Reverse Control No does not exist!!",'error': True} 
+                    return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                credit_code = str(control_obj.control_prefix)+str(control_obj.Site_Codeid.itemsite_code)+str(control_obj.control_no)
 
-                if p:
+                fmspw = fmspw.first()
+                treat_id = treatment_id.split(',')
+                # print(treat_id,"treat_id")
+                sum = 0; lst = [];total = 0;trm_lst = [];total_r = 0.0;rea_obj = False
+                
+                if treat_id:
+                    for i in treat_id:
+                        #queryset = Treatment.objects.filter(pk=i,status='Open',site_code=site.itemsite_code).order_by('-pk')
+                        queryset = Treatment.objects.filter(pk=i,status='Open').order_by('-pk')
+                        if not queryset:
+                            result = {'status': status.HTTP_200_OK,"message":"Treatment ID does not exist/Not in Open Status!!",'error': True} 
+                            return Response(data=result, status=status.HTTP_200_OK) 
+                        
+                        # type__in=('Deposit', 'Top Up','CANCEL')
+                        #acc_ids = TreatmentAccount.objects.filter(ref_transacno=queryset[0].sa_transacno,
+                        #treatment_parentcode=queryset[0].treatment_parentcode,Site_Codeid=queryset[0].Site_Codeid).order_by('id').last()
+                        acc_ids = TreatmentAccount.objects.filter(ref_transacno=queryset[0].sa_transacno,
+                        treatment_parentcode=queryset[0].treatment_parentcode).order_by('sa_date','sa_time','id').last()
+
+                        # if acc_ids.balance == 0.0:
+                        #     result = {'status': status.HTTP_200_OK,"message":"Treatment Account for this customer is Zero so cant create Credit Note!!",'error': True} 
+                        #     return Response(data=result, status=status.HTTP_200_OK) 
+
+
+                        j = queryset.first()
+                        #treatment update
+                        j.status = 'Cancel'
+                        j.transaction_time = timezone.now()
+                        j.save()
+
+                        # cust_obj = Customer.objects.filter(cust_code=j.cust_code,cust_isactive=True).first()
+                        cust_obj = j.Cust_Codeid
+
+                        # pos_haud = PosHaud.objects.filter(sa_custno=cust_obj.cust_code,itemsite_code=site.itemsite_code,
+                        # sa_transacno=j.sa_transacno).first()
+                        pos_haud = PosHaud.objects.filter(sa_custno=cust_obj.cust_code,
+                        sa_transacno=j.sa_transacno).first()
+
+
+                        val = {'invoice': "Credit for Invoice Number : "+str(pos_haud.sa_transacno_ref) if pos_haud and pos_haud.sa_transacno_ref else "",
+                        'desc':j.course,'amount':j.unit_amount}
+                        trm_lst.append(val)
+                        total_r += j.unit_amount
+                        
+                        
+                        #reversedtl creation
+                        reversedtl = ReverseDtl(treatment_no=j.treatment_code,treatment_desc=j.course,
+                        treatment_price=j.unit_amount,transac_no=j.sa_transacno,reverse_no=rev_code,
+                        site_code=j.site_code)
+                        reversedtl.save()
+
+                        desc = "CANCEL" +" "+ str(j.course)+" "+str(j.times)+"/"+str(j.treatment_no)
+                        #treatment Account creation 
+                        # if acc_ids.balance > queryset[0].unit_amount: 
+                        #     balance = acc_ids.balance - queryset[0].unit_amount 
+                        #     tamount =  queryset[0].unit_amount
+                        #     total += j.unit_amount
+                        # elif acc_ids.balance <= queryset[0].unit_amount:  
+                        #     balance = acc_ids.balance - acc_ids.balance  
+                        #     tamount = acc_ids.balance 
+                        #     total += acc_ids.balance
+
+                        # tamount = Treatmentaccount account Field
+                        # balance = Treatmentaccount balance Field
+                        # outstanding = Treatmentaccount outstanding Field
+                        # total = creditnote amount & balance
+
+                        if acc_ids.outstanding > queryset[0].unit_amount:
+                            tamount = queryset[0].unit_amount
+                            balance = acc_ids.balance
+                            outstanding = acc_ids.outstanding - queryset[0].unit_amount
+                            total = 0
+                        elif queryset[0].unit_amount > acc_ids.outstanding and acc_ids.outstanding > 0:
+                            tamount = queryset[0].unit_amount 
+                            remaining = queryset[0].unit_amount - acc_ids.outstanding
+                            if remaining > 0:
+                                balance = acc_ids.balance - remaining
+                                total += remaining
+                            outstanding = 0    
+                        else:
+                            if queryset[0].unit_amount > 0 and acc_ids.outstanding == 0:
+                                tamount = queryset[0].unit_amount
+                                outstanding = acc_ids.outstanding
+                                balance = acc_ids.balance - queryset[0].unit_amount
+                                total += queryset[0].unit_amount
+
+                        treatacc = TreatmentAccount(Cust_Codeid=cust_obj,cust_code=cust_obj.cust_code,
+                        description=desc,ref_no=j.treatment_parentcode,type='CANCEL',amount=-float("{:.2f}".format(float(tamount))) if tamount else 0,
+                        balance="{:.2f}".format(float(balance)),User_Nameid=fmspw,user_name=fmspw.pw_userlogin,ref_transacno=j.sa_transacno,
+                        sa_transacno="",qty=1,outstanding="{:.2f}".format(float(outstanding)) if acc_ids and acc_ids.outstanding is not None and acc_ids.outstanding > 0 else 0,deposit=None,treatment_parentcode=j.treatment_parentcode,
+                        treatment_code=None,sa_status="VT",cas_name=fmspw.pw_userlogin,sa_staffno=acc_ids.sa_staffno,sa_staffname=acc_ids.sa_staffname,
+                        next_paydate=None,hasduedate=0,dt_lineno=j.dt_lineno,Site_Codeid=site,
+                        site_code=j.site_code,treat_code=j.treatment_parentcode)
+                        treatacc.save()
+                                
+                    #creditnote creation  
+                    creditnote = CreditNote(treatment_code=j.treatment_parentcode,treatment_name=j.course,
+                    treatment_parentcode=j.treatment_parentcode,type="CANCEL",cust_code=j.cust_code,
+                    cust_name=j.cust_name,sa_transacno=j.sa_transacno,status="OPEN",
+                    credit_code=credit_code,deposit_type="TREATMENT",site_code=j.site_code,
+                    treat_code=j.treatment_parentcode)
+                    creditnote.save()
+                    if creditnote.pk:
+                        control_obj.control_no = int(control_obj.control_no) + 1
+                        control_obj.save()
+                        if creditnote.pk not in lst:
+                            lst.append(creditnote.pk)
+
+                        PackageAuditingLog(treatment_parentcode=j.treatment_parentcode,
+                        user_loginid=fmspw,package_type="Reversal",pa_qty=len(treat_id)).save()    
+
+
+
+                    #reversehdr creation
+                    reversehdr = ReverseHdr(reverse_no=rev_code,staff_code="",staff_name="",
+                    cust_code=j.cust_code,cust_name=j.cust_name,site_code=j.site_code,
+                    ref_creditnote=creditnote.credit_code,total_balance=total)
+
+                    reversehdr.save()
+                    if reversehdr.pk:
+                        recontrol_obj.control_no = int(recontrol_obj.control_no) + 1
+                        recontrol_obj.save()
+
+                    if self.request.GET.get('adjustment_value',None) and float(self.request.GET.get('adjustment_value',None)) != 0.0:
+                        amount = self.request.GET.get('adjustment_value',None)
+
+                        reversehdr.has_adjustment = True  
+                        reversehdr.adjustment_value = amount 
+                        split = str(amount).split('-')
+                        if '-' in split:
+                            reversehdr.credit_note_amt = total - float(amount)
+                            creditnote.amount = total - float(amount)
+                            creditnote.balance = total - float(amount)
+                        else:
+                            reversehdr.credit_note_amt = total + float(amount)
+                            creditnote.amount = total + float(amount)
+                            creditnote.balance = total + float(amount)
+
+                        if creditnote.amount == 0.0 and creditnote.balance == 0.0:     
+                            creditnote.status = "CLOSE"
+                            
+                        creditnote.save()
+                        if self.request.GET.get('reason_id',None):
+                            rea_obj = ReverseTrmtReason.objects.filter(id=self.request.GET.get('reason_id',None),
+                            is_active=True)
+
+                            if not rea_obj:
+                                result = {'status': status.HTTP_200_OK,"message":"Reason ID does not exist!!",'error': True} 
+                                return Response(data=result, status=status.HTTP_200_OK)  
+
+                            reversehdr.reason = rea_obj[0].rev_desc
+
+                            if rea_obj and rea_obj[0].rev_no == '100001':
+                                if rea_obj:
+                                    reversehdr.reason1 = rea_obj[0].rev_desc 
+                                if amount:
+                                    reversehdr.reason_adj_value1 = amount
+
+                        
+
+                        if self.request.GET.get('remark',None):
+                            reversehdr.remark = self.request.GET.get('remark',None)
+
+                       
+                        reversehdr.save()
+                    else:
+                        creditnote.amount = total
+                        creditnote.balance = total
+                        if creditnote.amount == 0.0 and creditnote.balance == 0.0:     
+                            creditnote.status = "CLOSE"
+                        creditnote.save() 
+                        reversehdr.credit_note_amt = total
+                        reversehdr.save()
+
+
+            
+                if lst != [] and trm_lst != []:
+                    title = Title.objects.filter(product_license=site.itemsite_code).first()
+
+                    credit_ids = CreditNote.objects.filter(pk__in=lst).order_by('pk')
+                        
+
+                    path = None
+                    if title and title.logo_pic:
+                        path = BASE_DIR + title.logo_pic.url
+
+                    split = str(credit_ids[0].sa_date).split(" ")
+                    date = datetime.datetime.strptime(str(split[0]), '%Y-%m-%d').strftime("%d/%m/%Y")
+                    adjustamt = self.request.GET.get('adjustment_value',None)
+                    remark = self.request.GET.get('remark',None)
+                    if adjustamt:
+                        total_credit = float(total_r) + float(adjustamt)
+                    else:
+                        total_credit = float(total_r)
+
+
+                    data = {'name': title.trans_h1 if title and title.trans_h1 else '', 
+                    'address': title.trans_h2 if title and title.trans_h2 else '', 
+                    'footer1':title.trans_footer1 if title and title.trans_footer1 else '',
+                    'footer2':title.trans_footer2 if title and title.trans_footer2 else '',
+                    'footer3':title.trans_footer3 if title and title.trans_footer3 else '',
+                    'footer4':title.trans_footer4 if title and title.trans_footer4 else '',
+                    'credit_ids': credit_ids[0], 'date':date,'total':total_r,'credit_balance': reversehdr.total_balance,'adjustamt':adjustamt if adjustamt else "",
+                    'reason':reversehdr.reason if reversehdr.reason else "",'remark':remark if remark else "",'total_credit':reversehdr.credit_note_amt,
+                    'credit': trm_lst,'cust': cust_obj,'creditno': credit_ids[0].credit_code,'fmspw':fmspw,'adjustamtstr': "0.00",
+                    'path':path if path else '','title':title if title else None,
+                    }
+
+                    template = get_template('creditnote.html')
+                    display = Display(visible=0, size=(800, 600))
+                    display.start()
+                    html = template.render(data)
+                    options = {
+                        'margin-top': '.25in',
+                        'margin-right': '.25in',
+                        'margin-bottom': '.25in',
+                        'margin-left': '.25in',
+                        'encoding': "UTF-8",
+                        'no-outline': None,
+                        
+                    }
+
+                    dst ="creditnote_" + str(str(credit_ids[0].credit_code)) + ".pdf"
+
+                    p=pdfkit.from_string(html,False,options=options)
+                    PREVIEW_PATH = dst
+                    pdf = FPDF() 
+
+                    pdf.add_page() 
+                    
+                    pdf.set_font("Arial", size = 15) 
                     file_path = os.path.join(settings.PDF_ROOT, PREVIEW_PATH)
-                    report = os.path.isfile(file_path)
-                    if report:
+                    pdf.output(file_path) 
+
+                    if p:
                         file_path = os.path.join(settings.PDF_ROOT, PREVIEW_PATH)
-                        with open(file_path, 'wb') as fh:
-                            fh.write(p)
-                        display.stop()
+                        report = os.path.isfile(file_path)
+                        if report:
+                            file_path = os.path.join(settings.PDF_ROOT, PREVIEW_PATH)
+                            with open(file_path, 'wb') as fh:
+                                fh.write(p)
+                            display.stop()
 
-                        ip_link = "http://"+request.META['HTTP_HOST']+"/media/pdf/creditnote_"+str(credit_ids[0].credit_code)+".pdf"
+                            ip_link = "http://"+request.META['HTTP_HOST']+"/media/pdf/creditnote_"+str(credit_ids[0].credit_code)+".pdf"
 
-                        result = {'status': status.HTTP_200_OK, "message": "Created Successfully", 'error': False,
-                        'data': ip_link}
-            else:
-                result = {'status': status.HTTP_400_BAD_REQUEST, "message": "Failed to create ", 'error': False}
-            return Response(data=result, status=status.HTTP_200_OK)
+                            result = {'status': status.HTTP_200_OK, "message": "Created Successfully", 'error': False,
+                            'data': ip_link}
+                else:
+                    result = {'status': status.HTTP_400_BAD_REQUEST, "message": "Failed to create ", 'error': False}
+                return Response(data=result, status=status.HTTP_200_OK)
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)
@@ -5235,7 +5240,7 @@ class VoidViewset(viewsets.ModelViewSet):
                                 prepacc = PrepaidAccount(pp_no=pa.pp_no,pp_type=pa.pp_type,
                                 pp_desc=pa.pp_desc,exp_date=pa.exp_date,cust_code=pa.cust_code,
                                 cust_name=pa.cust_name,pp_amt=pa.pp_amt,pp_total=pa.pp_total,
-                                pp_bonus=pa.pp_bonus,transac_no=pa.transac_no,item_no=pa.item_no,use_amt=useamt,
+                                pp_bonus=pa.pp_bonus,transac_no=sa_transacno,item_no=pa.item_no,use_amt=useamt,
                                 remain=remain,ref1=pa.ref1,ref2=pa.ref2,status=True,site_code=site.itemsite_code,sa_status="VT",exp_status=pa.exp_status,
                                 voucher_no=pa.voucher_no,isvoucher=pa.isvoucher,has_deposit=pa.has_deposit,topup_amt=0,
                                 outstanding=pa.outstanding if pa and pa.outstanding is not None and pa.outstanding > 0 else 0,active_deposit_bonus=pa.active_deposit_bonus,topup_no="",topup_date=None,
@@ -6948,7 +6953,7 @@ class TreatmentAccListViewset(viewsets.ModelViewSet):
            
             queryset = TreatmentAccount.objects.filter(ref_transacno=account.sa_transacno,
             treatment_parentcode=account.treatment_parentcode
-            ).only('ref_transacno','treatment_parentcode','site_code').order_by('-sa_date')
+            ).only('ref_transacno','treatment_parentcode','site_code').order_by('-sa_date','-id')
 
             #pos_haud = PosHaud.objects.filter(sa_custno=account.cust_code,
             #sa_transacno=account.sa_transacno,itemsite_code=account.site_code
@@ -7831,7 +7836,34 @@ class PrepaidAccListViewset(viewsets.ModelViewSet):
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)         
+    
+    @transaction.atomic
+    @action(methods=['post'], detail=False, permission_classes=[IsAuthenticated & authenticated_only],
+    authentication_classes=[ExpiringTokenAuthentication])
+    def changeexpirydate(self, request): 
+        try:  
+            with transaction.atomic():
+                if not request.data['prepaid_id']:
+                    raise Exception('Please give prepaid id!!.') 
+                
+                if not request.data['expiry_date']:
+                    raise Exception('Please give Expiry Date!!.') 
 
+                if request.data['prepaid_id']:
+                    pp_obj = PrepaidAccount.objects.filter(pk=request.data['prepaid_id']).first()
+                    if not pp_obj:
+                        raise Exception('PrepaidAccount ID does not exist!!.') 
+                    if pp_obj:
+                        pp_obj.exp_date = request.data['expiry_date']
+                        pp_obj.save()
+                        result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",
+                        'error': False}
+                        return Response(result, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)         
+             
 
 class ComboViewset(viewsets.ModelViewSet):
     authentication_classes = [ExpiringTokenAuthentication]

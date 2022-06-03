@@ -1452,13 +1452,21 @@ class StaffsAppointmentSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source='pk',required=False)
 
     def to_representation(self, obj):
+        request = self.context['request']
+        fmspw = Fmspw.objects.filter(user=request.user, pw_isactive=True).order_by('-pk')
+        site = fmspw[0].loginsite
+
         ip = get_client_ip(self.context['request'])
         pic = ""
         if obj.emp_pic:
             pic = str(ip)+str(obj.emp_pic.url)
+        
+        emp_siteids = EmpSitelist.objects.filter(Site_Codeid__pk=site.pk,isactive=True,
+        Emp_Codeid__pk=obj.pk).first() 
+        emp_order = emp_siteids.emp_seq_webappt if emp_siteids and emp_siteids.emp_seq_webappt else ""    
           
         mapped_object = {'emp_pic':pic,'staff_name':obj.display_name,
-        'id': obj.pk,'clock_in' : False}
+        'id': obj.pk,'clock_in' : False,'emp_order':emp_order}
         return mapped_object
     
 
@@ -3010,3 +3018,9 @@ class FmspwSerializernew(serializers.ModelSerializer):
         model = Fmspw
         fields = ['id','pw_userlogin']  
      
+class GenderSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='pk',required=False)
+    
+    class Meta:
+        model = Gender
+        fields = ['id','itm_name','itm_code']        

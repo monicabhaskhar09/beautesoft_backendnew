@@ -2866,6 +2866,7 @@ class EmpSitelist(models.Model):
     updated_at = models.DateTimeField(auto_now=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     hide_in_appt = models.BooleanField(db_column='hide_in_appt',default=False)  # Field name made lowercase.
+    emp_seq_webappt = models.IntegerField(db_column='Emp_Seq_WebAppt', blank=True, null=True)  # Field name made lowercase.
 
     class Meta:
         db_table = 'Emp_SiteList'
