@@ -6944,7 +6944,7 @@ class TreatmentAccListViewset(viewsets.ModelViewSet):
         #    raise Http404
 
     def retrieve(self, request, pk=None):
-        #try:
+        try:
             fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)[0]
             site = fmspw.loginsite
             account = self.get_object(pk)
@@ -7016,9 +7016,9 @@ class TreatmentAccListViewset(viewsets.ModelViewSet):
             else:
                 result = {'status': status.HTTP_204_NO_CONTENT, 'message': "No Content", 'error': False, 'data': []}
                 return Response(data=result, status=status.HTTP_200_OK)
-        #except Exception as e:
-        #    invalid_message = str(e)
-        #    return general_error_response(invalid_message)         
+        except Exception as e:
+           invalid_message = str(e)
+           return general_error_response(invalid_message)         
 
 
 class CreditNoteListViewset(viewsets.ModelViewSet):
