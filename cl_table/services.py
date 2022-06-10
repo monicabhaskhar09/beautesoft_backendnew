@@ -1910,7 +1910,7 @@ def invoice_topup(self, request, topup_ids,sa_transacno, cust_obj, outstanding, 
                 #pp_no=c.prepaid_account.pp_no,status=True,Item_Codeid=c.itemcodeid,
                 #line_no=c.prepaid_account.line_no).order_by('id').first() #transac_no=
                 acc_ids = PrepaidAccount.objects.filter(cust_code=cust_obj.cust_code,
-                pp_no=c.prepaid_account.pp_no,status=True,Item_Codeid=c.itemcodeid,
+                pp_no=c.prepaid_account.pp_no,status=True,
                 line_no=c.prepaid_account.line_no).order_by('sa_date','id').last()
         
                 outstanding_acc =  float(acc_ids.outstanding) - float(c.deposit)

@@ -4230,7 +4230,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                     if itemcart.ratio:
                         ratio = float(itemcart.ratio) / float(count)
                     salesamt = float(trans_amt) / float(count)
-                    if float(itemcart.itemcodeid.salescommpoints) > 0.0:
+                    if itemcart.itemcodeid.salescommpoints and float(itemcart.itemcodeid.salescommpoints) > 0.0:
                         salescommpoints = float(itemcart.itemcodeid.salescommpoints) / float(count)
 
 
@@ -4279,7 +4279,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                             newratio = float(itemcart.ratio) - tot_ratio
                         newsalesamt = float(trans_amt) - tot_salesamt
                         newsalspts = 0.0
-                        if float(itemcart.itemcodeid.salescommpoints) > 0.0:
+                        if itemcart.itemcodeid.salescommpoints and float(itemcart.itemcodeid.salescommpoints) > 0.0:
                             newsalspts = float(itemcart.itemcodeid.salescommpoints) - tot_salespts
                         
                         Tmpmultistaff.objects.filter(itemcart__pk=itemcart.pk,pk=last_id.pk).update(ratio="{:.2f}".format(float(newratio)),
@@ -7620,12 +7620,20 @@ class CourseTmpAPIView(generics.ListCreateAPIView):
                         if request.data['auto'] == False:
                             treatmentno = Tmptreatment.objects.filter(itemcart=cartobj,isfoc=False).order_by('pk').count()
                             unit_amount = float(request.data['total_price']) / int(treatmentno)
-
-
+                            
+                            lasttmp_ids = Tmptreatment.objects.filter(itemcart=cartobj,isfoc=False).order_by('pk').last()
                             tmp_treatids = Tmptreatment.objects.filter(itemcart=cartobj,isfoc=False).order_by('pk'
-                            ).update(price="{:.2f}".format(float(request.data['total_price'])),
+                            ).exclude(pk=lasttmp_ids.pk).update(price="{:.2f}".format(float(request.data['total_price'])),
                             unit_amount="{:.2f}".format(unit_amount),trmt_is_auto_proportion=False)
 
+                            l_val = float(request.data['total_price']) - (float(unit_amount) * (treatmentno -1))
+                            v = str(l_val).split('.')
+                            c = float(v[0]+"."+v[1][:2])
+                            lasttmp_ids.price = "{:.2f}".format(float(request.data['total_price']))
+                            lasttmp_ids.unit_amount = c
+                            lasttmp_ids.trmt_is_auto_proportion = False
+                            lasttmp_ids.save()
+                           
                             Tmptreatment.objects.filter(itemcart=cartobj,isfoc=True).order_by('pk'
                             ).update(price=0,unit_amount=0.00,trmt_is_auto_proportion=False)
 
@@ -7641,17 +7649,18 @@ class CourseTmpAPIView(generics.ListCreateAPIView):
                             
                             l_ids = Tmptreatment.objects.filter(itemcart=cartobj,isfoc=True).order_by('pk').last()
 
-                            Tmptreatment.objects.filter(itemcart=cartobj,isfoc=True).order_by('pk'
-                            ).exclude(pk=l_ids.pk).update(price=0,unit_amount="{:.2f}".format(unit_amount),trmt_is_auto_proportion=True)
-                             
-                            amt = "{:.2f}".format(float(unit_amount)) 
-                            # print(amt,"amt")  
-                            # print(request.data['total_price'],"hh")
-                            lval = float(request.data['total_price']) - (float(amt) * (treatmentno -1))
-                            # print(lval,"lval")
+                            if l_ids: 
+                                Tmptreatment.objects.filter(itemcart=cartobj,isfoc=True).order_by('pk'
+                                ).exclude(pk=l_ids.pk).update(price=0,unit_amount="{:.2f}".format(unit_amount),trmt_is_auto_proportion=True)
+                                
+                                amt = "{:.2f}".format(float(unit_amount)) 
+                                # print(amt,"amt")  
+                                # print(request.data['total_price'],"hh")
+                                lval = float(request.data['total_price']) - (float(amt) * (treatmentno -1))
+                                # print(lval,"lval")
 
-                            Tmptreatment.objects.filter(itemcart=cartobj,isfoc=True,pk=l_ids.pk).order_by('pk'
-                            ).update(price=0,unit_amount="{:.2f}".format(float(lval)),trmt_is_auto_proportion=True)
+                                Tmptreatment.objects.filter(itemcart=cartobj,isfoc=True,pk=l_ids.pk).order_by('pk'
+                                ).update(price=0,unit_amount="{:.2f}".format(float(lval)),trmt_is_auto_proportion=True)
 
 
                             

@@ -23,7 +23,7 @@ from .models import (Gender, Employee, Fmspw, Attendance2, Customer, Images, Tre
                      Securitylevellist, DailysalesdataSummary, DailysalesdataDetail, Multilanguage, MultiLanguageWord, Workschedule,
                      Religious, Nationality, Races, DailysalestdSummary,
                      MrRewardItemType,CustomerPoint,TreatmentDuration,Smsreceivelog,TreatmentProtocol,CustomerTitle,CustomerPointDtl,
-                     ItemDiv,Tempcustsign,CustomerDocument,TreatmentPackage,Tmptreatment)
+                     ItemDiv,Tempcustsign,CustomerDocument,TreatmentPackage,Tmptreatment,CustLogAudit)
 from cl_app.models import ItemSitelist, SiteGroup, LoggedInUser
 from custom.models import Room,ItemCart,VoucherRecord,EmpLevel,PosPackagedeposit,payModeChangeLog
 from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializer, Attendance2Serializer,
@@ -59,7 +59,7 @@ from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializ
                           CustomerPointSerializer, MGMSerializer,SMSReplySerializer,ConfirmBookingApptSerializer,
                           ItemDescSerializer,TempcustsignSerializer,CustomerDocumentSerializer,
                           TreatmentPackageSerializer,ItemSitelistIntialSerializer,StaffInsertSerializer,
-                          FmspwSerializernew,GenderSerializer)
+                          FmspwSerializernew,GenderSerializer,CustomerPlusnewSerializer)
 from datetime import date, timedelta, datetime
 import datetime
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
@@ -6097,6 +6097,7 @@ class TreatmentApptAPI(generics.ListAPIView):
             serializer_class = TreatmentApptSerializer
             now = timezone.now()
             print(str(now.hour) + '  ' +  str(now.minute) + '  ' +  str(now.second),"Start hour, minute, second\n")
+            queryset = Treatment.objects.none()
             cust_obj = Customer.objects.filter(pk=cust_id,
             cust_isactive=True).first()
             if cust_obj is None:
@@ -6119,7 +6120,14 @@ class TreatmentApptAPI(generics.ListAPIView):
             # #prepaid account 
             pre_queryset = PrepaidAccount.objects.filter(cust_code=cust_obj.cust_code,
             status=True,remain__gt=0).only('site_code','cust_code','sa_status').order_by('-pk')
-            combined_ids = list(sorted(chain(queryset,pre_queryset),key=lambda objects: objects.pk,reverse=True))
+            
+            system_setup = Systemsetup.objects.filter(title='ApptPackagePrepaidBalanceList',
+            value_name='ApptPackagePrepaidBalanceList',isactive=True).first()
+            
+            if system_setup and system_setup.value_data == 'True':
+                combined_ids = list(sorted(chain(queryset,pre_queryset),key=lambda objects: objects.pk,reverse=True))
+            else:
+                combined_ids = queryset
             # print(combined_ids,"combined_ids")
 
             limit = int(request.GET.get('limit',10)) if request.GET.get('limit',10) else 10
@@ -6139,88 +6147,88 @@ class TreatmentApptAPI(generics.ListAPIView):
                     'dataList': []}}
                     return Response(result, status=status.HTTP_200_OK) 
 
-            for page_idx in range(1, paginator.num_pages+1):
+            # for page_idx in range(1, paginator.num_pages+1):
                 # print(page_idx,"KKKKKKKKKKKKKKKKKKKKK")
-                if page_idx == page:
-                    lst = [] 
-                    for row in paginator.page(page_idx).object_list:
-                        # print(row,"row")
-                        # print(row.__class__.__name__,"__class__")
-                        if row.__class__.__name__ == 'Treatment':
-                            open_ids = Treatment.objects.filter(cust_code=cust_obj.cust_code,
-                            treatment_parentcode=row.treatment_parentcode,status='Open').order_by('pk').count()
-                          
-                            stock = Stock.objects.filter(item_code=row.item_code[:-4],item_isactive=True).first()
-                            if stock:
-                                if stock.srv_duration is None or stock.srv_duration == 0.0:
-                                    srvduration = 60
-                                else:
-                                    srvduration = stock.srv_duration   
-                            hrs = '{:02d}:{:02d}'.format(*divmod(srvduration, 60))        
-
-                            name = str(stock.item_name)+" "+str(row.treatment_parentcode) if stock and stock.item_name else "" 
-                            unit_amount = "{:.2f}".format(float(row.unit_amount))
-
-                            expiry = ""
-                            if row.expiry:
-                                split = str(row.expiry).split(" ")
-                                expiry = datetime.datetime.strptime(str(split[0]), '%Y-%m-%d').strftime("%d/%m/%Y")
-                            
-                            acc_ids = TreatmentAccount.objects.filter(ref_transacno=row.sa_transacno,
-                            treatment_parentcode=row.treatment_parentcode,
-                            cust_code=cust_obj.cust_code).order_by('-sa_date','-sa_time','-pk').only('ref_transacno','treatment_parentcode','site_code').first()
-                            balance = "{:.2f}".format(float(acc_ids.balance)) if acc_ids and acc_ids.balance else "0.00"    
-                            outstanding = "{:.2f}".format(float(acc_ids.outstanding)) if acc_ids and acc_ids.outstanding else "0.00"
-                            
-                            q_val = list(Treatment.objects.filter(pk=row.pk).order_by('-pk').values('pk').annotate(id=F('pk'),
-                            treatment_parentcode=F('treatment_parentcode'),
-                            item_name= Value(name, output_field=CharField()),
-                            tr_open=Value(open_ids, output_field=CharField()),
-                            tr_done=F('treatment_no'),price=Value(unit_amount, output_field=CharField()),
-                            expiry=Value(expiry, output_field=CharField()),
-                            add_duration=Value(hrs, output_field=CharField()),
-                            stock_id=Value(stock.pk, output_field=IntegerField()),
-                            balance=Value(balance, output_field=CharField()),
-                            outstanding=Value(outstanding, output_field=CharField()),
-                            type=Value('TD', output_field=CharField())).order_by('-pk'))
-                            
-                            lst.extend([q_val[0]])
+                # if page_idx == page:
+            lst = [] 
+            for row in paginator.page(page).object_list:
+                # print(row,"row")
+                # print(row.__class__.__name__,"__class__")
+                if row.__class__.__name__ == 'Treatment':
+                    open_ids = Treatment.objects.filter(cust_code=cust_obj.cust_code,
+                    treatment_parentcode=row.treatment_parentcode,status='Open').order_by('pk').count()
+                    
+                    stock = Stock.objects.filter(item_code=row.item_code[:-4],item_isactive=True).first()
+                    if stock:
+                        if stock.srv_duration is None or stock.srv_duration == 0.0:
+                            srvduration = 60
                         else:
-                            last_acc_ids = PrepaidAccount.objects.filter(pp_no=row.pp_no,
-                            status=True,line_no=row.line_no).order_by('pk').last()
+                            srvduration = int(stock.srv_duration) if stock.srv_duration else 60   
+                    hrs = '{:02d}:{:02d}'.format(*divmod(srvduration, 60))        
 
-                            if last_acc_ids:
-                                pexpiry = ""
-                                if last_acc_ids.exp_date:
-                                    esplit = str(last_acc_ids.exp_date).split(" ")
-                                    pexpiry = datetime.datetime.strptime(str(esplit[0]), '%Y-%m-%d').strftime("%d/%m/%Y")
+                    name = str(stock.item_name)+" "+str(row.treatment_parentcode) if stock and stock.item_name else "" 
+                    unit_amount = "{:.2f}".format(float(row.unit_amount))
 
-                                pre = {'item_name': last_acc_ids.pp_desc ,'tr_open': '-', 'tr_done': '-', 
-                                'price': "{:.2f}".format(float(last_acc_ids.pp_total)),'expiry': pexpiry,
-                                'balance': "{:.2f}".format(float(last_acc_ids.remain)) if last_acc_ids.remain else "0.00",
-                                'outstanding': "{:.2f}".format(float(last_acc_ids.outstanding)) if last_acc_ids.outstanding else "0.00",
-                                'type':'prepaid'}
+                    expiry = ""
+                    if row.expiry:
+                        split = str(row.expiry).split(" ")
+                        expiry = datetime.datetime.strptime(str(split[0]), '%Y-%m-%d').strftime("%d/%m/%Y")
+                    
+                    acc_ids = TreatmentAccount.objects.filter(ref_transacno=row.sa_transacno,
+                    treatment_parentcode=row.treatment_parentcode,
+                    cust_code=cust_obj.cust_code).order_by('-sa_date','-sa_time','-pk').only('ref_transacno','treatment_parentcode','site_code').first()
+                    balance = "{:.2f}".format(float(acc_ids.balance)) if acc_ids and acc_ids.balance else "0.00"    
+                    outstanding = "{:.2f}".format(float(acc_ids.outstanding)) if acc_ids and acc_ids.outstanding else "0.00"
+                    
+                    q_val = list(Treatment.objects.filter(pk=row.pk).order_by('-pk').values('pk').annotate(id=F('pk'),
+                    treatment_parentcode=F('treatment_parentcode'),
+                    item_name= Value(name, output_field=CharField()),
+                    tr_open=Value(open_ids, output_field=CharField()),
+                    tr_done=F('treatment_no'),price=Value(unit_amount, output_field=CharField()),
+                    expiry=Value(expiry, output_field=CharField()),
+                    add_duration=Value(hrs, output_field=CharField()),
+                    stock_id=Value(stock.pk, output_field=IntegerField()),
+                    balance=Value(balance, output_field=CharField()),
+                    outstanding=Value(outstanding, output_field=CharField()),
+                    type=Value('TD', output_field=CharField())).order_by('-pk'))
+                    
+                    lst.extend([q_val[0]])
+                else:
+                    last_acc_ids = PrepaidAccount.objects.filter(pp_no=row.pp_no,
+                    status=True,line_no=row.line_no).order_by('pk').last()
 
-                                lst.append(pre)
+                    if last_acc_ids:
+                        pexpiry = ""
+                        if last_acc_ids.exp_date:
+                            esplit = str(last_acc_ids.exp_date).split(" ")
+                            pexpiry = datetime.datetime.strptime(str(esplit[0]), '%Y-%m-%d').strftime("%d/%m/%Y")
+
+                        pre = {'item_name': last_acc_ids.pp_desc ,'tr_open': '-', 'tr_done': '-', 
+                        'price': "{:.2f}".format(float(last_acc_ids.pp_total)),'expiry': pexpiry,
+                        'balance': "{:.2f}".format(float(last_acc_ids.remain)) if last_acc_ids.remain else "0.00",
+                        'outstanding': "{:.2f}".format(float(last_acc_ids.outstanding)) if last_acc_ids.outstanding else "0.00",
+                        'type':'prepaid'}
+
+                        lst.append(pre)
 
 
 
-                    if lst != []:
-                        now1 = timezone.now()
-                        print(str(now1.hour) + '  ' +  str(now1.minute) + '  ' +  str(now1.second),"End hour, minute, second\n")
-                        totalh = now1.second - now.second
-                        print(totalh,"total")
-                        result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
-                        'data': {'meta': {'pagination': {"per_page":limit,"current_page":page,"total":total,
-                        "total_pages":total_page}}, 'dataList': lst},
-                        'cust_data': {'cust_name': cust_obj.cust_name if cust_obj.cust_name else "", 
-                        'cust_refer': cust_obj.cust_refer if cust_obj.cust_refer else ""},
-                        }
-                        return Response(result, status=status.HTTP_200_OK) 
-                    else:
-                        result = {'status':status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False,  'data': []}
-                        return Response(data=result, status=status.HTTP_200_OK)  
-               
+            if lst != []:
+                now1 = timezone.now()
+                print(str(now1.hour) + '  ' +  str(now1.minute) + '  ' +  str(now1.second),"End hour, minute, second\n")
+                totalh = now1.second - now.second
+                print(totalh,"total")
+                result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
+                'data': {'meta': {'pagination': {"per_page":limit,"current_page":page,"total":total,
+                "total_pages":total_page}}, 'dataList': lst},
+                'cust_data': {'cust_name': cust_obj.cust_name if cust_obj.cust_name else "", 
+                'cust_refer': cust_obj.cust_refer if cust_obj.cust_refer else ""},
+                }
+                return Response(result, status=status.HTTP_200_OK) 
+            else:
+                result = {'status':status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False,  'data': []}
+                return Response(data=result, status=status.HTTP_200_OK)  
+        
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)  
@@ -14742,6 +14750,10 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
             #print(request.data)
             if serializer.is_valid():
                 jobtitle = EmpLevel.objects.filter(id=request.data['EMP_TYPEid'], level_isactive=True).first()
+                if jobtitle:
+                    employee.type_code = jobtitle.level_code
+                    employee.emp_type = jobtitle.level_code
+                    employee.save()
                 if 'display_name' in request.data and not request.data['display_name'] is None:
                     serializer.save()
                     fmspw_obj = Fmspw.objects.filter(Emp_Codeid=employee, pw_isactive=True).first()
@@ -15928,6 +15940,10 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
                 if k.pk:
                     control_obj.control_no = int(control_obj.control_no) + 1
                     control_obj.save()
+
+                    CustLogAudit(customer_id=k,cust_code=cus_code,username=fmspw[0].pw_userlogin,
+                    user_loginid=fmspw[0],created_at=timezone.now()).save()
+
                 state = status.HTTP_201_CREATED
                 message = "Created Succesfully "
                 error = False
@@ -15963,7 +15979,7 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
             total = None
             serializer_class = None
             customer = self.get_object(pk)
-            serializer = CustomerPlusSerializer(customer, context={'request': self.request, "action": self.action})
+            serializer = CustomerPlusnewSerializer(customer, context={'request': self.request, "action": self.action})
             data = serializer.data
             #todo hide nirc value
             # if 'masked_nric' in data:
@@ -15985,6 +16001,7 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
 
     def update(self, request, pk=None):
         try:
+            fmspw = Fmspw.objects.filter(user=request.user, pw_isactive=True).first()
             queryset = None
             total = None
             serializer_class = None
@@ -16000,6 +16017,11 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
                 message = "Updated Succesfully"
                 error = False
                 data = serializer.data
+
+                CustLogAudit(customer_id=customer,cust_code=customer.cust_code,
+                username=fmspw.pw_userlogin,
+                user_loginid=fmspw,updated_at=timezone.now()).save()
+
                 result = response(self, request, queryset, total, state, message, error, serializer_class, data,
                                   action=self.action)
                 return Response(result, status=status.HTTP_200_OK)
@@ -16017,6 +16039,7 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
 
     def partial_update(self, request, pk=None):
         try:
+            fmspw = Fmspw.objects.filter(user=request.user, pw_isactive=True).first()
             queryset = None
             total = None
             serializer_class = None
@@ -16029,6 +16052,10 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
                 message = "Updated Succesfully"
                 error = False
                 data = serializer.data
+                CustLogAudit(customer_id=customer,cust_code=customer.cust_code,
+                username=fmspw.pw_userlogin,
+                user_loginid=fmspw,updated_at=timezone.now()).save()
+
                 result = response(self, request, queryset, total, state, message, error, serializer_class, data,
                                   action=self.action)
                 return Response(result, status=status.HTTP_200_OK)

@@ -5340,7 +5340,7 @@ class VoidViewset(viewsets.ModelViewSet):
                         if int(d.itemcart.itemcodeid.item_div) == 3:
                             if d.itemcart.type == 'Deposit':
                                 donetreat_ids = Treatment.objects.filter(sa_transacno=haudobj.sa_transacno,
-                                cust_code=haudobj.sa_custno,status='Done')
+                                cust_code=haudobj.sa_custno,status='Done',dt_lineno=d.dt_lineno)
                                 for treat_obj in donetreat_ids:    
 
                                     # accids = TreatmentAccount.objects.filter(ref_transacno=treat_obj.sa_transacno,
@@ -5416,21 +5416,21 @@ class VoidViewset(viewsets.ModelViewSet):
                                 #acc_ids = TreatmentAccount.objects.filter(sa_transacno=haudobj.sa_transacno,type='Deposit',
                                 #cust_code=haudobj.sa_custno,site_code=site.itemsite_code)
                                 acc_ids = TreatmentAccount.objects.filter(sa_transacno=haudobj.sa_transacno,type='Deposit',
-                                cust_code=haudobj.sa_custno)
+                                cust_code=haudobj.sa_custno,dt_lineno=d.dt_lineno)
                                 for acc in acc_ids:
                                     TreatmentAccount.objects.filter(pk=acc.pk).update(sa_status="VOID",updated_at=timezone.now())   
                                 
                                 #treat_ids = Treatment.objects.filter(sa_transacno=haudobj.sa_transacno,
                                 #cust_code=haudobj.sa_custno,site_code=site.itemsite_code)
                                 treat_ids = Treatment.objects.filter(sa_transacno=haudobj.sa_transacno,
-                                cust_code=haudobj.sa_custno)
+                                cust_code=haudobj.sa_custno,dt_lineno=d.dt_lineno)
                                 for trt in treat_ids:
                                     Treatment.objects.filter(pk=trt.pk).update(status="Cancel",sa_status="VOID")
                                 
                                 #sal_acc_ids = TreatmentAccount.objects.filter(sa_transacno=haudobj.sa_transacno,type='Sales',
                                 #cust_code=haudobj.sa_custno,site_code=site.itemsite_code)
                                 sal_acc_ids = TreatmentAccount.objects.filter(sa_transacno=haudobj.sa_transacno,type='Sales',
-                                cust_code=haudobj.sa_custno)
+                                cust_code=haudobj.sa_custno,dt_lineno=d.dt_lineno)
                                 for sal in sal_acc_ids:
                                     TreatmentAccount.objects.filter(pk=sal.pk).update(description=d.itemcart.itemcodeid.item_name,sa_status="VOID",updated_at=timezone.now())   
                                     appt_ids = Appointment.objects.filter(sa_transacno=sal.ref_transacno,
@@ -5444,27 +5444,32 @@ class VoidViewset(viewsets.ModelViewSet):
                                 #tacc_ids = TreatmentAccount.objects.filter(sa_transacno=haudobj.sa_transacno,type='Top Up',
                                 #cust_code=haudobj.sa_custno,site_code=site.itemsite_code)
                                 tacc_ids = TreatmentAccount.objects.filter(sa_transacno=haudobj.sa_transacno,type='Top Up',
-                                cust_code=haudobj.sa_custno)
+                                cust_code=haudobj.sa_custno,treatment_parentcode=d.topup_service_trmt_code).first()
 
-                                for ac in tacc_ids:
-                                    if ac:
-                                        balance = ac.balance - ac.amount
-                                        outstanding = ac.outstanding + ac.amount
-                                        TreatmentAccount(Cust_Codeid=ac.Cust_Codeid,cust_code=ac.cust_code,
-                                        description=ac.description,ref_no=sa_transacno,type=ac.type,amount=-float("{:.2f}".format(float(ac.amount))) if ac.amount else 0,
-                                        balance="{:.2f}".format(float(balance)),user_name=ac.user_name,User_Nameid=ac.User_Nameid,
-                                        ref_transacno=ac.ref_transacno,sa_transacno=sa_transacno,qty=-ac.qty,
-                                        outstanding="{:.2f}".format(float(outstanding)) if outstanding is not None and outstanding > 0 else 0,deposit=-float("{:.2f}".format(float(ac.deposit))) if ac.deposit else 0,treatment_parentcode=ac.treatment_parentcode,
-                                        treatment_code=ac.treatment_code,sa_status="VT",cas_name=ac.cas_name,sa_staffno=ac.sa_staffno,
-                                        sa_staffname=ac.sa_staffname,next_paydate=ac.next_paydate,hasduedate=ac.hasduedate,
-                                        dt_lineno=ac.dt_lineno,lpackage=ac.lpackage,package_code=ac.package_code,Site_Codeid=ac.Site_Codeid,
-                                        site_code=ac.site_code,treat_code=ac.treat_code,focreason=ac.focreason,itemcart=cart_obj).save()
+                                # for ac in tacc_ids:
+                                if tacc_ids:
+                                    ac = tacc_ids
+
+                                    olaccids = TreatmentAccount.objects.filter(ref_transacno=ac.ref_transacno,
+                                    treatment_parentcode=ac.treatment_parentcode).order_by('-id').first()
+                                
+                                    balance = olaccids.balance - ac.amount
+                                    outstanding = olaccids.outstanding + ac.amount
+                                    TreatmentAccount(Cust_Codeid=ac.Cust_Codeid,cust_code=ac.cust_code,
+                                    description=ac.description,ref_no=sa_transacno,type=ac.type,amount=-float("{:.2f}".format(float(ac.amount))) if ac.amount else 0,
+                                    balance="{:.2f}".format(float(balance)),user_name=ac.user_name,User_Nameid=ac.User_Nameid,
+                                    ref_transacno=ac.ref_transacno,sa_transacno=sa_transacno,qty=-ac.qty,
+                                    outstanding="{:.2f}".format(float(outstanding)) if outstanding is not None and outstanding > 0 else 0,deposit=-float("{:.2f}".format(float(ac.deposit))) if ac.deposit else 0,treatment_parentcode=ac.treatment_parentcode,
+                                    treatment_code=ac.treatment_code,sa_status="VT",cas_name=ac.cas_name,sa_staffno=ac.sa_staffno,
+                                    sa_staffname=ac.sa_staffname,next_paydate=ac.next_paydate,hasduedate=ac.hasduedate,
+                                    dt_lineno=ac.dt_lineno,lpackage=ac.lpackage,package_code=ac.package_code,Site_Codeid=ac.Site_Codeid,
+                                    site_code=ac.site_code,treat_code=ac.treat_code,focreason=ac.focreason,itemcart=cart_obj).save()
                                 
                             elif d.itemcart.type == 'Sales':
                                 #sacc_ids = TreatmentAccount.objects.filter(sa_transacno=haudobj.sa_transacno,type='Sales',
                                 #cust_code=haudobj.sa_custno,site_code=site.itemsite_code)
                                 sacc_ids = TreatmentAccount.objects.filter(sa_transacno=haudobj.sa_transacno,type='Sales',
-                                cust_code=haudobj.sa_custno)
+                                cust_code=haudobj.sa_custno,treatment_parentcode=d.itemcart.treatment.treatment_parentcode)
                             
                                 description = d.itemcart.itemcodeid.item_name+" "+"(Void Transaction by {0})".format(fmspw[0].pw_userlogin)
                                 
@@ -5591,7 +5596,7 @@ class VoidViewset(viewsets.ModelViewSet):
                             if d.itemcart.type == 'Deposit':
                             
                                 dacc_ids = DepositAccount.objects.filter(sa_transacno=haudobj.sa_transacno,sa_status='SA',type='Deposit',
-                                cust_code=haudobj.sa_custno)
+                                cust_code=haudobj.sa_custno,dt_lineno=d.dt_lineno)
                     
                                 for depo in dacc_ids:
                                     tpcontrolobj = ControlNo.objects.filter(control_description__iexact="TopUp",Site_Codeid__pk=fmspw[0].loginsite.pk).first()
@@ -5658,11 +5663,16 @@ class VoidViewset(viewsets.ModelViewSet):
                                    
                             elif d.itemcart.type == 'Top Up':
                                 dtacc_ids = DepositAccount.objects.filter(ref_code=haudobj.sa_transacno,sa_status='SA',type='Top Up',
-                                cust_code=haudobj.sa_custno)
+                                cust_code=haudobj.sa_custno,treat_code=d.topup_product_treat_code).first()
                             
-                                for dt in dtacc_ids:
-                                    balance = dt.balance - dt.amount
-                                    outstanding = dt.outstanding + dt.amount
+                                # for dt in dtacc_ids:
+                                if dtacc_ids:
+                                    dt = dtacc_ids
+                                    depacc_ids = DepositAccount.objects.filter(sa_transacno=dt.sa_transacno,
+                                    treat_code=dt.treat_code).order_by('-id').first()
+
+                                    balance = depacc_ids.balance - dt.amount
+                                    outstanding = depacc_ids.outstanding + dt.amount
 
                                     DepositAccount(cust_code=dt.cust_code,type=dt.type,amount=-float("{:.2f}".format(float(dt.amount))) if dt.amount else 0,
                                     balance="{:.2f}".format(float(balance)),user_name=dt.user_name,qty=-dt.qty,outstanding="{:.2f}".format(float(outstanding)) if outstanding is not None and outstanding > 0 else 0,
@@ -5694,17 +5704,24 @@ class VoidViewset(viewsets.ModelViewSet):
                                         PrepaidAccount.objects.filter(pk=p.pk).update(status=False)
                             elif d.itemcart.type == 'Top Up':
                                 ptacc_ids = PrepaidAccount.objects.filter(topup_no=haudobj.sa_transacno,sa_status='TOPUP',
-                                cust_code=haudobj.sa_custno,line_no=d.dt_lineno)
+                                cust_code=haudobj.sa_custno,line_no=d.itemcart.prepaid_account.line_no).first()
                                 
-                                for pt in ptacc_ids:
-                                    PrepaidAccount.objects.filter(pk=pt.pk).update(status=False,updated_at=timezone.now())
+                                # for pt in ptacc_ids:
+                                if ptacc_ids:
+                                    pt = ptacc_ids
                                     
-                                    if pt.outstanding == 0.0:
-                                        or_remain = pt.remain - pt.pp_bonus
+                                    
+                                    pre_acc_ids = PrepaidAccount.objects.filter(pp_no=pt.pp_no,
+                                    line_no=pt.line_no).order_by('-id').first()
+
+                                    PrepaidAccount.objects.filter(pk=pre_acc_ids.pk).update(status=False,updated_at=timezone.now())
+                                
+                                    if pre_acc_ids and pre_acc_ids.outstanding == 0.0:
+                                        or_remain = pre_acc_ids.remain - pre_acc_ids.pp_bonus
                                     else:
-                                        or_remain = pt.remain    
+                                        or_remain = pre_acc_ids.remain    
                                     
-                                    outstanding = pt.outstanding + pt.topup_amt
+                                    outstanding = pre_acc_ids.outstanding + pt.topup_amt
                                     remain = or_remain - pt.topup_amt
 
                                     PrepaidAccount(pp_no=pt.pp_no,pp_type=pt.pp_type,pp_desc=pt.pp_desc,exp_date=pt.exp_date,

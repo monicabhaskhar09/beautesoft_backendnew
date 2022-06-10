@@ -1050,6 +1050,9 @@ class Customer(models.Model):
     outstanding_amt = models.FloatField(null=True)
     stripe_id = models.TextField(db_column='StripeID', blank=True, null=True)  # Field name made lowercase.
     cust_StoreCard = models.BooleanField(db_column='cust_StoreCard', blank=True, null=True, default=False)
+    class_name = models.CharField(max_length=40, blank=True, null=True)
+    source_name = models.CharField(max_length=40, blank=True, null=True)
+    title_name = models.CharField(max_length=40, blank=True, null=True)
 
     def save(self, *args,**kwargs):
         if self.Cust_Classid:
@@ -1058,7 +1061,8 @@ class Customer(models.Model):
 
     class Meta:
         db_table = 'Customer'
-        unique_together = (('cust_code','cust_email','cust_phone1','cust_phone2'),)
+        unique_together = (('cust_code','cust_email','cust_phone1'),)
+        # unique_together = (('cust_code','cust_email','cust_phone1','cust_phone2'),)
         # unique_together = (('cust_code'),)
 
 
@@ -3840,3 +3844,14 @@ class CustomerDocument(models.Model):
         db_table = 'CustomerDocument'
 
 
+class CustLogAudit(models.Model):
+    id = models.AutoField(db_column='ID', primary_key=True)
+    customer_id = models.ForeignKey('cl_table.Customer', on_delete=models.PROTECT,null=True)  
+    user_loginid = models.ForeignKey('cl_table.Fmspw', on_delete=models.PROTECT,null=True)
+    cust_code = models.CharField(db_column='Cust_Code', max_length=500, blank=True, null=True)  
+    username = models.CharField(db_column='username', max_length=500, blank=True, null=True)  
+    created_at = models.DateTimeField(blank=True, null=True)
+    updated_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        db_table = 'CustLogAudit'

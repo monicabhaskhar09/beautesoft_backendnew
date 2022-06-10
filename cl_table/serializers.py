@@ -2616,6 +2616,31 @@ class CustomerClassSerializer(serializers.ModelSerializer):
         model= CustomerClass
         fields = ["id","class_desc","class_code"]
 
+class CustomerPlusnewSerializer(serializers.ModelSerializer):   
+
+    id = serializers.IntegerField(source='pk',required=False)  
+    gender = serializers.CharField(source='Cust_sexesid.itm_name',required=False)
+    site_name = serializers.CharField(source='Site_Codeid.itemsite_desc',required=False)
+    class_name = serializers.CharField(source='Cust_Classid.class_desc',required=False)
+    custClass = CustomerClassSerializer(source="Cust_Classid",read_only=True)
+
+
+    class Meta:
+        model = Customer
+        fields = ['id','cust_code','cust_name','cust_address','Site_Codeid','site_name','site_code','last_visit',
+                  'custClass', 'class_name', 'Cust_Classid', 'cust_joindate','Cust_Sourceid','cust_nric',
+                  'upcoming_appointments','cust_dob','cust_phone2','cust_phone1','Cust_sexesid',
+                  'gender', 'cust_postcode','sgn_unitno','sgn_block','sgn_street', 'Cust_titleid',
+                  'cust_remark','cust_source',
+                  'cust_email', 'cardno1','cardno2','cardno3','cardno4','cardno5','phone4','cust_phoneo','cust_therapist_id',
+                  'cust_consultant_id','cust_address1','cust_address2','cust_address3',
+                  'prepaid_card','cust_occupation', 'creditnote','voucher_available','oustanding_payment','cust_refer',
+                  'custallowsendsms','cust_maillist','cust_title','cust_sexes','cust_class']
+        read_only_fields = ('cust_isactive','created_at', 'updated_at','last_visit','upcoming_appointments',
+        'Site_Code','cust_code','ProneToComplain')
+        extra_kwargs = {'cust_name': {'required': True},'cust_phone2': {'required': False},}
+   
+
 
 class CustomerPlusSerializer(serializers.ModelSerializer):
 
