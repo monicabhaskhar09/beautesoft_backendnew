@@ -8980,14 +8980,14 @@ class postaudViewset(viewsets.ModelViewSet):
                 else:
                     pickamt = float(payment_amt)
 
-                print(pickamt,"pickamt")    
+                # print(pickamt,"pickamt")    
 
                 # divlst = [i.dt_itemnoid.item_div for i in posdaudsale_ids if i.dt_itemnoid and i.dt_itemnoid.item_div]
                 # print(divlst,"divlst")
                 # reitemdiv_ids = list(ItemDiv.objects.filter(itm_isactive=True,itm_code__in=divlst).filter(~Q(itm_code=2)).values_list('pk', flat=True).distinct().order_by('-itm_seq'))
                 # print(reitemdiv_ids,"reitemdiv_ids")
                 cust_class = cust_obj.cust_class
-                print(cust_class,"cust_class")
+                # print(cust_class,"cust_class")
                 # custclass_ids = CustomerClass.objects.filter(class_code=cust_class,class_isactive=True).order_by('-pk').first()
 
 
@@ -9003,51 +9003,51 @@ class postaudViewset(viewsets.ModelViewSet):
 
                 total_point= 0;cdtl_lst =[]
                 for ecl in posdaudsale_ids:
-                    print(ecl,"ecl")
-                    print(ecl.dt_itemnoid.item_dept,"ecl.dt_itemnoid.item_dept")
+                    # print(ecl,"ecl")
+                    # print(ecl.dt_itemnoid.item_dept,"ecl.dt_itemnoid.item_dept")
                     departreward_ids = False;brandreward_ids = False;eachreward_ids = False
                     if ecl.dt_itemnoid.item_div == '3' and ecl.dt_itemnoid.item_dept:
-                        print("iff")
+                        # print("iff")
                         departreward_ids = RewardPolicy.objects.filter(cust_type=cust_class,isactive=True,
                         dept_ids__itm_code=ecl.dt_itemnoid.item_dept).order_by('-pk')
-                        print(departreward_ids,"departreward_ids")
+                        # print(departreward_ids,"departreward_ids")
                     elif int(ecl.dt_itemnoid.item_div) in [1,4,5] and ecl.dt_itemnoid.item_brand:
-                        print("eliff")
+                        # print("eliff")
                         brandreward_ids = RewardPolicy.objects.filter(cust_type=cust_class,isactive=True,
                         brand_ids__itm_code=ecl.dt_itemnoid.item_brand).order_by('-pk')
-                        print(brandreward_ids,"brandreward_ids")     
+                        # print(brandreward_ids,"brandreward_ids")     
                     
                     if departreward_ids:
-                        print("iff dept")
+                        # print("iff dept")
                         eachreward_ids = departreward_ids
                     elif brandreward_ids:
-                        print("eliff brand")
+                        # print("eliff brand")
                         eachreward_ids = brandreward_ids
                     if not departreward_ids and not brandreward_ids:
-                        print("if not dept brand")
+                        # print("if not dept brand")
                         eachreward_ids = RewardPolicy.objects.filter(cust_type=cust_class,isactive=True,
                         item_divids__itm_code=int(ecl.dt_itemnoid.item_div),dept_ids=None,brand_ids=None).order_by('-pk')[:1]
-                        print(eachreward_ids,"eachreward_ids")
+                        # print(eachreward_ids,"eachreward_ids")
                         
                     
                     if eachreward_ids:
                         for j in eachreward_ids:
-                            print(j,j.pk,"eachreward_ids")
+                            # print(j,j.pk,"eachreward_ids")
                             if j.cur_value > 0:
                                 rewardratio_per = (j.point_value / j.cur_value) * 100 
-                                print(rewardratio_per,"rewardratio_per")
+                                # print(rewardratio_per,"rewardratio_per")
                                 if rewardratio_per > 0:
                                     if pickamt > 0 and pickamt >= ecl.dt_deposit:
-                                        print(pickamt,"pickamt IFF")
+                                        # print(pickamt,"pickamt IFF")
                                 
                                         eachcart_rewpt = (ecl.dt_deposit *  rewardratio_per) / 100
-                                        print(eachcart_rewpt,"eachcart_rewpt")
+                                        # print(eachcart_rewpt,"eachcart_rewpt")
                                         if eachcart_rewpt > 0:
                                             total_point += eachcart_rewpt
-                                            print(total_point,"total_point")
+                                            # print(total_point,"total_point")
                                         
                                             now_point  += eachcart_rewpt
-                                            print(now_point,"now_point")
+                                            # print(now_point,"now_point")
                                             ct = CustomerPointDtl(type="Reward",cust_code=cust_obj.cust_code,
                                             cust_name=cust_obj.cust_name,parent_code=None,parent_desc=None,
                                             parent_display=None,itm_code=ecl.dt_itemnoid.item_code,itm_desc=ecl.dt_itemnoid.item_desc,
@@ -9061,17 +9061,17 @@ class postaudViewset(viewsets.ModelViewSet):
                                             dtl = True
                                             pickamt = pickamt - ecl.dt_deposit
                                     else:
-                                        print("else")
+                                        # print("else")
                                         if pickamt > 0 and float(pickamt) != 0.0:
-                                            print(pickamt,"pickamt else IF")
+                                            # print(pickamt,"pickamt else IF")
                                             eachcart_rewpt = (pickamt *  rewardratio_per) / 100
-                                            print(eachcart_rewpt,"eachcart_rewpt")
+                                            # print(eachcart_rewpt,"eachcart_rewpt")
                                             if eachcart_rewpt > 0:
                                                 total_point += eachcart_rewpt
-                                                print(total_point,"total_point")
+                                                # print(total_point,"total_point")
                                             
                                                 now_point  += eachcart_rewpt
-                                                print(now_point,"now_point")
+                                                # print(now_point,"now_point")
                                                 ct = CustomerPointDtl(type="Reward",cust_code=cust_obj.cust_code,
                                                 cust_name=cust_obj.cust_name,parent_code=None,parent_desc=None,
                                                 parent_display=None,itm_code=ecl.dt_itemnoid.item_code,itm_desc=ecl.dt_itemnoid.item_desc,
@@ -9086,7 +9086,7 @@ class postaudViewset(viewsets.ModelViewSet):
                                                 pickamt = pickamt - ecl.dt_deposit
 
                 if dtl == True:
-                    print("True")
+                    # print("True")
                     cust_obj.cust_point_value = "{:.2f}".format(now_point)
                     cust_obj.save()
 
@@ -14497,7 +14497,8 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
             return Response(result, status=status.HTTP_400_BAD_REQUEST)
         emp_ids = EmpSitelist.objects.filter(Site_Codeid__pk=site.pk, isactive=True)
 
-        queryset = Employee.objects.all().order_by('-pk')
+        # queryset = Employee.objects.all().order_by('-pk')
+        queryset = Employee.objects.filter(isdelete=False).order_by('-pk')
 
         q = self.request.GET.get('search', None)
         value = self.request.GET.get('sortValue', None)
@@ -14578,7 +14579,6 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
             serializer_class = None
             total = None
             serializer = self.get_serializer(data=request.data, context={'request': self.request})
-
             #if int(fmspw[0].level_itmid) not in [24, 31]:
             #    result = {'status': status.HTTP_400_BAD_REQUEST,
             #              "message": "Staffs / other login user not allow to create staff!!", 'error': True}
@@ -14600,12 +14600,13 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
 
                         site_unique = EmpSitelist.objects.filter(emp_code=emp_code, site_code=defaultobj.itemsite_code,
                                                                  isactive=True)
+             
                         if site_unique:
                             result = {'status': state, "message": "Unique Constrain for emp_code and site_code!!",
                                       'error': True}
                             # return Response(result, status=status.HTTP_400_BAD_REQUEST)
                             raise ValueError("Unique Constrain for emp_code and site_code!!")
-                        user_obj = User.objects.filter(username=request.data['emp_name'])
+                        user_obj = User.objects.filter(username=request.data['display_name'])
                         if user_obj:
                             result = {'status': state, "message": "Username already exist!!", 'error': True}
                             raise ValueError("Username already exist!!")
@@ -14614,16 +14615,16 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
                         if emp_obj:
                             result = {'status': state, "message": "Employee already exist!!", 'error': True}
                             raise ValueError("Employee already exist!!")
-                        fmspw_obj = Fmspw.objects.filter(pw_userlogin=request.data['emp_name'])
+                        fmspw_obj = Fmspw.objects.filter(pw_userlogin=request.data['display_name'])
                         if fmspw_obj:
                             result = {'status': state, "message": "Fmspw already exist!!", 'error': True}
                             # return Response(result, status=status.HTTP_400_BAD_REQUEST)
                             raise ValueError("Fmspw already exist!!")
 
-                        token_obj = Fmspw.objects.filter(user__username=request.data['emp_name'])
+                        token_obj = Fmspw.objects.filter(user__username=request.data['display_name'])
                         if token_obj:
                             result = {'status': state, "message": "Token for this employee user is already exist!!",
-                                      'error': True}
+                                    'error': True}
                             # return Response(result, status=status.HTTP_400_BAD_REQUEST)
                             raise ValueError("Token for this employee user is already exist!!")
 
@@ -14655,7 +14656,7 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
 
                             EmpSitelist(Emp_Codeid=s, emp_code=emp_code, Site_Codeid=s.defaultSiteCodeid,
                                         site_code=s.defaultSiteCodeid.itemsite_code).save()
-                            user = User.objects.create_user(username=s.emp_name, email=s.emp_email,
+                            user = User.objects.create_user(username=request.data['display_name'], email=s.emp_email,
                                                             password=request.data['pw_password'])
                             levelobj = Securities.objects.filter(pk=request.data['LEVEL_ItmIDid'], level_isactive=True).first()
                             Fmspw(pw_userlogin=request.data['display_name'],
@@ -14670,7 +14671,7 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
                                   flgappt = s.show_in_appt,
                                   flgsales = s.show_in_sales,
                                   ).save()
-                            s.pw_userlogin = s.emp_name
+                            s.pw_userlogin = request.data['display_name']
                             s.pw_password = request.data['pw_password']
                             s.LEVEL_ItmIDid = levelobj
                             s.save()
@@ -14679,8 +14680,8 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
                             control_obj.control_no = int(control_obj.control_no) + 1
                             control_obj.save()
                 except ValueError as e:
-                    # result = {'status': state, "message": str(e),
-                    #           'error': True}
+                    result = {'status': state, "message": str(e),
+                              'error': True}
                     return Response(result, status=status.HTTP_400_BAD_REQUEST)
                 except Exception as e:
                     result = {'status': status.HTTP_400_BAD_REQUEST, "message": str(e),
@@ -14718,7 +14719,7 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
         #   raise Http404("Invalid Staff Id")
 
     def retrieve(self, request, pk=None):
-        #try:
+        try:
             ip = get_client_ip(request)
             queryset = None
             total = None
@@ -14736,12 +14737,12 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
                 images = str(ip) + str(v['emp_pic'])
                 v['emp_pic'] = images
             return Response(result, status=status.HTTP_200_OK)
-        #except Exception as e:
-        #   invalid_message = str(e)
-        #   return general_error_response(invalid_message)
+        except Exception as e:
+          invalid_message = str(e)
+          return general_error_response(invalid_message)
 
     def update(self, request, pk=None):
-        #try:
+        try:
             queryset = None
             total = None
             serializer_class = None
@@ -14784,6 +14785,40 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
                         employee.LEVEL_ItmIDid = levelobj
                         employee.save()
 
+                if 'is_login' in request.data and request.data['is_login'] == True:
+                    site_ids = EmpSitelist.objects.filter(Emp_Codeid=employee,
+                    emp_code=employee.emp_code,Site_Codeid=employee.Site_Codeid,
+                    site_code=employee.Site_Codeid.itemsite_code,
+                    isactive=True)
+                    if not site_ids:
+                        EmpSitelist(Emp_Codeid=employee, emp_code=employee.emp_code, 
+                        Site_Codeid=employee.Site_Codeid,
+                        site_code=employee.Site_Codeid.itemsite_code).save()
+
+                    fmspw_ids = Fmspw.objects.filter(Emp_Codeid=employee, pw_isactive=True).first()
+                    if not fmspw_ids:
+                        user = User.objects.create_user(username=request.data['display_name'], email=employee.emp_email,
+                                                        password=request.data['pw_password'])
+                        level_obj = Securities.objects.filter(pk=request.data['LEVEL_ItmIDid'], level_isactive=True).first()
+                        Fmspw(pw_userlogin=request.data['display_name'],
+                                pw_password=request.data['pw_password'],
+                                LEVEL_ItmIDid=level_obj,
+                                level_itmid=level_obj.level_code,
+                                level_desc=level_obj.level_description,
+                                Emp_Codeid=employee,
+                                emp_code=employee.emp_code,
+                                user=user,
+                                loginsite=None,
+                                flgappt = employee.show_in_appt,
+                                flgsales = employee.show_in_sales,
+                                ).save()
+                        employee.pw_userlogin = request.data['display_name']
+                        employee.pw_password = request.data['pw_password']
+                        employee.LEVEL_ItmIDid = level_obj
+                        employee.save()
+                        token = Token.objects.create(user=user)
+
+
                 serializer.save(type_code=jobtitle.level_code)
                 state = status.HTTP_200_OK
                 message = "Updated Succesfully"
@@ -14800,9 +14835,9 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
             result = response(self, request, queryset, total, state, message, error, serializer_class, data,
                               action=self.action)
             return Response(result, status=status.HTTP_200_OK)
-        #except Exception as e:
-        #   invalid_message = str(e)
-        #   return general_error_response(invalid_message)
+        except Exception as e:
+          invalid_message = str(e)
+          return general_error_response(invalid_message)
 
     def partial_update(self, request, pk=None):
         #try:

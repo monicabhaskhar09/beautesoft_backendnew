@@ -453,7 +453,8 @@ class POModel(models.Model):
     fk_project = models.ForeignKey('custom.ProjectModel', on_delete=models.PROTECT, null=True)
     fk_quotation = models.ForeignKey('custom.QuotationModel', on_delete=models.PROTECT, null=True)
     created_at = models.DateTimeField(db_column='PO_Date',null=True)
-
+    cust_id = models.ForeignKey('cl_table.Customer', on_delete=models.PROTECT, null=True) 
+    
     class Meta:
         db_table = 'PurchaseOrder_List'
 
@@ -483,6 +484,7 @@ class ProjectModel(models.Model):
     sales_staff = models.CharField(db_column='sales_staff', blank=True, max_length = 255, null=True)  # Field name made lowercase.
     admin_staff = models.CharField(db_column='admin_staff', blank=True, max_length = 255, null=True)  # Field name made lowercase.
     operation_staff = models.CharField(db_column='operation_staff', blank=True, max_length = 255, null=True)  # Field name made lowercase.
+    cust_id = models.ForeignKey('cl_table.Customer', on_delete=models.PROTECT, null=True) 
 
     class Meta:
         db_table = 'Project_List'
@@ -516,6 +518,7 @@ class QuotationModel(models.Model):
     active = models.CharField(db_column='Active', blank=True, max_length = 255, default='active', null=True)  # Field name made lowercase.
     fk_project = models.ForeignKey('custom.ProjectModel', on_delete=models.PROTECT, null=True)
     created_at = models.DateTimeField(db_column='Quotation_Date',null=True)
+    cust_id = models.ForeignKey('cl_table.Customer', on_delete=models.PROTECT, null=True) 
 
     class Meta:
         db_table = 'Quotation_List'
@@ -537,6 +540,7 @@ class ManualInvoiceModel(models.Model):
     fk_project = models.ForeignKey('custom.ProjectModel', on_delete=models.PROTECT, null=True)
     created_at = models.DateTimeField(db_column='ManualInvoice_Date',null=True)
     sa_transacno_ref = models.CharField(max_length=255, null=True)
+    cust_id = models.ForeignKey('cl_table.Customer', on_delete=models.PROTECT, null=True) 
    
     class Meta:
         db_table = 'ManualInvoice_List'
@@ -558,6 +562,7 @@ class WorkOrderInvoiceModel(models.Model):
     fk_project = models.ForeignKey('custom.ProjectModel', on_delete=models.PROTECT, null=True)
     created_at = models.DateTimeField(db_column='WorkOrderInvoice_Date',null=True)
     sa_transacno_ref = models.CharField(max_length=255, null=True)
+    cust_id = models.ForeignKey('cl_table.Customer', on_delete=models.PROTECT, null=True) 
     
     class Meta:
         db_table = 'WorkOrderInvoice_List'
@@ -578,6 +583,7 @@ class DeliveryOrderModel(models.Model):
     fk_project = models.ForeignKey('custom.ProjectModel', on_delete=models.PROTECT, null=True)
     created_at = models.DateTimeField(db_column='Do_Date',null=True)
     fk_workorder = models.ForeignKey('custom.WorkOrderInvoiceModel', on_delete=models.PROTECT, null=True)
+    cust_id = models.ForeignKey('cl_table.Customer', on_delete=models.PROTECT, null=True) 
 
     class Meta:
         db_table = 'DeliveryOrder_List'
@@ -1904,7 +1910,9 @@ class EquipmentUsage(models.Model):
     active = models.CharField(db_column='Active', blank=True, max_length = 255, default='active', null=True)  # Field name made lowercase.
     created_at = models.DateTimeField(db_column='Issue_Date',null=True)
     is_issued = models.BooleanField(default=False)
-
+    emp_id = models.ForeignKey('cl_table.Employee', on_delete=models.PROTECT,null=True)
+    cust_id = models.ForeignKey('cl_table.Customer', on_delete=models.PROTECT, null=True) 
+    
     class Meta:
         db_table = 'EquipmentUsage'
 
@@ -1922,6 +1930,7 @@ class EquipmentUsageItemModel(models.Model):
     Item_Codeid = models.ForeignKey('cl_table.Stock', on_delete=models.PROTECT, null=True) 
     item_div = models.CharField(db_column='Item_Div', max_length=20, blank=True, null=True)  # Field name made lowercase.
     
+
     class Meta:
         db_table = 'EquipmentUsage_Item'
 

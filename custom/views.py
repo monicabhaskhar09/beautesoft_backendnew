@@ -21,7 +21,8 @@ ManualInvoiceAddrSerializer,ManualInvoiceItemSerializer,WorkOrderInvoiceSerializ
 WorkOrderDetailSerializer,WorkOrderInvoiceAddrSerializer,WorkOrderInvoiceItemSerializer,
 VoucherRecordAccSerializer,DeliveryOrderSerializer,DeliveryOrderAddrSerializer,DeliveryOrderDetailSerializer,
 DeliveryOrderItemSerializer,DeliveryOrdersignSerializer,InvoiceListingSerializer,WorkOrderInvNoSerializer,
-EquipmentDropdownSerializer,EquipmentUsageSerializer,EquipmentUsageItemModelSerializer)
+EquipmentDropdownSerializer,EquipmentUsageSerializer,EquipmentUsageItemModelSerializer,StaffEquipmentSerializer,
+ItemEquipmentSerializer)
 from .models import (EmpLevel, Room, Combo_Services, ItemCart,VoucherRecord,RoundPoint, RoundSales,
 PaymentRemarks, HolditemSetup,PosPackagedeposit,SmtpSettings,MultiPricePolicy,salesStaffChangeLog,
 serviceStaffChangeLog,dateChangeLog,  TimeLogModel, ProjectModel, ActivityModel, QuotationModel, POModel, QuotationAddrModel, 
@@ -1090,7 +1091,8 @@ class EmployeeListAPI(generics.ListAPIView):
                 'data': queryset}
                 return Response(result, status=status.HTTP_200_OK)
             elif self.request.GET.get('sales_staff',None) == "0":
-                queryset = Fmspw.objects.filter(pw_isactive=True,level_desc="ADMINISTRATOR").order_by('pk').values('pk','pw_userlogin')
+                querysetf = list(set(Fmspw.objects.filter(pw_isactive=True,level_desc="ADMINISTRATOR").order_by('pk').values_list('Emp_Codeid', flat=True).distinct()))
+                queryset = Employee.objects.filter(emp_isactive=True,pk__in=querysetf).order_by('pk').values('pk','display_name')
                 result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully ",'error': False,
                 'data': queryset}
                 return Response(result, status=status.HTTP_200_OK)
@@ -7620,15 +7622,28 @@ class CourseTmpAPIView(generics.ListCreateAPIView):
                         if request.data['auto'] == False:
                             treatmentno = Tmptreatment.objects.filter(itemcart=cartobj,isfoc=False).order_by('pk').count()
                             unit_amount = float(request.data['total_price']) / int(treatmentno)
+                            # print(unit_amount,"unit_amount")
+                            unit = str(unit_amount).split('.')
+                            # print(unit,"unit")
+                            val = float(unit[0]+"."+unit[1][:2])
+                            # print(val,"val")
+                            # amt = "{:.2f}".format(float(unit_amount)) 
+                            # print(amt,"amt")
                             
                             lasttmp_ids = Tmptreatment.objects.filter(itemcart=cartobj,isfoc=False).order_by('pk').last()
+
                             tmp_treatids = Tmptreatment.objects.filter(itemcart=cartobj,isfoc=False).order_by('pk'
                             ).exclude(pk=lasttmp_ids.pk).update(price="{:.2f}".format(float(request.data['total_price'])),
-                            unit_amount="{:.2f}".format(unit_amount),trmt_is_auto_proportion=False)
+                            unit_amount=val,trmt_is_auto_proportion=False)
 
-                            l_val = float(request.data['total_price']) - (float(unit_amount) * (treatmentno -1))
+                            # print(float(request.data['total_price']),"float(request.data['total_price'])")
+                            # print(float(val) * (treatmentno -1),"kkk")
+
+                            l_val = float(request.data['total_price']) - (float(val) * (treatmentno -1))
+                            # print(l_val,"l_val")
                             v = str(l_val).split('.')
                             c = float(v[0]+"."+v[1][:2])
+                            # print(c,"c")
                             lasttmp_ids.price = "{:.2f}".format(float(request.data['total_price']))
                             lasttmp_ids.unit_amount = c
                             lasttmp_ids.trmt_is_auto_proportion = False
@@ -10672,7 +10687,9 @@ class ProjectListViewset(viewsets.ModelViewSet):
                         "created_at": serializer["created_at"],
                         "sales_staff": allquery.sales_staff,
                         "admin_staff" :allquery.admin_staff,
-                        "operation_staff": allquery.operation_staff
+                        "operation_staff": allquery.operation_staff,
+                        "cust_id" : allquery.cust_id.pk if allquery.cust_id else "",
+                        "cust_name" : allquery.cust_id.cust_name if allquery.cust_id else ""
                     })        
                     
                 
@@ -11006,7 +11023,9 @@ class DeliveryOrderListViewset(viewsets.ModelViewSet):
                         "active": allquery.active,
                         "fk_project_id": allquery.fk_project_id,
                         "created_at": serializer["created_at"],
-                        "total_amount": t_amount
+                        "total_amount": t_amount,
+                        "cust_id" : allquery.cust_id.pk if allquery.cust_id else "",
+                        "cust_name": allquery.cust_id.cust_name if allquery.cust_id else "",
                     })    
                 
 
@@ -11228,7 +11247,9 @@ class WorkOrderInvoiceListViewset(viewsets.ModelViewSet):
                         "active": allquery.active,
                         "fk_project_id": allquery.fk_project_id,
                         "created_at": serializer["created_at"],
-                        "total_amount": "{:.2f}".format(float(t_amount))
+                        "total_amount": "{:.2f}".format(float(t_amount)),
+                        "cust_id" : allquery.cust_id.pk if allquery.cust_id else "",
+                        "cust_name": allquery.cust_id.cust_name if allquery.cust_id else "",
                     })    
                 
 
@@ -11672,7 +11693,9 @@ class ManualInvoiceListViewset(viewsets.ModelViewSet):
                         "active": allquery.active,
                         "fk_project_id": allquery.fk_project_id,
                         "created_at": serializer["created_at"],
-                        "total_amount": "{:.2f}".format(float(t_amount))
+                        "total_amount": "{:.2f}".format(float(t_amount)),
+                        "cust_id" : allquery.cust_id.pk if allquery.cust_id else "",
+                        "cust_name": allquery.cust_id.cust_name if allquery.cust_id else "",
                     })    
                 
 
@@ -11908,6 +11931,10 @@ class EquipmentUsageViewset(viewsets.ModelViewSet):
                         "footer": allquery.footer,
                         "active": allquery.active,
                         "created_at": serializer["created_at"],
+                        "emp_id": allquery.emp_id_id if allquery.emp_id else "",
+                        "emp_name": allquery.emp_id.display_name if allquery.emp_id else "",
+                        "cust_id" : allquery.cust_id.pk if allquery.cust_id else "",
+                        "cust_name": allquery.cust_id.cust_name if allquery.cust_id else "",
                     })    
                 
 
@@ -12149,7 +12176,9 @@ class QuotationListViewset(viewsets.ModelViewSet):
                         "active": allquery.active,
                         "fk_project_id": allquery.fk_project_id,
                         "created_at": serializer["created_at"],
-                        "total_amount": t_amount
+                        "total_amount": t_amount,
+                        "cust_id" : allquery.cust_id.pk if allquery.cust_id else "",
+                        "cust_name": allquery.cust_id.cust_name if allquery.cust_id else "",
                     })    
                 
 
@@ -12384,7 +12413,9 @@ class POListViewset(viewsets.ModelViewSet):
                         "active": allquery.active,
                         "created_at": serializer["created_at"],
                         "in_charge": allquery.in_charge,
-                        "total_amount": t_amount
+                        "total_amount": t_amount,
+                        "cust_id" : allquery.cust_id.pk if allquery.cust_id else "",
+                        "cust_name": allquery.cust_id.cust_name if allquery.cust_id else "",
                     })
 
                 resData = {
@@ -24798,3 +24829,75 @@ class EquipmentUsageIssueReturn(APIView):
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)   
+
+
+class StaffEquipmentAPIView(generics.ListAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = []
+    serializer_class = StaffEquipmentSerializer
+
+    def list(self, request):
+        try:
+            staff_id = self.request.GET.get('staff_id',None)
+            if not staff_id:
+                raise Exception('Please Give Staff ID!!') 
+            status_v = self.request.GET.get('status',None)
+            if not status_v:
+                raise Exception('Please Give Status!!') 
+
+            queryset = []
+
+            if status_v == "Issued":        
+                queryset = list(set(EquipmentUsage.objects.filter(active='active',emp_id__pk=staff_id,
+                status=status_v,is_issued=True).order_by('pk').values_list('pk', flat=True).distinct()))
+            elif status_v == "Returned":
+                queryset = list(set(EquipmentUsage.objects.filter(active='active',emp_id__pk=staff_id,
+                status=status_v).order_by('pk').values_list('pk', flat=True).distinct()))
+            elif status_v == "Both": 
+                queryset = list(set(EquipmentUsage.objects.filter(active='active',emp_id__pk=staff_id,
+                status__in=['Issued','Returned'],is_issued=True).order_by('pk').values_list('pk', flat=True).distinct()))
+
+
+            if queryset != []:
+                item_ids = EquipmentUsageItemModel.objects.filter(active='active',fk_equipment__pk__in=queryset)
+                if item_ids:
+                    serializer = self.get_serializer(item_ids, many=True)
+                    result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 'data':  serializer.data}
+                else:
+                    serializer = self.get_serializer()
+                    result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+            else:
+                serializer = self.get_serializer()
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+            return Response(data=result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)             
+        
+
+class ItemEquipmentAPIView(generics.ListAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = []
+    serializer_class = ItemEquipmentSerializer
+    
+    def list(self, request):
+        try:
+            item_code = self.request.GET.get('item_code',None)
+            if not item_code:
+                raise Exception('Please Give item code!!') 
+
+            queryset = EquipmentUsageItemModel.objects.filter(active='active',
+            quotation_itemcode=item_code)
+            if queryset:
+                serializer = self.get_serializer(queryset, many=True)
+                result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 'data':  serializer.data}
+            else:
+                serializer = self.get_serializer()
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+            return Response(data=result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)             
+            

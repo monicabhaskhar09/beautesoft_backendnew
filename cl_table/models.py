@@ -674,6 +674,7 @@ class Employee(models.Model):
 
     objects = models.Manager()
     active_objects = IsActiveManager(active_field="emp_isactive",label="emp_name",value="emp_no")
+    isdelete = models.BooleanField(db_column='IsDelete', null=True, default=False)  # Field name made lowercase.
 
     def save(self, *args,**kwargs):
         if self.Site_Codeid:

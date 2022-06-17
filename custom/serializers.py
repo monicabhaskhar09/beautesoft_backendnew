@@ -1139,3 +1139,45 @@ class EquipmentUsageItemModelSerializer(serializers.ModelSerializer):
     class Meta:
         model = EquipmentUsageItemModel
         fields = '__all__'
+
+
+class StaffEquipmentSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='pk',required=False)
+
+    class Meta:
+        model = EquipmentUsageItemModel
+        fields = ['id','quotation_itemcode','quotation_itemdesc','item_uom','quotation_quantity']
+    
+
+    def to_representation(self, obj):
+        request = self.context['request']
+        data = super(StaffEquipmentSerializer, self).to_representation(obj)
+        data['issued_date'] = ""
+        if obj.fk_equipment.created_at:
+            splt = str(obj.fk_equipment.created_at).split(" ")
+            data['issued_date'] = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d-%b-%y")
+        
+        data['status'] = obj.fk_equipment.status
+        return data
+
+
+class ItemEquipmentSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='pk',required=False)
+
+    class Meta:
+        model = EquipmentUsageItemModel
+        fields = ['id','quotation_itemcode','quotation_itemdesc','item_uom']
+
+    def to_representation(self, obj):
+        request = self.context['request']
+        data = super(ItemEquipmentSerializer, self).to_representation(obj)
+        data['issued_date'] = ""
+        if obj.fk_equipment.created_at:
+            splt = str(obj.fk_equipment.created_at).split(" ")
+            data['issued_date'] = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d-%b-%y")
+        
+        data['status'] = obj.fk_equipment.status
+        data['staff_id'] = obj.fk_equipment.emp_id.pk if obj.fk_equipment.emp_id else ""
+        data['staff_name'] = obj.fk_equipment.emp_id.display_name if obj.fk_equipment.emp_id else ""
+        return data
+        

@@ -138,6 +138,8 @@ urlpatterns = [
     path('api/workorderinvno/', views.WorkOrderInvoiceNoAPIView.as_view(), name='workorderinvno'),
     path('api/studioinvoice/', views.StudioPdfGeneration.as_view(), name='studioinvoice'),
     path('api/equipmentusageissue/', views.EquipmentUsageIssueReturn.as_view(), name='equipmentusageissue'),
+    path('api/staffequipmentlist/', views.StaffEquipmentAPIView.as_view(), name='staffequipmentlist'),
+    path('api/itemequipmentlist/', views.ItemEquipmentAPIView.as_view(), name='itemequipmentlist'),
 
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 

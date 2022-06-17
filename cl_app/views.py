@@ -4024,7 +4024,7 @@ class TopupprepaidViewset(viewsets.ModelViewSet):
                                 acc_ids = PrepaidAccount.objects.filter(pp_no=d.sa_transacno,package_code=d.dt_combocode,
                                 pos_daud_lineno=d.dt_lineno,outstanding__gt = 0,status=True).order_by('id').last()
                             else:
-                                acc_ids = PrepaidAccount.objects.filter(pp_no=d.sa_transacno,Item_Codeid=d.dt_itemnoid,
+                                acc_ids = PrepaidAccount.objects.filter(pp_no=d.sa_transacno,
                                 pos_daud_lineno=d.dt_lineno,outstanding__gt = 0,status=True).order_by('id').last()
 
                             
