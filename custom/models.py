@@ -1,3 +1,4 @@
+from locale import currency
 from django.db import models
 from cl_table.models import (Treatment, Stock, ItemStatus, Customer, TmpItemHelper, FocReason,
 DepositAccount,PrepaidAccount)
@@ -518,7 +519,8 @@ class QuotationModel(models.Model):
     active = models.CharField(db_column='Active', blank=True, max_length = 255, default='active', null=True)  # Field name made lowercase.
     fk_project = models.ForeignKey('custom.ProjectModel', on_delete=models.PROTECT, null=True)
     created_at = models.DateTimeField(db_column='Quotation_Date',null=True)
-    cust_id = models.ForeignKey('cl_table.Customer', on_delete=models.PROTECT, null=True) 
+    cust_id = models.ForeignKey('cl_table.Customer', on_delete=models.PROTECT, null=True)
+    currency_id =  models.ForeignKey('custom.Currencytable', on_delete=models.PROTECT, null=True)
 
     class Meta:
         db_table = 'Quotation_List'
@@ -540,7 +542,9 @@ class ManualInvoiceModel(models.Model):
     fk_project = models.ForeignKey('custom.ProjectModel', on_delete=models.PROTECT, null=True)
     created_at = models.DateTimeField(db_column='ManualInvoice_Date',null=True)
     sa_transacno_ref = models.CharField(max_length=255, null=True)
-    cust_id = models.ForeignKey('cl_table.Customer', on_delete=models.PROTECT, null=True) 
+    cust_id = models.ForeignKey('cl_table.Customer', on_delete=models.PROTECT, null=True)
+    currency_id =  models.ForeignKey('custom.Currencytable', on_delete=models.PROTECT, null=True)
+ 
    
     class Meta:
         db_table = 'ManualInvoice_List'
@@ -724,6 +728,17 @@ class QuotationDetailModel(models.Model):
     class Meta:
         db_table = 'Quotation_Detail'
 
+class QuotationPayment(models.Model):
+    id = models.AutoField(db_column='id',primary_key=True)  # Field name made lowercase.
+    payment_schedule = models.CharField(db_column='payment_schedule', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    payment_term = models.CharField(db_column='payment_term', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    active = models.CharField(db_column='Active', blank=True, max_length = 255, default='active', null=True)  # Field name made lowercase.
+    fk_quotation = models.ForeignKey('custom.QuotationModel', on_delete=models.PROTECT, null=True)
+
+    class Meta:
+        db_table = 'Quotation_Payment'
+                
+
 class ManualInvoiceDetailModel(models.Model):
     id = models.AutoField(db_column=' ManualInvoice_Detail_ID',primary_key=True)  # Field name made lowercase.
     q_shipcost = models.CharField(db_column=' ManualInvoice_ShipCost', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
@@ -735,6 +750,18 @@ class ManualInvoiceDetailModel(models.Model):
 
     class Meta:
         db_table = 'ManualInvoice_Detail'
+
+
+class ManualInvoicePayment(models.Model):
+    id = models.AutoField(db_column='id',primary_key=True)  # Field name made lowercase.
+    payment_schedule = models.CharField(db_column='payment_schedule', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    payment_term = models.CharField(db_column='payment_term', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    active = models.CharField(db_column='Active', blank=True, max_length = 255, default='active', null=True)  # Field name made lowercase.
+    fk_manualinvoice = models.ForeignKey('custom.ManualInvoiceModel', on_delete=models.PROTECT, null=True)
+
+    class Meta:
+        db_table = 'ManualInvoice_Payment'
+      
             
 
 class WorkOrderInvoiceDetailModel(models.Model):
@@ -1944,3 +1971,13 @@ class EquipmentDropdownModel(models.Model):
 
     class Meta:
         db_table = 'EquipmentDropdownModel'
+
+class Currencytable(models.Model):
+    id = models.AutoField(db_column='ID',primary_key=True)  # Field name made lowercase.
+    curr_code = models.CharField(db_column='Curr_Code', max_length=3, blank=True, null=True)  
+    curr_name = models.CharField(db_column='Curr_Name', max_length=255, blank=True, null=True)  
+    curr_rate = models.DecimalField(db_column='Curr_Rate', max_digits=2, decimal_places=1, blank=True, null=True)  
+    curr_isactive = models.BooleanField(db_column='Curr_isactive', blank=True, null=True, default=False)  
+   
+    class Meta:
+        db_table = 'CurrencyTable'        

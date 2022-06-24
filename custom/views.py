@@ -22,7 +22,8 @@ WorkOrderDetailSerializer,WorkOrderInvoiceAddrSerializer,WorkOrderInvoiceItemSer
 VoucherRecordAccSerializer,DeliveryOrderSerializer,DeliveryOrderAddrSerializer,DeliveryOrderDetailSerializer,
 DeliveryOrderItemSerializer,DeliveryOrdersignSerializer,InvoiceListingSerializer,WorkOrderInvNoSerializer,
 EquipmentDropdownSerializer,EquipmentUsageSerializer,EquipmentUsageItemModelSerializer,StaffEquipmentSerializer,
-ItemEquipmentSerializer)
+ItemEquipmentSerializer,ProjectSearchSerializer,CurrencytableSerializer,QuotationPaymentSerializer,
+ManualInvPaymentSerializer)
 from .models import (EmpLevel, Room, Combo_Services, ItemCart,VoucherRecord,RoundPoint, RoundSales,
 PaymentRemarks, HolditemSetup,PosPackagedeposit,SmtpSettings,MultiPricePolicy,salesStaffChangeLog,
 serviceStaffChangeLog,dateChangeLog,  TimeLogModel, ProjectModel, ActivityModel, QuotationModel, POModel, QuotationAddrModel, 
@@ -34,7 +35,8 @@ SystemLogModel,SupplyContactInfoModel,ControlNoModel, CommTarget,CommDeduction,C
 ManualInvoiceModel,ManualInvoiceDetailModel,ManualInvoiceAddrModel,ManualInvoiceItemModel,WorkOrderInvoiceModel,
 WorkOrderInvoiceDetailModel,WorkOrderInvoiceAddrModel,WorkOrderInvoiceItemModel,DeliveryOrderModel,
 DeliveryOrderDetailModel,DeliveryOrderAddrModel,DeliveryOrderItemModel,DeliveryOrdersign,
-EquipmentDropdownModel,EquipmentUsage,EquipmentUsageItemModel)
+EquipmentDropdownModel,EquipmentUsage,EquipmentUsageItemModel,Currencytable,QuotationPayment,
+ManualInvoicePayment)
 from cl_table.models import(Treatment, Employee, Fmspw, Stock, ItemClass, ItemRange, Appointment,Customer,Treatment_Master,
 GstSetting,PosTaud,PosDaud,PosHaud,ControlNo,EmpSitelist,ItemStatus, TmpItemHelper, FocReason, PosDisc,
 TreatmentAccount, PosDaud, ItemDept, DepositAccount, PrepaidAccount, ItemDiv, Systemsetup, Title,
@@ -1522,7 +1524,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                 for d in data:
                     dict_v = dict(d)
                     cartobj = ItemCart.objects.filter(id=dict_v['id'],isactive=True,sitecode=site.itemsite_code).exclude(type__in=type_ex).first()  
-                    stockobj = Stock.objects.filter(item_code=cartobj.itemcode,item_isactive=True).first()
+                    stockobj = Stock.objects.filter(item_code=cartobj.itemcode).first()
                     if not stockobj:
                         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Stock Id does not exist!!",'error': True} 
                         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
@@ -1623,7 +1625,7 @@ class itemCartViewset(viewsets.ModelViewSet):
 
 
                     tot_disc = dict_v['discount_amt'] + dict_v['additional_discountamt']
-                    stock_obj = Stock.objects.filter(pk=dict_v['itemcodeid'],item_isactive=True)[0]
+                    stock_obj = Stock.objects.filter(pk=dict_v['itemcodeid'])[0]
                     total_disc = dict_v['discount_amt'] + dict_v['additional_discountamt']
                     dict_v['price'] = "{:.2f}".format(float(dict_v['price']))
                     dict_v['total_price'] = "{:.2f}".format(float(dict_v['total_price']))
@@ -1965,7 +1967,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer ID does not exist!!",'error': True} 
                     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
-                stock_obj = Stock.objects.filter(pk=req['itemcodeid'],item_isactive=True).first()
+                stock_obj = Stock.objects.filter(pk=req['itemcodeid']).first()
                 if not stock_obj:
                     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Stock ID does not exist!!",'error': True} 
                     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
@@ -3417,7 +3419,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer ID does not exist!!",'error': True} 
                         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
-                    stock_obj = Stock.objects.filter(pk=req['itemcodeid'],item_isactive=True).first()
+                    stock_obj = Stock.objects.filter(pk=req['itemcodeid']).first()
                     if not stock_obj:
                         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Stock ID does not exist!!",'error': True} 
                         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
@@ -3464,7 +3466,7 @@ class itemCartViewset(viewsets.ModelViewSet):
 
                     if req['ori_stockid']:
 
-                        ori_stockobj = Stock.objects.filter(pk=req['ori_stockid'],item_isactive=True).first()
+                        ori_stockobj = Stock.objects.filter(pk=req['ori_stockid']).first()
 
                         excontrol_obj = ControlNo.objects.filter(control_description__iexact="EXCHANGE NO",Site_Codeid__pk=fmspw[0].loginsite.pk).first()
                         if not excontrol_obj:
@@ -5597,7 +5599,7 @@ class PosPackagedepositViewset(viewsets.ModelViewSet):
 
                         pos_code = str(pos.code)
                         itm_code = pos_code[:-4]
-                        itmstock = Stock.objects.filter(item_code=itm_code,item_isactive=True).first()
+                        itmstock = Stock.objects.filter(item_code=itm_code).first()
                         if not itmstock:
                             msg = "{0} does not exist".format(str(itmstock.item_name))
                             result = {'status': status.HTTP_400_BAD_REQUEST,"message":msg,'error': True}
@@ -8013,7 +8015,7 @@ class CourseTmpItemHelperViewset(viewsets.ModelViewSet):
                 else:
                     workcommpoints = cartobj.itemcodeid.workcommpoints
             
-                stock_obj = Stock.objects.filter(pk=cartobj.itemcodeid.pk,item_isactive=True).first()
+                stock_obj = Stock.objects.filter(pk=cartobj.itemcodeid.pk).first()
                 if stock_obj.srv_duration is None or stock_obj.srv_duration == 0.0:
                     srvduration = 60
                 else:
@@ -8123,7 +8125,7 @@ class CourseTmpItemHelperViewset(viewsets.ModelViewSet):
             
                 # item_code = str(trmt_obj.item_code)
                 # itm_code = item_code[:-4]
-                stockobj = Stock.objects.filter(pk=cartobj.itemcodeid.pk,item_isactive=True).order_by('pk').first()
+                stockobj = Stock.objects.filter(pk=cartobj.itemcodeid.pk).order_by('pk').first()
             
                 # acc_ids = TreatmentAccount.objects.filter(ref_transacno=trmt_obj.treatment_account.ref_transacno,
                 # treatment_parentcode=trmt_obj.treatment_account.treatment_parentcode).order_by('-sa_date','-sa_time','-id').first()
@@ -9254,7 +9256,7 @@ class PackageServiceTmpItemHelperViewset(viewsets.ModelViewSet):
             if not cartobj:
                 raise Exception("Item Cart ID does not exist")
 
-            stock_obj = Stock.objects.filter(item_code=posobj.code[:-4],item_isactive=True).order_by('-pk').first()
+            stock_obj = Stock.objects.filter(item_code=posobj.code[:-4]).order_by('-pk').first()
             if not stock_obj:
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Stock ID does not exist!!",'error': True} 
                 return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
@@ -9628,7 +9630,7 @@ class AddRemoveSalesStaffViewset(viewsets.ModelViewSet):
                         tmphelp_ids = TmpItemHelper.objects.filter(itemcart=cartobj).order_by('id').delete()
 
 
-                    stock_obj = Stock.objects.filter(pk=cartobj.itemcodeid.pk,item_isactive=True).first()
+                    stock_obj = Stock.objects.filter(pk=cartobj.itemcodeid.pk).first()
                     if not stock_obj:
                         raise Exception("Stock ID does not exist!!")
 
@@ -9978,7 +9980,7 @@ class AddRemoveSalesStaffViewset(viewsets.ModelViewSet):
                                       
                                         item_code = str(trmt_obj.item_code)
                                         itm_code = item_code[:-4]
-                                        stockobj = Stock.objects.filter(item_code=itm_code,item_isactive=True).order_by('pk').first()
+                                        stockobj = Stock.objects.filter(item_code=itm_code).order_by('pk').first()
                                     
                                           
                                         h_obj = TmpItemHelper.objects.filter(treatment__pk=trmt_obj.pk).order_by('pk')
@@ -10163,7 +10165,7 @@ class AddRemoveSalesStaffViewset(viewsets.ModelViewSet):
                     if not cartobj:
                         raise Exception("Cart id does not exist!!")
 
-                    stock_obj = Stock.objects.filter(pk=cartobj.itemcodeid.pk,item_isactive=True).first()
+                    stock_obj = Stock.objects.filter(pk=cartobj.itemcodeid.pk).first()
                     if not stock_obj:
                         raise Exception("Stock ID does not exist!!")
                             
@@ -11696,6 +11698,7 @@ class ManualInvoiceListViewset(viewsets.ModelViewSet):
                         "total_amount": "{:.2f}".format(float(t_amount)),
                         "cust_id" : allquery.cust_id.pk if allquery.cust_id else "",
                         "cust_name": allquery.cust_id.cust_name if allquery.cust_id else "",
+                        "currency_id" : allquery.currency_id.pk if allquery.currency_id else ""
                     })    
                 
 
@@ -12179,6 +12182,7 @@ class QuotationListViewset(viewsets.ModelViewSet):
                         "total_amount": t_amount,
                         "cust_id" : allquery.cust_id.pk if allquery.cust_id else "",
                         "cust_name": allquery.cust_id.cust_name if allquery.cust_id else "",
+                        "currency_id" : allquery.currency_id.pk if allquery.currency_id else ""
                     })    
                 
 
@@ -13498,6 +13502,251 @@ class ManualInvoiceDetailViewset(viewsets.ModelViewSet):
             return ManualInvoiceDetailModel.objects.get(pk=pk)
         except ManualInvoiceDetailModel.DoesNotExist:
             raise Exception("ManualInvoiceDetailModel Does't Exist")
+
+class ManualInvPaymentViewset(viewsets.ModelViewSet):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = ManualInvoicePayment.objects.filter().order_by('-pk')
+    serializer_class = ManualInvPaymentSerializer
+
+
+    def create(self, request):
+        try:
+            queryset = None
+            serializer_class = None
+            total = None
+            request.POST._mutable = True
+            serializer = self.get_serializer(data=request.data)
+            if serializer.is_valid():
+                self.perform_create(serializer)
+                serializer.save()
+                state = status.HTTP_201_CREATED
+                message = "Created Succesfully"
+                error = False
+                data = serializer.data
+                result=response(self,request, queryset, total, state, message, error, serializer_class, data, action=self.action)
+                return Response(result, status=status.HTTP_201_CREATED)
+
+            state = status.HTTP_400_BAD_REQUEST
+            message = "Invalid Input"
+            error = True
+            data = serializer.errors
+            result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)  
+    
+    def get_queryset(self):
+        queryset = ManualInvoicePayment.objects.filter().order_by('-pk')
+        searchid = self.request.GET.get('searchqdetailid','')
+              
+
+        if searchid == '':
+            queryset = ManualInvoicePayment.objects.filter(active='active').order_by('-pk')  
+        else:
+            queryset = ManualInvoicePayment.objects.filter(fk_manualinvoice_id=searchid,active='active').order_by('-pk')  
+
+        return queryset
+
+    def list(self, request):
+        try:
+            serializer_class = ManualInvPaymentSerializer
+            queryset = self.filter_queryset(self.get_queryset())
+            if queryset:
+                serializer = self.get_serializer(queryset, many=True)
+                result = {'status': status.HTTP_200_OK,"message": "Listed Succesfully",'error': False, 'data':  serializer.data}
+            else:
+                serializer = self.get_serializer()
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+            return Response(data=result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)         
+    
+    
+    def update(self, request, pk=None):
+        try:
+            queryset = None
+            total = None
+            serializer_class = None
+            qdetail = self.get_object(pk)
+            serializer = ManualInvPaymentSerializer(qdetail, data=request.data)
+            if serializer.is_valid():
+                serializer.save()
+                state = status.HTTP_200_OK
+                message = "Updated Succesfully"
+                error = False
+                data = serializer.data
+                result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+                return Response(result, status=status.HTTP_200_OK)
+
+            state = status.HTTP_400_BAD_REQUEST
+            message = "Invalid Input"
+            error = True
+            data = serializer.errors
+            result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+            return Response(result, status=status.HTTP_200_OK)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)    
+    
+    
+    def destroy(self, request, pk=None):
+        try:
+            data = None
+            queryset = None
+            total = None
+            serializer_class = None
+            request.data["active"] = "inactive"
+            qdetail = self.get_object(pk)
+            serializer = ManualInvPaymentSerializer(qdetail, data=request.data)
+            state = status.HTTP_204_NO_CONTENT
+            if serializer.is_valid():
+                serializer.save()
+                message = "Deleted Succesfully"
+                error = False
+                state = status.HTTP_200_OK
+                result=response(self,request, queryset, total,  state, message, error, serializer_class, data, action=self.action)
+                return Response(result,status=status.HTTP_200_OK)    
+            
+
+            message = "No Content"
+            error = True
+            result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+            return Response(result,status=state)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)          
+    
+    def get_object(self, pk):
+        try:
+            return ManualInvoicePayment.objects.get(pk=pk)
+        except ManualInvoicePayment.DoesNotExist:
+            raise Http404
+
+
+
+class QuotationPaymentViewset(viewsets.ModelViewSet):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = QuotationPayment.objects.filter().order_by('-pk')
+    serializer_class = QuotationPaymentSerializer
+
+    def create(self, request):
+        try:
+            queryset = None
+            serializer_class = None
+            total = None
+            request.POST._mutable = True
+            serializer = self.get_serializer(data=request.data)
+            if serializer.is_valid():
+                self.perform_create(serializer)
+                serializer.save()
+                state = status.HTTP_201_CREATED
+                message = "Created Succesfully"
+                error = False
+                data = serializer.data
+                result=response(self,request, queryset, total, state, message, error, serializer_class, data, action=self.action)
+                return Response(result, status=status.HTTP_201_CREATED)
+
+            state = status.HTTP_400_BAD_REQUEST
+            message = "Invalid Input"
+            error = True
+            data = serializer.errors
+            result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)  
+    
+    def get_queryset(self):
+        queryset = QuotationPayment.objects.filter().order_by('-pk')
+        searchid = self.request.GET.get('searchqdetailid','')
+              
+
+        if searchid == '':
+            queryset = QuotationPayment.objects.filter(active='active').order_by('-pk')  
+        else:
+            queryset = QuotationPayment.objects.filter(fk_quotation_id=searchid,active='active').order_by('-pk')  
+
+        return queryset
+
+    def list(self, request):
+        try:
+            serializer_class = QuotationPaymentSerializer
+            queryset = self.filter_queryset(self.get_queryset())
+            if queryset:
+                serializer = self.get_serializer(queryset, many=True)
+                result = {'status': status.HTTP_200_OK,"message": "Listed Succesfully",'error': False, 'data':  serializer.data}
+            else:
+                serializer = self.get_serializer()
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+            return Response(data=result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)         
+    
+    
+    def update(self, request, pk=None):
+        try:
+            queryset = None
+            total = None
+            serializer_class = None
+            qdetail = self.get_object(pk)
+            serializer = QuotationPaymentSerializer(qdetail, data=request.data)
+            if serializer.is_valid():
+                serializer.save()
+                state = status.HTTP_200_OK
+                message = "Updated Succesfully"
+                error = False
+                data = serializer.data
+                result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+                return Response(result, status=status.HTTP_200_OK)
+
+            state = status.HTTP_400_BAD_REQUEST
+            message = "Invalid Input"
+            error = True
+            data = serializer.errors
+            result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+            return Response(result, status=status.HTTP_200_OK)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)    
+    
+    def destroy(self, request, pk=None):
+        try:
+            data = None
+            queryset = None
+            total = None
+            serializer_class = None
+            request.data["active"] = "inactive"
+            qdetail = self.get_object(pk)
+            serializer = QuotationPaymentSerializer(qdetail, data=request.data)
+            state = status.HTTP_204_NO_CONTENT
+            if serializer.is_valid():
+                serializer.save()
+                message = "Deleted Succesfully"
+                error = False
+                state = status.HTTP_200_OK
+                result=response(self,request, queryset, total,  state, message, error, serializer_class, data, action=self.action)
+                return Response(result,status=status.HTTP_200_OK)    
+            
+
+            message = "No Content"
+            error = True
+            result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+            return Response(result,status=state)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)          
+    
+    def get_object(self, pk):
+        try:
+            return QuotationPayment.objects.get(pk=pk)
+        except QuotationPayment.DoesNotExist:
+            raise Http404
+
 
     
 class QuotationDetailViewset(viewsets.ModelViewSet):
@@ -24901,3 +25150,67 @@ class ItemEquipmentAPIView(generics.ListAPIView):
             invalid_message = str(e)
             return general_error_response(invalid_message)             
             
+
+
+class ProjectSearchAPI(generics.ListAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = ProjectModel.objects.filter(active='active').order_by('-pk')
+    serializer_class = ProjectSearchSerializer
+
+    def get_queryset(self):
+       
+        fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True).first()
+      
+        site = fmspw.loginsite
+       
+        queryset = ProjectModel.objects.filter(active='active').order_by('-pk')    
+
+        q = self.request.GET.get('search',None)
+        if q:
+            queryset = queryset.filter(Q(title__icontains=q))[:20]
+       
+        return queryset
+                        
+    def list(self, request, *args, **kwargs):
+        try:
+            serializer_class = ProjectSearchSerializer
+            queryset = self.filter_queryset(self.get_queryset())
+            if queryset:
+                serializer = self.get_serializer(queryset, many=True, context={'request': self.request})
+                result = {'status': status.HTTP_200_OK,"message": "Listed Succesfully",'error': False, 'data':  serializer.data}
+            else:
+                serializer = self.get_serializer()
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+            return Response(data=result, status=status.HTTP_200_OK)  
+        except Exception as e:
+           invalid_message = str(e)
+           return general_error_response(invalid_message)            
+    
+
+class CurrencytableViewset(viewsets.ModelViewSet):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = Currencytable.objects.filter(curr_isactive=True).order_by('-pk')
+    serializer_class = CurrencytableSerializer
+    
+
+    def get_queryset(self):
+        queryset = Currencytable.objects.filter(curr_isactive=True).order_by('-pk')
+
+        return queryset
+
+    def list(self, request):
+        try:
+            serializer_class = CurrencytableSerializer
+            queryset = self.filter_queryset(self.get_queryset())
+            if queryset:
+                serializer = self.get_serializer(queryset, many=True)
+                result = {'status': status.HTTP_200_OK,"message": "Listed Succesfully",'error': False, 'data':  serializer.data}
+            else:
+                serializer = self.get_serializer()
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+            return Response(data=result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)   

@@ -2703,7 +2703,35 @@ class TreatmentDoneViewset(viewsets.ModelViewSet):
     
         except Exception as e:
             invalid_message = str(e)
-            return general_error_response(invalid_message)        
+            return general_error_response(invalid_message)
+
+    @transaction.atomic
+    @action(methods=['post'], detail=False, permission_classes=[IsAuthenticated & authenticated_only],
+    authentication_classes=[ExpiringTokenAuthentication])
+    def changetreatduration(self, request): 
+        try:  
+            with transaction.atomic():
+                if not request.data['treatment_id']:
+                    raise Exception('Please give Treatment id!!.') 
+                
+                if not request.data['duration']:
+                    raise Exception('Please give duration!!.') 
+
+                if request.data['treatment_id']:
+                    tr_obj = Treatment.objects.filter(pk=request.data['treatment_id']).first()
+                    if not tr_obj:
+                        raise Exception('Treatment ID does not exist!!.') 
+
+                    if tr_obj:
+                        tr_obj.duration = request.data['duration']
+                        tr_obj.save()
+                        result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",
+                        'error': False}
+                        return Response(result, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)                
  
 
 # class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
@@ -3245,7 +3273,8 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                     workcommpoints = trmt_obj.Item_Codeid.workcommpoints
                 
                 srvduration = 60
-                stock_obj = Stock.objects.filter(pk=trmt_obj.Item_Codeid.pk,item_isactive=True).first()
+                # stock_obj = Stock.objects.filter(pk=trmt_obj.Item_Codeid.pk,item_isactive=True).first()
+                stock_obj = Stock.objects.filter(pk=trmt_obj.Item_Codeid.pk).first()
                 if stock_obj:
                     if stock_obj.srv_duration is None or stock_obj.srv_duration == 0.0:
                         srvduration = 60
@@ -3260,7 +3289,8 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                 value = {'Item':trmt_obj.course,'Price':"{:.2f}".format(float(trmt_obj.unit_amount)),
                 'work_point':"{:.2f}".format(float(workcommpoints)),'room_id':None,'room_name':None,
                 'source_id': trmt_obj.times if trmt_obj.times else "",'source_name':None,'new_remark':None,
-                'times':trmt_obj.times if trmt_obj.times else "",'add_duration':hrs}
+                'times':trmt_obj.times if trmt_obj.times else "",'add_duration':hrs,
+                'flexipoints': int(trmt_obj.flexipoints) if trmt_obj.flexipoints else None}
                 if h_obj:
                     if not h_obj.Room_Codeid is None:
                         value['room_id'] = h_obj.Room_Codeid.pk
@@ -3356,7 +3386,7 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
             
                 item_code = str(trmt_obj.item_code)
                 itm_code = item_code[:-4]
-                stockobj = Stock.objects.filter(item_code=itm_code,item_isactive=True).order_by('pk').first()
+                stockobj = Stock.objects.filter(item_code=itm_code).order_by('pk').first()
             
                 # acc_ids = TreatmentAccount.objects.filter(ref_transacno=trmt_obj.treatment_account.ref_transacno,
                 # treatment_parentcode=trmt_obj.treatment_account.treatment_parentcode).order_by('-sa_date','-sa_time','-id').first()
@@ -7812,6 +7842,11 @@ class PrepaidAccListViewset(viewsets.ModelViewSet):
                     v['supplementary'] = ""
                     v['remain'] = "{:.2f}".format(float(ppobj.remain))
 
+                    if v['sa_date']:
+                        splt_st = str(v['sa_date']).split("T")
+                        v['sa_date'] = datetime.datetime.strptime(str(splt_st[0]), "%Y-%m-%d").strftime("%d-%m-%Y")
+                
+
                 # depoamt_acc_ids = PrepaidAccount.objects.filter(pp_no=account.pp_no,
                 # site_code=account.site_code,line_no=account.line_no,sa_status__in=('DEPOSIT', 'TOPUP','SA')).only('pp_no','site_code','line_no','sa_status').aggregate(Sum('topup_amt'))
                 depoamt_acc_ids = PrepaidAccount.objects.filter(pp_no=account.pp_no,
@@ -7970,7 +8005,7 @@ class DashboardCustAPIView(APIView):
                     for st in packdtl_ids:
                         pospack_ids = PosPackagedeposit.objects.filter(sa_transacno=pack.sa_transacno,
                         code=st.code,package_code=st.package_code,site_code=site.itemsite_code).order_by('pk').first()
-                        itmstock = Stock.objects.filter(item_code=st.code[:-4],item_isactive=True).first()
+                        itmstock = Stock.objects.filter(item_code=st.code[:-4]).first()
                         if itmstock and pospack_ids:
                             if int(itmstock.item_div) == 1:
                                 posqty = pospack_ids.qty    
@@ -7996,7 +8031,7 @@ class DashboardCustAPIView(APIView):
                     for mst in mpackdtl_ids:
                         mpospack_ids = PosPackagedeposit.objects.filter(sa_transacno=mpack.sa_transacno,
                         code=mst.code,package_code=mst.package_code,site_code=site.itemsite_code).order_by('pk').first()
-                        mitmstock = Stock.objects.filter(item_code=mst.code[:-4],item_isactive=True).first()
+                        mitmstock = Stock.objects.filter(item_code=mst.code[:-4]).first()
                         if mitmstock and mpospack_ids:
                             if int(mitmstock.item_div) == 1:
                                 mposqty = mpospack_ids.qty    
@@ -8134,7 +8169,7 @@ class DashboardVoucherAPIView(APIView):
                     for st in packdtl_ids:
                         pospack_ids = PosPackagedeposit.objects.filter(sa_transacno=pack.sa_transacno,
                         code=st.code,package_code=st.package_code,site_code=site.itemsite_code).order_by('pk').first()
-                        itmstock = Stock.objects.filter(item_code=st.code[:-4],item_isactive=True).first()
+                        itmstock = Stock.objects.filter(item_code=st.code[:-4]).first()
                         if itmstock and pospack_ids:
                             if int(itmstock.item_div) == 4:
                                 dailyvoucherqty += pospack_ids.qty
@@ -8156,7 +8191,7 @@ class DashboardVoucherAPIView(APIView):
                     for mst in mpackdtl_ids:
                         mpospack_ids = PosPackagedeposit.objects.filter(sa_transacno=mpack.sa_transacno,
                         code=mst.code,package_code=mst.package_code,site_code=site.itemsite_code).order_by('pk').first()
-                        mitmstock = Stock.objects.filter(item_code=mst.code[:-4],item_isactive=True).first()
+                        mitmstock = Stock.objects.filter(item_code=mst.code[:-4]).first()
                         if mitmstock and mpospack_ids:
                             if int(mitmstock.item_div) == 4:
                                 monthvoucherqty +=  mpospack_ids.qty
@@ -8781,7 +8816,7 @@ class DashboardTopProductAPIView(APIView):
                     for mst in mpackdtl_ids:
                         mpospack_ids = PosPackagedeposit.objects.filter(sa_transacno=mpack.sa_transacno,
                         code=mst.code,package_code=mst.package_code,site_code=site.itemsite_code).order_by('pk').first()
-                        mitmstock = Stock.objects.filter(item_code=mst.code[:-4],item_isactive=True).first()
+                        mitmstock = Stock.objects.filter(item_code=mst.code[:-4]).first()
                         if mitmstock and mpospack_ids:
                             if int(mitmstock.item_div) == 1:
                                 if not any(d['item_code'] == mst.code for d in retail_lst):
@@ -8939,7 +8974,7 @@ class DashboardTopProductAPIView(APIView):
             td_val_lst = list(month_treatids) 
             for td in td_val_lst:
                 item_code = td['item_code'][:-4]
-                stock_obj = Stock.objects.filter(item_isactive=True,item_code=item_code).order_by('-pk').first()
+                stock_obj = Stock.objects.filter(item_code=item_code).order_by('-pk').first()
                 td['item_name'] = stock_obj.item_name
 
 
@@ -9261,7 +9296,7 @@ class DashboardChartAPIView(APIView):
                     for mst in mpackdtl_ids:
                         pospack_ids = PosPackagedeposit.objects.filter(sa_transacno=yp.sa_transacno,
                         code=mst.code,package_code=mst.package_code,site_code=site.itemsite_code).order_by('pk').first()
-                        itmstock = Stock.objects.filter(item_code=mst.code[:-4],item_isactive=True).first()
+                        itmstock = Stock.objects.filter(item_code=mst.code[:-4]).first()
                         if itmstock and pospack_ids:
                             if int(itmstock.item_div) == 1:
                                 brandids = ItemBrand.objects.filter(itm_code=itmstock.item_brand,retail_product_brand=True,itm_status=True).first()
@@ -9298,7 +9333,7 @@ class DashboardChartAPIView(APIView):
                             for est in epackdtl_ids:
                                 pospackids = PosPackagedeposit.objects.filter(sa_transacno=ep.sa_transacno,
                                 code=est.code,package_code=est.package_code,site_code=site.itemsite_code).order_by('pk').first()
-                                itm_stock = Stock.objects.filter(item_code=est.code[:-4],item_isactive=True).first()
+                                itm_stock = Stock.objects.filter(item_code=est.code[:-4]).first()
                                 if itm_stock and pospackids:
                                     if int(itm_stock.item_div) == 1 and itm_stock.item_brand == b['code']:
                                         pos_qty = pospackids.qty    
@@ -9360,7 +9395,7 @@ class DashboardChartAPIView(APIView):
                     for mser in mspackdtl_ids:
                         serpospack_ids = PosPackagedeposit.objects.filter(sa_transacno=yr.sa_transacno,
                         code=mser.code,package_code=mser.package_code,site_code=site.itemsite_code).order_by('pk').first()
-                        serstock = Stock.objects.filter(item_code=mser.code[:-4],item_isactive=True).first()
+                        serstock = Stock.objects.filter(item_code=mser.code[:-4]).first()
                         if serstock and serpospack_ids:
                             if int(serstock.item_div) == 3:
                                 deptids = ItemDept.objects.filter(itm_code=serstock.item_dept,is_service=True, itm_status=True).first()
@@ -9397,7 +9432,7 @@ class DashboardChartAPIView(APIView):
                             for eserv in espackdtl_ids:
                                 pos_ser_packids = PosPackagedeposit.objects.filter(sa_transacno=es.sa_transacno,
                                 code=eserv.code,package_code=eserv.package_code,site_code=site.itemsite_code).order_by('pk').first()
-                                itm_stockser = Stock.objects.filter(item_code=eserv.code[:-4],item_isactive=True).first()
+                                itm_stockser = Stock.objects.filter(item_code=eserv.code[:-4]).first()
                                 if itm_stockser and pos_ser_packids:
                                     if int(itm_stockser.item_div) == 3 and itm_stockser.item_dept == e['code']:
                                         eachmonth_serviceqty += pos_ser_packids.qty   
@@ -9652,7 +9687,7 @@ class DashboardChartAPIView(APIView):
                     for mst in mpackdtl_ids:
                         pospack_ids = PosPackagedeposit.objects.filter(sa_transacno=yp.sa_transacno,
                         code=mst.code,package_code=mst.package_code,site_code=site.itemsite_code).order_by('pk').first()
-                        itmstock = Stock.objects.filter(item_code=mst.code[:-4],item_isactive=True).first()
+                        itmstock = Stock.objects.filter(item_code=mst.code[:-4]).first()
                         if itmstock and pospack_ids:
                             if int(itmstock.item_div) == 1:
                                 brandids = ItemBrand.objects.filter(itm_code=itmstock.item_brand,retail_product_brand=True,itm_status=True).first()
@@ -9696,7 +9731,7 @@ class DashboardChartAPIView(APIView):
                             for est in epackdtl_ids:
                                 pospackids = PosPackagedeposit.objects.filter(sa_transacno=ep.sa_transacno,
                                 code=est.code,package_code=est.package_code,site_code=site.itemsite_code).order_by('pk').first()
-                                itm_stock = Stock.objects.filter(item_code=est.code[:-4],item_isactive=True).first()
+                                itm_stock = Stock.objects.filter(item_code=est.code[:-4]).first()
                                 if itm_stock and pospackids:
                                     if int(itm_stock.item_div) == 1 and itm_stock.item_brand == b['code']:
                                         pos_qty = pospackids.qty    
@@ -9767,7 +9802,7 @@ class DashboardChartAPIView(APIView):
                     for mser in mspackdtl_ids:
                         serpospack_ids = PosPackagedeposit.objects.filter(sa_transacno=yr.sa_transacno,
                         code=mser.code,package_code=mser.package_code,site_code=site.itemsite_code).order_by('pk').first()
-                        serstock = Stock.objects.filter(item_code=mser.code[:-4],item_isactive=True).first()
+                        serstock = Stock.objects.filter(item_code=mser.code[:-4]).first()
                         if serstock and serpospack_ids:
                             if int(serstock.item_div) == 3:
                                 deptids = ItemDept.objects.filter(itm_code=serstock.item_dept,is_service=True, itm_status=True).first()
@@ -9810,7 +9845,7 @@ class DashboardChartAPIView(APIView):
                             for eserv in espackdtl_ids:
                                 pos_ser_packids = PosPackagedeposit.objects.filter(sa_transacno=es.sa_transacno,
                                 code=eserv.code,package_code=eserv.package_code,site_code=site.itemsite_code).order_by('pk').first()
-                                itm_stockser = Stock.objects.filter(item_code=eserv.code[:-4],item_isactive=True).first()
+                                itm_stockser = Stock.objects.filter(item_code=eserv.code[:-4]).first()
                                 if itm_stockser and pos_ser_packids:
                                     if int(itm_stockser.item_div) == 3 and itm_stockser.item_dept == e['code']:
                                         eachmonth_serviceqty += pos_ser_packids.qty   
@@ -10351,7 +10386,7 @@ class HolditemdetailViewset(viewsets.ModelViewSet):
                         if not hold_obj:
                             raise Exception('Holditemdetail id Does not exist')
 
-                        stockobj = Stock.objects.filter(item_code=hold_obj.itemno[:-4],item_isactive=True).first()
+                        stockobj = Stock.objects.filter(item_code=hold_obj.itemno[:-4]).first()
                         if not stockobj:
                             result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Stock ID does not exist!!",'error': True} 
                             return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
@@ -10407,7 +10442,7 @@ class HolditemdetailViewset(viewsets.ModelViewSet):
                             new_balance = int(holdobj.holditemqty) - int(req['issued_qty'])
                            
 
-                            stock_obj = Stock.objects.filter(item_code=hold_obj.itemno[:-4],item_isactive=True).first()
+                            stock_obj = Stock.objects.filter(item_code=hold_obj.itemno[:-4]).first()
                             
                             batchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=str(holdobj.itemno[:-4]),
                             uom=holdobj.hi_uom).order_by('pk').last() 
@@ -10929,7 +10964,7 @@ class StockUsageViewset(viewsets.ModelViewSet):
                 else:
                     itemlst = [{'no':i,'item_code': u.item_code[:-4],'item_desc': u.item_desc, 'qty': int(u.qty), 'uom': u.uom, 'optional': u.optional, 'auto_table': True} for i,u in enumerate(usagelevel_ids,start=1)]
                     for i in itemlst:
-                        stockobj = Stock.objects.filter(item_code=i['item_code'],item_isactive=True).first()
+                        stockobj = Stock.objects.filter(item_code=i['item_code']).first()
                         i['stock_id'] = stockobj.pk if stockobj else 0
                         i['link_code'] = ""
                         code = i['item_code']+"0000"
@@ -10957,7 +10992,7 @@ class StockUsageViewset(viewsets.ModelViewSet):
             'cust_refer' : cust_obj.cust_refer if cust_obj.cust_refer else ""}
 
             result = {'status': status.HTTP_200_OK , "message": "Listed Succesfully", 'error': False, 
-            'data':  newdict}
+            'data':  newdict,'duration':treat_obj.duration if treat_obj.duration else None}
             return Response(result, status=status.HTTP_200_OK)
 
         except Exception as e:
@@ -10998,7 +11033,7 @@ class StockUsageViewset(viewsets.ModelViewSet):
                 # print(req,"req 4444")
                 serializer = TreatmentUsageSerializer(data=req)
                 if serializer.is_valid():
-                    stock_obj = Stock.objects.filter(pk=req['stock_id'],item_isactive=True).first()
+                    stock_obj = Stock.objects.filter(pk=req['stock_id']).first()
                    
                     # useids = TreatmentUsage.objects.filter(treatment_code=treat_obj.treatment_code,
                     # site_code=site.itemsite_code,sa_transacno=accids.sa_transacno).order_by('line_no') 
@@ -11281,7 +11316,7 @@ class StockUsageMemoViewset(viewsets.ModelViewSet):
                 return Response(result, status=status.HTTP_400_BAD_REQUEST)
     
 
-            stock_obj = Stock.objects.filter(pk=request.data['stock_id'],item_isactive=True).first()
+            stock_obj = Stock.objects.filter(pk=request.data['stock_id']).first()
             if not stock_obj:
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Stock id Does not exist!!",'error': True} 
                 return Response(result, status=status.HTTP_400_BAD_REQUEST)
@@ -12524,13 +12559,13 @@ class TreatmentUsageListViewset(viewsets.ModelViewSet):
             
             if treatment:
                 treat_id = treatment.split(',')
-                stocklst = Stock.objects.filter(item_isactive=True,pk__in=treat_id).order_by('item_name').values_list('item_code',flat=True).distinct()
+                stocklst = Stock.objects.filter(pk__in=treat_id).order_by('item_name').values_list('item_code',flat=True).distinct()
                 tlst = [str(i)+"0000" for i in list(stocklst)]
                 treat_ids = Treatment.objects.filter(item_code__in=tlst).values_list('sa_transacno', flat=True).distinct()
                 queryset = queryset.filter(sa_transacno__in=list(treat_ids)).order_by('-pk')
             if product:
                 product_id = product.split(',')
-                pstocklst = Stock.objects.filter(item_isactive=True,pk__in=product_id).order_by('item_name').values_list('item_code',flat=True).distinct()
+                pstocklst = Stock.objects.filter(pk__in=product_id).order_by('item_name').values_list('item_code',flat=True).distinct()
                 plst = [str(i)+"0000" for i in list(pstocklst)]
                 queryset = queryset.filter(item_code__in=plst).order_by('-pk')
             

@@ -7,7 +7,7 @@ StktrnModel, SystemLogModel, SupplyContactInfoModel, ControlNoModel,CommissionPr
 ManualInvoiceModel,ManualInvoiceDetailModel,ManualInvoiceAddrModel,ManualInvoiceItemModel,WorkOrderInvoiceModel,
 WorkOrderInvoiceDetailModel,WorkOrderInvoiceAddrModel,WorkOrderInvoiceItemModel,DeliveryOrderModel,DeliveryOrderAddrModel,
 DeliveryOrderDetailModel,DeliveryOrderItemModel,DeliveryOrdersign,EquipmentDropdownModel,EquipmentUsage,
-EquipmentUsageItemModel)
+EquipmentUsageItemModel,Currencytable,QuotationPayment,ManualInvoicePayment)
 from cl_table.models import (Treatment, Stock, PackageDtl, ItemClass, ItemRange, Employee, Tmptreatment,
 TmpItemHelper,PosHaud,City, State, Country, Stock )
 from cl_table.serializers import get_client_ip
@@ -15,6 +15,7 @@ from django.db.models import Sum
 from datetime import date, timedelta, datetime
 import datetime
 from cl_app.models import ItemSitelist
+from dateutil.relativedelta import relativedelta
 
 
 
@@ -518,7 +519,15 @@ class CartServiceCourseSerializer(serializers.ModelSerializer):
             emp = Employee.objects.filter(pk=i,emp_isactive=True).first() 
             if emp and hl_obj:
                 lst.append({'name': emp.display_name,'wp1': "{:.2f}".format(float(hl_obj.wp1)),'session': "{:.2f}".format(float(hl_obj.session)) if hl_obj.session else "0"})
-
+        
+        treat_expiry = obj.treat_expiry
+        if not obj.treat_expiry:
+            if obj.itemcodeid.service_expire_month:
+                month = obj.itemcodeid.service_expire_month
+                current_date = datetime.datetime.strptime(str(date.today()), "%Y-%m-%d")
+                expiry = current_date + relativedelta(months=month)
+                treat_expiry = datetime.datetime.strptime(str(expiry), "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d")
+                    
     
         mapped_object = {
             'id': obj.id,
@@ -542,8 +551,9 @@ class CartServiceCourseSerializer(serializers.ModelSerializer):
             'is_treat' : False if obj.treatment_no else True,
             'is_service' : obj.is_service,
             'is_flexi': obj.is_flexi,
-            'treat_expiry': obj.treat_expiry,
-            'treat_type':obj.treat_type,
+            'treat_expiry': treat_expiry,
+            'treat_type': "FFi" if not obj.treat_type and obj.itemcodeid.flexipoints and obj.itemcodeid.flexipoints > 0 else obj.treat_type,
+            'flexipoint': int(obj.itemcodeid.flexipoints) if obj.itemcodeid.flexipoints else None,
             'treatment_limit_times': obj.treatment_limit_times
             }
        
@@ -759,6 +769,20 @@ class QuotationDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = QuotationDetailModel
+        fields = '__all__'
+
+class QuotationPaymentSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='pk',required=False)
+
+    class Meta:
+        model = QuotationPayment
+        fields = '__all__'
+
+class ManualInvPaymentSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='pk',required=False)
+
+    class Meta:
+        model = ManualInvoicePayment
         fields = '__all__'
 
 class ManualInvoiceDetailSerializer(serializers.ModelSerializer):
@@ -1181,3 +1205,27 @@ class ItemEquipmentSerializer(serializers.ModelSerializer):
         data['staff_name'] = obj.fk_equipment.emp_id.display_name if obj.fk_equipment.emp_id else ""
         return data
         
+
+class ProjectSearchSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='pk',required=False)
+
+    class Meta:
+        model = ProjectModel
+        fields = ['id','title','customer_name','cust_id','status','created_at']
+
+    def to_representation(self, obj):
+        data = super(ProjectSearchSerializer, self).to_representation(obj)
+        data['created_at'] = ""
+        if obj.created_at:
+            splt = str(obj.created_at).split(" ")
+            data['created_at'] = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d-%b-%y")
+        
+        return data    
+
+
+class CurrencytableSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='pk',required=False)
+
+    class Meta:
+        model = Currencytable
+        fields = '__all__'

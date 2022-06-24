@@ -52,7 +52,7 @@ class StockSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Stock
-        fields = ['id','item_name','item_desc','item_div','item_type','Stock_PIC','item_price','prepaid_value']
+        fields = ['id','item_name','item_desc','item_div','item_type','Stock_PIC','item_price','prepaid_value','redeempoints']
     
     def to_representation(self, instance):
         data = super(StockSerializer, self).to_representation(instance)
@@ -312,7 +312,7 @@ class PrepaidacSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PrepaidAccount
-        fields = ['id','item_no','use_amt','topup_amt']        
+        fields = ['id','item_no','use_amt','topup_amt','sa_date']        
 
 class DashboardSerializer(serializers.ModelSerializer):
 

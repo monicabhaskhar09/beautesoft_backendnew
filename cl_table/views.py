@@ -23,7 +23,7 @@ from .models import (Gender, Employee, Fmspw, Attendance2, Customer, Images, Tre
                      Securitylevellist, DailysalesdataSummary, DailysalesdataDetail, Multilanguage, MultiLanguageWord, Workschedule,
                      Religious, Nationality, Races, DailysalestdSummary,
                      MrRewardItemType,CustomerPoint,TreatmentDuration,Smsreceivelog,TreatmentProtocol,CustomerTitle,CustomerPointDtl,
-                     ItemDiv,Tempcustsign,CustomerDocument,TreatmentPackage,Tmptreatment,CustLogAudit)
+                     ItemDiv,Tempcustsign,CustomerDocument,TreatmentPackage,Tmptreatment,CustLogAudit,ContactPerson)
 from cl_app.models import ItemSitelist, SiteGroup, LoggedInUser
 from custom.models import Room,ItemCart,VoucherRecord,EmpLevel,PosPackagedeposit,payModeChangeLog
 from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializer, Attendance2Serializer,
@@ -59,7 +59,7 @@ from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializ
                           CustomerPointSerializer, MGMSerializer,SMSReplySerializer,ConfirmBookingApptSerializer,
                           ItemDescSerializer,TempcustsignSerializer,CustomerDocumentSerializer,
                           TreatmentPackageSerializer,ItemSitelistIntialSerializer,StaffInsertSerializer,
-                          FmspwSerializernew,GenderSerializer,CustomerPlusnewSerializer)
+                          FmspwSerializernew,GenderSerializer,CustomerPlusnewSerializer,ContactPersonSerializer)
 from datetime import date, timedelta, datetime
 import datetime
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
@@ -2988,523 +2988,525 @@ class AppointmentViewset(viewsets.ModelViewSet):
         #except Exception as e:
         #    invalid_message = str(e)
         #    return general_error_response(invalid_message)     
-
+    
+    @transaction.atomic
     def create(self, request):
         try:
-            state = status.HTTP_400_BAD_REQUEST
-            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
-            log_emp =  fmspw[0].Emp_Codeid
-            site = fmspw[0].loginsite
-            queryset = None
-            serializer_class = None
-            total = None
-            treatment = request.data.get('Treatment')
-            if treatment == []:
-                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give Treatment Details!!",'error': True} 
-                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+            with transaction.atomic():
+                state = status.HTTP_400_BAD_REQUEST
+                fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+                log_emp =  fmspw[0].Emp_Codeid
+                site = fmspw[0].loginsite
+                queryset = None
+                serializer_class = None
+                total = None
+                treatment = request.data.get('Treatment')
+                if treatment == []:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give Treatment Details!!",'error': True} 
+                    return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
-            link_flag = False
-            if len(treatment) > 1:
-                link_flag = True
+                link_flag = False
+                if len(treatment) > 1:
+                    link_flag = True
 
-            Appt = request.data.get('Appointment')
-            if not Appt['appt_date']:
-                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please select Appointment Date!!",'error': True} 
-                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                Appt = request.data.get('Appointment')
+                if not Appt['appt_date']:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please select Appointment Date!!",'error': True} 
+                    return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
-            if not Appt['cust_noid']:
-                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please select Customer!!",'error': True} 
-                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                if not Appt['cust_noid']:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please select Customer!!",'error': True} 
+                    return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
-            if not Appt['appt_status']:
-                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please select Appointment Booking Status!!",'error': True} 
-                return Response(result, status=status.HTTP_400_BAD_REQUEST)     
+                if not Appt['appt_status']:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please select Appointment Booking Status!!",'error': True} 
+                    return Response(result, status=status.HTTP_400_BAD_REQUEST)     
 
-            todaydate = timezone.now().date() 
-            appt_date = datetime.datetime.strptime(str(Appt['appt_date']), "%Y-%m-%d").date()
-            apptdate = datetime.datetime.strptime(str(Appt['appt_date']), "%Y-%m-%d").strftime("%d-%m-%Y")
-            
-
-            if appt_date < todaydate:
-                apptprevious_setup = Systemsetup.objects.filter(title='AllowPreviousDateAppointment',
-                value_name='AllowPreviousDateAppointment',isactive=True).first()
-
-                if apptprevious_setup and apptprevious_setup.value_data == 'False':
-                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cant Book Appointments for Past days!!",'error': True} 
-                    return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-
-            if not Appt['cust_noid']:
-                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give Customer!!",'error': True} 
-                return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-
-            if 'Appt_typeid' in Appt and Appt['Appt_typeid']:
-                channel = ApptType.objects.filter(pk=Appt['Appt_typeid'],appt_type_isactive=True).first()
-                if not channel:
-                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Channel ID does not exist!!",'error': True} 
-                    return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-            else:
-                channel = False  
-
-            # customer = Customer.objects.filter(pk=Appt['cust_noid'],cust_isactive=True,
-            # site_code=site.itemsite_code).first()
-            customer = Customer.objects.filter(pk=Appt['cust_noid'],cust_isactive=True).first()
-            # print(customer,'customer')
-            if not customer:
-                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer ID does not exist!!",'error': True} 
-                return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-
-            cust_obj = customer
-
-            cust_email = cust_obj.cust_email
-            # if not cust_email or cust_email is None:
-            #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Email id is not given!!",'error': True} 
-            #     return Response(data=result, status=status.HTTP_400_BAD_REQUEST) 
-            
-            
-            if 'Source_Codeid' in Appt and Appt['Source_Codeid']:
-                source = Source.objects.filter(pk=Appt['Source_Codeid'],source_isactive=True).first()
-                if not source:
-                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Source Code does not exist!!",'error': True} 
-                    return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-                Source_Code = source.source_code 
-            else:    
-                Source_Code = False
-            
-            if 'Room_Codeid' in Appt and Appt['Room_Codeid']:
-                room_ids = Room.objects.filter(id=Appt['Room_Codeid'],site_code=site.itemsite_code,isactive=True)
-                if not room_ids:
-                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Room Id does not exist!!",'error': True} 
-                    return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-            else:
-                room_ids = False
-
-            if 'bookedby' in Appt and Appt['bookedby']:
-                bookedby = Appt['bookedby']
-            else:
-                bookedby = None
-
-        
-            apptsite = fmspw[0].loginsite
-            
-            apptpw_setup = Systemsetup.objects.filter(title='appointmentPassword',
-            value_name='appointmentPassword',isactive=True).first()
-            
-
-            if apptpw_setup and apptpw_setup.value_data == 'True':
-                if not 'username' in Appt or not 'password' in Appt or not Appt['username'] or not Appt['password']:
-                    raise Exception('Please Enter Valid Username and Password!!.') 
-
-                if User.objects.filter(username=Appt['username']):
-                    self.user = authenticate(username=Appt['username'], password=Appt['password'])
-                    # print(self.user,"self.user")
-                    if self.user:
-                        
-                        fmspw_c = Fmspw.objects.filter(user=self.user.id,pw_isactive=True)
-                        if not fmspw_c:
-                            raise Exception('User is inactive.') 
-
-                        log_emp = fmspw_c[0].Emp_Codeid
-                    else:
-                        raise Exception('Password Wrong !') 
-
-                else:
-                    raise Exception('Invalid Username.') 
-
-            if not log_emp:
-                raise Exception('Employee does not exist.') 
-
-
-           
-            for idx, reqt in enumerate(treatment):
-               
-                empobj = Employee.objects.filter(pk=reqt['emp_no'],emp_isactive=True).first()
-                if not empobj:
-                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Employee ID does not exist!!",'error': True} 
-                    return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                todaydate = timezone.now().date() 
+                appt_date = datetime.datetime.strptime(str(Appt['appt_date']), "%Y-%m-%d").date()
+                apptdate = datetime.datetime.strptime(str(Appt['appt_date']), "%Y-%m-%d").strftime("%d-%m-%Y")
                 
-                stockobj = Stock.objects.filter(pk=reqt['Item_Codeid'],item_isactive=True).first()
-                if not stockobj:
-                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Item code is not avaliable!!",'error': True} 
-                    return Response(result, status=status.HTTP_400_BAD_REQUEST) 
 
-                dup_appts = Appointment.objects.filter(appt_date=Appt['appt_date'],
-                cust_no=customer.cust_code,appt_remark=reqt['item_text'] if reqt['item_text'] else stockobj.item_desc,
-                emp_no=empobj.emp_code,appt_status=Appt['appt_status'],appt_fr_time=reqt['start_time'],
-                appt_to_time=reqt['end_time']).order_by('-pk')
-                if dup_appts and len(dup_appts) >= 1:
-                    msg = "Duplicate records not allowed to book appointment !!"
-                    result = {'status': status.HTTP_400_BAD_REQUEST,"message": msg,'error': True}
-                    return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                if appt_date < todaydate:
+                    apptprevious_setup = Systemsetup.objects.filter(title='AllowPreviousDateAppointment',
+                    value_name='AllowPreviousDateAppointment',isactive=True).first()
 
-                if site.is_empvalidate == True:    
-                    #customer will have multiple appt in one outlet in different time only not same time
-                    #customer having an appointment for the same day on another branch
-                    custprev_appts = Appointment.objects.filter(appt_date=Appt['appt_date'],
-                    cust_no=customer.cust_code).order_by('-pk').exclude(itemsite_code=site.itemsite_code)
-                    if custprev_appts:
-                        msg = "This Customer Will have appointment on this day other outlet"
-                        result = {'status': status.HTTP_400_BAD_REQUEST,"message": msg,'error': True}
+                    if apptprevious_setup and apptprevious_setup.value_data == 'False':
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cant Book Appointments for Past days!!",'error': True} 
                         return Response(result, status=status.HTTP_400_BAD_REQUEST) 
 
-                    custprevtime_appts = Appointment.objects.filter(appt_date=Appt['appt_date'],
-                    cust_no=customer.cust_code).filter(Q(appt_to_time__gte=reqt['start_time']) & Q(appt_fr_time__lte=reqt['end_time'])).order_by('-pk')
-                    if custprevtime_appts:
-                        msg = "This Customer Will have appointment on this day with same time"
-                        result = {'status': status.HTTP_400_BAD_REQUEST,"message": msg,'error': True}
-                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-        
-
-                    #staff having shift/appointment on other branch for the same time
-                    prev_appts = Appointment.objects.filter(appt_date=Appt['appt_date'],
-                    emp_no=empobj.emp_code).order_by('-pk')
-                    # print(prev_appts,"prev_appts")
-                    
-                    if prev_appts:
-                        check_ids = Appointment.objects.filter(appt_isactive=True,appt_date=Appt['appt_date'],emp_no=empobj.emp_code,
-                        ).filter(Q(appt_to_time__gt=reqt['start_time']) & Q(appt_fr_time__lt=reqt['end_time']))
-                        # print(check_ids,"check_ids")
-
-                        if check_ids:
-                            msg = "StartTime {0} EndTime {1} Service {2}, Employee {3} Already have appointment for this time".format(str(reqt['start_time']),str(reqt['end_time']),str(stockobj.item_name),str(empobj.display_name))
-                            result = {'status': status.HTTP_400_BAD_REQUEST,"message": msg,'error': True}
-                            return Response(result, status=status.HTTP_400_BAD_REQUEST)
-
-                if not reqt['start_time']:
-                    raise Exception('Please Give Start Time')    
-
-                if not reqt['end_time']:
-                    raise Exception('Please Give End Time') 
-
-                if not reqt['add_duration']:
-                    raise Exception('Please Give Duration')               
-                         
-           
-
-
-            trt_lst = []; apt_lst = []
-            for idx, req in enumerate(treatment): 
-                control_obj = ControlNo.objects.filter(control_description__iexact="APPOINTMENT CODE",Site_Codeid__pk=apptsite.pk).first()
-                if not control_obj:
-                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Appointment Control No does not exist!!",'error': True} 
+                if not Appt['cust_noid']:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give Customer!!",'error': True} 
                     return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-                appt_code = str(control_obj.Site_Codeid.itemsite_code)+str(control_obj.control_prefix)+str(control_obj.control_no)
-                
-                if apt_lst == []:
-                    linkcode = str(control_obj.Site_Codeid.itemsite_code)+str(control_obj.control_prefix)+str(control_obj.control_no)
+
+                if 'Appt_typeid' in Appt and Appt['Appt_typeid']:
+                    channel = ApptType.objects.filter(pk=Appt['Appt_typeid'],appt_type_isactive=True).first()
+                    if not channel:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Channel ID does not exist!!",'error': True} 
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
                 else:
-                    app_obj = Appointment.objects.filter(pk=apt_lst[0]).order_by('pk').first()
-                    linkcode = app_obj.linkcode
+                    channel = False  
 
+                # customer = Customer.objects.filter(pk=Appt['cust_noid'],cust_isactive=True,
+                # site_code=site.itemsite_code).first()
+                customer = Customer.objects.filter(pk=Appt['cust_noid'],cust_isactive=True).first()
+                # print(customer,'customer')
+                if not customer:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer ID does not exist!!",'error': True} 
+                    return Response(result, status=status.HTTP_400_BAD_REQUEST) 
 
-                datelst = []
-                if req['recur_qty']:
-                    count = 1
-                    while count <= int(req['recur_qty'])-1:
-                        if datelst == []:
-                            date_1 = datetime.datetime.strptime(str(Appt['appt_date']), "%Y-%m-%d")
+                cust_obj = customer
+
+                cust_email = cust_obj.cust_email
+                # if not cust_email or cust_email is None:
+                #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Email id is not given!!",'error': True} 
+                #     return Response(data=result, status=status.HTTP_400_BAD_REQUEST) 
+                
+                
+                if 'Source_Codeid' in Appt and Appt['Source_Codeid']:
+                    source = Source.objects.filter(pk=Appt['Source_Codeid'],source_isactive=True).first()
+                    if not source:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Source Code does not exist!!",'error': True} 
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                    Source_Code = source.source_code 
+                else:    
+                    Source_Code = False
+                
+                if 'Room_Codeid' in Appt and Appt['Room_Codeid']:
+                    room_ids = Room.objects.filter(id=Appt['Room_Codeid'],site_code=site.itemsite_code,isactive=True)
+                    if not room_ids:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Room Id does not exist!!",'error': True} 
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                else:
+                    room_ids = False
+
+                if 'bookedby' in Appt and Appt['bookedby']:
+                    bookedby = Appt['bookedby']
+                else:
+                    bookedby = None
+
+            
+                apptsite = fmspw[0].loginsite
+                
+                apptpw_setup = Systemsetup.objects.filter(title='appointmentPassword',
+                value_name='appointmentPassword',isactive=True).first()
+                
+
+                if apptpw_setup and apptpw_setup.value_data == 'True':
+                    if not 'username' in Appt or not 'password' in Appt or not Appt['username'] or not Appt['password']:
+                        raise Exception('Please Enter Valid Username and Password!!.') 
+
+                    if User.objects.filter(username=Appt['username']):
+                        self.user = authenticate(username=Appt['username'], password=Appt['password'])
+                        # print(self.user,"self.user")
+                        if self.user:
+                            
+                            fmspw_c = Fmspw.objects.filter(user=self.user.id,pw_isactive=True)
+                            if not fmspw_c:
+                                raise Exception('User is inactive.') 
+
+                            log_emp = fmspw_c[0].Emp_Codeid
                         else:
-                            date_1 = datetime.datetime.strptime(str(datelst[-1]), "%Y-%m-%d")
+                            raise Exception('Password Wrong !') 
 
-                        end_date = (date_1 + datetime.timedelta(days=int(req['recur_days']))).strftime("%Y-%m-%d")
-                        datelst.append(end_date)
-                        count+=1
-                
-                # print(datelst,"datelst")
-
-                    
-                if not 'emp_no' in req:
-                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give Employee ID!!",'error': True} 
-                    return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-
-                if req['emp_no'] is None or req['emp_no'] == []:
-                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please select the treatment staff!!",'error': True} 
-                    return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-                
-                res = []; emp_lst = []
-                if ',' in str(req['emp_no']):
-                    res = str(req['emp_no']).split(',')
-                else:
-                    res = str(req['emp_no']).split(' ')
-                
-                if res != []:
-                    for e in res:
-                        emp_obj = Employee.objects.filter(pk=e,emp_isactive=True).first()
-                        if not emp_obj:
-                            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Employee ID does not exist!!",'error': True} 
-                            return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-                        if e not in emp_lst:
-                            emp_lst.append(e)
-
-                stock_obj = Stock.objects.filter(pk=req['Item_Codeid'],item_isactive=True).first()
-                if not stock_obj:
-                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Item code is not avaliable!!",'error': True} 
-                    return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-
-                
-                # if req['start_time'] and req['end_time']:         
-                #     apptt_ids = Appointment.objects.filter(appt_date=appt_date,emp_no=emp_obj.emp_code,
-                #     itemsite_code=fmspw[0].loginsite.itemsite_code).filter(Q(appt_to_time__gte=req['start_time']) & Q(appt_fr_time__lte=req['end_time']))
-                #     print(apptt_ids,"apptt_ids")
-                #     if apptt_ids:
-                #         msg = "In These timing already Appointment is booked for employee {0} so allocate other duration".format(emp_obj.emp_code)
-                #         result = {'status': status.HTTP_400_BAD_REQUEST,"message":msg,'error': True} 
-                #         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-
-
-                # appt_ids = Appointment.objects.filter(appt_date=Appt['appt_date'],
-                # emp_noid=emp_obj,itemsite_code=apptsite.itemsite_code).filter(Q(appt_to_time__gte=req['start_time']) & Q(appt_fr_time__lte=req['end_time']))
-                # if appt_ids:
-                #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"In These timing already Appointment is booked!!",'error': True} 
-                #     return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-
-                
-                #treatment_master creation  
-                req['emp_no'] = emp_lst
-                # serializer_t = TreatmentMasterSerializer(data=req,context={'request': self.request})
-                class_obj = stock_obj.Item_Classid
-
-                preapp_ids = Appointment.objects.filter(cust_no=customer.cust_code,appt_date=Appt['appt_date'],
-                emp_no=emp_obj.emp_code,item_code=stock_obj.item_code,appt_remark=req['item_text'] if req['item_text'] else stock_obj.item_desc,
-                appt_status=Appt['appt_status']).order_by('pk')  
-                # print(preapp_ids,"preapp_ids")    
-
-                # if serializer_t.is_valid():
-                start_time =  get_in_val(self, req['start_time'])
-                starttime = datetime.datetime.strptime(start_time, "%H:%M")
-                # if dict_v['srv_duration'] is None or dict_v['srv_duration'] == 0.0:
-    
-                if  stock_obj.srv_duration is None or float(stock_obj.srv_duration) == 0.0:
-                    stk_duration = 60
-                else:
-                    stk_duration = int(stock_obj.srv_duration)
-
-                stkduration = int(stk_duration) + 30
-                # print(stkduration,"stkduration")
-
-                hrs = '{:02d}:{:02d}'.format(*divmod(stkduration, 60))
-                
-                end_time = starttime + datetime.timedelta(minutes = stkduration)
-                endtime = datetime.datetime.strptime(str(end_time), "%Y-%m-%d %H:%M:%S").strftime("%H:%M")
-                duration = hrs
-                    
-                #     if not preapp_ids:
-                #         # print(start_time,endtime,duration,"duration")
-                #         k=serializer_t.save(course=stock_obj.item_desc,price=stock_obj.item_price,PIC=stock_obj.Stock_PIC,
-                #         Site_Codeid=site,site_code=site.itemsite_code,times="01",treatment_no="01",
-                #         status="Open",cust_code=cust_obj.cust_code,Cust_Codeid=cust_obj,cust_name=cust_obj.cust_name,
-                #         Item_Codeid=stock_obj,item_code=stock_obj.item_code,Item_Class=class_obj,type="N",
-                #         start_time=start_time,end_time=req['end_time'],add_duration=req['add_duration'],
-                #         duration=stkduration,trmt_room_code=room_ids[0].room_code if room_ids and room_ids[0].room_code else None,
-                #         Trmt_Room_Codeid=room_ids[0] if room_ids else None)
-                #         # treatment_code=treatment_code,treatment_parentcode=treatment_code
-                    
-                #         if k:
-                #             trt_lst.append(k.pk)
-                #             k.emp_no.add(emp_obj.pk) 
-                # else:
-                #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Invalid Input",'error': True, 'data': serializer_t.errors}
-                #     return Response(result, status=status.HTTP_400_BAD_REQUEST)        
-
-                serializer = self.get_serializer(data=request.data.get('Appointment'))
-                if serializer.is_valid():
-
-                    if req['requesttherapist'] == True:
-                        requesttherapist = True
                     else:
-                        requesttherapist = False  
+                        raise Exception('Invalid Username.') 
 
-                    if not preapp_ids:
-                        obj=serializer.save(cust_no=customer.cust_code,cust_name=customer.cust_name,appt_phone=customer.cust_phone2,
-                        cust_refer=customer.cust_refer,Appt_Created_Byid=fmspw[0],appt_created_by=fmspw[0].pw_userlogin,
-                        itemsite_code=site.itemsite_code,ItemSite_Codeid=site,source_code=Source_Code if Source_Code else None,appt_code=appt_code,new_remark=Appt['new_remark'],
-                        emp_noid=emp_obj,emp_no=emp_obj.emp_code,emp_name=emp_obj.display_name,Room_Codeid=room_ids[0] if room_ids else None,
-                        room_code=room_ids[0].room_code if room_ids and room_ids[0].room_code else None,
-                        Appt_typeid=channel if channel else None,appt_type=channel.appt_type_code if channel and channel.appt_type_code else None,requesttherapist=requesttherapist,
-                        appt_fr_time=start_time,appt_to_time=req['end_time'],item_code=stock_obj.item_code,appt_remark=req['item_text'] if req['item_text'] else stock_obj.item_desc,
-                        linkcode=linkcode,link_flag=link_flag,add_duration=req['add_duration'],Item_Codeid=stock_obj,
-                        checktype=req['checktype'],treat_parentcode=req['treat_parentcode'],
-                        bookedby=bookedby)
+                if not log_emp:
+                    raise Exception('Employee does not exist.') 
+
+
+            
+                for idx, reqt in enumerate(treatment):
+                
+                    empobj = Employee.objects.filter(pk=reqt['emp_no'],emp_isactive=True).first()
+                    if not empobj:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Employee ID does not exist!!",'error': True} 
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                    
+                    stockobj = Stock.objects.filter(pk=reqt['Item_Codeid']).first()
+                    if not stockobj:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Item code is not avaliable!!",'error': True} 
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
+                    dup_appts = Appointment.objects.filter(appt_date=Appt['appt_date'],
+                    cust_no=customer.cust_code,appt_remark=reqt['item_text'] if reqt['item_text'] else stockobj.item_desc,
+                    emp_no=empobj.emp_code,appt_status=Appt['appt_status'],appt_fr_time=reqt['start_time'],
+                    appt_to_time=reqt['end_time']).order_by('-pk')
+                    if dup_appts and len(dup_appts) >= 1:
+                        msg = "Duplicate records not allowed to book appointment !!"
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message": msg,'error': True}
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
+                    if site.is_empvalidate == True:    
+                        #customer will have multiple appt in one outlet in different time only not same time
+                        #customer having an appointment for the same day on another branch
+                        custprev_appts = Appointment.objects.filter(appt_date=Appt['appt_date'],
+                        cust_no=customer.cust_code).order_by('-pk').exclude(itemsite_code=site.itemsite_code)
+                        if custprev_appts:
+                            msg = "This Customer Will have appointment on this day other outlet"
+                            result = {'status': status.HTTP_400_BAD_REQUEST,"message": msg,'error': True}
+                            return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
+                        custprevtime_appts = Appointment.objects.filter(appt_date=Appt['appt_date'],
+                        cust_no=customer.cust_code).filter(Q(appt_to_time__gte=reqt['start_time']) & Q(appt_fr_time__lte=reqt['end_time'])).order_by('-pk')
+                        if custprevtime_appts:
+                            msg = "This Customer Will have appointment on this day with same time"
+                            result = {'status': status.HTTP_400_BAD_REQUEST,"message": msg,'error': True}
+                            return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+            
+
+                        #staff having shift/appointment on other branch for the same time
+                        prev_appts = Appointment.objects.filter(appt_date=Appt['appt_date'],
+                        emp_no=empobj.emp_code).order_by('-pk')
+                        # print(prev_appts,"prev_appts")
                         
-                        if obj.pk:
-                            if idx == 0:
-                                appt_obj_dat = obj
-                                
-                            # k.Appointment = obj
-                            # k.appt_time=str(obj.appt_date)
-                            # k.save()
+                        if prev_appts:
+                            check_ids = Appointment.objects.filter(appt_isactive=True,appt_date=Appt['appt_date'],emp_no=empobj.emp_code,
+                            ).filter(Q(appt_to_time__gt=reqt['start_time']) & Q(appt_fr_time__lt=reqt['end_time']))
+                            # print(check_ids,"check_ids")
 
-                            apptlog = AppointmentLog(appt_id=obj,userid=log_emp,
-                            username=log_emp.display_name,appt_date=Appt['appt_date'],
-                            appt_fr_time=start_time,appt_to_time=req['end_time'],emp_code=emp_obj.emp_code,newempcode=None,
-                            appt_status=Appt['appt_status'],sec_status=Appt['sec_status'],appt_remark=req['item_text'] if req['item_text'] else stock_obj.item_desc,
-                            item_code=stock_obj.item_code,requesttherapist=requesttherapist,add_duration=req['add_duration'],
-                            new_remark=Appt['new_remark']).save()
+                            if check_ids:
+                                msg = "StartTime {0} EndTime {1} Service {2}, Employee {3} Already have appointment for this time".format(str(reqt['start_time']),str(reqt['end_time']),str(stockobj.item_name),str(empobj.display_name))
+                                result = {'status': status.HTTP_400_BAD_REQUEST,"message": msg,'error': True}
+                                return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
-                            control_obj.control_no = int(control_obj.control_no) + 1
-                            control_obj.save()
-                            # print(control_obj.control_no,"control_obj.control_no")
-                            apt_lst.append(obj.pk)
+                    if not reqt['start_time']:
+                        raise Exception('Please Give Start Time')    
+
+                    if not reqt['end_time']:
+                        raise Exception('Please Give End Time') 
+
+                    if not reqt['add_duration']:
+                        raise Exception('Please Give Duration')               
                             
-                            dr_type = "Create"
-                            sc_value = True
-                            sc_time =  schedulemonth_time(self, Appt['appt_date'], emp_obj, site, req['start_time'],req['end_time'], dr_type, None, sc_value)
-                            
-                else:
-                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Invalid Input",'error': True, 'data': serializer.errors}
-                    return Response(result, status=status.HTTP_400_BAD_REQUEST)        
+            
 
-                if datelst != []:
-                    recur_linkcode = "RLC-"+str(obj.appt_code)
-                    obj.recur_linkcode = linkcode
-                    obj.recurring_qty = req['recur_qty']
-                    obj.recurring_days = req['recur_days']
-                    obj.save()
 
-                    for e in datelst: 
-                        preapp_recur_ids = Appointment.objects.filter(cust_no=customer.cust_code,appt_date=e,
-                        emp_no=emp_obj.emp_code,item_code=stock_obj.item_code,appt_remark=req['item_text'] if req['item_text'] else stock_obj.item_desc,
-                        appt_status=Appt['appt_status']).order_by('pk')      
+                trt_lst = []; apt_lst = []
+                for idx, req in enumerate(treatment): 
+                    control_obj = ControlNo.objects.filter(control_description__iexact="APPOINTMENT CODE",Site_Codeid__pk=apptsite.pk).first()
+                    if not control_obj:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Appointment Control No does not exist!!",'error': True} 
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                    appt_code = str(control_obj.Site_Codeid.itemsite_code)+str(control_obj.control_prefix)+str(control_obj.control_no)
+                    
+                    if apt_lst == []:
+                        linkcode = str(control_obj.Site_Codeid.itemsite_code)+str(control_obj.control_prefix)+str(control_obj.control_no)
+                    else:
+                        app_obj = Appointment.objects.filter(pk=apt_lst[0]).order_by('pk').first()
+                        linkcode = app_obj.linkcode
 
-                        if not preapp_recur_ids: 
-                            # print(e,"jj")
-                            recontrol_obj = ControlNo.objects.filter(control_description__iexact="APPOINTMENT CODE",Site_Codeid__pk=apptsite.pk).first()
-                            reappt_code = str(recontrol_obj.Site_Codeid.itemsite_code)+str(recontrol_obj.control_prefix)+str(recontrol_obj.control_no)
+
+                    datelst = []
+                    if req['recur_qty']:
+                        count = 1
+                        while count <= int(req['recur_qty'])-1:
+                            if datelst == []:
+                                date_1 = datetime.datetime.strptime(str(Appt['appt_date']), "%Y-%m-%d")
+                            else:
+                                date_1 = datetime.datetime.strptime(str(datelst[-1]), "%Y-%m-%d")
+
+                            end_date = (date_1 + datetime.timedelta(days=int(req['recur_days']))).strftime("%Y-%m-%d")
+                            datelst.append(end_date)
+                            count+=1
+                    
+                    # print(datelst,"datelst")
+
                         
-                            appt_re = Appointment(appt_date=e,cust_noid=customer,cust_no=customer.cust_code,cust_name=customer.cust_name,appt_phone=customer.cust_phone2,
+                    if not 'emp_no' in req:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give Employee ID!!",'error': True} 
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
+                    if req['emp_no'] is None or req['emp_no'] == []:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please select the treatment staff!!",'error': True} 
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                    
+                    res = []; emp_lst = []
+                    if ',' in str(req['emp_no']):
+                        res = str(req['emp_no']).split(',')
+                    else:
+                        res = str(req['emp_no']).split(' ')
+                    
+                    if res != []:
+                        for e in res:
+                            emp_obj = Employee.objects.filter(pk=e,emp_isactive=True).first()
+                            if not emp_obj:
+                                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Employee ID does not exist!!",'error': True} 
+                                return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                            if e not in emp_lst:
+                                emp_lst.append(e)
+
+                    stock_obj = Stock.objects.filter(pk=req['Item_Codeid']).first()
+                    if not stock_obj:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Item code is not avaliable!!",'error': True} 
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
+                    
+                    # if req['start_time'] and req['end_time']:         
+                    #     apptt_ids = Appointment.objects.filter(appt_date=appt_date,emp_no=emp_obj.emp_code,
+                    #     itemsite_code=fmspw[0].loginsite.itemsite_code).filter(Q(appt_to_time__gte=req['start_time']) & Q(appt_fr_time__lte=req['end_time']))
+                    #     print(apptt_ids,"apptt_ids")
+                    #     if apptt_ids:
+                    #         msg = "In These timing already Appointment is booked for employee {0} so allocate other duration".format(emp_obj.emp_code)
+                    #         result = {'status': status.HTTP_400_BAD_REQUEST,"message":msg,'error': True} 
+                    #         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
+
+                    # appt_ids = Appointment.objects.filter(appt_date=Appt['appt_date'],
+                    # emp_noid=emp_obj,itemsite_code=apptsite.itemsite_code).filter(Q(appt_to_time__gte=req['start_time']) & Q(appt_fr_time__lte=req['end_time']))
+                    # if appt_ids:
+                    #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"In These timing already Appointment is booked!!",'error': True} 
+                    #     return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
+                    
+                    #treatment_master creation  
+                    req['emp_no'] = emp_lst
+                    # serializer_t = TreatmentMasterSerializer(data=req,context={'request': self.request})
+                    class_obj = stock_obj.Item_Classid
+
+                    preapp_ids = Appointment.objects.filter(cust_no=customer.cust_code,appt_date=Appt['appt_date'],
+                    emp_no=emp_obj.emp_code,item_code=stock_obj.item_code,appt_remark=req['item_text'] if req['item_text'] else stock_obj.item_desc,
+                    appt_status=Appt['appt_status']).filter(Q(appt_fr_time=req['start_time']) & Q(appt_to_time=req['end_time'])).order_by('pk')  
+                    # print(preapp_ids,"preapp_ids")    
+
+                    # if serializer_t.is_valid():
+                    start_time =  get_in_val(self, req['start_time'])
+                    starttime = datetime.datetime.strptime(start_time, "%H:%M")
+                    # if dict_v['srv_duration'] is None or dict_v['srv_duration'] == 0.0:
+        
+                    if  stock_obj.srv_duration is None or float(stock_obj.srv_duration) == 0.0:
+                        stk_duration = 60
+                    else:
+                        stk_duration = int(stock_obj.srv_duration)
+
+                    stkduration = int(stk_duration) + 30
+                    # print(stkduration,"stkduration")
+
+                    hrs = '{:02d}:{:02d}'.format(*divmod(stkduration, 60))
+                    
+                    end_time = starttime + datetime.timedelta(minutes = stkduration)
+                    endtime = datetime.datetime.strptime(str(end_time), "%Y-%m-%d %H:%M:%S").strftime("%H:%M")
+                    duration = hrs
+                        
+                    #     if not preapp_ids:
+                    #         # print(start_time,endtime,duration,"duration")
+                    #         k=serializer_t.save(course=stock_obj.item_desc,price=stock_obj.item_price,PIC=stock_obj.Stock_PIC,
+                    #         Site_Codeid=site,site_code=site.itemsite_code,times="01",treatment_no="01",
+                    #         status="Open",cust_code=cust_obj.cust_code,Cust_Codeid=cust_obj,cust_name=cust_obj.cust_name,
+                    #         Item_Codeid=stock_obj,item_code=stock_obj.item_code,Item_Class=class_obj,type="N",
+                    #         start_time=start_time,end_time=req['end_time'],add_duration=req['add_duration'],
+                    #         duration=stkduration,trmt_room_code=room_ids[0].room_code if room_ids and room_ids[0].room_code else None,
+                    #         Trmt_Room_Codeid=room_ids[0] if room_ids else None)
+                    #         # treatment_code=treatment_code,treatment_parentcode=treatment_code
+                        
+                    #         if k:
+                    #             trt_lst.append(k.pk)
+                    #             k.emp_no.add(emp_obj.pk) 
+                    # else:
+                    #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Invalid Input",'error': True, 'data': serializer_t.errors}
+                    #     return Response(result, status=status.HTTP_400_BAD_REQUEST)        
+
+                    serializer = self.get_serializer(data=request.data.get('Appointment'))
+                    if serializer.is_valid():
+
+                        if req['requesttherapist'] == True:
+                            requesttherapist = True
+                        else:
+                            requesttherapist = False  
+
+                        if not preapp_ids:
+                            obj=serializer.save(cust_no=customer.cust_code,cust_name=customer.cust_name,appt_phone=customer.cust_phone2,
                             cust_refer=customer.cust_refer,Appt_Created_Byid=fmspw[0],appt_created_by=fmspw[0].pw_userlogin,
-                            itemsite_code=site.itemsite_code,ItemSite_Codeid=site,source_code=Source_Code if Source_Code else None,appt_code=reappt_code,new_remark=Appt['new_remark'],
+                            itemsite_code=site.itemsite_code,ItemSite_Codeid=site,source_code=Source_Code if Source_Code else None,appt_code=appt_code,new_remark=Appt['new_remark'],
                             emp_noid=emp_obj,emp_no=emp_obj.emp_code,emp_name=emp_obj.display_name,Room_Codeid=room_ids[0] if room_ids else None,
-                            room_code=room_ids[0].room_code if room_ids and room_ids[0].room_code else None,Source_Codeid=source if Appt['Source_Codeid'] else None,
+                            room_code=room_ids[0].room_code if room_ids and room_ids[0].room_code else None,
                             Appt_typeid=channel if channel else None,appt_type=channel.appt_type_code if channel and channel.appt_type_code else None,requesttherapist=requesttherapist,
                             appt_fr_time=start_time,appt_to_time=req['end_time'],item_code=stock_obj.item_code,appt_remark=req['item_text'] if req['item_text'] else stock_obj.item_desc,
-                            appt_status=Appt['appt_status'],sec_status=Appt['sec_status'],recur_linkcode=recur_linkcode,
-                            recurring_qty=req['recur_qty'],recurring_days=req['recur_days'],linkcode=reappt_code,link_flag=False,
-                            add_duration=req['add_duration'],Item_Codeid=stock_obj,
-                            checktype=req['checktype'],treat_parentcode=req['treat_parentcode'])
-                            appt_re.save()
-                            # print(appt_re,"appt_re")
+                            linkcode=linkcode,link_flag=link_flag,add_duration=req['add_duration'],Item_Codeid=stock_obj,
+                            checktype=req['checktype'],treat_parentcode=req['treat_parentcode'],
+                            bookedby=bookedby)
+                            
+                            if obj.pk:
+                                if idx == 0:
+                                    appt_obj_dat = obj
+                                    
+                                # k.Appointment = obj
+                                # k.appt_time=str(obj.appt_date)
+                                # k.save()
 
-                            if appt_re.pk:
-                                recontrol_obj.control_no = int(recontrol_obj.control_no) + 1
-                                recontrol_obj.save() 
+                                apptlog = AppointmentLog(appt_id=obj,userid=log_emp,
+                                username=Appt['bookedby'] if 'bookedby' in Appt and Appt['bookedby'] else log_emp.display_name,appt_date=Appt['appt_date'],
+                                appt_fr_time=start_time,appt_to_time=req['end_time'],emp_code=emp_obj.emp_code,newempcode=None,
+                                appt_status=Appt['appt_status'],sec_status=Appt['sec_status'],appt_remark=req['item_text'] if req['item_text'] else stock_obj.item_desc,
+                                item_code=stock_obj.item_code,requesttherapist=requesttherapist,add_duration=req['add_duration'],
+                                new_remark=Appt['new_remark']).save()
 
-                            appt_log = AppointmentLog(appt_id=appt_re,userid=log_emp,
-                            username=log_emp.display_name,appt_date=e,
-                            appt_fr_time=start_time,appt_to_time=req['end_time'],emp_code=emp_obj.emp_code,
-                            appt_status=Appt['appt_status'],sec_status=Appt['sec_status'],appt_remark=req['item_text'] if req['item_text'] else stock_obj.item_desc,
-                            item_code=stock_obj.item_code,requesttherapist=requesttherapist,add_duration=req['add_duration'],
-                            new_remark=Appt['new_remark'],newempcode=None)
-                            appt_log.save()
+                                control_obj.control_no = int(control_obj.control_no) + 1
+                                control_obj.save()
+                                # print(control_obj.control_no,"control_obj.control_no")
+                                apt_lst.append(obj.pk)
+                                
+                                dr_type = "Create"
+                                sc_value = True
+                                sc_time =  schedulemonth_time(self, Appt['appt_date'], emp_obj, site, req['start_time'],req['end_time'], dr_type, None, sc_value)
+                                
+                    else:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Invalid Input",'error': True, 'data': serializer.errors}
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST)        
+
+                    if datelst != []:
+                        recur_linkcode = "RLC-"+str(obj.appt_code)
+                        obj.recur_linkcode = linkcode
+                        obj.recurring_qty = req['recur_qty']
+                        obj.recurring_days = req['recur_days']
+                        obj.save()
+
+                        for e in datelst: 
+                            preapp_recur_ids = Appointment.objects.filter(cust_no=customer.cust_code,appt_date=e,
+                            emp_no=emp_obj.emp_code,item_code=stock_obj.item_code,appt_remark=req['item_text'] if req['item_text'] else stock_obj.item_desc,
+                            appt_status=Appt['appt_status']).order_by('pk')      
+
+                            if not preapp_recur_ids: 
+                                # print(e,"jj")
+                                recontrol_obj = ControlNo.objects.filter(control_description__iexact="APPOINTMENT CODE",Site_Codeid__pk=apptsite.pk).first()
+                                reappt_code = str(recontrol_obj.Site_Codeid.itemsite_code)+str(recontrol_obj.control_prefix)+str(recontrol_obj.control_no)
+                            
+                                appt_re = Appointment(appt_date=e,cust_noid=customer,cust_no=customer.cust_code,cust_name=customer.cust_name,appt_phone=customer.cust_phone2,
+                                cust_refer=customer.cust_refer,Appt_Created_Byid=fmspw[0],appt_created_by=fmspw[0].pw_userlogin,
+                                itemsite_code=site.itemsite_code,ItemSite_Codeid=site,source_code=Source_Code if Source_Code else None,appt_code=reappt_code,new_remark=Appt['new_remark'],
+                                emp_noid=emp_obj,emp_no=emp_obj.emp_code,emp_name=emp_obj.display_name,Room_Codeid=room_ids[0] if room_ids else None,
+                                room_code=room_ids[0].room_code if room_ids and room_ids[0].room_code else None,Source_Codeid=source if Appt['Source_Codeid'] else None,
+                                Appt_typeid=channel if channel else None,appt_type=channel.appt_type_code if channel and channel.appt_type_code else None,requesttherapist=requesttherapist,
+                                appt_fr_time=start_time,appt_to_time=req['end_time'],item_code=stock_obj.item_code,appt_remark=req['item_text'] if req['item_text'] else stock_obj.item_desc,
+                                appt_status=Appt['appt_status'],sec_status=Appt['sec_status'],recur_linkcode=recur_linkcode,
+                                recurring_qty=req['recur_qty'],recurring_days=req['recur_days'],linkcode=reappt_code,link_flag=False,
+                                add_duration=req['add_duration'],Item_Codeid=stock_obj,
+                                checktype=req['checktype'],treat_parentcode=req['treat_parentcode'])
+                                appt_re.save()
+                                # print(appt_re,"appt_re")
+
+                                if appt_re.pk:
+                                    recontrol_obj.control_no = int(recontrol_obj.control_no) + 1
+                                    recontrol_obj.save() 
+
+                                appt_log = AppointmentLog(appt_id=appt_re,userid=log_emp,
+                                username=log_emp.display_name,appt_date=e,
+                                appt_fr_time=start_time,appt_to_time=req['end_time'],emp_code=emp_obj.emp_code,
+                                appt_status=Appt['appt_status'],sec_status=Appt['sec_status'],appt_remark=req['item_text'] if req['item_text'] else stock_obj.item_desc,
+                                item_code=stock_obj.item_code,requesttherapist=requesttherapist,add_duration=req['add_duration'],
+                                new_remark=Appt['new_remark'],newempcode=None)
+                                appt_log.save()
 
 
-                            # trt_re = Treatment_Master(course=stock_obj.item_desc,price=stock_obj.item_price,PIC=stock_obj.Stock_PIC,
-                            # Site_Codeid=site,site_code=site.itemsite_code,times="01",treatment_no="01",appt_time=e,
-                            # status="Open",cust_code=cust_obj.cust_code,Cust_Codeid=cust_obj,cust_name=cust_obj.cust_name,
-                            # Item_Codeid=stock_obj,item_code=stock_obj.item_code,Item_Class=class_obj,type="N",
-                            # start_time=start_time,end_time=req['end_time'],add_duration=req['add_duration'],
-                            # duration=stkduration,trmt_room_code=room_ids[0].room_code if room_ids and room_ids[0].room_code else None,
-                            # Trmt_Room_Codeid=room_ids[0] if room_ids else None,requesttherapist=requesttherapist,Appointment=appt_re)
-                            # trt_re.save()
-                            # trt_re.emp_no.add(emp_obj.pk)     
+                                # trt_re = Treatment_Master(course=stock_obj.item_desc,price=stock_obj.item_price,PIC=stock_obj.Stock_PIC,
+                                # Site_Codeid=site,site_code=site.itemsite_code,times="01",treatment_no="01",appt_time=e,
+                                # status="Open",cust_code=cust_obj.cust_code,Cust_Codeid=cust_obj,cust_name=cust_obj.cust_name,
+                                # Item_Codeid=stock_obj,item_code=stock_obj.item_code,Item_Class=class_obj,type="N",
+                                # start_time=start_time,end_time=req['end_time'],add_duration=req['add_duration'],
+                                # duration=stkduration,trmt_room_code=room_ids[0].room_code if room_ids and room_ids[0].room_code else None,
+                                # Trmt_Room_Codeid=room_ids[0] if room_ids else None,requesttherapist=requesttherapist,Appointment=appt_re)
+                                # trt_re.save()
+                                # trt_re.emp_no.add(emp_obj.pk)     
 
-                    
-            
-            ip = get_client_ip(request)
-            state = status.HTTP_201_CREATED
-            error = False
-            # treat_t = Treatment_Master.objects.filter(id__in=trt_lst)
-            # serializer_final = TreatmentMasterSerializer(treat_t, many=True,context={'request': self.request})
-            # data_d = serializer_final.data
-            appt_t = Appointment.objects.filter(pk__in=apt_lst)
-            serializer_apt = AppointmentSerializer(appt_t, many=True,context={'request': self.request})
-            data_a = serializer_apt.data
-            final_data = {'Appointment':data_a,'Treatment':[]}
-            
-            allowsms = False; allowemail = False
-            allow_sms = cust_obj.custallowsendsms
-            cust_name = cust_obj.cust_name
-            date = Appt['appt_date']
-            #Customer store card update Create
-            if 'cust_StoreCard' in Appt and Appt['cust_StoreCard'] == True:
-                cust_obj.cust_StoreCard = True
-                cust_obj.save()
-
-            if allow_sms:
-                receiver = cust_obj.cust_phone2
-                if not receiver:
-                    result = {'status': status.HTTP_200_OK,"message":"Mobile number is not given!",'error': True} 
-                    return Response(data=result, status=status.HTTP_200_OK) 
-                try:
-                    client = Client(SMS_ACCOUNT_SID, SMS_AUTH_TOKEN)
-                    message = client.messages.create(
-                            body='''Dear {0},\nYour Appointment dated on {1} is created successfully in Booking Status.\nThank You,'''.format(cust_name,date),
-                            from_=SMS_SENDER,
-                            to=receiver)
-                    allowsms = True     
-                except:
-                    allowsms = False       
-
-            allow_email = cust_obj.cust_maillist
-            if allow_email and cust_obj.cust_email:
-                to = cust_obj.cust_email
-                appt_fr_time = datetime.datetime.strptime(str(appt_obj_dat.appt_fr_time), '%H:%M').strftime("%H:%M")
-                title_n = Title.objects.filter(product_license=site.itemsite_code).order_by("pk").first()
-                title_name = title_n.title if title_n and title_n.title else ""
+                        
                 
-                subject = "Beautesoft Appointment"
-                sender = EMAIL_HOST_USER
-                system_setup = Systemsetup.objects.filter(title='Email Setting',value_name='Email CC To',isactive=True).first()
-                if system_setup.value_data:
-                    cc = [system_setup.value_data]
+                ip = get_client_ip(request)
+                state = status.HTTP_201_CREATED
+                error = False
+                # treat_t = Treatment_Master.objects.filter(id__in=trt_lst)
+                # serializer_final = TreatmentMasterSerializer(treat_t, many=True,context={'request': self.request})
+                # data_d = serializer_final.data
+                appt_t = Appointment.objects.filter(pk__in=apt_lst)
+                serializer_apt = AppointmentSerializer(appt_t, many=True,context={'request': self.request})
+                data_a = serializer_apt.data
+                final_data = {'Appointment':data_a,'Treatment':[]}
+                
+                allowsms = False; allowemail = False
+                allow_sms = cust_obj.custallowsendsms
+                cust_name = cust_obj.cust_name
+                date = Appt['appt_date']
+                #Customer store card update Create
+                if 'cust_StoreCard' in Appt and Appt['cust_StoreCard'] == True:
+                    cust_obj.cust_StoreCard = True
+                    cust_obj.save()
+
+                if allow_sms:
+                    receiver = cust_obj.cust_phone2
+                    if not receiver:
+                        result = {'status': status.HTTP_200_OK,"message":"Mobile number is not given!",'error': True} 
+                        return Response(data=result, status=status.HTTP_200_OK) 
+                    try:
+                        client = Client(SMS_ACCOUNT_SID, SMS_AUTH_TOKEN)
+                        message = client.messages.create(
+                                body='''Dear {0},\nYour Appointment dated on {1} is created successfully in Booking Status.\nThank You,'''.format(cust_name,date),
+                                from_=SMS_SENDER,
+                                to=receiver)
+                        allowsms = True     
+                    except:
+                        allowsms = False       
+
+                allow_email = cust_obj.cust_maillist
+                if allow_email and cust_obj.cust_email:
+                    to = cust_obj.cust_email
+                    appt_fr_time = datetime.datetime.strptime(str(appt_obj_dat.appt_fr_time), '%H:%M').strftime("%H:%M")
+                    title_n = Title.objects.filter(product_license=site.itemsite_code).order_by("pk").first()
+                    title_name = title_n.title if title_n and title_n.title else ""
+                    
+                    subject = "Beautesoft Appointment"
+                    sender = EMAIL_HOST_USER
+                    system_setup = Systemsetup.objects.filter(title='Email Setting',value_name='Email CC To',isactive=True).first()
+                    if system_setup.value_data:
+                        cc = [system_setup.value_data]
+                    else:
+                        cc = [] 
+
+                    email_msg = "Your appointment with {0} is booked on {1}, at {2}".format(str(site.itemsite_desc),str(apptdate),str(appt_fr_time))
+                    ctx = {
+                        'client_name': title_name,
+                        'textmessage': email_msg,
+                    }
+                    try:
+                        message = get_template('app_email.html').render(ctx)
+                        msg = EmailMessage(subject, message, to=[to], from_email=sender ,cc=cc)
+                        msg.content_subtype = 'html'
+                        msg.send()
+                        allowemail = True 
+                    except:
+                        allowemail = False
+
+                if allowsms == True and allowemail == True:
+                    message = "Created Succesfully and Email and SMS sent Succesfully"
+                elif allowsms == True:
+                    message = "Created Succesfully and SMS sent Succesfully"
+                elif allowemail == True:
+                    message = "Created Succesfully and Email sent Succesfully"
                 else:
-                    cc = [] 
+                    message = "Created Succesfully"
 
-                email_msg = "Your appointment with {0} is booked on {1}, at {2}".format(str(site.itemsite_desc),str(apptdate),str(appt_fr_time))
-                ctx = {
-                    'client_name': title_name,
-                    'textmessage': email_msg,
-                }
-                try:
-                    message = get_template('app_email.html').render(ctx)
-                    msg = EmailMessage(subject, message, to=[to], from_email=sender ,cc=cc)
-                    msg.content_subtype = 'html'
-                    msg.send()
-                    allowemail = True 
-                except:
-                    allowemail = False
+                result=response(self,request, queryset, total, state, message, error, serializer_class, final_data, action=self.action)
+                d = result.get('data')
+                app = d.get('Appointment');tre = d.get('Treatment')
+                # if apt_lst != [] and trt_lst != []:
+                if apt_lst != []:    
 
-            if allowsms == True and allowemail == True:
-                message = "Created Succesfully and Email and SMS sent Succesfully"
-            elif allowsms == True:
-                message = "Created Succesfully and SMS sent Succesfully"
-            elif allowemail == True:
-                message = "Created Succesfully and Email sent Succesfully"
-            else:
-                message = "Created Succesfully"
+                    for appt in app:
+                        appt['appt_fr_time'] = get_in_val(self, appt['appt_fr_time'])
+                        appt['appt_to_time'] = get_in_val(self, appt['appt_to_time'])
 
-            result=response(self,request, queryset, total, state, message, error, serializer_class, final_data, action=self.action)
-            d = result.get('data')
-            app = d.get('Appointment');tre = d.get('Treatment')
-            # if apt_lst != [] and trt_lst != []:
-            if apt_lst != []:    
+                    for treat in tre:
+                        treat['price'] = "{:.2f}".format(float(treat['price']))
+                        treat['start_time'] = get_in_val(self, treat['start_time'])
+                        treat['end_time'] = get_in_val(self, treat['end_time'])
+                        treat['add_duration'] = get_in_val(self, treat['add_duration'])
+                        treat['PIC'] = str(treat['PIC'])
+                        if 'room_img' in treat and treat['room_img']:
+                            treat['room_img'] = str(ip)+str(treat['room_img'])
 
-                for appt in app:
-                    appt['appt_fr_time'] = get_in_val(self, appt['appt_fr_time'])
-                    appt['appt_to_time'] = get_in_val(self, appt['appt_to_time'])
-
-                for treat in tre:
-                    treat['price'] = "{:.2f}".format(float(treat['price']))
-                    treat['start_time'] = get_in_val(self, treat['start_time'])
-                    treat['end_time'] = get_in_val(self, treat['end_time'])
-                    treat['add_duration'] = get_in_val(self, treat['add_duration'])
-                    treat['PIC'] = str(treat['PIC'])
-                    if 'room_img' in treat and treat['room_img']:
-                        treat['room_img'] = str(ip)+str(treat['room_img'])
-
-                return Response(result, status=status.HTTP_201_CREATED)
-            else:
-                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Not Created",'error': True}
-                return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                    return Response(result, status=status.HTTP_201_CREATED)
+                else:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Not Created",'error': True}
+                    return Response(result, status=status.HTTP_400_BAD_REQUEST) 
 
         except Exception as e:
             invalid_message = str(e)
@@ -4174,7 +4176,7 @@ class AppointmentResourcesViewset(viewsets.ModelViewSet):
                 return Response(result, status=status.HTTP_200_OK)        
             
             if 'item_id' in request.data and request.data['item_id']:
-                stockobj = Stock.objects.filter(pk=request.data['item_id'],item_isactive=True).first()
+                stockobj = Stock.objects.filter(pk=request.data['item_id']).first()
                 if not stockobj:
                     result = {'status': status.HTTP_200_OK,"message":"Stock Id does not exist!!",'error': True} 
                     return Response(data=result, status=status.HTTP_200_OK)
@@ -4893,757 +4895,761 @@ class AppointmentEditViewset(viewsets.ModelViewSet):
            invalid_message = str(e)
            return general_error_response(invalid_message) 
 
-
+    @transaction.atomic
     def partial_update(self, request, pk=None):
         try:
-            fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
-            log_emp = fmspw.Emp_Codeid
-            site = fmspw.loginsite
-            appobj = self.get_object(pk)
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+                log_emp = fmspw.Emp_Codeid
+                site = fmspw.loginsite
+                appobj = self.get_object(pk)
 
-            if appobj.appt_date < date.today():
-                apptprevious_setup = Systemsetup.objects.filter(title='AllowPreviousDateAppointment',
-                value_name='AllowPreviousDateAppointment',isactive=True).first()
+                if appobj.appt_date < date.today():
+                    apptprevious_setup = Systemsetup.objects.filter(title='AllowPreviousDateAppointment',
+                    value_name='AllowPreviousDateAppointment',isactive=True).first()
 
-                if apptprevious_setup and apptprevious_setup.value_data == 'False':
-                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Past Date Appointment Update is not Allowed !",'error': True} 
+                    if apptprevious_setup and apptprevious_setup.value_data == 'False':
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Past Date Appointment Update is not Allowed !",'error': True} 
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST)   
+
+                if appobj.appt_status == "Block":
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Blocked Appointment Update is not Allowed !",'error': True} 
                     return Response(result, status=status.HTTP_400_BAD_REQUEST)   
 
-            if appobj.appt_status == "Block":
-                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Blocked Appointment Update is not Allowed !",'error': True} 
-                return Response(result, status=status.HTTP_400_BAD_REQUEST)   
+                # if request.data['recur_qty'] == 0 or request.data['recur_days'] == 0:
+                #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Recurring Days / Recurring Qty should not be 0",
+                #     'error': False}
+                #     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
-            # if request.data['recur_qty'] == 0 or request.data['recur_days'] == 0:
-            #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Recurring Days / Recurring Qty should not be 0",
-            #     'error': False}
-            #     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+                # print(request.data,"request.data")
+                appt = request.data.get('appointment')
+                treat = request.data.get('treatment')
 
-            # print(request.data,"request.data")
-            appt = request.data.get('appointment')
-            treat = request.data.get('treatment')
+                apptpw_setup = Systemsetup.objects.filter(title='appointmentPassword',
+                value_name='appointmentPassword',isactive=True).first()
+                
 
-            apptpw_setup = Systemsetup.objects.filter(title='appointmentPassword',
-            value_name='appointmentPassword',isactive=True).first()
-            
+                if apptpw_setup and apptpw_setup.value_data == 'True':
+                    if not 'username' in appt or not 'password' in appt or not appt['username'] or not appt['password']:
+                        raise Exception('Please Enter Valid Username and Password!!.') 
 
-            if apptpw_setup and apptpw_setup.value_data == 'True':
-                if not 'username' in appt or not 'password' in appt or not appt['username'] or not appt['password']:
-                    raise Exception('Please Enter Valid Username and Password!!.') 
+                    if User.objects.filter(username=appt['username']):
+                        self.user = authenticate(username=appt['username'], password=appt['password'])
+                        # print(self.user,"self.user")
+                        if self.user:
+                            
+                            fmspw_c = Fmspw.objects.filter(user=self.user.id,pw_isactive=True)
+                            if not fmspw_c:
+                                raise Exception('User is inactive.') 
 
-                if User.objects.filter(username=appt['username']):
-                    self.user = authenticate(username=appt['username'], password=appt['password'])
-                    # print(self.user,"self.user")
-                    if self.user:
-                        
-                        fmspw_c = Fmspw.objects.filter(user=self.user.id,pw_isactive=True)
-                        if not fmspw_c:
-                            raise Exception('User is inactive.') 
+                            log_emp = fmspw_c[0].Emp_Codeid
+                        else:
+                            raise Exception('Password Wrong !') 
 
-                        log_emp = fmspw_c[0].Emp_Codeid
                     else:
-                        raise Exception('Password Wrong !') 
+                        raise Exception('Invalid Username.') 
 
-                else:
-                    raise Exception('Invalid Username.') 
+                if not log_emp:
+                    raise Exception('Employee does not exist.') 
 
-            if not log_emp:
-                raise Exception('Employee does not exist.') 
+                
+                is_cancelled = False; cemp_obj = False
+                if appt['appt_status'] == "Cancelled":
+                    system_setup = Systemsetup.objects.filter(title='cancelledBookingsSetting',
+                    value_name='cancelledBookingsSetting',isactive=True).first()
+                    if system_setup and system_setup.value_data == '2':
+                        is_cancelled = True
+                        cemp_obj = Employee.objects.filter(display_name="Cancelled",emp_isactive=True).first()
+                        if not cemp_obj:
+                            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cancelled Employee ID does not exist!!",'error': True} 
+                            return Response(result, status=status.HTTP_400_BAD_REQUEST)        
 
-            
-            is_cancelled = False; cemp_obj = False
-            if appt['appt_status'] == "Cancelled":
-                system_setup = Systemsetup.objects.filter(title='cancelledBookingsSetting',
-                value_name='cancelledBookingsSetting',isactive=True).first()
-                if system_setup and system_setup.value_data == '2':
-                    is_cancelled = True
-                    cemp_obj = Employee.objects.filter(display_name="Cancelled",emp_isactive=True).first()
-                    if not cemp_obj:
-                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cancelled Employee ID does not exist!!",'error': True} 
+                if 'apptdel_id' in appt and appt['apptdel_id']:
+                    apptdel_data = appt['apptdel_id']
+                    # print(apptdel_data,"apptdel_data")
+                    if apptdel_data != []:
+                        delapp_obj = Appointment.objects.filter(pk__in=apptdel_data).order_by('pk')
+                        for dik in delapp_obj:
+                            dik.appt_isactive = False
+                            dik.appt_status = "Cancelled"
+                            dik.save()      
+
+                
+                for i in treat:
+                    # print(i['appt_id'],"ytt")
+
+                    emp_obj = Employee.objects.filter(pk=i['emp_id'],emp_isactive=True).first()
+                    if not emp_obj:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Employee ID does not exist!!",'error': True} 
                         return Response(result, status=status.HTTP_400_BAD_REQUEST)        
+    
+                    # Special coding for item to check
+                    itemno = 476
+                    if i['item_id']:
+                        itemno = i['item_id']
 
-            if 'apptdel_id' in appt and appt['apptdel_id']:
-                apptdel_data = appt['apptdel_id']
-                # print(apptdel_data,"apptdel_data")
-                if apptdel_data != []:
-                    delapp_obj = Appointment.objects.filter(pk__in=apptdel_data).order_by('pk')
-                    for dik in delapp_obj:
-                        dik.appt_isactive = False
-                        dik.appt_status = "Cancelled"
-                        dik.save()      
-
-            
-            for i in treat:
-                # print(i['appt_id'],"ytt")
-
-                emp_obj = Employee.objects.filter(pk=i['emp_id'],emp_isactive=True).first()
-                if not emp_obj:
-                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Employee ID does not exist!!",'error': True} 
-                    return Response(result, status=status.HTTP_400_BAD_REQUEST)        
- 
-                # Special coding for item to check
-                itemno = 476
-                if i['item_id']:
-                    itemno = i['item_id']
-
-                #stockobj = Stock.objects.filter(pk=i['item_id'],item_isactive=True).first()
-                stockobj = Stock.objects.filter(pk=itemno).first()
-                if not stockobj:
-                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Stock Id does not exist!!",'error': True} 
-                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-                
-                if site.is_empvalidate == True:    
-                    custprev_appts = Appointment.objects.filter(appt_date=appt['appt_date'],
-                    cust_no=appobj.cust_noid.cust_code).order_by('-pk').exclude(itemsite_code=site.itemsite_code)
-                    if custprev_appts:
-                        msg = "This Customer Will have appointment on this day other outlet"
-                        result = {'status': status.HTTP_400_BAD_REQUEST,"message": msg,'error': True}
-                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-                
-                
-                   
-
-                if i['appt_id']:
-                    app_obj = Appointment.objects.filter(pk=i['appt_id'],appt_isactive=True,itemsite_code=site.itemsite_code).first() 
-
-                    appt_status = app_obj.appt_status 
-
-                    #mast_ids = Treatment_Master.objects.filter(Appointment=app_obj,site_code=site.itemsite_code).order_by('id').first()
-                    #if not mast_ids:
-                    #    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Treatment Master does not exist",'error': True} 
-                    #    return Response(result, status=status.HTTP_400_BAD_REQUEST)
-
-                    if appt['appt_status'] == "Arrived" and appt_status != "Arrived": 
-                        if str(appobj.appt_date) != str(date.today()):
-
-                            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Arrived Appointment date must be today date to move cart",'error': True}
-                            return Response(result, status=status.HTTP_400_BAD_REQUEST)
-
-                        if i['checktype'] == "package" and i['treat_parentcode']:  
-                            #trmt_obj = Treatment.objects.filter(cust_code=appobj.cust_noid.cust_code,site_code=site.itemsite_code,
-                            #treatment_parentcode=mast_ids.treat_parentcode,status='Open').order_by('pk').last()
-                            trmt_obj = Treatment.objects.filter(cust_code=appobj.cust_noid.cust_code,
-                            treatment_parentcode=i['treat_parentcode'],status='Open').order_by('pk').last()
-                            # print(trmt_obj,"trmt_obj")
-                            if not trmt_obj:
-                                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Treatment Package Parent Code Does not Exist !!",'error': True} 
-                                return Response(result, status=status.HTTP_400_BAD_REQUEST)    
-
-                    if site.is_empvalidate == True:    
-                        # custprevtime_appts = Appointment.objects.filter(appt_date=appt['appt_date'],
-                        # cust_no=appobj.cust_noid.cust_code).filter(Q(appt_to_time__gt=i['start_time']) & Q(appt_fr_time__lt=i['end_time'])).exclude(linkcode=appobj.linkcode).order_by('-pk')
-                        # # print(custprevtime_appts,"custprevtime_appts")
-                        custprevtime_appts = Appointment.objects.filter(appt_date=appt['appt_date'],
-                        cust_no=appobj.cust_noid.cust_code).filter(appt_fr_time__gt=i['start_time'],appt_to_time__lt=i['end_time']).exclude(pk=i['appt_id']).order_by('-pk')
-                        # print(custprevtime_appts,"custprevtime_appts")
-
-                        if custprevtime_appts:
-                            msg = "This Customer Will have appointment on this day with same time"
-                            result = {'status': status.HTTP_400_BAD_REQUEST,"message": msg,'error': True}
-                            return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-            
-                        #staff having shift/appointment on other branch for the same time
-                        prev_appts = Appointment.objects.filter(appt_date=appt['appt_date'],
-                        emp_no=emp_obj.emp_code).order_by('-pk')
-                        # print(prev_appts,"prev_appts")
-                        
-                        if prev_appts:
-                            check_ids = Appointment.objects.filter(appt_isactive=True,appt_date=appt['appt_date'],emp_no=emp_obj.emp_code,
-                            ).filter(Q(appt_to_time__gt=i['start_time']) & Q(appt_fr_time__lt=i['end_time'])).exclude(pk=i['appt_id'])
-                            # print(check_ids,"check_ids")
-
-                            if check_ids:
-                                msg = "StartTime {0} EndTime {1} Service {2}, Employee {3} Already have appointment for this time".format(str(i['start_time']),str(i['end_time']),str(stockobj.item_name),str(emp_obj.display_name))
-                                result = {'status': status.HTTP_400_BAD_REQUEST,"message": msg,'error': True}
-                                return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-
-                else:
-                    if site.is_empvalidate == True:    
-                        custprevtime_appts = Appointment.objects.filter(appt_date=appt['appt_date'],
-                        cust_no=appobj.cust_noid.cust_code).filter(Q(appt_to_time__gt=i['start_time']) & Q(appt_fr_time__lt=i['end_time'])).order_by('-pk')
-                        if custprevtime_appts:
-                            msg = "This Customer Will have appointment on this day with same time"
-                            result = {'status': status.HTTP_400_BAD_REQUEST,"message": msg,'error': True}
-                            return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-            
-                        #staff having shift/appointment on other branch for the same time
-                        prev_appts = Appointment.objects.filter(appt_date=appt['appt_date'],
-                        emp_no=emp_obj.emp_code).order_by('-pk')
-                        # print(prev_appts,"prev_appts")
-                        
-                        if prev_appts:
-                            check_ids = Appointment.objects.filter(appt_isactive=True,appt_date=appt['appt_date'],emp_no=emp_obj.emp_code,
-                            ).filter(Q(appt_to_time__gt=i['start_time']) & Q(appt_fr_time__lt=i['end_time']))
-                            # print(check_ids,"check_ids")
-
-                            if check_ids:
-                                msg = "StartTime {0} EndTime {1} Service {2}, Employee {3} Already have appointment for this time".format(str(i['start_time']),str(i['end_time']),str(stockobj.item_name),str(emp_obj.display_name))
-                                result = {'status': status.HTTP_400_BAD_REQUEST,"message": msg,'error': True}
-                                return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-
-            new_remark = None
-            if 'edit_remark' in appt and appt['edit_remark']:
-                if not appt['edit_remark'] is None: 
-                    if not appobj.new_remark is None: 
-                        new_remark = appobj.new_remark
-                        if str(appt['edit_remark']) not in new_remark:
-                            new_remark += " "+str(appt['edit_remark'])
-                    else: 
-                        new_remark = str(appt['edit_remark'])
-
-            if 'ori_remark' in appt and appt['ori_remark']:
-                if not appt['ori_remark'] is None:
-                    new_remark = appt['ori_remark']
-            #Customer store card update Edit
-            if 'cust_StoreCard' in appt:
-                appobj.cust_noid.cust_StoreCard = appt['cust_StoreCard']
-                appobj.cust_noid.save()
-
-
-            cartlst = []
-            for j in treat: 
-                source_ids = False;room_ids = False ; channel_ids = False 
-
-                # print(j['appt_id'],"j['appt_id']")
-                emp_obj = Employee.objects.filter(pk=j['emp_id'],emp_isactive=True).first()
-
-                # Special coding for item to check
-                itemno = 476
-                if j['item_id']:
-                    itemno = j['item_id']
-
-                #stockobj = Stock.objects.filter(pk=j['item_id'],item_isactive=True).first()
-                stockobj = Stock.objects.filter(pk=itemno).first()
-
-                if not appt['source_id'] is None:
-                    source_ids = Source.objects.filter(id=appt['source_id'],source_isactive=True).first()
-
-                if not appt['Room_Codeid'] is None:
-                    room_ids = Room.objects.filter(id=appt['Room_Codeid'],site_code=site.itemsite_code,isactive=True).first()
-
-                if not appt['channel_id'] is None:
-                    channel_ids = ApptType.objects.filter(pk=appt['channel_id'],appt_type_isactive=True).first()
-
-                if not j['start_time']:
-                    raise Exception('Please Give Start Time')    
-
-                if not j['end_time']:
-                    raise Exception('Please Give End Time') 
-
-                if not j['add_duration']:
-                    raise Exception('Please Give Duration')               
-                                
-   
-                if j['appt_id']:
-                    appt_obj = Appointment.objects.filter(pk=j['appt_id'],appt_isactive=True,itemsite_code=site.itemsite_code).first() 
-                    old_empcode = appt_obj.emp_no
-                    dr_type = "Edit"  
-                    sc_value = True
-                    sc_time =  schedulemonth_time(self, appt['appt_date'], emp_obj, site, j['start_time'], j['end_time'], dr_type, appt_obj,sc_value)    
-        
-                    apptstatus = appt_obj.appt_status
-
-                    # master_ids = Treatment_Master.objects.filter(Appointment=appt_obj,site_code=site.itemsite_code).order_by('id').first()
-                    #if not master_ids:
-                    #    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Treatment Master does not exist",'error': True} 
-                    #    return Response(result, status=status.HTTP_400_BAD_REQUEST)
-
-                    trmtt_ids = False
-                    if appt_obj.treatmentcode and appt_obj.sa_transacno:
-                        #trmtt_ids = Treatment.objects.filter(treatment_code=app.treatmentcode,
-                        #sa_transacno=appt_obj.sa_transacno,site_code=site.itemsite_code).first()
-                        trmtt_ids = Treatment.objects.filter(treatment_code=appt_obj.treatmentcode,
-                        sa_transacno=appt_obj.sa_transacno).first()
+                    #stockobj = Stock.objects.filter(pk=i['item_id'],item_isactive=True).first()
+                    stockobj = Stock.objects.filter(pk=itemno).first()
+                    if not stockobj:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Stock Id does not exist!!",'error': True} 
+                        return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
                     
-                    if 'appt_date' in appt and appt['appt_date']:
-                        if not appt['appt_date'] is None:
-                            appt_obj.appt_date = appt['appt_date']
-                            # if master_ids:
-                            #     master_ids.treatment_date = appt['appt_date']
+                    if site.is_empvalidate == True:    
+                        custprev_appts = Appointment.objects.filter(appt_date=appt['appt_date'],
+                        cust_no=appobj.cust_noid.cust_code).order_by('-pk').exclude(itemsite_code=site.itemsite_code)
+                        if custprev_appts:
+                            msg = "This Customer Will have appointment on this day other outlet"
+                            result = {'status': status.HTTP_400_BAD_REQUEST,"message": msg,'error': True}
+                            return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                    
+                    
+                    
 
-                    if 'appt_status' in appt and appt['appt_status']:
-                        if not appt['appt_status'] is None:
-                            #if appt['appt_status'] in ['Done','Cancelled']:
-                            #    if not appt_obj.treatmentcode:
-                            #        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Appointment treatmentcode not mapped!!",'error': True} 
-                            #        return Response(result, status=status.HTTP_400_BAD_REQUEST)        
+                    if i['appt_id']:
+                        app_obj = Appointment.objects.filter(pk=i['appt_id'],appt_isactive=True,itemsite_code=site.itemsite_code).first() 
 
+                        appt_status = app_obj.appt_status 
 
-                            if appt['appt_status'] == 'Cancelled':
-                                if appt_obj.appt_status == 'Done':
-                                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Completed Appointment cannot move cancelled!!",'error': True} 
-                                    return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-                                if appt_obj.appt_status == 'Cancelled':
-                                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cancelled Appointment cannot move Cancelled again!!",'error': True} 
-                                    return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                        #mast_ids = Treatment_Master.objects.filter(Appointment=app_obj,site_code=site.itemsite_code).order_by('id').first()
+                        #if not mast_ids:
+                        #    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Treatment Master does not exist",'error': True} 
+                        #    return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
-                                # if not trmtt_ids:
-                                #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cannot move done because treatmentcode,sa_transacno does not exist!!",'error': True} 
-                                #     return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                        if appt['appt_status'] == "Arrived" and appt_status != "Arrived": 
+                            if str(appobj.appt_date) != str(date.today()):
 
-                                if trmtt_ids and trmtt_ids.status == "Done":
-                                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Appointment Cannot move Cancelled because treatment is in Done!!",'error': True} 
+                                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Arrived Appointment date must be today date to move cart",'error': True}
+                                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+                            if i['checktype'] == "package" and i['treat_parentcode']:  
+                                #trmt_obj = Treatment.objects.filter(cust_code=appobj.cust_noid.cust_code,site_code=site.itemsite_code,
+                                #treatment_parentcode=mast_ids.treat_parentcode,status='Open').order_by('pk').last()
+                                trmt_obj = Treatment.objects.filter(cust_code=appobj.cust_noid.cust_code,
+                                treatment_parentcode=i['treat_parentcode'],status='Open').order_by('pk').last()
+                                # print(trmt_obj,"trmt_obj")
+                                if not trmt_obj:
+                                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Treatment Package Parent Code Does not Exist !!",'error': True} 
                                     return Response(result, status=status.HTTP_400_BAD_REQUEST)    
 
-                                if trmtt_ids and  trmtt_ids.status == "Cancel":
-                                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Already Treatment is cancelled only!!",'error': True} 
-                                    return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                        if site.is_empvalidate == True:    
+                            # custprevtime_appts = Appointment.objects.filter(appt_date=appt['appt_date'],
+                            # cust_no=appobj.cust_noid.cust_code).filter(Q(appt_to_time__gt=i['start_time']) & Q(appt_fr_time__lt=i['end_time'])).exclude(linkcode=appobj.linkcode).order_by('-pk')
+                            # # print(custprevtime_appts,"custprevtime_appts")
+                            custprevtime_appts = Appointment.objects.filter(appt_date=appt['appt_date'],
+                            cust_no=appobj.cust_noid.cust_code).filter(appt_fr_time__gt=i['start_time'],appt_to_time__lt=i['end_time']).exclude(pk=i['appt_id']).order_by('-pk')
+                            # print(custprevtime_appts,"custprevtime_appts")
 
-                                # if trmtt_ids and  master_ids:
-                                #     master_ids.status = "Cancel"
+                            if custprevtime_appts:
+                                msg = "This Customer Will have appointment on this day with same time"
+                                result = {'status': status.HTTP_400_BAD_REQUEST,"message": msg,'error': True}
+                                return Response(result, status=status.HTTP_400_BAD_REQUEST) 
                 
-
-                            #if appt['appt_status'] == 'Done':
-                                #if appt_obj.appt_status == 'Done':
-                                #    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Done Appointment cannot move Done again!!",'error': True} 
-                                #    return Response(result, status=status.HTTP_400_BAD_REQUEST)
-                                #if appt_obj.appt_status == 'Cancelled':
-                                #    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cancelled Appointment cannot move Done!!",'error': True} 
-                                #    return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-                    
-                                #if trmtt_ids:
-                                #    if not trmtt_ids.status == "Done":
-                                #        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Appointment Cannot move done because treatment is not in done!!",'error': True} 
-                                #        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-                                #    if trmtt_ids.status == "Done":
-                                #        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Already Treatment is Done only!!",'error': True} 
-                                #        return Response(result, status=status.HTTP_400_BAD_REQUEST)        
-        
-                                #else:
-                                #    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cannot move done because treatmentcode,sa_transacno does not exist!!",'error': True} 
-                                #    return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-
-
-                            appt_obj.appt_status = appt['appt_status']
-
-                    if 'sec_status' in appt and appt['sec_status']:
-                        if not appt['sec_status'] is None:
-                            appt_obj.sec_status = appt['sec_status']   
-
-                    if 'Room_Codeid' in appt and appt['Room_Codeid']:
-                        if not appt['Room_Codeid'] is None and room_ids:
-                            appt_obj.Room_Codeid = room_ids
-                            appt_obj.room_code = room_ids.room_code  
-                            # if master_ids:
-                            #     master_ids.Trmt_Room_Codeid = room_ids
-                            #     master_ids.trmt_room_code = room_ids.room_code
-
-                    if 'source_id' in appt and appt['source_id']:
-                        if not appt['source_id'] is None and source_ids:
-                            appt_obj.Source_Codeid = source_ids
-                            appt_obj.source_code = source_ids.source_code
-
-                    if 'channel_id' in appt and appt['channel_id']:
-                        if not appt['channel_id'] is None and channel_ids:
-                            appt_obj.Appt_typeid = channel_ids
-                            appt_obj.appt_type = channel_ids.appt_type_code
-                                
+                            #staff having shift/appointment on other branch for the same time
+                            prev_appts = Appointment.objects.filter(appt_date=appt['appt_date'],
+                            emp_no=emp_obj.emp_code).order_by('-pk')
+                            # print(prev_appts,"prev_appts")
                             
-                    if 'edit_remark' in appt and appt['edit_remark']:
-                        if not appt['edit_remark'] is None: 
-                            val = None
-                            if not appt_obj.new_remark is None: 
-                                val = appt_obj.new_remark
-                                if str(appt['edit_remark']) not in val:
-                                    val += " "+str(appt['edit_remark'])
-                            else: 
-                                val = str(appt['edit_remark'])
-                            appt_obj.new_remark = val
+                            if prev_appts:
+                                check_ids = Appointment.objects.filter(appt_isactive=True,appt_date=appt['appt_date'],emp_no=emp_obj.emp_code,
+                                ).filter(Q(appt_to_time__gt=i['start_time']) & Q(appt_fr_time__lt=i['end_time'])).exclude(pk=i['appt_id'])
+                                # print(check_ids,"check_ids")
 
-                    if 'ori_remark' in appt and appt['ori_remark']:
-                        if not appt['ori_remark'] is None:
-                            appt_obj.new_remark = appt['ori_remark']
+                                if check_ids:
+                                    msg = "StartTime {0} EndTime {1} Service {2}, Employee {3} Already have appointment for this time".format(str(i['start_time']),str(i['end_time']),str(stockobj.item_name),str(emp_obj.display_name))
+                                    result = {'status': status.HTTP_400_BAD_REQUEST,"message": msg,'error': True}
+                                    return Response(result, status=status.HTTP_400_BAD_REQUEST) 
 
-                    appt_obj.requesttherapist =  j['requesttherapist']
-                    # if master_ids:
-                    #     master_ids.requesttherapist = j['requesttherapist']
+                    else:
+                        if site.is_empvalidate == True:    
+                            custprevtime_appts = Appointment.objects.filter(appt_date=appt['appt_date'],
+                            cust_no=appobj.cust_noid.cust_code).filter(Q(appt_to_time__gt=i['start_time']) & Q(appt_fr_time__lt=i['end_time'])).order_by('-pk')
+                            if custprevtime_appts:
+                                msg = "This Customer Will have appointment on this day with same time"
+                                result = {'status': status.HTTP_400_BAD_REQUEST,"message": msg,'error': True}
+                                return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                
+                            #staff having shift/appointment on other branch for the same time
+                            prev_appts = Appointment.objects.filter(appt_date=appt['appt_date'],
+                            emp_no=emp_obj.emp_code).order_by('-pk')
+                            # print(prev_appts,"prev_appts")
+                            
+                            if prev_appts:
+                                check_ids = Appointment.objects.filter(appt_isactive=True,appt_date=appt['appt_date'],emp_no=emp_obj.emp_code,
+                                ).filter(Q(appt_to_time__gt=i['start_time']) & Q(appt_fr_time__lt=i['end_time']))
+                                # print(check_ids,"check_ids")
 
-                    if 'emp_id' in j and j['emp_id']:
-                        if not j['emp_id'] is None:  
-                            appt_obj.emp_noid = emp_obj
-                            appt_obj.emp_no = emp_obj.emp_code
-                            appt_obj.emp_name = emp_obj.display_name
+                                if check_ids:
+                                    msg = "StartTime {0} EndTime {1} Service {2}, Employee {3} Already have appointment for this time".format(str(i['start_time']),str(i['end_time']),str(stockobj.item_name),str(emp_obj.display_name))
+                                    result = {'status': status.HTTP_400_BAD_REQUEST,"message": msg,'error': True}
+                                    return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
+                new_remark = None
+                if 'edit_remark' in appt and appt['edit_remark']:
+                    if not appt['edit_remark'] is None: 
+                        if not appobj.new_remark is None: 
+                            new_remark = appobj.new_remark
+                            if str(appt['edit_remark']) not in new_remark:
+                                new_remark += " "+str(appt['edit_remark'])
+                        else: 
+                            new_remark = str(appt['edit_remark'])
+
+                if 'ori_remark' in appt and appt['ori_remark']:
+                    if not appt['ori_remark'] is None:
+                        new_remark = appt['ori_remark']
+                #Customer store card update Edit
+                if 'cust_StoreCard' in appt:
+                    appobj.cust_noid.cust_StoreCard = appt['cust_StoreCard']
+                    appobj.cust_noid.save()
+
+
+                cartlst = []
+                for j in treat: 
+                    source_ids = False;room_ids = False ; channel_ids = False 
+
+                    # print(j['appt_id'],"j['appt_id']")
+                    emp_obj = Employee.objects.filter(pk=j['emp_id'],emp_isactive=True).first()
+
+                    # Special coding for item to check
+                    itemno = 476
+                    if j['item_id']:
+                        itemno = j['item_id']
+
+                    #stockobj = Stock.objects.filter(pk=j['item_id'],item_isactive=True).first()
+                    stockobj = Stock.objects.filter(pk=itemno).first()
+
+                    if not appt['source_id'] is None:
+                        source_ids = Source.objects.filter(id=appt['source_id'],source_isactive=True).first()
+
+                    if not appt['Room_Codeid'] is None:
+                        room_ids = Room.objects.filter(id=appt['Room_Codeid'],site_code=site.itemsite_code,isactive=True).first()
+
+                    if not appt['channel_id'] is None:
+                        channel_ids = ApptType.objects.filter(pk=appt['channel_id'],appt_type_isactive=True).first()
+
+                    if not j['start_time']:
+                        raise Exception('Please Give Start Time')    
+
+                    if not j['end_time']:
+                        raise Exception('Please Give End Time') 
+
+                    if not j['add_duration']:
+                        raise Exception('Please Give Duration')               
+                                    
+    
+                    if j['appt_id']:
+                        appt_obj = Appointment.objects.filter(pk=j['appt_id'],appt_isactive=True,itemsite_code=site.itemsite_code).first() 
+                        old_empcode = appt_obj.emp_no
+                        dr_type = "Edit"  
+                        sc_value = True
+                        sc_time =  schedulemonth_time(self, appt['appt_date'], emp_obj, site, j['start_time'], j['end_time'], dr_type, appt_obj,sc_value)    
+            
+                        apptstatus = appt_obj.appt_status
+
+                        # master_ids = Treatment_Master.objects.filter(Appointment=appt_obj,site_code=site.itemsite_code).order_by('id').first()
+                        #if not master_ids:
+                        #    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Treatment Master does not exist",'error': True} 
+                        #    return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+                        trmtt_ids = False
+                        if appt_obj.treatmentcode and appt_obj.sa_transacno:
+                            #trmtt_ids = Treatment.objects.filter(treatment_code=app.treatmentcode,
+                            #sa_transacno=appt_obj.sa_transacno,site_code=site.itemsite_code).first()
+                            trmtt_ids = Treatment.objects.filter(treatment_code=appt_obj.treatmentcode,
+                            sa_transacno=appt_obj.sa_transacno).first()
+                        
+                        if 'appt_date' in appt and appt['appt_date']:
+                            if not appt['appt_date'] is None:
+                                appt_obj.appt_date = appt['appt_date']
+                                # if master_ids:
+                                #     master_ids.treatment_date = appt['appt_date']
+
+                        if 'appt_status' in appt and appt['appt_status']:
+                            if not appt['appt_status'] is None:
+                                #if appt['appt_status'] in ['Done','Cancelled']:
+                                #    if not appt_obj.treatmentcode:
+                                #        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Appointment treatmentcode not mapped!!",'error': True} 
+                                #        return Response(result, status=status.HTTP_400_BAD_REQUEST)        
+
+
+                                if appt['appt_status'] == 'Cancelled':
+                                    if appt_obj.appt_status == 'Done':
+                                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Completed Appointment cannot move cancelled!!",'error': True} 
+                                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                                    if appt_obj.appt_status == 'Cancelled':
+                                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cancelled Appointment cannot move Cancelled again!!",'error': True} 
+                                        return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+                                    # if not trmtt_ids:
+                                    #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cannot move done because treatmentcode,sa_transacno does not exist!!",'error': True} 
+                                    #     return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
+                                    if trmtt_ids and trmtt_ids.status == "Done":
+                                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Appointment Cannot move Cancelled because treatment is in Done!!",'error': True} 
+                                        return Response(result, status=status.HTTP_400_BAD_REQUEST)    
+
+                                    if trmtt_ids and  trmtt_ids.status == "Cancel":
+                                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Already Treatment is cancelled only!!",'error': True} 
+                                        return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+                                    # if trmtt_ids and  master_ids:
+                                    #     master_ids.status = "Cancel"
+                    
+
+                                #if appt['appt_status'] == 'Done':
+                                    #if appt_obj.appt_status == 'Done':
+                                    #    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Done Appointment cannot move Done again!!",'error': True} 
+                                    #    return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                                    #if appt_obj.appt_status == 'Cancelled':
+                                    #    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cancelled Appointment cannot move Done!!",'error': True} 
+                                    #    return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                        
+                                    #if trmtt_ids:
+                                    #    if not trmtt_ids.status == "Done":
+                                    #        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Appointment Cannot move done because treatment is not in done!!",'error': True} 
+                                    #        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                                    #    if trmtt_ids.status == "Done":
+                                    #        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Already Treatment is Done only!!",'error': True} 
+                                    #        return Response(result, status=status.HTTP_400_BAD_REQUEST)        
+            
+                                    #else:
+                                    #    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cannot move done because treatmentcode,sa_transacno does not exist!!",'error': True} 
+                                    #    return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
+
+                                appt_obj.appt_status = appt['appt_status']
+
+                        if 'sec_status' in appt and appt['sec_status']:
+                            if not appt['sec_status'] is None:
+                                appt_obj.sec_status = appt['sec_status']   
+
+                        if 'Room_Codeid' in appt and appt['Room_Codeid']:
+                            if not appt['Room_Codeid'] is None and room_ids:
+                                appt_obj.Room_Codeid = room_ids
+                                appt_obj.room_code = room_ids.room_code  
+                                # if master_ids:
+                                #     master_ids.Trmt_Room_Codeid = room_ids
+                                #     master_ids.trmt_room_code = room_ids.room_code
+
+                        if 'source_id' in appt and appt['source_id']:
+                            if not appt['source_id'] is None and source_ids:
+                                appt_obj.Source_Codeid = source_ids
+                                appt_obj.source_code = source_ids.source_code
+
+                        if 'channel_id' in appt and appt['channel_id']:
+                            if not appt['channel_id'] is None and channel_ids:
+                                appt_obj.Appt_typeid = channel_ids
+                                appt_obj.appt_type = channel_ids.appt_type_code
+                                    
+                                
+                        if 'edit_remark' in appt and appt['edit_remark']:
+                            if not appt['edit_remark'] is None: 
+                                val = None
+                                if not appt_obj.new_remark is None: 
+                                    val = appt_obj.new_remark
+                                    if str(appt['edit_remark']) not in val:
+                                        val += " "+str(appt['edit_remark'])
+                                else: 
+                                    val = str(appt['edit_remark'])
+                                appt_obj.new_remark = val
+
+                        if 'ori_remark' in appt and appt['ori_remark']:
+                            if not appt['ori_remark'] is None:
+                                appt_obj.new_remark = appt['ori_remark']
+
+                        appt_obj.requesttherapist =  j['requesttherapist']
+                        # if master_ids:
+                        #     master_ids.requesttherapist = j['requesttherapist']
+
+                        if 'emp_id' in j and j['emp_id']:
+                            if not j['emp_id'] is None:  
+                                appt_obj.emp_noid = emp_obj
+                                appt_obj.emp_no = emp_obj.emp_code
+                                appt_obj.emp_name = emp_obj.display_name
+                                # if master_ids:
+                                #     for existing in master_ids.emp_no.all():
+                                #         master_ids.emp_no.remove(existing) 
+                                #     master_ids.emp_no.add(emp_obj)
+                            
+                        #print(j['add_duration'],"add")
+                        # addduration = 60
+                        # t1 = datetime.datetime.strptime(str("01:00"), '%H:%M')
+                        # #print(t1,"t1")
+                        # t2 = datetime.datetime(1900,1,1)
+
+                        start_dt = datetime.datetime.strptime(str(j['start_time']), '%H:%M')
+                        end_dt = datetime.datetime.strptime(str(j['end_time']), '%H:%M')
+                        diff = (end_dt - start_dt) 
+                        addduration = diff.seconds/60 
+                        ad_duration = datetime.timedelta(minutes = addduration)
+                        t1 = datetime.datetime.strptime(str(ad_duration), "%H:%M:%S").strftime("%H:%M")
+                        
+                        if 'add_duration' in j and j['add_duration']:
+                            if not j['add_duration'] is None:  
+                                t1 = datetime.datetime.strptime(str(j['add_duration']), '%H:%M')
+                                t2 = datetime.datetime(1900,1,1)
+                                addduration = (t1-t2).total_seconds() / 60.0
+
+                    
+
+                        if 'start_time' in j and j['start_time']:
+                            if not j['start_time'] is None: 
+                                start_time =  get_in_val(self, j['start_time'])
+                                starttime = datetime.datetime.strptime(start_time, "%H:%M")
+                                end_time = starttime + datetime.timedelta(minutes = addduration)
+                                endtime = datetime.datetime.strptime(str(end_time), "%Y-%m-%d %H:%M:%S").strftime("%H:%M")
+                                # if master_ids:
+                                #     master_ids.start_time = j['start_time']
+                                #     master_ids.end_time = endtime
+                                #     master_ids.add_duration = t1
+                                appt_obj.appt_fr_time = j['start_time']
+                                appt_obj.appt_to_time = endtime
+                                appt_obj.add_duration = t1
+                            
+                        if 'item_id' in j and j['item_id']:
+                            if not j['item_id'] is None:
+
+                                appt_obj.item_code = stockobj.item_code
+                                appt_obj.appt_remark = stockobj.item_desc
+                                appt_obj.Item_Codeid = stockobj
+                                # if master_ids:
+                                #     master_ids.Item_Codeid = stockobj
+                                #     master_ids.item_code = stockobj.item_code
+                                #     master_ids.course = stockobj.item_desc
+
+                        if j['checktype'] == 'freetext': 
+                            if 'item_text' in j and j['item_text']:
+                                if not j['item_text'] is None:
+                                    appt_obj.appt_remark = j['item_text']
+
+                        if 'checktype' in j and j['checktype']:
+                            if not j['checktype'] is None:
+                                appt_obj.checktype = j['checktype']
+                                # if master_ids:
+                                #     master_ids.checktype = j['checktype']
+                        
+                        appt_obj.treat_parentcode = j['treat_parentcode']
+                        # if master_ids:
+                        #     master_ids.treat_parentcode = j['treat_parentcode']
+                        #     master_ids.updated_at = timezone.now()
+                        appt_obj.updated_at = timezone.now()
+
+                        if is_cancelled == True and cemp_obj:
+                            appt_obj.emp_noid = cemp_obj
+                            appt_obj.emp_no = cemp_obj.emp_code
+                            appt_obj.emp_name = cemp_obj.display_name
                             # if master_ids:
                             #     for existing in master_ids.emp_no.all():
                             #         master_ids.emp_no.remove(existing) 
-                            #     master_ids.emp_no.add(emp_obj)
-                        
-                    #print(j['add_duration'],"add")
-                    # addduration = 60
-                    # t1 = datetime.datetime.strptime(str("01:00"), '%H:%M')
-                    # #print(t1,"t1")
-                    # t2 = datetime.datetime(1900,1,1)
+                            #     master_ids.emp_no.add(cemp_obj)
 
-                    start_dt = datetime.datetime.strptime(str(j['start_time']), '%H:%M')
-                    end_dt = datetime.datetime.strptime(str(j['end_time']), '%H:%M')
-                    diff = (end_dt - start_dt) 
-                    addduration = diff.seconds/60 
-                    ad_duration = datetime.timedelta(minutes = addduration)
-                    t1 = datetime.datetime.strptime(str(ad_duration), "%H:%M:%S").strftime("%H:%M")
-                      
-                    if 'add_duration' in j and j['add_duration']:
-                        if not j['add_duration'] is None:  
-                            t1 = datetime.datetime.strptime(str(j['add_duration']), '%H:%M')
-                            t2 = datetime.datetime(1900,1,1)
-                            addduration = (t1-t2).total_seconds() / 60.0
+                        if 'editedby' in appt and appt['editedby']:
+                            appt_obj.editedby = appt['editedby']
 
-                 
+                    else:
+                        # print("elsee")
+                        preapp_ids = Appointment.objects.filter(cust_no=appobj.cust_noid.cust_code,appt_date=appt['appt_date'],
+                        emp_no=emp_obj.emp_code,item_code=stockobj.item_code,appt_remark=j['item_text'] if j['item_text'] else stockobj.item_desc,
+                        appt_status=appt['appt_status']).filter(Q(appt_fr_time=j['start_time']) & Q(appt_to_time=j['end_time'])).order_by('pk') 
+                        # print(preapp_ids,"preapp_ids")
 
-                    if 'start_time' in j and j['start_time']:
-                        if not j['start_time'] is None: 
-                            start_time =  get_in_val(self, j['start_time'])
-                            starttime = datetime.datetime.strptime(start_time, "%H:%M")
-                            end_time = starttime + datetime.timedelta(minutes = addduration)
-                            endtime = datetime.datetime.strptime(str(end_time), "%Y-%m-%d %H:%M:%S").strftime("%H:%M")
-                            # if master_ids:
-                            #     master_ids.start_time = j['start_time']
-                            #     master_ids.end_time = endtime
-                            #     master_ids.add_duration = t1
-                            appt_obj.appt_fr_time = j['start_time']
-                            appt_obj.appt_to_time = endtime
-                            appt_obj.add_duration = t1
-                        
-                    if 'item_id' in j and j['item_id']:
-                        if not j['item_id'] is None:
+                        if not preapp_ids:     
 
-                            appt_obj.item_code = stockobj.item_code
-                            appt_obj.appt_remark = stockobj.item_desc
-                            appt_obj.Item_Codeid = stockobj
-                            # if master_ids:
-                            #     master_ids.Item_Codeid = stockobj
-                            #     master_ids.item_code = stockobj.item_code
-                            #     master_ids.course = stockobj.item_desc
-
-                    if j['checktype'] == 'freetext': 
-                        if 'item_text' in j and j['item_text']:
-                            if not j['item_text'] is None:
-                                appt_obj.appt_remark = j['item_text']
-
-                    if 'checktype' in j and j['checktype']:
-                        if not j['checktype'] is None:
-                            appt_obj.checktype = j['checktype']
-                            # if master_ids:
-                            #     master_ids.checktype = j['checktype']
-                    
-                    appt_obj.treat_parentcode = j['treat_parentcode']
-                    # if master_ids:
-                    #     master_ids.treat_parentcode = j['treat_parentcode']
-                    #     master_ids.updated_at = timezone.now()
-                    appt_obj.updated_at = timezone.now()
-
-                    if is_cancelled == True and cemp_obj:
-                        appt_obj.emp_noid = cemp_obj
-                        appt_obj.emp_no = cemp_obj.emp_code
-                        appt_obj.emp_name = cemp_obj.display_name
-                        # if master_ids:
-                        #     for existing in master_ids.emp_no.all():
-                        #         master_ids.emp_no.remove(existing) 
-                        #     master_ids.emp_no.add(cemp_obj)
-
-                    if 'editedby' in appt and appt['editedby']:
-                        appt_obj.editedby = appt['editedby']
-
-                else:
-                    preapp_ids = Appointment.objects.filter(cust_no=appobj.cust_noid.cust_code,appt_date=appt['appt_date'],
-                    emp_no=emp_obj.emp_code,item_code=stockobj.item_code,appt_remark=j['item_text'] if j['item_text'] else stockobj.item_desc,
-                    appt_status=appt['appt_status']).order_by('pk') 
-
-                    if not preapp_ids:     
-
-                        recontrol_obj = ControlNo.objects.filter(control_description__iexact="APPOINTMENT CODE",Site_Codeid__pk=site.pk).first()
-                        reappt_code = str(recontrol_obj.Site_Codeid.itemsite_code)+str(recontrol_obj.control_prefix)+str(recontrol_obj.control_no)
-                                
-                        app_nobj = Appointment(appt_date=appt['appt_date'],cust_noid=appobj.cust_noid,cust_no=appobj.cust_noid.cust_code,
-                        cust_name=appobj.cust_noid.cust_name,appt_phone=appobj.cust_noid.cust_phone2,
-                        cust_refer=appobj.cust_noid.cust_refer,Appt_Created_Byid=fmspw,appt_created_by=fmspw.pw_userlogin,
-                        itemsite_code=site.itemsite_code,ItemSite_Codeid=site,source_code=source_ids.source_code if source_ids else None,
-                        appt_code=reappt_code,new_remark=new_remark,
-                        emp_noid=emp_obj,emp_no=emp_obj.emp_code,emp_name=emp_obj.display_name,Room_Codeid=room_ids if room_ids else None,
-                        room_code=room_ids.room_code if room_ids and room_ids.room_code else None,Source_Codeid=source_ids if source_ids else None,
-                        Appt_typeid=channel_ids if channel_ids else None,appt_type=channel_ids.appt_type_code if channel_ids and channel_ids.appt_type_code else None,requesttherapist=j['requesttherapist'],
-                        appt_fr_time=j['start_time'],appt_to_time=j['end_time'],item_code=stockobj.item_code,appt_remark=j['item_text'] if j['item_text'] else stockobj.item_desc,
-                        appt_status=appt['appt_status'],sec_status=appt['sec_status'],linkcode=appobj.linkcode,link_flag=True,
-                        add_duration=j['add_duration'],Item_Codeid=stockobj,checktype=j['checktype'],treat_parentcode=j['treat_parentcode'],
-                        bookedby=appt['editedby'] if 'editedby' in appt and appt['editedby'] else None)
-                        app_nobj.save()
-                        old_empcode = None
-
-                        if app_nobj.pk:
-                            recontrol_obj.control_no = int(recontrol_obj.control_no) + 1
-                            recontrol_obj.save() 
-
-                            link_ids = Appointment.objects.filter(linkcode=appobj.linkcode,cust_noid__pk=appobj.cust_noid.pk,
-                            appt_isactive=True,itemsite_code=site.itemsite_code).update(link_flag=True)  
-                        
-
-                        # trt_re = Treatment_Master(course=stockobj.item_desc,price=stockobj.item_price,PIC=stockobj.Stock_PIC,
-                        # Site_Codeid=site,site_code=site.itemsite_code,times="01",treatment_no="01",appt_time=appt['appt_date'],
-                        # status="Open",cust_code=appobj.cust_noid.cust_code,Cust_Codeid=appobj.cust_noid,cust_name=appobj.cust_noid.cust_name,
-                        # Item_Codeid=stockobj,item_code=stockobj.item_code,type="N",
-                        # start_time=j['start_time'],end_time=j['end_time'],add_duration=j['add_duration'],
-                        # trmt_room_code=room_ids.room_code if room_ids and room_ids.room_code else None,
-                        # Trmt_Room_Codeid=room_ids if room_ids else None,requesttherapist=j['requesttherapist'],Appointment=app_nobj,
-                        # checktype=j['checktype'],treat_parentcode=j['treat_parentcode'])
-                        # trt_re.save()
-                        # trt_re.emp_no.add(emp_obj.pk)
-                        
-                        dr_type = "Create"  
-                        sc_value = True
-                        sc_time =  schedulemonth_time(self, appt['appt_date'], emp_obj, site, j['start_time'], j['end_time'], dr_type, None, sc_value)    
-
-                        if is_cancelled == True and cemp_obj:
-                            app_nobj.emp_noid = cemp_obj
-                            app_nobj.emp_no = cemp_obj.emp_code
-                            app_nobj.emp_name = cemp_obj.display_name
-                            # if trt_re:
-                            #     for existing in trt_re.emp_no.all():
-                            #         trt_re.emp_no.remove(existing) 
-                            #     trt_re.emp_no.add(cemp_obj)
-
-
-                
-                if 'appt_status' in appt and appt['appt_status'] and not appt['appt_status'] is None:
-                    # print(appt['appt_status'],appobj.appt_status,"kk")
-                    if appt['appt_status'] == "Arrived" and appt['cart_create'] == True:
-                        # print("IFFF")
-
-                        # if apptstatus == "Arrived":
-                        #     result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully ",'error': False}
-                        #     return Response(result, status=status.HTTP_200_OK)
-
-                        # print(type(appobj.appt_date), type(date.today()),"date.today()")
-                        # print(appobj.appt_date, date.today())
-
-                       
-                        global type_ex
-                        cart_date = timezone.now().date()
-                        cartex = ItemCart.objects.filter(cust_noid=appobj.cust_noid,cart_date=cart_date,
-                        cart_status="Inprogress",isactive=True,is_payment=False,sitecode=site.itemsite_code).exclude(type__in=type_ex).order_by('lineno')    
-                        olst = list(set([e.cart_id for e in cartex if e.cart_id]))
-                        # print(olst,"olst")
-
-                        if olst != []:
-                            cart_id = olst[0]
-                            check = "Old"
-                        else:
-                            check = "New"
-                            control_obj = ControlNo.objects.filter(control_description__iexact="ITEM CART",Site_Codeid__pk=fmspw.loginsite.pk).first()
-                            
-                            #cartre = ItemCart.objects.filter(sitecodeid=site).order_by('cart_id')
-                            cartre = ItemCart.objects.filter(sitecodeid=site).order_by('-cart_id')[:2]
-                            final = list(set([r.cart_id for r in cartre]))
-                            code_site = site.itemsite_code
-                            prefix = control_obj.control_prefix
-
-                            silicon = 6
-                            cosystem_setup = Systemsetup.objects.filter(title='ICControlnoslice',value_name='ICControlnoslice',isactive=True).first()
-                            if cosystem_setup and cosystem_setup.value_data: 
-                                silicon = int(cosystem_setup.value_data)
-      
-
-                            lst = []
-                            if final != []:
-                                for f in final:
-                                    fhstr = int(f[silicon:])
-                                    # newstr = f.replace(prefix,"")
-                                    # new_str = newstr.replace(code_site, "")
-                                    lst.append(fhstr)
-                                    lst.sort(reverse=True)
-
-                                # print(lst,"lst")
-                                c_no = int(lst[0]) + 1
-                                # c_no = int(lst[0][-6:]) + 1
-                                cart_id = str(control_obj.control_prefix)+str(control_obj.Site_Codeid.itemsite_code)+str(c_no)
-                            else:
-                                cart_id = str(control_obj.control_prefix)+str(control_obj.Site_Codeid.itemsite_code)+str(control_obj.control_no)
-                        
-                        cartcuids = ItemCart.objects.filter(isactive=True,cust_noid=appobj.cust_noid,cart_date=cart_date,
-                        cart_id=cart_id,cart_status="Inprogress",is_payment=False,sitecodeid=site).exclude(type__in=type_ex).order_by('lineno')   
-                        if not cartcuids:
-                            lineno = 1
-                        else:
-                            rec = cartcuids.last()
-                            lineno = float(rec.lineno) + 1  
-
-                        gst = GstSetting.objects.filter(item_desc='GST',isactive=True).first()
-                        tax_value = 0.0
-                        if stockobj.is_have_tax == True:
-                            tax_value = gst.item_value if gst and gst.item_value else 0.0
-
-                        # print(j['appt_id'],"j['appt_id']")
-                        treat_type = None
-                        if j['appt_id']:
-                            # if master_ids:
-                            #     treat_type = master_ids
-                            if j['checktype']:
-                                treat_type = j['checktype']    
-                            appment = appt_obj
-                        else:
-                            appment = app_nobj
-                            # treat_type = Treatment_Master.objects.filter(Appointment=app_nobj,site_code=site.itemsite_code).order_by('id').first()
-                            if j['checktype']:
-                                treat_type = j['checktype']
-                        
-                        # print(appment,"appment")
-                        if treat_type and treat_type in ['service','package']:
-                            # if treat_type.checktype == "package":
-                            if j['checktype'] == "package" and j['treat_parentcode']:
-                                # print("iff package")
-                                #trmt_obj = Treatment.objects.filter(cust_code=appment.cust_noid.cust_code,site_code=site.itemsite_code,
-                                #treatment_parentcode=treat_type.treat_parentcode,status='Open').order_by('pk').last()
-                                trmt_obj = Treatment.objects.filter(cust_code=appment.cust_noid.cust_code,
-                                treatment_parentcode=j['treat_parentcode'],status='Open').order_by('pk').last()
-
-                                if trmt_obj:
-                                    deldata = TmpItemHelper.objects.filter(treatment=trmt_obj)
-                                    if not trmt_obj.helper_ids.all().exists() and not deldata:
-
-                                        # print(trmt_obj,"jkkk")
-
-                                        check_ids = ItemCart.objects.filter(isactive=True,cart_date=cart_date,cust_noid=appment.cust_noid,
-                                        type="Sales",treatment=trmt_obj,Appointment=appment)
-
-                                        if not check_ids: 
-                                            cart = ItemCart(cart_date=cart_date,phonenumber=appment.cust_noid.cust_phone2,
-                                            customercode=appment.cust_noid.cust_code,cust_noid=appment.cust_noid,lineno=lineno,
-                                            itemcodeid=stockobj,itemcode=stockobj.item_code,itemdesc=stockobj.item_desc+" "+trmt_obj.treatment_code,
-                                            quantity=1,price="{:.2f}".format(float(trmt_obj.unit_amount)),
-                                            sitecodeid=site,sitecode=site.itemsite_code,cart_status="Inprogress",cart_id=cart_id,
-                                            tax="{:.2f}".format(tax_value),check=check,ratio=100.00,
-                                            discount_price=float(trmt_obj.unit_amount) * 1.0,total_price=float(trmt_obj.unit_amount) * 1.0,
-                                            trans_amt=float(trmt_obj.unit_amount) * 1.0,deposit=0.0,type="Sales",treatment_account=trmt_obj.treatment_account,
-                                            treatment=trmt_obj,Appointment=appment)
-                                            cart.save()
-                                            cart.multi_treat.add(trmt_obj)
-
-                                            # print(cart.pk,"cart pk")
-                                            
-                                            
-
-                                            tmpcids = TmpItemHelper.objects.filter(treatment=trmt_obj,helper_id=appment.emp_noid)
-                                            # print(tmpcids,"tmpcids")
-
-                                            if not tmpcids:
-                                                temph = TmpItemHelper(item_name=stockobj.item_desc,helper_id=appment.emp_noid,
-                                                helper_name=appment.emp_noid.display_name,helper_code=appment.emp_noid.emp_code,Room_Codeid=appment.Room_Codeid,
-                                                site_code=site.itemsite_code,times=trmt_obj.times,treatment_no=trmt_obj.treatment_no,
-                                                wp1=stockobj.workcommpoints if stockobj.workcommpoints else 0,wp2=0.0,wp3=0.0,itemcart=cart,treatment=trmt_obj,Source_Codeid=appment.Source_Codeid,
-                                                new_remark=appment.new_remark,workcommpoints=stockobj.workcommpoints)
-                                                temph.save()
-                                                # print(temph,"temph")
-
-                                                trmt_obj.helper_ids.add(temph)
-                                                cart.helper_ids.add(temph)
-                                                cart.service_staff.add(appment.emp_noid)
-
-                                            sa = trmt_obj.helper_ids.all().first()
-                                            cart.sales_staff.add(sa.helper_id)
-                                            
-                                            
-                                            if cart.pk not in cartlst:
-                                                cartlst.append(cart.pk)
+                            recontrol_obj = ControlNo.objects.filter(control_description__iexact="APPOINTMENT CODE",Site_Codeid__pk=site.pk).first()
+                            reappt_code = str(recontrol_obj.Site_Codeid.itemsite_code)+str(recontrol_obj.control_prefix)+str(recontrol_obj.control_no)
                                     
+                            app_nobj = Appointment(appt_date=appt['appt_date'],cust_noid=appobj.cust_noid,cust_no=appobj.cust_noid.cust_code,
+                            cust_name=appobj.cust_noid.cust_name,appt_phone=appobj.cust_noid.cust_phone2,
+                            cust_refer=appobj.cust_noid.cust_refer,Appt_Created_Byid=fmspw,appt_created_by=fmspw.pw_userlogin,
+                            itemsite_code=site.itemsite_code,ItemSite_Codeid=site,source_code=source_ids.source_code if source_ids else None,
+                            appt_code=reappt_code,new_remark=new_remark,
+                            emp_noid=emp_obj,emp_no=emp_obj.emp_code,emp_name=emp_obj.display_name,Room_Codeid=room_ids if room_ids else None,
+                            room_code=room_ids.room_code if room_ids and room_ids.room_code else None,Source_Codeid=source_ids if source_ids else None,
+                            Appt_typeid=channel_ids if channel_ids else None,appt_type=channel_ids.appt_type_code if channel_ids and channel_ids.appt_type_code else None,requesttherapist=j['requesttherapist'],
+                            appt_fr_time=j['start_time'],appt_to_time=j['end_time'],item_code=stockobj.item_code,appt_remark=j['item_text'] if j['item_text'] else stockobj.item_desc,
+                            appt_status=appt['appt_status'],sec_status=appt['sec_status'],linkcode=appobj.linkcode,link_flag=True,
+                            add_duration=j['add_duration'],Item_Codeid=stockobj,checktype=j['checktype'],treat_parentcode=j['treat_parentcode'],
+                            editedby=appt['editedby'] if 'editedby' in appt and appt['editedby'] else None)
+                            app_nobj.save()
+                            old_empcode = None
 
-                            # elif treat_type.checktype == "service":
-                            elif j['checktype'] == "service":
-                                # print(appobj.pk,master_ids.checktype,"jjj")
+                            if app_nobj.pk:
+                                recontrol_obj.control_no = int(recontrol_obj.control_no) + 1
+                                recontrol_obj.save() 
 
-                                check_ids = ItemCart.objects.filter(isactive=True,cart_date=cart_date,cust_noid=appment.cust_noid,
-                                type="Deposit",Appointment=appment)
+                                link_ids = Appointment.objects.filter(linkcode=appobj.linkcode,cust_noid__pk=appobj.cust_noid.pk,
+                                appt_isactive=True,itemsite_code=site.itemsite_code).update(link_flag=True)  
+                            
 
-                                if not check_ids: 
-                                    cart = ItemCart(cart_date=cart_date,phonenumber=appment.cust_noid.cust_phone2,
-                                    customercode=appment.cust_noid.cust_code,cust_noid=appment.cust_noid,lineno=lineno,
-                                    itemcodeid=stockobj,itemcode=stockobj.item_code,itemdesc=stockobj.item_desc,
-                                    quantity=1,price="{:.2f}".format(float(stockobj.item_price)),
-                                    sitecodeid=site,sitecode=site.itemsite_code,cart_status="Inprogress",cart_id=cart_id,
-                                    tax="{:.2f}".format(tax_value),check=check,ratio=100.00,
-                                    discount_price=float(stockobj.item_price) * 1.0,
-                                    total_price=float(stockobj.item_price) * 1.0,
-                                    trans_amt=float(stockobj.item_price) * 1.0,
-                                    deposit=float(stockobj.item_price) * 1.0,
-                                    type="Deposit",Appointment=appment)
-                                    cart.save()
+                            # trt_re = Treatment_Master(course=stockobj.item_desc,price=stockobj.item_price,PIC=stockobj.Stock_PIC,
+                            # Site_Codeid=site,site_code=site.itemsite_code,times="01",treatment_no="01",appt_time=appt['appt_date'],
+                            # status="Open",cust_code=appobj.cust_noid.cust_code,Cust_Codeid=appobj.cust_noid,cust_name=appobj.cust_noid.cust_name,
+                            # Item_Codeid=stockobj,item_code=stockobj.item_code,type="N",
+                            # start_time=j['start_time'],end_time=j['end_time'],add_duration=j['add_duration'],
+                            # trmt_room_code=room_ids.room_code if room_ids and room_ids.room_code else None,
+                            # Trmt_Room_Codeid=room_ids if room_ids else None,requesttherapist=j['requesttherapist'],Appointment=app_nobj,
+                            # checktype=j['checktype'],treat_parentcode=j['treat_parentcode'])
+                            # trt_re.save()
+                            # trt_re.emp_no.add(emp_obj.pk)
+                            
+                            dr_type = "Create"  
+                            sc_value = True
+                            sc_time =  schedulemonth_time(self, appt['appt_date'], emp_obj, site, j['start_time'], j['end_time'], dr_type, None, sc_value)    
 
-                                    if cart.pk not in cartlst:
-                                        cartlst.append(cart.pk)
-
-                                    if cart.helper_ids.all().exists():
-                                        cart.helper_ids.all().delete()
-
-
-                                    tmpcids = TmpItemHelper.objects.filter(itemcart=cart,helper_id=appment.emp_noid)
-
-                                    if not tmpcids:
-                                        temph = TmpItemHelper(item_name=stockobj.item_desc,helper_id=appment.emp_noid,
-                                        helper_name=appment.emp_noid.display_name,helper_code=appment.emp_noid.emp_code,Room_Codeid=appment.Room_Codeid,
-                                        site_code=site.itemsite_code,times="01",
-                                        treatment_no="01",wp1=stockobj.workcommpoints if stockobj.workcommpoints else 0,wp2=0.0,wp3=0.0,itemcart=cart,Source_Codeid=appment.Source_Codeid,
-                                        new_remark=appment.new_remark,
-                                        workcommpoints=stockobj.workcommpoints)
-
-                                        temph.save()
-
-                                        cart.helper_ids.add(temph)
-
-                                    for s in cart.helper_ids.all(): 
-                                        cart.service_staff.add(s.helper_id)
-
-                                    logstaff = Employee.objects.filter(emp_code=fmspw.emp_code,emp_isactive=True).first()
-
-                                    if logstaff:
-                                        mul_ids = Tmpmultistaff.objects.filter(emp_id__pk=logstaff.pk,
-                                        itemcart__pk=cart.pk)
-                                        if not mul_ids:
-                                            cart.sales_staff.add(logstaff.pk)
-                                            ratio = 0.0; salescommpoints = 0.0
-                                            if cart.sales_staff.all().count() > 0:
-                                                count = cart.sales_staff.all().count()
-                                                ratio = float(cart.ratio) / float(count)
-                                                salesamt = float(cart.trans_amt) / float(count)
-                                                if stockobj.salescommpoints and float(stockobj.salescommpoints) > 0.0:
-                                                    salescommpoints = float(stockobj.salescommpoints) / float(count)
+                            if is_cancelled == True and cemp_obj:
+                                app_nobj.emp_noid = cemp_obj
+                                app_nobj.emp_no = cemp_obj.emp_code
+                                app_nobj.emp_name = cemp_obj.display_name
+                                # if trt_re:
+                                #     for existing in trt_re.emp_no.all():
+                                #         trt_re.emp_no.remove(existing) 
+                                #     trt_re.emp_no.add(cemp_obj)
 
 
-                                            tmpmulti = Tmpmultistaff(item_code=stockobj.item_code,
-                                            emp_code=logstaff.emp_code,ratio=ratio,
-                                            salesamt="{:.2f}".format(float(salesamt)),type=None,isdelete=False,role=1,
-                                            dt_lineno=cart.lineno,itemcart=cart,emp_id=logstaff,salescommpoints=salescommpoints)
-                                            tmpmulti.save()
-                                            cart.multistaff_ids.add(tmpmulti.pk) 
                     
-                if j['appt_id']:
-                    appt_obj.save()
-                    # if master_ids:
-                    #     # print(master_ids.course,"course")
-                    #     master_ids.save()
-                    appment = appt_obj    
-                else:
-                    app_nobj.save()
-                    appment = app_nobj
-                
-                      
+                    if 'appt_status' in appt and appt['appt_status'] and not appt['appt_status'] is None:
+                        # print(appt['appt_status'],appobj.appt_status,"kk")
+                        if appt['appt_status'] == "Arrived" and appt['cart_create'] == True:
+                            # print("IFFF")
 
-                apptlog = AppointmentLog(appt_id=appment,userid=log_emp,
-                username=log_emp.display_name,appt_date=appt['appt_date'],
-                appt_fr_time=j['start_time'],appt_to_time=j['end_time'],
-                emp_code=old_empcode,newempcode=emp_obj.emp_code,
-                appt_status=appt['appt_status'],sec_status=appt['sec_status'],appt_remark=appment.appt_remark,
-                item_code=stockobj.item_code,requesttherapist=j['requesttherapist'],
-                add_duration=j['add_duration'],new_remark=appment.new_remark).save()
+                            # if apptstatus == "Arrived":
+                            #     result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully ",'error': False}
+                            #     return Response(result, status=status.HTTP_200_OK)
 
-            # print(cartlst,"cartlst") 
-            if cartlst != []:
-                cart_ids = ItemCart.objects.filter(pk__in=cartlst)
-                cartdata = list(set([i.cart_id for i in cart_ids]))
-                # print(cartdata,"cartdata")
+                            # print(type(appobj.appt_date), type(date.today()),"date.today()")
+                            # print(appobj.appt_date, date.today())
 
-                result = {'status': status.HTTP_201_CREATED,"message":"Cart Created Succesfully ",'error': False,
-                'data': cartdata[0]}
-                return Response(result, status=status.HTTP_201_CREATED)
+                        
+                            global type_ex
+                            cart_date = timezone.now().date()
+                            cartex = ItemCart.objects.filter(cust_noid=appobj.cust_noid,cart_date=cart_date,
+                            cart_status="Inprogress",isactive=True,is_payment=False,sitecode=site.itemsite_code).exclude(type__in=type_ex).order_by('lineno')    
+                            olst = list(set([e.cart_id for e in cartex if e.cart_id]))
+                            # print(olst,"olst")
 
-                
-            result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully ",'error': False}
-            return Response(result, status=status.HTTP_200_OK)
+                            if olst != []:
+                                cart_id = olst[0]
+                                check = "Old"
+                            else:
+                                check = "New"
+                                control_obj = ControlNo.objects.filter(control_description__iexact="ITEM CART",Site_Codeid__pk=fmspw.loginsite.pk).first()
+                                
+                                #cartre = ItemCart.objects.filter(sitecodeid=site).order_by('cart_id')
+                                cartre = ItemCart.objects.filter(sitecodeid=site).order_by('-cart_id')[:2]
+                                final = list(set([r.cart_id for r in cartre]))
+                                code_site = site.itemsite_code
+                                prefix = control_obj.control_prefix
+
+                                silicon = 6
+                                cosystem_setup = Systemsetup.objects.filter(title='ICControlnoslice',value_name='ICControlnoslice',isactive=True).first()
+                                if cosystem_setup and cosystem_setup.value_data: 
+                                    silicon = int(cosystem_setup.value_data)
+        
+
+                                lst = []
+                                if final != []:
+                                    for f in final:
+                                        fhstr = int(f[silicon:])
+                                        # newstr = f.replace(prefix,"")
+                                        # new_str = newstr.replace(code_site, "")
+                                        lst.append(fhstr)
+                                        lst.sort(reverse=True)
+
+                                    # print(lst,"lst")
+                                    c_no = int(lst[0]) + 1
+                                    # c_no = int(lst[0][-6:]) + 1
+                                    cart_id = str(control_obj.control_prefix)+str(control_obj.Site_Codeid.itemsite_code)+str(c_no)
+                                else:
+                                    cart_id = str(control_obj.control_prefix)+str(control_obj.Site_Codeid.itemsite_code)+str(control_obj.control_no)
+                            
+                            cartcuids = ItemCart.objects.filter(isactive=True,cust_noid=appobj.cust_noid,cart_date=cart_date,
+                            cart_id=cart_id,cart_status="Inprogress",is_payment=False,sitecodeid=site).exclude(type__in=type_ex).order_by('lineno')   
+                            if not cartcuids:
+                                lineno = 1
+                            else:
+                                rec = cartcuids.last()
+                                lineno = float(rec.lineno) + 1  
+
+                            gst = GstSetting.objects.filter(item_desc='GST',isactive=True).first()
+                            tax_value = 0.0
+                            if stockobj.is_have_tax == True:
+                                tax_value = gst.item_value if gst and gst.item_value else 0.0
+
+                            # print(j['appt_id'],"j['appt_id']")
+                            treat_type = None
+                            if j['appt_id']:
+                                # if master_ids:
+                                #     treat_type = master_ids
+                                if j['checktype']:
+                                    treat_type = j['checktype']    
+                                appment = appt_obj
+                            else:
+                                appment = app_nobj
+                                # treat_type = Treatment_Master.objects.filter(Appointment=app_nobj,site_code=site.itemsite_code).order_by('id').first()
+                                if j['checktype']:
+                                    treat_type = j['checktype']
+                            
+                            # print(appment,"appment")
+                            if treat_type and treat_type in ['service','package']:
+                                # if treat_type.checktype == "package":
+                                if j['checktype'] == "package" and j['treat_parentcode']:
+                                    # print("iff package")
+                                    #trmt_obj = Treatment.objects.filter(cust_code=appment.cust_noid.cust_code,site_code=site.itemsite_code,
+                                    #treatment_parentcode=treat_type.treat_parentcode,status='Open').order_by('pk').last()
+                                    trmt_obj = Treatment.objects.filter(cust_code=appment.cust_noid.cust_code,
+                                    treatment_parentcode=j['treat_parentcode'],status='Open').order_by('pk').last()
+
+                                    if trmt_obj:
+                                        deldata = TmpItemHelper.objects.filter(treatment=trmt_obj)
+                                        if not trmt_obj.helper_ids.all().exists() and not deldata:
+
+                                            # print(trmt_obj,"jkkk")
+
+                                            check_ids = ItemCart.objects.filter(isactive=True,cart_date=cart_date,cust_noid=appment.cust_noid,
+                                            type="Sales",treatment=trmt_obj,Appointment=appment)
+
+                                            if not check_ids: 
+                                                cart = ItemCart(cart_date=cart_date,phonenumber=appment.cust_noid.cust_phone2,
+                                                customercode=appment.cust_noid.cust_code,cust_noid=appment.cust_noid,lineno=lineno,
+                                                itemcodeid=stockobj,itemcode=stockobj.item_code,itemdesc=stockobj.item_desc+" "+trmt_obj.treatment_code,
+                                                quantity=1,price="{:.2f}".format(float(trmt_obj.unit_amount)),
+                                                sitecodeid=site,sitecode=site.itemsite_code,cart_status="Inprogress",cart_id=cart_id,
+                                                tax="{:.2f}".format(tax_value),check=check,ratio=100.00,
+                                                discount_price=float(trmt_obj.unit_amount) * 1.0,total_price=float(trmt_obj.unit_amount) * 1.0,
+                                                trans_amt=float(trmt_obj.unit_amount) * 1.0,deposit=0.0,type="Sales",treatment_account=trmt_obj.treatment_account,
+                                                treatment=trmt_obj,Appointment=appment)
+                                                cart.save()
+                                                cart.multi_treat.add(trmt_obj)
+
+                                                # print(cart.pk,"cart pk")
+                                                
+                                                
+
+                                                tmpcids = TmpItemHelper.objects.filter(treatment=trmt_obj,helper_id=appment.emp_noid)
+                                                # print(tmpcids,"tmpcids")
+
+                                                if not tmpcids:
+                                                    temph = TmpItemHelper(item_name=stockobj.item_desc,helper_id=appment.emp_noid,
+                                                    helper_name=appment.emp_noid.display_name,helper_code=appment.emp_noid.emp_code,Room_Codeid=appment.Room_Codeid,
+                                                    site_code=site.itemsite_code,times=trmt_obj.times,treatment_no=trmt_obj.treatment_no,
+                                                    wp1=stockobj.workcommpoints if stockobj.workcommpoints else 0,wp2=0.0,wp3=0.0,itemcart=cart,treatment=trmt_obj,Source_Codeid=appment.Source_Codeid,
+                                                    new_remark=appment.new_remark,workcommpoints=stockobj.workcommpoints)
+                                                    temph.save()
+                                                    # print(temph,"temph")
+
+                                                    trmt_obj.helper_ids.add(temph)
+                                                    cart.helper_ids.add(temph)
+                                                    cart.service_staff.add(appment.emp_noid)
+
+                                                sa = trmt_obj.helper_ids.all().first()
+                                                cart.sales_staff.add(sa.helper_id)
+                                                
+                                                
+                                                if cart.pk not in cartlst:
+                                                    cartlst.append(cart.pk)
+                                        
+
+                                # elif treat_type.checktype == "service":
+                                elif j['checktype'] == "service":
+                                    # print(appobj.pk,master_ids.checktype,"jjj")
+
+                                    check_ids = ItemCart.objects.filter(isactive=True,cart_date=cart_date,cust_noid=appment.cust_noid,
+                                    type="Deposit",Appointment=appment)
+
+                                    if not check_ids: 
+                                        cart = ItemCart(cart_date=cart_date,phonenumber=appment.cust_noid.cust_phone2,
+                                        customercode=appment.cust_noid.cust_code,cust_noid=appment.cust_noid,lineno=lineno,
+                                        itemcodeid=stockobj,itemcode=stockobj.item_code,itemdesc=stockobj.item_desc,
+                                        quantity=1,price="{:.2f}".format(float(stockobj.item_price)),
+                                        sitecodeid=site,sitecode=site.itemsite_code,cart_status="Inprogress",cart_id=cart_id,
+                                        tax="{:.2f}".format(tax_value),check=check,ratio=100.00,
+                                        discount_price=float(stockobj.item_price) * 1.0,
+                                        total_price=float(stockobj.item_price) * 1.0,
+                                        trans_amt=float(stockobj.item_price) * 1.0,
+                                        deposit=float(stockobj.item_price) * 1.0,
+                                        type="Deposit",Appointment=appment)
+                                        cart.save()
+
+                                        if cart.pk not in cartlst:
+                                            cartlst.append(cart.pk)
+
+                                        if cart.helper_ids.all().exists():
+                                            cart.helper_ids.all().delete()
+
+
+                                        tmpcids = TmpItemHelper.objects.filter(itemcart=cart,helper_id=appment.emp_noid)
+
+                                        if not tmpcids:
+                                            temph = TmpItemHelper(item_name=stockobj.item_desc,helper_id=appment.emp_noid,
+                                            helper_name=appment.emp_noid.display_name,helper_code=appment.emp_noid.emp_code,Room_Codeid=appment.Room_Codeid,
+                                            site_code=site.itemsite_code,times="01",
+                                            treatment_no="01",wp1=stockobj.workcommpoints if stockobj.workcommpoints else 0,wp2=0.0,wp3=0.0,itemcart=cart,Source_Codeid=appment.Source_Codeid,
+                                            new_remark=appment.new_remark,
+                                            workcommpoints=stockobj.workcommpoints)
+
+                                            temph.save()
+
+                                            cart.helper_ids.add(temph)
+
+                                        for s in cart.helper_ids.all(): 
+                                            cart.service_staff.add(s.helper_id)
+
+                                        logstaff = Employee.objects.filter(emp_code=fmspw.emp_code,emp_isactive=True).first()
+
+                                        if logstaff:
+                                            mul_ids = Tmpmultistaff.objects.filter(emp_id__pk=logstaff.pk,
+                                            itemcart__pk=cart.pk)
+                                            if not mul_ids:
+                                                cart.sales_staff.add(logstaff.pk)
+                                                ratio = 0.0; salescommpoints = 0.0
+                                                if cart.sales_staff.all().count() > 0:
+                                                    count = cart.sales_staff.all().count()
+                                                    ratio = float(cart.ratio) / float(count)
+                                                    salesamt = float(cart.trans_amt) / float(count)
+                                                    if stockobj.salescommpoints and float(stockobj.salescommpoints) > 0.0:
+                                                        salescommpoints = float(stockobj.salescommpoints) / float(count)
+
+
+                                                tmpmulti = Tmpmultistaff(item_code=stockobj.item_code,
+                                                emp_code=logstaff.emp_code,ratio=ratio,
+                                                salesamt="{:.2f}".format(float(salesamt)),type=None,isdelete=False,role=1,
+                                                dt_lineno=cart.lineno,itemcart=cart,emp_id=logstaff,salescommpoints=salescommpoints)
+                                                tmpmulti.save()
+                                                cart.multistaff_ids.add(tmpmulti.pk) 
+                        
+                    if j['appt_id']:
+                        appt_obj.save()
+                        # if master_ids:
+                        #     # print(master_ids.course,"course")
+                        #     master_ids.save()
+                        appment = appt_obj    
+                    else:
+                        app_nobj.save()
+                        appment = app_nobj
+                    
+                        
+
+                    apptlog = AppointmentLog(appt_id=appment,userid=log_emp,
+                    username=appt['editedby'] if 'editedby' in appt and appt['editedby'] else log_emp.display_name, 
+                    appt_date=appt['appt_date'],
+                    appt_fr_time=j['start_time'],appt_to_time=j['end_time'],
+                    emp_code=old_empcode,newempcode=emp_obj.emp_code,
+                    appt_status=appt['appt_status'],sec_status=appt['sec_status'],appt_remark=appment.appt_remark,
+                    item_code=stockobj.item_code,requesttherapist=j['requesttherapist'],
+                    add_duration=j['add_duration'],new_remark=appment.new_remark).save()
+
+                # print(cartlst,"cartlst") 
+                if cartlst != []:
+                    cart_ids = ItemCart.objects.filter(pk__in=cartlst)
+                    cartdata = list(set([i.cart_id for i in cart_ids]))
+                    # print(cartdata,"cartdata")
+
+                    result = {'status': status.HTTP_201_CREATED,"message":"Cart Created Succesfully ",'error': False,
+                    'data': cartdata[0]}
+                    return Response(result, status=status.HTTP_201_CREATED)
+
+                    
+                result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully ",'error': False}
+                return Response(result, status=status.HTTP_200_OK)
 
         except Exception as e:
            invalid_message = str(e)
@@ -6158,7 +6164,7 @@ class TreatmentApptAPI(generics.ListAPIView):
                     open_ids = Treatment.objects.filter(cust_code=cust_obj.cust_code,
                     treatment_parentcode=row.treatment_parentcode,status='Open').order_by('pk').count()
                     
-                    stock = Stock.objects.filter(item_code=row.item_code[:-4],item_isactive=True).first()
+                    stock = Stock.objects.filter(item_code=row.item_code[:-4]).first()
                     if stock:
                         if stock.srv_duration is None or stock.srv_duration == 0.0:
                             srvduration = 60
@@ -7753,7 +7759,7 @@ class postaudViewset(viewsets.ModelViewSet):
                                 pa_code = str(p.code)
                                 itm_code = pa_code[:-4]
                                 # print(itm_code,"itm_code")
-                                itmstock = Stock.objects.filter(item_code=itm_code,item_isactive=True).order_by('-pk').first()
+                                itmstock = Stock.objects.filter(item_code=itm_code).order_by('-pk').first()
                                 if itmstock:
                                     if int(itmstock.item_div) == 3:
                                         service_only += p.deposit_amt
@@ -12405,7 +12411,7 @@ class TmpItemHelperViewset(viewsets.ModelViewSet):
             else:
                 workcommpoints = cart_obj.itemcodeid.workcommpoints
 
-            stock_obj = Stock.objects.filter(pk=cart_obj.itemcodeid.pk,item_isactive=True).first()
+            stock_obj = Stock.objects.filter(pk=cart_obj.itemcodeid.pk).first()
             if stock_obj.srv_duration is None or stock_obj.srv_duration == 0.0:
                 srvduration = 60
             else:
@@ -13747,7 +13753,7 @@ class DayEndListAPIView(generics.ListAPIView):
                                                 packdtl_code = str(pa.code)
                                                 itm_code = packdtl_code[:-4]
                                                 # print(itm_code,"itm_code")
-                                                itmstock = Stock.objects.filter(item_code=itm_code,item_isactive=True).first()
+                                                itmstock = Stock.objects.filter(item_code=itm_code).first()
                                                 if itmstock:
                                                     # print(itmstock,"itmstock")
                                                     if int(itmstock.item_div) == 3:
@@ -13865,7 +13871,7 @@ class DayEndListAPIView(generics.ListAPIView):
                                     for pad in packdtlids:
                                         packdtlcode = str(pad.code)
                                         itmcode = packdtlcode[:-4]
-                                        itm_stock = Stock.objects.filter(item_code=itmcode,item_isactive=True).first()
+                                        itm_stock = Stock.objects.filter(item_code=itmcode).first()
                                         if itm_stock:
                                             pos_ids = PosPackagedeposit.objects.filter(sa_transacno=d.sa_transacno,
                                             code=pad.code,dt_lineno=c.dt_lineno).order_by('pk')
@@ -15909,95 +15915,109 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)
-
+    
+    @transaction.atomic
     def create(self, request):
         try:
-            state = status.HTTP_400_BAD_REQUEST
-            fmspw = Fmspw.objects.filter(user=request.user, pw_isactive=True)
-            queryset = None
-            serializer_class = None
-            total = None
-            serializer = CustomerPlusSerializer(data=request.data, context={'request': self.request, "action": self.action})
-            if 'cust_phone1' not in request.data:
-                request.data['cust_phone1'] = None
+            with transaction.atomic():
+                state = status.HTTP_400_BAD_REQUEST
+                fmspw = Fmspw.objects.filter(user=request.user, pw_isactive=True)
+                queryset = None
+                serializer_class = None
+                total = None
+                serializer = CustomerPlusSerializer(data=request.data, context={'request': self.request, "action": self.action})
+                if 'cust_phone1' not in request.data:
+                    request.data['cust_phone1'] = None
 
-            if 'cust_phone2' not in request.data:
-                request.data['cust_phone2'] = None
-            
-            if 'cust_phoneo' not in request.data:
-                request.data['cust_phoneo'] = None
-            
-            if 'phone4' not in request.data:
-                request.data['phone4'] = None
-
-
-            if serializer.is_valid():
-                self.perform_create(serializer)
-                site = fmspw[0].loginsite
-                if not site:
-                    result = {'status': status.HTTP_400_BAD_REQUEST,
-                              "message": "Users Employee Site_Codeid is not mapped!!", 'error': True}
-                    return Response(result, status=status.HTTP_400_BAD_REQUEST)
-
-                control_obj = ControlNo.objects.filter(control_description__iexact="VIP CODE",
-                                                       Site_Codeid__pk=site.pk).first()
-                if not control_obj:
-                    result = {'status': status.HTTP_400_BAD_REQUEST, "message": "Customer Control No does not exist!!",
-                              'error': True}
-                    return Response(result, status=status.HTTP_400_BAD_REQUEST)
-
-                cus_code = str(control_obj.Site_Codeid.itemsite_code) + str(control_obj.control_no)
-                gender = False;title = False;source = False
-                if request.data['Cust_sexesid']:
-                    gender_obj = Gender.objects.filter(pk=request.data['Cust_sexesid'], itm_isactive=True).first()
-                    if gender_obj and gender_obj.itm_code:
-                        gender = gender_obj.itm_code
-
-                if request.data['Cust_titleid']:
-                    title_obj = CustomerTitle.objects.filter(pk=request.data['Cust_titleid'],isactive=True).first()
-                    if title_obj and title_obj.itm_code:
-                        title = title_obj.itm_code
+                if 'cust_phone2' not in request.data:
+                    request.data['cust_phone2'] = None
                 
-                if request.data['Cust_Sourceid']:
-                    sou_obj = Source.objects.filter(pk=request.data['Cust_Sourceid'],source_isactive=True).first()
-                    if sou_obj and sou_obj.source_code:
-                        source = sou_obj.source_code
+                if 'cust_phoneo' not in request.data:
+                    request.data['cust_phoneo'] = None
+                
+                if 'phone4' not in request.data:
+                    request.data['phone4'] = None
+
+
+                if serializer.is_valid():
+                    self.perform_create(serializer)
+                    site = fmspw[0].loginsite
+                    if not site:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,
+                                "message": "Users Employee Site_Codeid is not mapped!!", 'error': True}
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+                    control_obj = ControlNo.objects.filter(control_description__iexact="VIP CODE",
+                                                        Site_Codeid__pk=site.pk).first()
+                    if not control_obj:
+                        result = {'status': status.HTTP_400_BAD_REQUEST, "message": "Customer Control No does not exist!!",
+                                'error': True}
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+                    cus_code = str(control_obj.Site_Codeid.itemsite_code) + str(control_obj.control_no)
+                    gender = False;title = False;source = False
+                    if request.data['Cust_sexesid']:
+                        gender_obj = Gender.objects.filter(pk=request.data['Cust_sexesid'], itm_isactive=True).first()
+                        if gender_obj and gender_obj.itm_code:
+                            gender = gender_obj.itm_code
+
+                    if request.data['Cust_titleid']:
+                        title_obj = CustomerTitle.objects.filter(pk=request.data['Cust_titleid'],isactive=True).first()
+                        if title_obj and title_obj.itm_code:
+                            title = title_obj.itm_code
                     
+                    if request.data['Cust_Sourceid']:
+                        sou_obj = Source.objects.filter(pk=request.data['Cust_Sourceid'],source_isactive=True).first()
+                        if sou_obj and sou_obj.source_code:
+                            source = sou_obj.source_code
+                        
 
-                k = serializer.save(site_code=site.itemsite_code, cust_code=cus_code,
-                                    cust_sexes=gender, cust_joindate=timezone.now(),
-                                    cust_title=title,cust_source=source)
-                
-                if request.data['cust_dob'] and request.data['cust_dob'] != str(date.today()):
-                    k.dob_status = True
-                    k.save()
-                                             
-                if k.pk:
-                    control_obj.control_no = int(control_obj.control_no) + 1
-                    control_obj.save()
+                    k = serializer.save(site_code=site.itemsite_code, cust_code=cus_code,
+                                        cust_sexes=gender, cust_joindate=timezone.now(),
+                                        cust_title=title,cust_source=source)
 
-                    CustLogAudit(customer_id=k,cust_code=cus_code,username=fmspw[0].pw_userlogin,
-                    user_loginid=fmspw[0],created_at=timezone.now()).save()
+                    if 'cust_corporate' in request.data and request.data['cust_corporate']:
+                        serializer.save(cust_corporate=request.data['cust_corporate'])
+                    
+                    if request.data['cust_dob'] and request.data['cust_dob'] != str(date.today()):
+                        k.dob_status = True
+                        k.save()
+                                                
+                    if k.pk:
+                        control_obj.control_no = int(control_obj.control_no) + 1
+                        control_obj.save()
 
-                state = status.HTTP_201_CREATED
-                message = "Created Succesfully "
-                error = False
-                data = serializer.data
+                        CustLogAudit(customer_id=k,cust_code=cus_code,username=fmspw[0].pw_userlogin,
+                        user_loginid=fmspw[0],created_at=timezone.now()).save()
+
+                        if 'contactperson' in request.data and request.data['contactperson']:
+                            person = request.data['contactperson']
+                            for idx, req in enumerate(person):
+                                cp = ContactPerson(name=req['name'],designation=req['designation'],
+                                mobile_phone=req['mobile_phone'],email=req['email'],
+                                customer_id=k) 
+                                cp.save()
+
+                    state = status.HTTP_201_CREATED
+                    message = "Created Succesfully "
+                    error = False
+                    data = serializer.data
+                    result = response(self, request, queryset, total, state, message, error, serializer_class, data,
+                                    action=self.action)
+                    return Response(result, status=status.HTTP_201_CREATED)
+
+                error = True
+                # print(serializer.errors,"serializer.errors")
+                data = serializer.errors
+                # print(data,"data")
+                if 'non_field_errors' in data:
+                    message = data['non_field_errors'][0]
+                else:
+                    message = "Invalid Input"
                 result = response(self, request, queryset, total, state, message, error, serializer_class, data,
-                                  action=self.action)
-                return Response(result, status=status.HTTP_201_CREATED)
+                                action=self.action)
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
-            error = True
-            # print(serializer.errors,"serializer.errors")
-            data = serializer.errors
-            # print(data,"data")
-            if 'non_field_errors' in data:
-                message = data['non_field_errors'][0]
-            else:
-                message = "Invalid Input"
-            result = response(self, request, queryset, total, state, message, error, serializer_class, data,
-                              action=self.action)
-            return Response(result, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)
@@ -16048,6 +16068,9 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
             serializer = CustomerPlusSerializer(customer, data=requestData, context={'request': self.request, "action": self.action})
             if serializer.is_valid():
                 serializer.save()
+                if 'cust_corporate' in requestData and requestData['cust_corporate']:
+                    customer.cust_corporate = requestData['cust_corporate']
+                    customer.save()
                 state = status.HTTP_200_OK
                 message = "Updated Succesfully"
                 error = False
@@ -18477,7 +18500,7 @@ class CustomerPointsViewsets(viewsets.ModelViewSet):
                                 pa_code = str(p.code)
                                 itm_code = pa_code[:-4]
                                 # print(itm_code,"itm_code")
-                                itmstock = Stock.objects.filter(item_code=itm_code,item_isactive=True).order_by('-pk').first()
+                                itmstock = Stock.objects.filter(item_code=itm_code).order_by('-pk').first()
                                 if itmstock:
                                     if int(itmstock.item_div) == 3:
                                         service_only += p.deposit_amt
@@ -19722,7 +19745,7 @@ class TmpTreatmentNewServiceAPIView(GenericAPIView):
                         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
                 
 
-                    stock_obj = Stock.objects.filter(pk=request.data['newservice_id'],item_isactive=True).first()
+                    stock_obj = Stock.objects.filter(pk=request.data['newservice_id']).first()
                     if not stock_obj:
                         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Stock ID does not exist!!",'error': True} 
                         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
@@ -19751,4 +19774,143 @@ class TmpTreatmentNewServiceAPIView(GenericAPIView):
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)     
-        
+
+
+
+class ContactPersonViewset(viewsets.ModelViewSet):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = ContactPerson.objects.filter(isactive=True).order_by('-pk')
+    serializer_class = ContactPersonSerializer
+    
+    @transaction.atomic
+    def create(self, request):
+        try:
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+                site = fmspw[0].loginsite
+
+                serializer = ContactPersonSerializer(data=request.data)
+                if serializer.is_valid():
+                    serializer.save()
+                    result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully",
+                    'error': False, 'data': serializer.data}
+                    return Response(result, status=status.HTTP_201_CREATED)
+                
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Invalid Input",
+                'error': True, 'data': serializer.errors}
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+    
+
+    def get_queryset(self):
+        queryset = ContactPerson.objects.filter(isactive=True).order_by('-pk')
+        customerid = self.request.GET.get('customerid','')
+       
+        if not customerid == '':
+            return ContactPerson.objects.filter(customer_id=customerid,isactive=True).order_by('-pk')
+
+    def list(self, request):
+        try:
+            serializer_class = ContactPersonSerializer
+            queryset = self.filter_queryset(self.get_queryset())
+            total = len(queryset)
+            state = status.HTTP_200_OK
+            message = "Listed Succesfully"
+            error = False
+            data = None
+            result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+            return Response(result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+
+
+    def get_object(self, pk):
+        try:
+            return ContactPerson.objects.get(pk=pk)
+        except ContactPerson.DoesNotExist:
+            raise Exception('ContactPerson Does not Exist') 
+
+    def retrieve(self, request, pk=None):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+            site = fmspw.loginsite
+            contact = self.get_object(pk)
+            serializer = ContactPersonSerializer(contact, context={'request': self.request})
+            result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
+            'data': serializer.data}
+            return Response(data=result, status=status.HTTP_200_OK)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message) 
+    
+    
+    def partial_update(self, request, pk=None):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+            site = fmspw.loginsite
+            contact = self.get_object(pk)
+
+            serializer = self.get_serializer(contact, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+
+                result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",
+                'error': False , 'data': serializer.data}
+                return Response(result, status=status.HTTP_200_OK)
+
+            result = {'status': status.HTTP_400_BAD_REQUEST,"message":serializer.errors,'error': True}
+            return Response(result, status=status.HTTP_200_OK)  
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)   
+
+    def destroy(self, request, pk=None):
+        try:
+            request.data["isactive"] = False
+            contact = self.get_object(pk)
+            serializer = ContactPersonSerializer(contact, data=request.data)
+            state = status.HTTP_204_NO_CONTENT
+            if serializer.is_valid():
+                serializer.save()
+                result = {'status': status.HTTP_200_OK,"message":"Deleted Succesfully",'error': False}
+                return Response(result, status=status.HTTP_200_OK)
+
+            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Invalid Input",
+            'error': True, 'data': serializer.errors}
+            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)       
+             
+    @action(detail=False, methods=['get'], name='contactlist')
+    def contactlist(self, request):
+        try:
+            if not self.request.GET.get('cust_id',None):
+                raise Exception('Please give customer id!!') 
+            cust_id = self.request.GET.get('cust_id',None)
+            cust_obj = Customer.objects.filter(pk=cust_id,cust_isactive=True).first()
+            if not cust_obj:
+                raise Exception('Customer ID does not exist!!') 
+            
+            if cust_obj.cust_corporate == True:
+                contactperson = list(ContactPerson.objects.filter(isactive=True,customer_id=cust_obj
+                ).values('name','mobile_phone'))
+                result = {'status': status.HTTP_200_OK,"message":"Listed Sucessfully",
+                'error': False, 'data': contactperson}
+                return Response(data=result, status=status.HTTP_200_OK)
+            else:
+                result = {'status': status.HTTP_200_OK,"message":"No Content",
+                'error': False, 'data': []}
+                return Response(data=result, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)       
+            
+

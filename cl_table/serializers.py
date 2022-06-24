@@ -6,7 +6,7 @@ BlockReason,AppointmentLog,Title, Workschedule, CustomerFormControl,Country,Stat
 CustomerClass, RewardPolicy, RedeemPolicy, Diagnosis, DiagnosisCompare, Securitylevellist,
 DailysalesdataDetail, DailysalesdataSummary,Holditemdetail,PrepaidAccount,CreditNote,TreatmentAccount,
 DepositAccount, CustomerPoint, MrRewardItemType,Smsreceivelog,Systemsetup,TreatmentProtocol,
-CustomerTitle,ItemDiv,Tempcustsign,CustomerDocument,TreatmentPackage)
+CustomerTitle,ItemDiv,Tempcustsign,CustomerDocument,TreatmentPackage,ContactPerson)
 from cl_app.models import ItemSitelist, SiteGroup
 from custom.models import EmpLevel,Room,VoucherRecord
 from django.contrib.auth.models import User
@@ -140,7 +140,7 @@ class CustomerSerializer(serializers.ModelSerializer):
         'upcoming_appointments','cust_dob','cust_phone2','Cust_sexesid','gender','cust_email','prepaid_card',
         'cust_nric','cust_country','cust_state','cust_postcode','cust_language','cust_source','emergencycontact',
         'cardno1','cardno2','cardno3','cardno4','cardno5','cust_class','cust_title','cust_phone1',
-        'creditnote','voucher_available','oustanding_payment','cust_refer','custallowsendsms','cust_maillist']
+        'creditnote','voucher_available','oustanding_payment','cust_refer','custallowsendsms','cust_maillist','cust_corporate']
         read_only_fields = ('cust_isactive','created_at', 'updated_at','last_visit','upcoming_appointments',
         'Site_Code','cust_code','ProneToComplain') 
         extra_kwargs = {'cust_name': {'required': True},'cust_address':{'required': True}} 
@@ -1766,6 +1766,12 @@ class CustApptSerializer(serializers.ModelSerializer):
             iscurrent = True
         elif instance.site_code != site.itemsite_code:
             iscurrent = False
+        contactperson = []
+
+        if instance.cust_corporate == True:
+            contactperson = list(ContactPerson.objects.filter(isactive=True,customer_id=instance
+            ).values('name','mobile_phone')) 
+            # print(contactperson,"contactperson")    
        
         mapped_object = {'id':instance.pk,'cust_name':instance.cust_name if instance.cust_name else "",
         'cust_phone1': instance.cust_phone2 if instance.cust_phone2 else "",
@@ -1775,7 +1781,9 @@ class CustApptSerializer(serializers.ModelSerializer):
         'custphone2': instance.cust_phone1 if instance.cust_phone1 else "",
         'site_code': instance.site_code,
         'cust_remark': instance.cust_remark if instance.cust_remark else "",
-        'cust_refer': instance.cust_refer if instance.cust_refer else "",'iscurrent':iscurrent}
+        'cust_refer': instance.cust_refer if instance.cust_refer else "",'iscurrent':iscurrent,
+        'cust_corporate': instance.cust_corporate,
+        'contactperson': contactperson}
         return mapped_object    
 
    
@@ -2635,7 +2643,7 @@ class CustomerPlusnewSerializer(serializers.ModelSerializer):
                   'cust_email', 'cardno1','cardno2','cardno3','cardno4','cardno5','phone4','cust_phoneo','cust_therapist_id',
                   'cust_consultant_id','cust_address1','cust_address2','cust_address3',
                   'prepaid_card','cust_occupation', 'creditnote','voucher_available','oustanding_payment','cust_refer',
-                  'custallowsendsms','cust_maillist','cust_title','cust_sexes','cust_class']
+                  'custallowsendsms','cust_maillist','cust_title','cust_sexes','cust_class','cust_corporate']
         read_only_fields = ('cust_isactive','created_at', 'updated_at','last_visit','upcoming_appointments',
         'Site_Code','cust_code','ProneToComplain')
         extra_kwargs = {'cust_name': {'required': True},'cust_phone2': {'required': False},}
@@ -2732,7 +2740,7 @@ class CustomerPlusSerializer(serializers.ModelSerializer):
                   'cust_email', 'cardno1','cardno2','cardno3','cardno4','cardno5','phone4','cust_phoneo','cust_therapist_id',
                   'cust_consultant_id','cust_address1','cust_address2','cust_address3',
                   'prepaid_card','cust_occupation', 'creditnote','voucher_available','oustanding_payment','cust_refer',
-                  'custallowsendsms','cust_maillist','cust_title','cust_sexes','cust_class']
+                  'custallowsendsms','cust_maillist','cust_title','cust_sexes','cust_class','cust_corporate']
         read_only_fields = ('cust_isactive','created_at', 'updated_at','last_visit','upcoming_appointments',
         'Site_Code','cust_code','ProneToComplain')
         extra_kwargs = {'cust_name': {'required': True},'cust_phone2': {'required': False},}
@@ -3049,3 +3057,10 @@ class GenderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Gender
         fields = ['id','itm_name','itm_code']        
+
+class ContactPersonSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='pk',required=False)
+
+    class Meta:
+        model = ContactPerson
+        fields = '__all__'

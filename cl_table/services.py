@@ -229,7 +229,8 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                             packdtl_code = str(pa.code)
                             itm_code = packdtl_code[:-4]
                             # print(itm_code,"itm_code")
-                            itmstock = Stock.objects.filter(item_code=itm_code,item_isactive=True).first()
+                            # itmstock = Stock.objects.filter(item_code=itm_code,item_isactive=True).first()
+                            itmstock = Stock.objects.filter(item_code=itm_code).first()
                             if itmstock:
                                 pos_ids = PosPackagedeposit.objects.filter(itemcart=c,code=pa.code)
                                 if pos_ids:
@@ -808,12 +809,17 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                             ppdescval = itmstock.item_name+" "+"(FOC)"
                                         else:
                                             ppdescval = itmstock.item_name
+
+                                        if pa_outstanding_acc == 0:
+                                            pre_remain = itmstock.prepaid_value
+                                        else:
+                                            pre_remain = pa_deposit    
                                         
                                         #remain=c.deposit
                                         paprepacc = PrepaidAccount(pp_no=sa_transacno,pp_type=itmstock.item_range if itmstock.item_range else None,
                                         pp_desc=ppdescval,exp_date=pprepaid_valid_period,cust_code=cust_obj.cust_code,
                                         cust_name=cust_obj.cust_name,pp_amt=itmstock.prepaid_sell_amt,pp_total=itmstock.prepaid_value,
-                                        pp_bonus=ppbonus,transac_no="",item_no="",use_amt=0,remain=pa_deposit,ref1="",
+                                        pp_bonus=ppbonus,transac_no="",item_no="",use_amt=0,remain=pre_remain,ref1="",
                                         ref2="",status=True,site_code=site.itemsite_code,sa_status="DEPOSIT",exp_status=True,
                                         voucher_no='',isvoucher=False,has_deposit=True,topup_amt=pa_deposit,
                                         outstanding=pa_outstanding_acc if pa_outstanding_acc is not None and pa_outstanding_acc > 0 else 0,active_deposit_bonus=True,topup_no="",topup_date=None,
@@ -836,7 +842,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                             pp_desc=ppdescval,p_itemtype=','.join([v.p_itemtype for v in vo_obj if v.p_itemtype]),
                                             item_code=itmstock.item_code,conditiontype1=','.join([v.conditiontype1 for v in vo_obj if v.conditiontype1]),
                                             conditiontype2=','.join([v.conditiontype2 for v in vo_obj if v.conditiontype2]),
-                                            amount=vo_obj.first().amount,rate=vo_obj.first().rate,use_amt=0,remain=pa_trasac,
+                                            amount=vo_obj.first().amount,rate=vo_obj.first().rate,use_amt=0,remain=pre_remain,
                                             pos_daud_lineno=c.lineno,lpackage=True,package_code=packhdr_ids.code,package_code_lineno=p.deposit_lineno)
                                             ppacc.save()
                                             # print(ppacc.pk,"ppacc")
@@ -1170,7 +1176,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                     pp_desc=pp_descval,p_itemtype=','.join([v.p_itemtype for v in vo_obj if v.p_itemtype]),
                     item_code=c.itemcodeid.item_code,conditiontype1=','.join([v.conditiontype1 for v in vo_obj if v.conditiontype1]),
                     conditiontype2=','.join([v.conditiontype2 for v in vo_obj if v.conditiontype2]),
-                    amount=v_amount,rate=vo_obj.first().rate if vo_obj else 0,use_amt=0,remain=v_remain,
+                    amount=v_amount,rate=vo_obj.first().rate if vo_obj else 0,use_amt=0,remain=remain,
                     pos_daud_lineno=c.lineno)
                     pp_acc.save()
                     # print(pp_acc.pk,"pp_acc")
@@ -1327,10 +1333,13 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                     
                     treat_type = "N"
                     treatment_limit_times = None
+                    flexipoints = None
+
                     if c.is_flexi == True:
                         expiry = c.treat_expiry
                         treat_type = c.treat_type
                         treatment_limit_times = c.treatment_limit_times
+                        flexipoints = c.itemcodeid.flexipoints if c.itemcodeid.flexipoints else None
                     
                     for i in range(1,int(number)+1):
                         treat = c
@@ -1355,7 +1364,8 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                             sa_transacno=sa_transacno,sa_status="SA",type=treat_type,trmt_is_auto_proportion=False,
                             dt_lineno=c.lineno,site_code=site.itemsite_code,Site_Codeid=site,isfoc=tmptrd_ids.isfoc,
                             treatment_account=treatacc,service_itembarcode=str(treat.itemcodeid.item_code)+"0000",
-                            expiry=expiry,next_appt=tmptrd_ids.next_appt,treatment_limit_times=treatment_limit_times)
+                            expiry=expiry,next_appt=tmptrd_ids.next_appt,treatment_limit_times=treatment_limit_times,
+                            flexipoints=flexipoints)
                         else:
                             treatmentid = Treatment(treatment_code=str(treatment_parentcode)+"-"+str(times),
                             treatment_parentcode=treatment_parentcode,course=course_val,times=times,
@@ -1365,7 +1375,8 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                             sa_transacno=sa_transacno,sa_status="SA",type=treat_type,trmt_is_auto_proportion=False,
                             dt_lineno=c.lineno,site_code=site.itemsite_code,Site_Codeid=site,isfoc=isfoc_val,
                             treatment_account=treatacc,service_itembarcode=str(treat.itemcodeid.item_code)+"0000",
-                            expiry=expiry,treatment_limit_times=treatment_limit_times)
+                            expiry=expiry,treatment_limit_times=treatment_limit_times,
+                            flexipoints=flexipoints)
 
                         treatmentid.save() 
                         treatmentid.treatment_date = pay_date
@@ -1786,7 +1797,7 @@ def invoice_topup(self, request, topup_ids,sa_transacno, cust_obj, outstanding, 
                 item_remarks = None   
             
             
-            stock = Stock.objects.filter(pk=c.itemcodeid.pk,item_isactive=True).first()
+            stock = Stock.objects.filter(pk=c.itemcodeid.pk).first()
             multi_itemcode = None
             calcgst = 0
             if gst:
@@ -2471,7 +2482,15 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                             # print(times_t,"times_t")
                             # print(treatment_no_t,"treatment_no_t")
                             f_treatment_code = ct.treatment_parentcode+"-"+times_t 
-                            # print(f_treatment_code,"f_treatment_code")   
+                            # print(f_treatment_code,"f_treatment_code")  
+
+                            ftreat_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode).order_by('-pk').first()
+                            
+                            deductpoint = None
+                            if ftreat_ids and ftreat_ids.flexipoints and tm.newservice_id.redeempoints:
+                                if ftreat_ids.flexipoints > tm.newservice_id.redeempoints:
+                                    deductpoint = ftreat_ids.flexipoints - tm.newservice_id.redeempoints
+
 
                             gtreatids = Treatment(treatment_code=f_treatment_code,course=tm.newservice_id.item_name,times=times_t,
                             treatment_no=treatment_no_t,price=ct.price,treatment_date=timezone.now(),
@@ -2486,7 +2505,8 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                             treatment_count_done=ct.treatment_count_done,treatment_history_last_modify=ct.treatment_history_last_modify,
                             service_itembarcode=tm.newservice_id.item_code+"0000",isfoc=ct.isfoc,Trmt_Room_Codeid=ct.Trmt_Room_Codeid,
                             trmt_room_code=ct.trmt_room_code,trmt_is_auto_proportion=ct.trmt_is_auto_proportion,
-                            smsout=ct.smsout,emailout=ct.emailout,treatment_account=ct.treatment_account).save()
+                            smsout=ct.smsout,emailout=ct.emailout,treatment_account=ct.treatment_account,
+                            flexipoints=deductpoint,redeempoints=tm.newservice_id.redeempoints if tm.newservice_id.redeempoints else None).save()
                             
                             tm.status = "Done"
                             tm.save()

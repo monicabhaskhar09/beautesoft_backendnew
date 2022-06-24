@@ -472,6 +472,9 @@ class Treatment(models.Model):
     treatment_account = models.ForeignKey('cl_table.TreatmentAccount', on_delete=models.PROTECT, null=True)
     helper_ids = models.ManyToManyField('cl_table.TmpItemHelper', related_name='tmpitemhelper', blank=True)
     is_datainsert = models.BooleanField(default=False)
+    flexipoints = models.FloatField(db_column='flexipoints', blank=True, null=True)
+    redeempoints = models.FloatField(db_column='redeempoints', blank=True, null=True)
+
 
     class Meta:
         db_table = 'Treatment'
@@ -1054,6 +1057,7 @@ class Customer(models.Model):
     class_name = models.CharField(max_length=40, blank=True, null=True)
     source_name = models.CharField(max_length=40, blank=True, null=True)
     title_name = models.CharField(max_length=40, blank=True, null=True)
+    cust_corporate = models.BooleanField(db_column='cust_corporate',default=False)
 
     def save(self, *args,**kwargs):
         if self.Cust_Classid:
@@ -2458,6 +2462,8 @@ class Stock(models.Model):
     pinyin = models.CharField(db_column='Pinyin', max_length=500, blank=True, null=True)  # Field name made lowercase.
     item_seq = models.IntegerField(default=1, null=True)  # Field name made lowercase.
     item_price_ceiling = models.FloatField(db_column='Item_Price_Ceiling', blank=True, null=True)  # Field name made lowercase.
+    flexipoints = models.FloatField(db_column='flexipoints', blank=True, null=True)
+    redeempoints = models.FloatField(db_column='redeempoints', blank=True, null=True)
 
     class Meta:
         db_table = 'Stock'
@@ -3856,3 +3862,15 @@ class CustLogAudit(models.Model):
 
     class Meta:
         db_table = 'CustLogAudit'
+
+class ContactPerson(models.Model):
+    id = models.AutoField(db_column='ID', primary_key=True) 
+    name = models.CharField(db_column='name', max_length=500, blank=True, null=True)
+    designation = models.CharField(db_column='designation', max_length=500, blank=True, null=True)  
+    mobile_phone = models.CharField(db_column='Mobile_phone', max_length=255, blank=True, null=True)  # Field name made lowercase.
+    email = models.EmailField(db_column='email', max_length=255, blank=True, null=True)  # Field name made lowercase.
+    isactive = models.BooleanField(default=True)
+    customer_id = models.ForeignKey('cl_table.Customer', on_delete=models.PROTECT,null=True)  
+
+    class Meta:
+        db_table = 'ContactPerson'

@@ -48,6 +48,8 @@ router.register(r'deliveryorderaddr', views.DeliveryOrderAddrViewset, 'deliveryo
 
 router.register(r'poaddr', views.POAddrViewset, 'poaddr')
 router.register(r'quotationdetail', views.QuotationDetailViewset, 'quotationdetail')
+router.register(r'quotationpayment', views.QuotationPaymentViewset, 'quotationpayment')
+router.register(r'manualpayment', views.ManualInvPaymentViewset, 'manualpayment')
 router.register(r'manualinvoicedetail', views.ManualInvoiceDetailViewset, 'manualinvoicedetail')
 router.register(r'workorderinvoicedetail', views.WorkOrderInvoiceDetailViewset, 'workorderinvoicedetail')
 router.register(r'deliveryorderdetail', views.DeliveryOrderDetailViewset, 'deliveryorderdetail')
@@ -111,6 +113,7 @@ router.register(r'deliveryordersign', views.DeliveryOrderSignViewset)
 router.register(r'equipmentdropdown', views.EquipmentDropdownViewset, 'equipmentdropdown')
 router.register(r'equipmentusagelist', views.EquipmentUsageViewset, 'equipmentusagelist')
 router.register(r'equipmentusageitem', views.EquipmentUsageItemModelViewset, 'equipmentusageitem')
+router.register(r'currencytable', views.CurrencytableViewset, 'currencytable')
 
 
 # The API URLs are now determined automatically by the router.
@@ -140,6 +143,7 @@ urlpatterns = [
     path('api/equipmentusageissue/', views.EquipmentUsageIssueReturn.as_view(), name='equipmentusageissue'),
     path('api/staffequipmentlist/', views.StaffEquipmentAPIView.as_view(), name='staffequipmentlist'),
     path('api/itemequipmentlist/', views.ItemEquipmentAPIView.as_view(), name='itemequipmentlist'),
+    path('api/projectsearch/', views.ProjectSearchAPI.as_view(), name='projectsearch'),
 
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 

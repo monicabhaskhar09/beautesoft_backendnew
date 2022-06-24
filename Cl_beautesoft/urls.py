@@ -44,6 +44,7 @@ router.register(r'itemdescapiviewset', views.ItemDescAPIViewset, basename='itemd
 router.register(r'customerpoints', views.CustomerPointsViewsets, basename='customerpoints')
 router.register(r'tempcustsigninvoice', views.TempcustsignInvoiceViewset, basename='tempcustsigninvoice')
 router.register(r'customerdocument', views.CustomerDocumentViewset, basename='customerdocument')
+router.register(r'contactperson', views.ContactPersonViewset, basename='contactperson')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
