@@ -839,6 +839,41 @@ class QuotationItemSerializer(serializers.ModelSerializer):
         model = QuotationItemModel
         fields = '__all__'
 
+class QuotationItemDiscountSerializer(serializers.ModelSerializer): 
+   
+    class Meta:
+        model = ItemCart
+        fields = ['id','quotation_itemdesc','quotation_quantity','quotation_unitprice',
+        'discount_price','trans_amt']
+
+    def to_representation(self, obj):
+        disclst_ids = obj.pos_disc.all().filter()
+        disc_lst = [{'id': i.pk, 'disc_per': i.disc_percent, 
+        'disc_amt': i.disc_amt,
+        'remark': i.remark, 'transac': True if i.istransdisc == True else False} for i in disclst_ids]
+        
+        price = obj.quotation_unitprice
+        for i in disc_lst:
+            i['amount'] = "{:.2f}".format(float(price))
+            val = float(price) - float(i['disc_amt'])
+            i['after_disc'] = "{:.2f}".format(float(val))
+            i['disc_amt'] = "{:.2f}".format(float(i['disc_amt']))
+            price = val
+
+
+        mapped_object = {
+            'id': obj.id,
+            'itemdesc' : obj.quotation_itemdesc,
+            'quantity': obj.quotation_quantity,
+            'price': "{:.2f}".format(float(obj.quotation_unitprice)),
+            'discount_price' : "{:.2f}".format(float(obj.discount_price)),
+            'trans_amt' : "{:.2f}".format(float(obj.trans_amt)),
+            'disc_lst' : disc_lst
+            }
+       
+        return mapped_object     
+
+
 class ManualInvoiceItemSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source='pk',required=False)
 

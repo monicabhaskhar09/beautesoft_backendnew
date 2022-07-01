@@ -23,7 +23,8 @@ from .models import (Gender, Employee, Fmspw, Attendance2, Customer, Images, Tre
                      Securitylevellist, DailysalesdataSummary, DailysalesdataDetail, Multilanguage, MultiLanguageWord, Workschedule,
                      Religious, Nationality, Races, DailysalestdSummary,
                      MrRewardItemType,CustomerPoint,TreatmentDuration,Smsreceivelog,TreatmentProtocol,CustomerTitle,CustomerPointDtl,
-                     ItemDiv,Tempcustsign,CustomerDocument,TreatmentPackage,Tmptreatment,CustLogAudit,ContactPerson)
+                     ItemDiv,Tempcustsign,CustomerDocument,TreatmentPackage,Tmptreatment,CustLogAudit,ContactPerson,
+                     ItemFlexiservice)
 from cl_app.models import ItemSitelist, SiteGroup, LoggedInUser
 from custom.models import Room,ItemCart,VoucherRecord,EmpLevel,PosPackagedeposit,payModeChangeLog
 from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializer, Attendance2Serializer,
@@ -59,7 +60,8 @@ from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializ
                           CustomerPointSerializer, MGMSerializer,SMSReplySerializer,ConfirmBookingApptSerializer,
                           ItemDescSerializer,TempcustsignSerializer,CustomerDocumentSerializer,
                           TreatmentPackageSerializer,ItemSitelistIntialSerializer,StaffInsertSerializer,
-                          FmspwSerializernew,GenderSerializer,CustomerPlusnewSerializer,ContactPersonSerializer)
+                          FmspwSerializernew,GenderSerializer,CustomerPlusnewSerializer,ContactPersonSerializer,
+                          ItemFlexiserviceSerializer)
 from datetime import date, timedelta, datetime
 import datetime
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
@@ -4925,8 +4927,8 @@ class AppointmentEditViewset(viewsets.ModelViewSet):
                 appt = request.data.get('appointment')
                 treat = request.data.get('treatment')
 
-                apptpw_setup = Systemsetup.objects.filter(title='appointmentPassword',
-                value_name='appointmentPassword',isactive=True).first()
+                apptpw_setup = Systemsetup.objects.filter(title='appointmentEditPassword',
+                value_name='appointmentEditPassword',isactive=True).first()
                 
 
                 if apptpw_setup and apptpw_setup.value_data == 'True':
@@ -5886,6 +5888,9 @@ class AppointmentSortAPIView(generics.ListCreateAPIView):
 
     def create(self, request):
         try:
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True).first()
+            site = fmspw.loginsite   
+    
             if not request.data['emp_ids'] or request.data['emp_ids'] == [] or request.data['emp_ids'] is None:
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please Select Employee!!",'error': True} 
                 return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
@@ -5906,6 +5911,11 @@ class AppointmentSortAPIView(generics.ListCreateAPIView):
                             result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Employee ID does not exist!!",'error': True} 
                             return Response(result, status=status.HTTP_400_BAD_REQUEST) 
 
+                        emp_siteids = EmpSitelist.objects.filter(Site_Codeid__pk=site.pk,isactive=True,
+                        Emp_Codeid__pk=empobj.pk).first() 
+                        if emp_siteids:
+                            emp_siteids.emp_seq_webappt = idx
+                            emp_siteids.save()  
                         empobj.emp_seq_webappt = idx  
                         empobj.save() 
 
@@ -7387,6 +7397,8 @@ class UsersList(APIView):
             value_name='Confirm Customer Booking',isactive=True).first()
             apptpw_setup = Systemsetup.objects.filter(title='appointmentPassword',
             value_name='appointmentPassword',isactive=True).first()
+            apptedit_setup = Systemsetup.objects.filter(title='appointmentEditPassword',
+            value_name='appointmentEditPassword',isactive=True).first()
             staffskill_setup = Systemsetup.objects.filter(title='staffskill',
             value_name='staffskill',isactive=True).first()
             transacdisc_setup = Systemsetup.objects.filter(title='TransacDisc Username Popup',
@@ -7432,6 +7444,7 @@ class UsersList(APIView):
             'confirmbook': True if confirmbok_setup and confirmbok_setup.value_data == 'True' else False,
             'controlsite' :  controlsite,
             'appt_pw' : True if apptpw_setup and apptpw_setup.value_data == 'True' else False,
+            'apptedit_pw' : True if apptedit_setup and apptedit_setup.value_data == 'True' else False,
             'staffskill': True if staffskill_setup and staffskill_setup.value_data == 'True' else False,
             'transacdisc': True if transacdisc_setup and transacdisc_setup.value_data == 'True' else False,
             'login_id' : fmspw.pk,
@@ -11601,10 +11614,11 @@ class EmployeeAppointmentViewNew(viewsets.ModelViewSet):
 
                                 if custobj.cust_sexes:
                                     gendr = Gender.objects.filter(itm_code=custobj.cust_sexes).first()
-                                    if gendr.itm_code == "1":
-                                        gender = "M"
-                                    elif gendr.itm_code == "2":
-                                        gender = "F"            
+                                    if gendr:
+                                        if gendr.itm_code == "1":
+                                            gender = "M"
+                                        elif gendr.itm_code == "2":
+                                            gender = "F"            
 
                             if obj.new_remark:
                                 remark_val = "["+str(obj.new_remark)+" - "+"Remark By: "+str(obj.appt_created_by)+" - "+str(apptdate)+"]"
@@ -15454,7 +15468,7 @@ class MonthlyAllSchedule(APIView):
         # site_code = request.GET.get("site_code",emp_obj.site_code)
 
         try:
-            emp_qs = Employee.objects.filter(Site_Codeid=site,emp_isactive=True)
+            emp_qs = Employee.objects.filter(Site_Codeid=site,emp_isactive=True).order_by("pk")
             # todo: more filters
             full_tot = emp_qs.count()
             try:
@@ -19914,3 +19928,56 @@ class ContactPersonViewset(viewsets.ModelViewSet):
             return general_error_response(invalid_message)       
             
 
+class ItemFlexiserviceListAPIView(generics.ListAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    serializer_class = ItemFlexiserviceSerializer
+
+    def list(self, request):
+        try:
+            if not self.request.GET.get('item_code',None):
+                raise Exception('Please give Item Code!!')
+              
+            query_set =  ItemFlexiservice.objects.filter(item_code=self.request.GET.get('item_code',None),
+            itm_isactive=True).order_by('item_srvdesc')
+
+           
+                        
+            if query_set:
+                full_tot = query_set.count()
+                try:
+                    limit = int(request.GET.get("limit",10))
+                except:
+                    limit = 10
+                try:
+                    page = int(request.GET.get("page",1))
+                except:
+                    page = 1
+
+                paginator = Paginator(query_set, limit)
+                total_page = paginator.num_pages
+
+                try:
+                    queryset = paginator.page(page)
+                except (EmptyPage, InvalidPage):
+                    queryset = paginator.page(total_page) # last page
+
+                serializer = self.get_serializer(queryset, many=True)
+                resData = {
+                    'dataList': serializer.data,
+                    'pagination': {
+                           "per_page":limit,
+                           "current_page":page,
+                           "total":full_tot,
+                           "total_pages":total_page
+                    }
+                }
+                result = {'status': status.HTTP_200_OK,"message": "Listed Succesfully",'error': False, 'data':  resData}
+                   
+            else:
+                serializer = self.get_serializer()
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+            return Response(data=result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)    

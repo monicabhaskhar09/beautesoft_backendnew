@@ -23,7 +23,7 @@ VoucherRecordAccSerializer,DeliveryOrderSerializer,DeliveryOrderAddrSerializer,D
 DeliveryOrderItemSerializer,DeliveryOrdersignSerializer,InvoiceListingSerializer,WorkOrderInvNoSerializer,
 EquipmentDropdownSerializer,EquipmentUsageSerializer,EquipmentUsageItemModelSerializer,StaffEquipmentSerializer,
 ItemEquipmentSerializer,ProjectSearchSerializer,CurrencytableSerializer,QuotationPaymentSerializer,
-ManualInvPaymentSerializer)
+ManualInvPaymentSerializer,QuotationItemDiscountSerializer)
 from .models import (EmpLevel, Room, Combo_Services, ItemCart,VoucherRecord,RoundPoint, RoundSales,
 PaymentRemarks, HolditemSetup,PosPackagedeposit,SmtpSettings,MultiPricePolicy,salesStaffChangeLog,
 serviceStaffChangeLog,dateChangeLog,  TimeLogModel, ProjectModel, ActivityModel, QuotationModel, POModel, QuotationAddrModel, 
@@ -36,7 +36,7 @@ ManualInvoiceModel,ManualInvoiceDetailModel,ManualInvoiceAddrModel,ManualInvoice
 WorkOrderInvoiceDetailModel,WorkOrderInvoiceAddrModel,WorkOrderInvoiceItemModel,DeliveryOrderModel,
 DeliveryOrderDetailModel,DeliveryOrderAddrModel,DeliveryOrderItemModel,DeliveryOrdersign,
 EquipmentDropdownModel,EquipmentUsage,EquipmentUsageItemModel,Currencytable,QuotationPayment,
-ManualInvoicePayment)
+ManualInvoicePayment,PosDiscQuant)
 from cl_table.models import(Treatment, Employee, Fmspw, Stock, ItemClass, ItemRange, Appointment,Customer,Treatment_Master,
 GstSetting,PosTaud,PosDaud,PosHaud,ControlNo,EmpSitelist,ItemStatus, TmpItemHelper, FocReason, PosDisc,
 TreatmentAccount, PosDaud, ItemDept, DepositAccount, PrepaidAccount, ItemDiv, Systemsetup, Title,
@@ -12158,11 +12158,14 @@ class QuotationListViewset(viewsets.ModelViewSet):
                     queryt = QuotationDetailModel.objects.filter(fk_quotation_id=allquery.id,active='active').order_by('-pk')        
                     
                     for allqueryt in queryt:
-                        if not allqueryt.q_total == '' and allqueryt.q_total is not None:
-                            try:
-                                t_amount += int(allqueryt.q_total)
-                            except:
-                                t_amount += 0
+                        # if not allqueryt.q_total == '' and allqueryt.q_total is not None:
+                        #     try:
+                        #         t_amount += int(allqueryt.q_total)
+                        #     except:
+                        #         t_amount += 0
+
+                        t_amount += int(allqueryt.q_total) if allqueryt.q_total else 0
+
                     serializer = DateFormatSerializer.datetime_formatting(self,allquery)
                     data_list.append({
                         "id": allquery.id,
@@ -14682,7 +14685,9 @@ class QuotationItemViewset(viewsets.ModelViewSet):
             serializer = self.get_serializer(data=request.data)
             if serializer.is_valid():
                 self.perform_create(serializer)
-                serializer.save()
+                serializer.save(discount_price=float(request.data['quotation_unitprice']) * 1, 
+                trans_amt=float(request.data['quotation_unitprice']) * int(request.data['quotation_quantity']),
+                auto=True)
                 state = status.HTTP_201_CREATED
                 message = "Created Succesfully"
                 error = False
@@ -14740,7 +14745,7 @@ class QuotationItemViewset(viewsets.ModelViewSet):
                     queryset = paginator.page(total_page) # last page
                 data_list= []
                 for allquery in queryset:
-
+                    tot_disc = allquery.discount_amt + allquery.additional_discountamt
                     data_list.append({
                         "id": allquery.id,
                         "quotation_quantity": allquery.quotation_quantity,
@@ -14749,7 +14754,10 @@ class QuotationItemViewset(viewsets.ModelViewSet):
                         "quotation_itemcode": allquery.quotation_itemcode,
                         "quotation_itemdesc": allquery.quotation_itemdesc,
                         "active": allquery.active,
-                        "fk_quotation_id": allquery.fk_quotation_id
+                        "fk_quotation_id": allquery.fk_quotation_id,
+                        "discount_price" : "{:.2f}".format(allquery.discount_price),
+                        "trans_amt" :  "{:.2f}".format(allquery.trans_amt),
+                        "discount" : "{:.2f}".format(tot_disc),
                     })    
                     
                 
@@ -14771,32 +14779,238 @@ class QuotationItemViewset(viewsets.ModelViewSet):
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)          
-
+    
+    @transaction.atomic
     def update(self, request, pk=None):
-        try:
-            queryset = None
-            total = None
-            serializer_class = None
-            quotationitem = self.get_object(pk)
-            serializer = QuotationItemSerializer(quotationitem, data=request.data)
-            if serializer.is_valid():
-                serializer.save()
-                state = status.HTTP_200_OK
-                message = "Updated Succesfully"
-                error = False
-                data = serializer.data
+        # try:
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True).first()
+                site = fmspw.loginsite
+            
+                empl = fmspw.Emp_Codeid
+
+                queryset = None
+                total = None
+                serializer_class = None
+                quotationitem = self.get_object(pk)
+                if not self.request.GET.get('disc_reset',None) is None and int(self.request.GET.get('disc_reset',None)) == 1 and not self.request.GET.get('disc_add',None) is None and int(self.request.GET.get('disc_add',None)) == 1:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Disc Add and Reset will not be allowed at the same time!!",'error': True} 
+                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+                
+                if not self.request.GET.get('disc_reset',None) is None and int(self.request.GET.get('disc_reset',None)) == 1:
+                    trascamt = float(quotationitem.quotation_unitprice) * int(quotationitem.quotation_quantity)
+                    QuotationItemModel.objects.filter(id=quotationitem.id).update(discount=0.0,discount_amt=0.0,
+                    additional_discount=0.0,additional_discountamt=0.0,
+                    discount_price=float(quotationitem.quotation_unitprice),trans_amt=trascamt)
+                    for existing in quotationitem.disc_reason.all():
+                        quotationitem.disc_reason.remove(existing) 
+
+                    quotationitem.pos_disc.all().filter(istransdisc=False,dt_status='New').delete()
+                    quotationitem.pos_disc.all().filter().delete()
+
+                    result = {'status': status.HTTP_200_OK,"message":"Reset Succesfully",'error': False}
+                    return Response(result, status=status.HTTP_200_OK)
+
+
+            
+                serializer = QuotationItemSerializer(quotationitem, data=request.data)
+                if serializer.is_valid():
+                    if not self.request.GET.get('disc_add',None) is None and int(self.request.GET.get('disc_add',None)) == 1:
+                        if not request.data['discreason']:
+                            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please select discount reason before apply discount.",'error': True} 
+                            return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+            
+
+                        if not 'discount' in request.data and not 'discount_amt' in request.data:
+                            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give either Discount / Discount Amount,Both should not be zero!!",'error': True} 
+                            return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                        else:
+                            if 'discount' in request.data and 'discount_amt' in request.data:
+                                if not float(request.data['discount']) >= 0 and float(request.data['discount_amt']) >= 0:
+                                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give either Discount / Discount Amount,Both should not be zero!!",'error': True} 
+                                    return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                        
+                        stock_obj = Stock.objects.filter(item_code=quotationitem.quotation_itemcode).order_by('-pk').first()
+                        if stock_obj and stock_obj.disclimit == 0.0:
+                            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Discount is not allowed for this product !!",'error': True} 
+                            return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
+
+                        if 'discount' in request.data and float(request.data['discount']) != 0.0:
+                            
+                            if stock_obj:
+                                if float(request.data['discount']) > stock_obj.disclimit:
+                                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Discount is not greater than stock discount!!",'error': True} 
+                                    return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
+                            if float(request.data['discount']) > float(quotationitem.quotation_unitprice):
+                                msg = "Discount is > {0} !".format(quotationitem.quotation_unitprice)
+                                result = {'status': status.HTTP_400_BAD_REQUEST,"message":msg,'error': True} 
+                                return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                            
+                            discount = quotationitem.discount + float(request.data['discount'])
+                            discount_amt = quotationitem.discount_amt + float(request.data['discount_amt'])
+                        
+
+                            value = float(quotationitem.quotation_unitprice) - discount_amt
+                            amount = value * int(quotationitem.quotation_quantity)
+                            if float(amount) <= 0.0:
+                                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Transac amount Should not be negative!!",'error': True} 
+                                return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+                    
+                            QuotationItemModel.objects.filter(id=quotationitem.id).update(discount=discount,
+                            discount_amt=discount_amt,discount_price=value,trans_amt=amount)
+                        else:
+                            if 'discount_amt' in request.data and float(request.data['discount_amt']) != 0.0:
+                                
+                                discamt = float(request.data['discount_amt'])
+                                dt_discPercent = (float(discamt) * 100) / float(quotationitem.quotation_unitprice)
+                                if stock_obj:
+                                    if dt_discPercent  > stock_obj.disclimit: 
+                                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Discount is not greater than stock discount!!",'error': True} 
+                                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                                    
+                                if float(request.data['discount_amt']) > float(quotationitem.quotation_unitprice):
+                                    msg = "Discount is > {0} !".format(quotationitem.quotation_unitprice)
+                                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":msg,'error': True} 
+                                    return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                                
+                                discount = quotationitem.discount + float(request.data['discount'])
+                                discount_amt = quotationitem.discount_amt + float(request.data['discount_amt'])
+                            
+                                value = float(quotationitem.quotation_unitprice) - discount_amt
+                                # print(value,"value")
+                                amount = value * int(quotationitem.quotation_quantity)
+                                # print(amount,"amount")
+                                if float(amount) <= 0.0:
+                                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Transac amount Should not be negative!!",'error': True} 
+                                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+                    
+                                QuotationItemModel.objects.filter(id=quotationitem.id).update(discount=discount,
+                                discount_amt=discount_amt,discount_price=value,trans_amt=amount)
+                            
+                        #disc reason 
+
+                        if 'discreason' in request.data and not request.data['discreason'] is None and request.data['discreason'] != '':
+                        
+                            discobj = PaymentRemarks.objects.filter(pk=request.data['discreason'],isactive=True).first()
+                            if not discobj:
+                                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Disc Reason ID does not exist!!",'error': True} 
+                                return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                            
+                            if discobj.r_code == '100006' and discobj.r_desc == 'OTHERS':
+                                if request.data['discreason_txt'] is None:
+                                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please Enter Disc Reason Text!!",'error': True} 
+                                    return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                                if 'discreason_txt' not in request.data:
+                                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please Enter Disc Reason Text and add key!!",'error': True} 
+                                    return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
+                                QuotationItemModel.objects.filter(id=quotationitem.id).update(discreason_txt=request.data['discreason_txt']) 
+                                quotationitem.disc_reason.add(discobj.id)
+                                reason = request.data['discreason_txt']
+                            else:
+                                quotationitem.disc_reason.add(discobj.id)
+                                reason = discobj.r_desc
+                                
+                            line_ids = quotationitem.pos_disc.all().filter(istransdisc=False).order_by('line_no').last() 
+                            # print(line_ids,"line_ids")
+                            if line_ids != None:
+                                line_no = int(line_ids.line_no) + 1
+                            else:
+                                line_no = 1    
+
+                            posdisc = PosDiscQuant(invoice_no=quotationitem.fk_quotation.quotation_number,
+                            dt_itemno=quotationitem.quotation_itemcode+"0000",
+                            disc_amt=request.data['discount_amt'],disc_percent=request.data['discount'],
+                            dt_lineno=None,remark=reason,site_code=site.itemsite_code,
+                            dt_status="New",dt_auto=0,line_no=line_no,disc_user=empl.emp_code,lnow=1,dt_price=None,
+                            istransdisc=False)
+                            posdisc.save()
+                            # print(posdisc.id,"posdisc")  
+                            quotationitem.pos_disc.add(posdisc.id)  
+
+
+                        result = {'status': status.HTTP_200_OK,"message":"Discount added Succesfully",'error': False}
+                        return Response(result, status=status.HTTP_200_OK)
+                    
+                    total_disc = quotationitem.discount_amt + quotationitem.additional_discountamt
+                    
+                    if self.request.data['quotation_quantity']:
+                        if float(self.request.data['quotation_quantity']) <= 0.0:
+                            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Quantity Should not be negative/Zero!!",'error': True} 
+                            return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+                            
+                    if not self.request.data['quotation_quantity'] is None and request.data['quotation_quantity'] != 0.0:
+                        print("kkkkkkkkkkk")
+                        afterlinedisc = (float(request.data['quotation_unitprice']) - float(quotationitem.discount_amt)) * int(request.data['quotation_quantity'])
+                        transamt = afterlinedisc - float(quotationitem.additional_discountamt)
+                       
+                        # QuotationItemModel.objects.filter(id=quotationitem.id).update(quotation_quantity=request.data['quotation_quantity'],
+                        # trans_amt=transamt)
+                        quotationitem.quotation_quantity = request.data['quotation_quantity']
+                        quotationitem.trans_amt = transamt
+                        quotationitem.save()
+
+                    if self.request.data['quotation_unitprice']: 
+                        if float(self.request.data['quotation_unitprice']) <= 0.0:
+                            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Price Should not be negative/Zero!!",'error': True} 
+                            return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+                        
+                    if not self.request.data['quotation_unitprice'] is None and request.data['quotation_unitprice'] != 0.0:
+                    
+                        discount_price = float(request.data['quotation_unitprice']) - total_disc
+                        after_linedisc = (float(request.data['quotation_unitprice']) - float(quotationitem.discount_amt)) * int(request.data['quotation_quantity'])
+                        trans_amt = after_linedisc - float(quotationitem.additional_discountamt)
+
+                    
+                        # QuotationItemModel.objects.filter(id=quotationitem.id).update(quotation_unitprice=self.request.data['quotation_unitprice'],
+                        # discount_price=discount_price,trans_amt=trans_amt)
+                        quotationitem.discount_price = discount_price
+                        quotationitem.trans_amt = trans_amt
+                        quotationitem.save()
+
+
+                        # print(itemcart.quantity,itemcart.price,itemcart.total_price,itemcart.discount_price,itemcart.trans_amt,itemcart.deposit,"price")
+                    
+                    
+
+               
+
+                    serializer.save()
+                    state = status.HTTP_200_OK
+                    message = "Updated Succesfully"
+                    error = False
+                    data = serializer.data
+                    result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+                    return Response(result, status=status.HTTP_200_OK)
+
+                state = status.HTTP_400_BAD_REQUEST
+                message = "Invalid Input"
+                error = True
+                data = serializer.errors
                 result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
                 return Response(result, status=status.HTTP_200_OK)
+        # except Exception as e:
+        #     invalid_message = str(e)
+        #     return general_error_response(invalid_message)  
 
-            state = status.HTTP_400_BAD_REQUEST
-            message = "Invalid Input"
-            error = True
-            data = serializer.errors
-            result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
-            return Response(result, status=status.HTTP_200_OK)
+         
+
+    def retrieve(self, request, pk=None):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+            site = fmspw.loginsite
+            quote = self.get_object(pk)
+           
+            serializer = QuotationItemDiscountSerializer(quote, context={'request': self.request})
+            result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
+            'data': serializer.data}
+            return Response(data=result, status=status.HTTP_200_OK)
         except Exception as e:
             invalid_message = str(e)
-            return general_error_response(invalid_message)    
+            return general_error_response(invalid_message) 
+                       
 
          
     def destroy(self, request, pk=None):
@@ -14832,6 +15046,379 @@ class QuotationItemViewset(viewsets.ModelViewSet):
             return QuotationItemModel.objects.get(pk=pk)
         except QuotationItemModel.DoesNotExist:
             raise Http404
+
+    def partial_update(self, request, pk=None):
+        try:
+            quotationitem = self.get_object(pk)
+           
+            if quotationitem.additional_discountamt is not None and quotationitem.additional_discountamt > 0:
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Reset and try again to select or unselect auto !!",'error': True} 
+                return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
+            serializer = QuotationItemSerializer(quotationitem, data=request.data, partial=True)
+            message = "Updated Succesfully"
+            if serializer.is_valid():
+                if quotationitem.auto == True:
+                    serializer.save(auto=False)
+                    message = "Unselected Succesfully"
+                elif quotationitem.auto == False:
+                    serializer.save(auto=True)  
+                    message = "Selected Succesfully"
+    
+                state = status.HTTP_200_OK
+                error = False
+                result = {'status': state,"message":message,'error': error}
+                return Response(result, status=status.HTTP_200_OK)
+
+            state = status.HTTP_400_BAD_REQUEST
+            message = serializer.errors
+            error = True
+            result = {'status': state,"message":message,'error': error}
+            return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)        
+            
+
+
+    @action(methods=['get'], detail=False, permission_classes=[IsAuthenticated & authenticated_only],
+    authentication_classes=[ExpiringTokenAuthentication])
+    def QuotSetAdditionalDiscList(self, request): 
+        try:
+            
+            quotation_id = self.request.GET.get('quotation_id',None)
+            if not quotation_id:
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"Please give quotation_id",'error': False}
+                return Response(data=result, status=status.HTTP_200_OK)
+
+            queryset = QuotationItemModel.objects.filter(fk_quotation_id=quotation_id,active='active').order_by('-pk')
+            if not queryset:
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+                return Response(data=result, status=status.HTTP_200_OK)
+            
+          
+            lst = [];total_amount = 0.0;other_disc = 0.0;net_amount=0.0;tran_disc=0.0;deposit_amount=0.0
+            for idx, c in enumerate(queryset, start=1): 
+                val = {'id':c.pk,'lineno':idx,'item_code':c.quotation_itemcode,'item_desc':c.quotation_itemdesc,
+                'qty':c.quotation_quantity,'unit_price':"{:.2f}".format(float(c.quotation_unitprice)),
+                'other_disc':"{:.2f}".format(float(c.discount_amt)),
+                'tran_disc':"{:.2f}".format(float(c.additional_discountamt)),
+                'net_amount':"{:.2f}".format(float(c.trans_amt)),
+                'deposit_amount':"{:.2f}".format(float(c.trans_amt)),'auto': c.auto}
+                lst.append(val)
+                #if c.auto == True:
+                if c.auto == True:
+                    total_amount += float(c.quotation_unitprice) * int(c.quotation_quantity)
+                    other_disc += c.discount_amt * int(c.quotation_quantity)
+                    tran_disc += c.additional_discountamt 
+                    net_amount += c.trans_amt
+                    deposit_amount += c.trans_amt
+
+            balance = total_amount - other_disc
+
+            result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False,
+            'data': lst,'total_amount':"{:.2f}".format(float(total_amount)),'other_disc':"{:.2f}".format(float(other_disc)),
+            'balance':"{:.2f}".format(float(balance)),'tran_disc':"{:.2f}".format(float(tran_disc)),
+            'net_amount':"{:.2f}".format(float(net_amount)),'deposit_amount':"{:.2f}".format(float(deposit_amount))}
+            return Response(result, status=status.HTTP_200_OK)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)     
+
+
+    @action(methods=['post'], detail=False, permission_classes=[IsAuthenticated & authenticated_only],
+    authentication_classes=[ExpiringTokenAuthentication])
+    def QuotSetAdditionalDisc(self, request): 
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True).first()
+            site = fmspw.loginsite
+            empl = fmspw.Emp_Codeid
+            
+            quotation_id = self.request.GET.get('quotation_id',None)
+            if not quotation_id:
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content quotation_id is not given",'error': False, 'data': []}
+                return Response(data=result, status=status.HTTP_200_OK)
+
+            queryset = QuotationItemModel.objects.filter(fk_quotation_id=quotation_id,active='active').order_by('-pk')
+            if not queryset:
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+                return Response(data=result, status=status.HTTP_200_OK)
+
+            
+            cnt = queryset.filter(auto=True).count()
+            if cnt == 0:
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Any One Item Line Must Have Auto.",'error': True} 
+                return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
+
+            for c in queryset:
+                if c.auto == True:
+                    values = float(c.quotation_unitprice) - c.discount_amt
+                    tra_amount = values * c.quotation_quantity
+
+                    QuotationItemModel.objects.filter(id=c.id).update(additional_discount=0.0,additional_discountamt=0.0,
+                    discount_price=values,trans_amt=tra_amount)
+                    c.pos_disc.all().filter(istransdisc=True,dt_status='New').delete()  
+            
+            other_disc = sum([ca.discount_amt * ca.quotation_quantity for ca in queryset])
+            transamtids = queryset.filter(auto=True).aggregate(Sum('trans_amt'))
+            totaltrans_amt = float(transamtids['trans_amt__sum'])
+            q = queryset.filter(auto=True)
+            total_amount = sum([ca.quotation_unitprice * ca.quotation_quantity for ca in q])
+
+            if not self.request.GET.get('disc_reset',None) is None and int(self.request.GET.get('disc_reset',None)) == 1 and not self.request.GET.get('net_amt',None) is None and int(self.request.GET.get('net_amt',None)) != 0.0:
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Disc Reset and Net Amount add will not be allowed at the same time!!",'error': True} 
+                return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+            
+            if not self.request.GET.get('disc_reset',None) is None and int(self.request.GET.get('disc_reset',None)) == 1:
+                reset_cartids = queryset
+                for cr in reset_cartids:
+                    #if cr.auto == True:
+                    if cr.auto == True:
+                        revalue = float(cr.quotation_unitprice) - cr.discount_amt
+                        reamount = revalue * cr.quotation_quantity
+                        ItemCart.objects.filter(id=cr.id).update(additional_discount=0.0,additional_discountamt=0.0,
+                        discount_price=revalue,trans_amt=reamount)
+                        cr.pos_disc.all().filter(istransdisc=True,dt_status='New').delete()    
+                
+                result = {'status': status.HTTP_200_OK,"message":"Reset Succesfully",'error': False}
+                return Response(result, status=status.HTTP_200_OK)
+
+            if not self.request.GET.get('disc_reason',None) is None and request.GET.get('disc_reason',None) != '':
+                discobj = PaymentRemarks.objects.filter(pk=self.request.GET.get('disc_reason',None),isactive=True).first()
+                if not discobj:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Disc Reason ID does not exist!!",'error': True} 
+                    return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
+                if discobj.r_code == '100006' and discobj.r_desc == 'OTHERS':
+                    if self.request.GET.get('discreason_txt',None) is None:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please Enter Disc Reason Text!!",'error': True} 
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                    if 'discreason_txt' not in self.request.GET:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please Enter Disc Reason Text and add key!!",'error': True} 
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
+                    reason = self.request.GET.get('discreason_txt',None)
+                else:
+                    reason = discobj.r_desc
+
+            if not self.request.GET.get('net_amt',None) is None and float(self.request.GET.get('net_amt',None)) <= 0.0:        
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Deposit Should not be less than Zero!",'error': True} 
+                return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
+            # print(not self.request.GET.get('net_amt',None) is None,"self.request.GET.get('net_amt',None) is None")    
+            if not self.request.GET.get('net_amt',None) is None and request.GET.get('net_amt',None) != 0.0:
+                # try:  
+                given_net = float(self.request.GET.get('net_amt',None)) 
+                # print(given_net,"given_net")
+
+                balance = total_amount - other_disc
+                new_cart_ids = queryset
+                
+                total_amt = 0; net_lst = [];discvalamt = 0;t_disclimit = 0;t_emp_maxdisclimit = 0
+                for idx, ct in enumerate(new_cart_ids,start=1):
+                    #print(idx,"idx")
+                    #if ct.auto == True:
+                    if ct.auto == True:
+                        qty = ct.quotation_quantity
+                        discvalamt += float(ct.quotation_unitprice) - ct.discount_price
+                        # t_disclimit += ct.itemcodeid.disclimit if  ct.itemcodeid.disclimit else 0
+                        # t_emp_maxdisclimit += empl.max_disc if empl.max_disc else 0
+
+                        if idx != len(new_cart_ids):
+                            old_nettrascamt = ct.trans_amt
+                            oldpercent = (old_nettrascamt / balance) * 100
+                            new_nettrasamt = oldpercent * (given_net / 100)
+                            cal_percent = 100 - ( (new_nettrasamt / old_nettrascamt) * 100 )
+                            add_disc = (old_nettrascamt / 100) * cal_percent
+                            discountprice = ((float(ct.quotation_unitprice) - float(ct.discount_amt)) / 100) * cal_percent
+                            val_d = ct.discount_price - discountprice
+
+                            each_discline = add_disc/qty
+                            # print(new_nettrasamt,"new_nettrasamt")
+                            new_trans = "{:.2f}".format(float(new_nettrasamt))
+                            discvalamt += each_discline
+
+                            if not any(d['cart_id'] == ct.pk for d in net_lst):
+                                net_lst.append({'cart_id':ct.pk,'cart_obj': ct,'additional_discount':0.0,'additional_discountamt': each_discline,
+                                'discount_price':val_d,'trans_amt':new_trans})
+                            
+                            # n = str(float(new_nettrasamt)).split('.')
+                            # print(n,"n")
+                            # v = n[0]+"."+n[1][:2]
+                            # print(v,"v")
+                            total_amt += float(new_trans)
+                
+                        elif idx == len(new_cart_ids):
+                            # print("iffffffffffffffff")
+                            # print(total_amt,"total_amt")
+                            # print(given_net,"given_net")
+                            last_val = given_net - total_amt
+                            # print(last_val,"last_val")
+                            final = total_amt + last_val
+                            # print(final,"final")
+                            
+                            adddiscamt = ct.discount_price * qty - last_val
+                            one = adddiscamt / qty
+                            dprice = ct.discount_price - one
+
+                            if not any(d['cart_id'] == ct.pk for d in net_lst):
+                                net_lst.append({'cart_id':ct.pk,'cart_obj': ct,'additional_discount':0.0,'additional_discountamt': one,
+                                'discount_price':dprice,'trans_amt':last_val})
+
+                # # print(discvalamt,"discvalamt")
+                # if discvalamt > 0:
+                #     o_percent = (float(discvalamt) * 100) / float(totaltrans_amt)
+                #     # print(o_percent,"o_percent")
+                #     # print(t_disclimit,"t_disclimit")
+                #     # print(t_emp_maxdisclimit,"t_emp_maxdisclimit")
+                #     if o_percent > 0:
+                #         if t_disclimit > 0:
+                #             if o_percent > t_disclimit:
+                #                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Discount Should not be greater than Stock Disc Limit!!",'error': True} 
+                #                 return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                #         if t_emp_maxdisclimit > 0:
+                #             if o_percent > t_emp_maxdisclimit:
+                #                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Discount Should not be greater than Emp MaxDisc Limit!!",'error': True} 
+                #                 return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
+                # print(net_lst)
+                for idxa, cta in enumerate(net_lst,start=1):
+                    if idxa != len(net_lst):
+                        QuotationItemModel.objects.filter(id=cta['cart_id']).update(additional_discount=cta['additional_discount'],additional_discountamt=cta['additional_discountamt'],
+                        discount_price="{:.2f}".format(float(cta['discount_price'])),trans_amt=cta['trans_amt'])
+
+                        posdisc_n = PosDiscQuant(invoice_no=cta['cart_obj'].fk_quotation.quotation_number,
+                        dt_itemno=cta['cart_obj'].quotation_itemcode+"0000",
+                        disc_amt=cta['additional_discountamt'],disc_percent=cta['additional_discount'],dt_lineno=None,remark=reason,
+                        site_code=site.itemsite_code,dt_status="New",dt_auto=0,
+                        line_no=1,disc_user=empl.emp_code,lnow=1,dt_price=None,
+                        istransdisc=True)
+                        posdisc_n.save()
+                        cta['cart_obj'].pos_disc.add(posdisc_n.id)  
+                    elif idx == len(new_cart_ids): 
+                        QuotationItemModel.objects.filter(id=cta['cart_id']).update(
+                        trans_amt="{:.2f}".format(float(cta['trans_amt'])),
+                        additional_discountamt=cta['additional_discountamt'],additional_discount=cta['additional_discount']
+                        ,discount_price="{:.2f}".format(float(cta['discount_price'])))
+
+                        posdisc_ne = PosDiscQuant(sa_transacno=cta['cart_obj'].fk_quotation.quotation_number,
+                        dt_itemno=cta['cart_obj'].quotation_itemcode+"0000",
+                        disc_amt=cta['additional_discountamt'],disc_percent=cta['additional_discount'],dt_lineno=None,remark=reason,
+                        site_code=site.itemsite_code,dt_status="New",dt_auto=0,
+                        line_no=1,disc_user=empl.emp_code,lnow=1,dt_price=None,
+                        istransdisc=True)
+                        posdisc_ne.save()
+                        cta['cart_obj'].pos_disc.add(posdisc_ne.id)  
+
+                        
+
+                result = {'status': status.HTTP_200_OK,"message":"Addtional Discount and Net Amount Updated Succesfully",'error': False}
+                return Response(result, status=status.HTTP_200_OK)
+                # except Exception as e:
+                #     invalid_message = str(e)
+                #     return general_error_response(invalid_message)
+            
+            # print(request.data,"request.data")
+            per_cartids = queryset
+           
+            # if request.data['additional_discountamt'] and float(request.data['additional_discountamt']):
+            #     discval_amt = sum([(float(i.price) - i.discount_price) + float(request.data['additional_discountamt']) for i in per_cartids if i.auto == True])
+            #     # print(discval_amt,"discval_amt")
+            #     opercent = (float(discval_amt) * 100) / float(totaltrans_amt)
+            #     # print(opercent,"opercent")
+            #     tdisclimit = sum([j.itemcodeid.disclimit for j in per_cartids if j.auto == True]) 
+            #     # print(tdisclimit,"tdisclimit")
+            #     temp_maxdisclimit = sum([empl.max_disc for j in per_cartids if j.auto == True]) if empl.max_disc else 0  
+            #     # print(temp_maxdisclimit,"temp_maxdisclimit")
+            #     if opercent > 0:
+            #         if tdisclimit > 0:
+            #             if opercent > tdisclimit:
+            #                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Discount Should not be greater than Stock Disc Limit!!",'error': True} 
+            #                 return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+            #         if temp_maxdisclimit > 0:
+            #             if opercent > temp_maxdisclimit:
+            #                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Discount Should not be greater than Emp MaxDisc Limit!!",'error': True} 
+            #                 return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+            
+            if 'additional_discount' in request.data and request.data['additional_discount'] and (float(request.data['additional_discount']) > 0.0):
+                # print(request.data['additional_discount'],"iff")
+                # add_discamt = subtotal * (float(request.data['additional_discount'])/100)
+                for cp in per_cartids:
+                    #if cp.auto == True:
+                    if cp.auto == True:
+                        pvalue = cp.trans_amt * (float(request.data['additional_discount']) / 100)
+                        div_pvalue =  pvalue / cp.quotation_quantity
+                        cp.additional_discountamt = pvalue
+                        discprice = cp.discount_price  * cp.quotation_quantity
+                        cp.discount_price =  cp.discount_price - div_pvalue
+                        cp.trans_amt = discprice - pvalue
+                        # print(cp.discount_price,cp.deposit,cp.trans_amt,"kk")
+                        if cp.discount_price <= 0.0 or cp.trans_amt <= 0.0:
+                            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Item Line trans_amt should not be negative/Zero",'error': False}
+                            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+            
+                        cp.save()
+                        
+                        posdisc = PosDisc(sa_transacno=ca.fk_quotation.quotation_number,dt_itemno=cp.quotation_itemcode+"0000",
+                        disc_amt=div_pvalue,disc_percent=request.data['additional_discount'],dt_lineno=None,remark=reason,
+                        site_code=site.itemsite_code,dt_status="New",dt_auto=0,
+                        line_no=1,disc_user=empl.emp_code,lnow=1,dt_price=None,
+                        istransdisc=True)
+                        posdisc.save()
+                        cp.pos_disc.add(posdisc.id)  
+                
+                result = {'status': status.HTTP_200_OK,"message":"Addtional Discount Updated Succesfully",'error': False}
+                return Response(result, status=status.HTTP_200_OK)    
+            else:
+                # print(request.data['additional_discountamt'],"request.data['additional_discountamt']")
+
+                if 'additional_discountamt' in request.data and request.data['additional_discountamt'] and (float(request.data['additional_discountamt']) > 0.0):
+                    # print(request.data['additional_discountamt'],"ink check")
+                    # amt_cartids = self.filter_queryset(self.get_queryset()).filter(itemcodeid__item_div__in=[1,3],itemcodeid__item_type='SINGLE').exclude(type__in=('Top Up','Sales'),is_foc=True)
+
+                    percent = (float(request.data['additional_discountamt']) * 100) / float(totaltrans_amt)
+                    
+                    
+                    for ca in per_cartids:
+                        #if ca.auto == True:
+                        if ca.auto == True :
+                            amt = ca.trans_amt * (percent / 100)
+                            div_amt =  amt / ca.quotation_quantity
+                            ca.additional_discountamt = amt
+                            disc_price =  ca.discount_price  * ca.quotation_quantity
+                            ca.discount_price =  ca.discount_price - div_amt
+                            ca.deposit = disc_price - amt
+                            ca.trans_amt = disc_price - amt
+                            # print(ca.discount_price,ca.deposit,ca.trans_amt,"kk")
+
+                            if ca.discount_price <= 0.0 or  ca.trans_amt <= 0.0:
+                                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Item Line trans_amt should not be negative/Zero",'error': False}
+                                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+            
+                            ca.save()
+
+                            posdisc_a = PosDisc(sa_transacno=ca.fk_quotation.quotation_number,dt_itemno=ca.quotation_itemcode+"0000",
+                            disc_amt=div_amt,disc_percent=request.data['additional_discount'],dt_lineno=None,remark=reason,
+                            site_code=site.itemsite_code,dt_status="New",dt_auto=0,
+                            line_no=1,disc_user=empl.emp_code,lnow=1,dt_price=None,
+                            istransdisc=True)
+                            posdisc_a.save()
+                            ca.pos_disc.add(posdisc_a.id)  
+
+                    result = {'status': status.HTTP_200_OK,"message":"Addtional Discount Updated Succesfully",'error': False}
+                    return Response(result, status=status.HTTP_200_OK)
+            
+   
+            state = status.HTTP_400_BAD_REQUEST
+            message = "Bad Request"
+            error = True
+            result = {'status': state,"message":message,'error': error}
+            return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)          
+            
 
 
 class POItemViewset(viewsets.ModelViewSet):
@@ -25214,3 +25801,101 @@ class CurrencytableViewset(viewsets.ModelViewSet):
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)   
+
+
+class CreateNewRevisionQuotationAPIView(generics.CreateAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    serializer_class = []
+    
+    @transaction.atomic
+    def create(self, request):
+        try:
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True).first()
+                site = fmspw.loginsite
+
+                if not 'quotation_id' in request.data or not request.data['quotation_id']:
+                    raise Exception('Please Give quotation id!!') 
+                
+                quotation_ids = QuotationModel.objects.filter(id=request.data['quotation_id'],
+                active='active').first()
+                if not quotation_ids:
+                    raise Exception('QuotationModel ID Does not exist!!') 
+
+                if quotation_ids.status != 'Posted':
+                    raise Exception('Quotation Status is not in Posted!!') 
+
+                if not quotation_ids.revision and not quotation_ids.rev_quoteno:
+                    revision = 1
+                    rev_quoteno = quotation_ids.quotation_number
+                    quotation_ids.revision = 0
+                    quotation_ids.rev_quoteno = quotation_ids.quotation_number
+                    quotation_ids.save()
+                else:
+                    rev_ids = QuotationModel.objects.filter(rev_quoteno=quotation_ids.rev_quoteno).order_by('-pk').first()
+                    if rev_ids:
+                        revision = rev_ids.revision + 1
+                        rev_quoteno = quotation_ids.rev_quoteno
+                
+                if quotation_ids:
+                    fill = str(revision).zfill(2)
+                    quote_no = rev_quoteno+"-"+fill
+                    qlst = QuotationModel(quotation_number=quote_no,title=quotation_ids.title,
+                    company=quotation_ids.company,contact_person=quotation_ids.contact_person,
+                    status="Open",validity=quotation_ids.validity,terms=quotation_ids.terms,
+                    in_charge=quotation_ids.in_charge,remarks=quotation_ids.remarks,
+                    footer=quotation_ids.footer,active="active",created_at=timezone.now(),
+                    cust_id=quotation_ids.cust_id,currency_id=quotation_ids.currency_id,
+                    revision=revision,rev_quoteno=rev_quoteno)
+                    qlst.save()
+
+                    addr_ids = QuotationAddrModel.objects.filter(active="active",fk_quotation=quotation_ids).first()
+                    if addr_ids:
+                        addr = QuotationAddrModel(billto=addr_ids.billto,bill_addr1=addr_ids.bill_addr1,
+                        bill_addr2=addr_ids.bill_addr2,bill_addr3=addr_ids.bill_addr3,bill_postalcode=addr_ids.bill_postalcode,
+                        bill_city=addr_ids.bill_city,bill_state=addr_ids.bill_state,bill_country=addr_ids.bill_country,
+                        shipto=addr_ids.shipto,ship_addr1=addr_ids.ship_addr1,ship_addr2=addr_ids.ship_addr2,
+                        ship_addr3=addr_ids.ship_addr3,ship_postalcode=addr_ids.ship_postalcode,ship_city=addr_ids.ship_city,
+                        ship_state=addr_ids.ship_state,ship_country=addr_ids.ship_country,active="active",
+                        fk_quotation=qlst)
+                        addr.save()
+
+                    det_ids = QuotationDetailModel.objects.filter(active="active",fk_quotation=quotation_ids).first()
+                    if det_ids:
+                        detl = QuotationDetailModel(q_shipcost=det_ids.q_shipcost,q_discount=det_ids.q_discount,
+                        q_taxes=det_ids.q_taxes,q_total=det_ids.q_total,active="active",fk_quotation=qlst) 
+                        detl.save()    
+
+                    pay_ids = QuotationPayment.objects.filter(active="active",fk_quotation=quotation_ids) 
+                    if pay_ids:
+                        for f in pay_ids:
+                            pay = QuotationPayment(payment_schedule=f.payment_schedule,
+                            payment_term=f.payment_term,active="active",fk_quotation=qlst)
+                            pay.save()
+
+                    item_ids = QuotationItemModel.objects.filter(active="active",fk_quotation=quotation_ids)
+                    if item_ids:
+                        for i in item_ids:
+                            item = QuotationItemModel(quotation_quantity=i.quotation_quantity,
+                            quotation_unitprice=i.quotation_unitprice,
+                            quotation_itemremarks=i.quotation_itemremarks,
+                            quotation_itemcode=i.quotation_itemcode,
+                            quotation_itemdesc=i.quotation_itemdesc,
+                            active="active",fk_quotation=qlst)
+                            item.save()
+
+                    if qlst:
+                        result = {'status': status.HTTP_201_CREATED,
+                        "message": quote_no+" "+"Created Succesfully",'error': False,
+                        'quotation_id': qlst.pk, 'quotation_number': quote_no}
+                        return Response(result, status=status.HTTP_201_CREATED)
+                    else:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message": "Invalid Input",'error': False}
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)   
+

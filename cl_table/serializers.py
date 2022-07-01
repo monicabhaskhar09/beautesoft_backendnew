@@ -6,7 +6,7 @@ BlockReason,AppointmentLog,Title, Workschedule, CustomerFormControl,Country,Stat
 CustomerClass, RewardPolicy, RedeemPolicy, Diagnosis, DiagnosisCompare, Securitylevellist,
 DailysalesdataDetail, DailysalesdataSummary,Holditemdetail,PrepaidAccount,CreditNote,TreatmentAccount,
 DepositAccount, CustomerPoint, MrRewardItemType,Smsreceivelog,Systemsetup,TreatmentProtocol,
-CustomerTitle,ItemDiv,Tempcustsign,CustomerDocument,TreatmentPackage,ContactPerson)
+CustomerTitle,ItemDiv,Tempcustsign,CustomerDocument,TreatmentPackage,ContactPerson,ItemFlexiservice)
 from cl_app.models import ItemSitelist, SiteGroup
 from custom.models import EmpLevel,Room,VoucherRecord
 from django.contrib.auth.models import User
@@ -3064,3 +3064,12 @@ class ContactPersonSerializer(serializers.ModelSerializer):
     class Meta:
         model = ContactPerson
         fields = '__all__'
+
+
+class ItemFlexiserviceSerializer(serializers.ModelSerializer):
+    
+    id = serializers.IntegerField(source='pk',required=False)
+
+    class Meta:
+        model = ItemFlexiservice
+        fields = ['id','item_srvdesc','item_srvid']          

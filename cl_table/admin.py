@@ -9,7 +9,7 @@ BlockReason,Tmpmultistaff,Tmptreatment,AppointmentStatus,AppointmentLog,Template
 Workschedule, Securitycontrollist, Securitylevellist, MenuSecurity,DiagnosisCompare,
 MenuSecuritylevellist, Skillstaff, CustomerFormControl, RewardPolicy, RedeemPolicy,
 Multilanguage, MultiLanguageWord, Language,TreatmentDuration,ItemStocklist,Smsreceivelog,
-TreatmentProtocol,CustomerPointDtl,CustomerPoint,PackageAuditingLog,Tempcustsign)
+TreatmentProtocol,CustomerPointDtl,CustomerPoint,PackageAuditingLog,Tempcustsign,ItemFlexiservice)
 from cl_app.models import ItemSitelist, SiteGroup
 
 # # Register your models here.
@@ -94,3 +94,4 @@ admin.site.register(CustomerPointDtl)
 admin.site.register(CustomerPoint)
 admin.site.register(PackageAuditingLog)
 admin.site.register(Tempcustsign)
+admin.site.register(ItemFlexiservice)

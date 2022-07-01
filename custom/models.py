@@ -521,6 +521,8 @@ class QuotationModel(models.Model):
     created_at = models.DateTimeField(db_column='Quotation_Date',null=True)
     cust_id = models.ForeignKey('cl_table.Customer', on_delete=models.PROTECT, null=True)
     currency_id =  models.ForeignKey('custom.Currencytable', on_delete=models.PROTECT, null=True)
+    revision = models.IntegerField(db_column='revision', blank=True,  null=True)
+    rev_quoteno = models.CharField(db_column='rev_quoteno', blank=True, max_length = 255, null=True)  # Field name made lowercase.
 
     class Meta:
         db_table = 'Quotation_List'
@@ -811,6 +813,17 @@ class QuotationItemModel(models.Model):
     quotation_itemdesc = models.CharField(db_column='Quotation_Item_Desc', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
     active = models.CharField(db_column='Active', blank=True, max_length = 255, default='active', null=True)  # Field name made lowercase.
     fk_quotation = models.ForeignKey('custom.QuotationModel', on_delete=models.PROTECT, null=True, default=1)
+    discount = models.FloatField(default=0.0,  null=True)
+    discount_amt = models.FloatField(default=0.0,  null=True)
+    discount_price = models.FloatField(default=0.0,  null=True)
+    additional_discount = models.FloatField( null=True,default=0.0)
+    additional_discountamt = models.FloatField( null=True,default=0.0)
+    trans_amt = models.FloatField(default=0.0,  null=True)
+    disc_reason = models.ManyToManyField('custom.PaymentRemarks', blank=True)
+    discreason_txt = models.CharField(max_length=500,  null=True, blank=True)  # Field name made lowercase.
+    pos_disc = models.ManyToManyField('custom.PosDiscQuant', blank=True)
+    auto = models.BooleanField(default=True)
+  
 
     class Meta:
         db_table = 'Quotation_Item'
@@ -1981,3 +1994,29 @@ class Currencytable(models.Model):
    
     class Meta:
         db_table = 'CurrencyTable'        
+
+
+
+class PosDiscQuant(models.Model):
+    id = models.AutoField(primary_key=True)
+    invoice_no = models.CharField(max_length=500,null=True)
+    dt_itemno = models.CharField(db_column='dt_ItemNo', max_length=50,null=True)  # Field name made lowercase.
+    disc_amt = models.FloatField(db_column='Disc_Amt', blank=True, null=True)  # Field name made lowercase.
+    disc_percent = models.FloatField(db_column='Disc_Percent', blank=True, null=True)  # Field name made lowercase.
+    dt_lineno = models.IntegerField(db_column='dt_LineNo',null=True)  # Field name made lowercase.
+    remark = models.CharField(db_column='Remark', max_length=200, blank=True, null=True)  # Field name made lowercase.
+    site_code = models.CharField(db_column='Site_Code', max_length=50,null=True)  # Field name made lowercase.
+    dt_date = models.DateTimeField(db_column='dt_Date',null=True,auto_now_add=True)  # Field name made lowercase.
+    dt_status = models.CharField(max_length=50,null=True)
+    dt_auto = models.BooleanField(db_column='dt_Auto',null=True)  # Field name made lowercase.
+    line_no = models.IntegerField(db_column='Line_no',null=True)  # Field name made lowercase.
+    disc_user = models.CharField(db_column='Disc_User', max_length=250, blank=True, null=True)  # Field name made lowercase.
+    lnow = models.BooleanField(db_column='lNow',null=True)  # Field name made lowercase.
+    dt_price = models.FloatField(db_column='dt_Price', blank=True, null=True)  # Field name made lowercase.
+    istransdisc = models.BooleanField(db_column='IsTransDisc',null=True)  # Field name made lowercase.
+
+    class Meta:
+        db_table = 'Pos_DiscQuant'
+    
+    def __str__(self):
+        return str(self.dt_itemno)

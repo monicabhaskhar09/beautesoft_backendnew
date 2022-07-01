@@ -144,6 +144,7 @@ urlpatterns = [
     path('api/staffequipmentlist/', views.StaffEquipmentAPIView.as_view(), name='staffequipmentlist'),
     path('api/itemequipmentlist/', views.ItemEquipmentAPIView.as_view(), name='itemequipmentlist'),
     path('api/projectsearch/', views.ProjectSearchAPI.as_view(), name='projectsearch'),
+    path('api/quotationnewrevision/', views.CreateNewRevisionQuotationAPIView.as_view(), name='quotationnewrevision'),
 
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 

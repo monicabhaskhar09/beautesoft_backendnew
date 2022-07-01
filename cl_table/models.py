@@ -3874,3 +3874,16 @@ class ContactPerson(models.Model):
 
     class Meta:
         db_table = 'ContactPerson'
+
+
+class ItemFlexiservice(models.Model):
+    itm_id = models.AutoField(db_column='itm_ID', primary_key=True) 
+    item_code = models.CharField(db_column='Item_Code',max_length=500, blank=True, null=True)  
+    item_srvcode = models.CharField(db_column='Item_SrvCode',max_length=500, blank=True, null=True)  
+    item_srvdesc = models.CharField(db_column='Item_SrvDesc',max_length=500, blank=True, null=True)  
+    itm_isactive = models.BooleanField(db_column='Itm_IsActive', default=True) 
+    item_srvid = models.ForeignKey('cl_table.Stock', on_delete=models.PROTECT, null=True) 
+ 
+
+    class Meta:
+        db_table = 'Item_FlexiService'

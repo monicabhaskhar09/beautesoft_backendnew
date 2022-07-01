@@ -508,10 +508,22 @@ class ServiceStockViewset(viewsets.ModelViewSet):
             
             stock_lst = [i.pk for i in queryset if ItemStocklist.objects.filter(item_code=i.item_code,
             itemsite_code=site.itemsite_code,itemstocklist_status=True).exists()]
-           
-            queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_name') 
 
+            systemids = Systemsetup.objects.filter(title='stockOrderBy',
+            value_name='stockOrderBy',isactive=True).first()
 
+            if systemids and systemids.value_data == 'item_name':
+                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_name') 
+            elif systemids and systemids.value_data == 'item_seq':
+                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_seq')
+            elif systemids and systemids.value_data == 'item_desc':
+                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_desc')
+            elif systemids and systemids.value_data == 'item_code':
+                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_code')
+            else:
+                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_name') 
+
+                
             serializer_class =  StockSerializer
             total = len(queryset)
             state = status.HTTP_200_OK
@@ -596,6 +608,20 @@ class RetailStockListViewset(viewsets.ModelViewSet):
                 if not request.GET.get('search',None) is None:
                     queryset = queryset.filter(Q(item_name__icontains=request.GET.get('search',None)) | Q(item_desc__icontains=request.GET.get('search',None)))
                 # print("3333")
+
+            systemids = Systemsetup.objects.filter(title='stockOrderBy',
+            value_name='stockOrderBy',isactive=True).first()
+
+            if systemids and systemids.value_data == 'item_name':
+                queryset = queryset.order_by('item_name') 
+            elif systemids and systemids.value_data == 'item_seq':
+                queryset = queryset.order_by('item_seq')
+            elif systemids and systemids.value_data == 'item_desc':
+                queryset = queryset.order_by('item_desc')
+            elif systemids and systemids.value_data == 'item_code':
+                queryset = queryset.order_by('item_code')
+            else:
+                queryset = queryset.order_by('item_name') 
  
             limit = int(request.GET.get('limit',10)) if request.GET.get('limit',10) else 10
             page = int(request.GET.get('page',1)) if request.GET.get('page',1) else 1
@@ -629,64 +655,64 @@ class RetailStockListViewset(viewsets.ModelViewSet):
             # print(len(queryset),"kk")  
 
             # print(paginator.num_pages,"paginator.num_pages")
-            for page_idx in range(1, paginator.num_pages+1):
+            # for page_idx in range(1, paginator.num_pages+1):
                 # print(page_idx,type(page_idx),type(page),"KKKKKKKKKKKKKKKKKKKKK")
                 # print(paginator.page(1).object_list,"hhh")
                 # if page_idx == page:
                 # print("lll")
                 
-                if page_idx == page:
+                # if page_idx == page:
                     
-                    lst = [] 
-                    # length = len(paginator.page(page_idx).object_list)
-                    for row in paginator.page(page_idx).object_list:
-                        # print(row,"row")
-                        q = row
-                        stock = Stock.objects.filter(item_isactive=True, pk=q.pk).first()
-                        # print(stock,"stock")
-                       
-                        item_ids = ItemStocklist.objects.filter(item_code=stock.item_code,itemsite_code=site.itemsite_code,itemstocklist_status=True).exists()
-                        # print(item_ids,"item_ids")
-                        # print(row,type(row),"row")
-                        # print("RRRR")
-                        
-                        uomlst = []
-                        
-                       
-                       
-                        if item_ids:
-                            itemuomprice = ItemUomprice.objects.filter(isactive=True, item_code=stock.item_code).order_by('id')
-                            # print(itemuomprice,"itemuomprice")
-                            for i in itemuomprice:
-                                itemuom = ItemUom.objects.filter(uom_isactive=True,uom_code=i.item_uom).order_by('id').first()
-                                if itemuom:
-                                    itemuom_id = int(itemuom.id)
-                                    itemuom_desc = itemuom.uom_desc
+            lst = [] 
+            # length = len(paginator.page(page_idx).object_list)
+            for row in paginator.page(page).object_list:
+                # print(row,"row")
+                q = row
+                stock = Stock.objects.filter(item_isactive=True, pk=q.pk).first()
+                # print(stock,"stock")
+                
+                item_ids = ItemStocklist.objects.filter(item_code=stock.item_code,itemsite_code=site.itemsite_code,itemstocklist_status=True).exists()
+                # print(item_ids,"item_ids")
+                # print(row,type(row),"row")
+                # print("RRRR")
+                
+                uomlst = []
+                
+                
+                
+                if item_ids:
+                    itemuomprice = ItemUomprice.objects.filter(isactive=True, item_code=stock.item_code).order_by('id')
+                    # print(itemuomprice,"itemuomprice")
+                    for i in itemuomprice:
+                        itemuom = ItemUom.objects.filter(uom_isactive=True,uom_code=i.item_uom).order_by('id').first()
+                        if itemuom:
+                            itemuom_id = int(itemuom.id)
+                            itemuom_desc = itemuom.uom_desc
 
-                                    batch = ItemBatch.objects.filter(item_code=stock.item_code,site_code=site.itemsite_code,
-                                    uom=itemuom.uom_code).order_by('-pk').last()
-                                    # print(batch,"batch")
+                            batch = ItemBatch.objects.filter(item_code=stock.item_code,site_code=site.itemsite_code,
+                            uom=itemuom.uom_code).order_by('-pk').last()
+                            # print(batch,"batch")
 
-                                    uom = {
-                                            "itemuomprice_id": int(i.id),
-                                            "item_uom": i.item_uom,
-                                            "uom_desc": i.uom_desc,
-                                            "item_price": "{:.2f}".format(float(i.item_price)),
-                                            "itemuom_id": itemuom_id, 
-                                            "itemuom_desc" : itemuom_desc,
-                                            "onhand_qty": int(batch.qty) if batch else 0
-                                            }
-                                    uomlst.append(uom)
-                            
-                            # 'Stock_PIC':row.Stock_PIC,
-                        
-                            serializer = StockRetailSerializer(stock)
-                            # print(serializer.data,"DDD")
-                            dvl = serializer.data
-                            dvl.update({'uomprice': uomlst}) 
-                            if uomlst != []:
-                                # lst.append(q)
-                                lst.append(dvl)
+                            uom = {
+                                    "itemuomprice_id": int(i.id),
+                                    "item_uom": i.item_uom,
+                                    "uom_desc": i.uom_desc,
+                                    "item_price": "{:.2f}".format(float(i.item_price)),
+                                    "itemuom_id": itemuom_id, 
+                                    "itemuom_desc" : itemuom_desc,
+                                    "onhand_qty": int(batch.qty) if batch else 0
+                                    }
+                            uomlst.append(uom)
+                    
+                    # 'Stock_PIC':row.Stock_PIC,
+                
+                    serializer = StockRetailSerializer(stock)
+                    # print(serializer.data,"DDD")
+                    dvl = serializer.data
+                    dvl.update({'uomprice': uomlst}) 
+                    if uomlst != []:
+                        # lst.append(q)
+                        lst.append(dvl)
                         
                         # print(uomlst,"uomlst")
 
@@ -834,7 +860,21 @@ class PackageStockViewset(viewsets.ModelViewSet):
             stock_lst = [i.pk for i in queryset if ItemStocklist.objects.filter(item_code=i.item_code,itemsite_code=site.itemsite_code,
             itemstocklist_status=True).exists()]
            
-            queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_name') 
+            
+
+            systemids = Systemsetup.objects.filter(title='stockOrderBy',
+            value_name='stockOrderBy',isactive=True).first()
+
+            if systemids and systemids.value_data == 'item_name':
+                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_name') 
+            elif systemids and systemids.value_data == 'item_seq':
+                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_seq')
+            elif systemids and systemids.value_data == 'item_desc':
+                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_desc')
+            elif systemids and systemids.value_data == 'item_code':
+                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_code')
+            else:
+                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_name') 
 
 
             serializer_class =  StockSerializer
@@ -921,7 +961,7 @@ class PrepaidStockViewset(viewsets.ModelViewSet):
     serializer_class = StockSerializer
 
     def list(self, request):
-        # try:
+        try:
             fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
             site = fmspw[0].loginsite
             queryset = Stock.objects.filter(item_isactive=True, item_div="5").order_by('item_name')
@@ -955,8 +995,21 @@ class PrepaidStockViewset(viewsets.ModelViewSet):
             stock_lst = [i.pk for i in queryset if ItemStocklist.objects.filter(item_code=i.item_code,itemsite_code=site.itemsite_code,
             itemstocklist_status=True).exists()]
            
-            queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_name') 
+            
+            systemids = Systemsetup.objects.filter(title='stockOrderBy',
+            value_name='stockOrderBy',isactive=True).first()
 
+            if systemids and systemids.value_data == 'item_name':
+                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_name') 
+            elif systemids and systemids.value_data == 'item_seq':
+                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_seq')
+            elif systemids and systemids.value_data == 'item_desc':
+                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_desc')
+            elif systemids and systemids.value_data == 'item_code':
+                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_code')
+            else:
+                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_name')
+ 
 
             serializer_class =  StockSerializer
             total = len(queryset)
@@ -971,9 +1024,9 @@ class PrepaidStockViewset(viewsets.ModelViewSet):
                 dat["item_price"] = "{:.2f}".format(float(dat['item_price'])) if dat['item_price'] else "0.00" 
                 dat["prepaid_value"] = "{:.2f}".format(float(dat['prepaid_value'])) if dat['prepaid_value'] else "0.00"
             return Response(result, status=status.HTTP_200_OK)
-        # except Exception as e:
-        #     invalid_message = str(e)
-        #     return general_error_response(invalid_message)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
                    
 
     def get_object(self, pk):
@@ -1004,7 +1057,7 @@ class VoucherStockViewset(viewsets.ModelViewSet):
     serializer_class = StockSerializer
 
     def list(self, request):
-        # try:
+        try:
             fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
             site = fmspw[0].loginsite
             queryset = Stock.objects.filter(item_isactive=True,  item_div="4").order_by('item_name')
@@ -1040,10 +1093,22 @@ class VoucherStockViewset(viewsets.ModelViewSet):
             stock_lst = [i.pk for i in queryset if ItemStocklist.objects.filter(item_code=i.item_code,itemsite_code=site.itemsite_code,
             itemstocklist_status=True).exists()]
            
-            queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_name') 
+            
+            systemids = Systemsetup.objects.filter(title='stockOrderBy',
+            value_name='stockOrderBy',isactive=True).first()
 
-            
-            
+            if systemids and systemids.value_data == 'item_name':
+                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_name') 
+            elif systemids and systemids.value_data == 'item_seq':
+                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_seq')
+            elif systemids and systemids.value_data == 'item_desc':
+                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_desc')
+            elif systemids and systemids.value_data == 'item_code':
+                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_code')
+            else:
+                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_name') 
+ 
+
             serializer_class =  StockSerializer
             total = len(queryset)
             state = status.HTTP_200_OK
@@ -1056,9 +1121,9 @@ class VoucherStockViewset(viewsets.ModelViewSet):
             for dat in d:
                 dat["item_price"] = "{:.2f}".format(float(dat['item_price'])) if dat['item_price'] else "0.00"
             return Response(result, status=status.HTTP_200_OK) 
-        # except Exception as e:
-        #     invalid_message = str(e)
-        #     return general_error_response(invalid_message)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
                   
 
     def get_object(self, pk):
@@ -1119,7 +1184,21 @@ class CatalogSearchViewset(viewsets.ModelViewSet):
             stock_lst = [i.pk for i in queryset if ItemStocklist.objects.filter(item_code=i.item_code,itemsite_code=site.itemsite_code,
             itemstocklist_status=True).exists()]
            
-            queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_name') 
+            
+            systemids = Systemsetup.objects.filter(title='stockOrderBy',
+            value_name='stockOrderBy',isactive=True).first()
+
+            if systemids and systemids.value_data == 'item_name':
+                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_name') 
+            elif systemids and systemids.value_data == 'item_seq':
+                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_seq')
+            elif systemids and systemids.value_data == 'item_desc':
+                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_desc')
+            elif systemids and systemids.value_data == 'item_code':
+                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_code')
+            else:
+                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_name') 
+  
 
             total = len(queryset)
             state = status.HTTP_200_OK
@@ -1241,7 +1320,21 @@ class CatalogFavoritesViewset(viewsets.ModelViewSet):
             stock_lst = [i.pk for i in queryset if ItemStocklist.objects.filter(item_code=i.item_code,itemsite_code=site.itemsite_code,
             itemstocklist_status=True).exists()]
            
-            queryset = Stock.objects.filter(pk__in=stock_lst).order_by('pk') 
+            
+            systemids = Systemsetup.objects.filter(title='stockOrderBy',
+            value_name='stockOrderBy',isactive=True).first()
+
+            if systemids and systemids.value_data == 'item_name':
+                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_name') 
+            elif systemids and systemids.value_data == 'item_seq':
+                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_seq')
+            elif systemids and systemids.value_data == 'item_desc':
+                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_desc')
+            elif systemids and systemids.value_data == 'item_code':
+                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_code')
+            else:
+                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_name') 
+ 
 
             total = len(queryset)
             state = status.HTTP_200_OK
@@ -2626,9 +2719,14 @@ class TreatmentDoneViewset(viewsets.ModelViewSet):
                 if flexi_setup and flexi_setup.value_data == 'True' and row.type == 'FFi':
                     flexitype = True
                 else:
-                    flexitype = False  
-
+                    flexitype = False 
                 
+                expiry_date = ""
+                if trmt_obj.expiry:
+                    splti = str(trmt_obj.expiry).split(" ")
+                    expiry_date = datetime.datetime.strptime(str(splti[0]), "%Y-%m-%d").strftime("%d-%b-%y")
+               
+
                 # Thing.objects.annotate(favorited=Count(Case(When(favorites__user=john_cleese, then=1),default=0,output_field=BooleanField(),)),)
                 # print(fmspw[0].is_reversal,"fmspw[0].is_reversal")
                 q_val = list(Treatment.objects.filter(pk=trmt_obj.pk).order_by('-pk').values('pk').annotate(id=F('pk'),
@@ -2661,7 +2759,10 @@ class TreatmentDoneViewset(viewsets.ModelViewSet):
                 'session' : session,
                 'sel' : sel,
                 'type': row.type,
-                'flexitype': flexitype
+                'flexitype': flexitype,
+                'treatment_limit_times' : int(trmt_obj.treatment_limit_times) if trmt_obj.treatment_limit_times else "",
+                'expiry_date' : expiry_date,
+                'item_code': trmt_obj.service_itembarcode[:-4] if trmt_obj.service_itembarcode else ""
                 })
                 # print( q_val[0]," q_val[0]")
                 expiry = False
@@ -3290,7 +3391,8 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                 'work_point':"{:.2f}".format(float(workcommpoints)),'room_id':None,'room_name':None,
                 'source_id': trmt_obj.times if trmt_obj.times else "",'source_name':None,'new_remark':None,
                 'times':trmt_obj.times if trmt_obj.times else "",'add_duration':hrs,
-                'flexipoints': int(trmt_obj.flexipoints) if trmt_obj.flexipoints else None}
+                'flexipoints': int(trmt_obj.flexipoints) if trmt_obj.flexipoints else None,
+                'item_code': trmt_obj.service_itembarcode[:-4] if trmt_obj.service_itembarcode else ""}
                 if h_obj:
                     if not h_obj.Room_Codeid is None:
                         value['room_id'] = h_obj.Room_Codeid.pk
@@ -4283,8 +4385,11 @@ class ReversalListViewset(viewsets.ModelViewSet):
                         # balance = Treatmentaccount balance Field
                         # outstanding = Treatmentaccount outstanding Field
                         # total = creditnote amount & balance
+                        
+                        # print(acc_ids.outstanding,"acc_ids.outstanding")
+                        # print(queryset[0].unit_amount,"queryset[0].unit_amount")
 
-                        if acc_ids.outstanding > queryset[0].unit_amount:
+                        if acc_ids.outstanding >= queryset[0].unit_amount:
                             tamount = queryset[0].unit_amount
                             balance = acc_ids.balance
                             outstanding = acc_ids.outstanding - queryset[0].unit_amount
@@ -7438,7 +7543,7 @@ class ProductAccListViewset(viewsets.ModelViewSet):
             site = fmspw.loginsite
             queryset = DepositAccount.objects.filter(sa_transacno=account.sa_transacno,
             ref_productcode=account.ref_productcode).only('sa_transacno',
-            'site_code','ref_productcode').order_by('-sa_date')
+            'site_code','ref_productcode').order_by('-sa_date','-pk')
 
             #pos_haud = PosHaud.objects.filter(sa_custno=account.cust_code,
             #sa_transacno=account.sa_transacno,itemsite_code=site.itemsite_code,
@@ -7452,7 +7557,7 @@ class ProductAccListViewset(viewsets.ModelViewSet):
                 
             if queryset:
                 hold_qty = 0
-                last = queryset.last()
+                last = queryset.first()
                 #holdids = Holditemdetail.objects.filter(sa_transacno=account.sa_transacno,
                 #itemno=account.item_barcode,itemsite_code=site.itemsite_code,
                 #sa_custno=account.cust_code).only('sa_transacno','itemno','itemsite_code','sa_custno').first()  
@@ -11781,7 +11886,7 @@ class TransactionHistoryViewset(viewsets.ModelViewSet):
             if cust_code:
                 queryset = queryset.filter(sa_custno__icontains=cust_code).order_by('-pk')
             if cust_name:
-                queryset = queryset.filter(Q(cust_name__icontains=cust_name) | Q(cust_code__icontains=cust_name) | Q(cust_refer__icontains=cust_name)).order_by('-pk')
+                queryset = queryset.filter(Q(sa_custname__icontains=cust_name) | Q(sa_custno__icontains=cust_name) | Q(sa_custnoid__cust_refer__icontains=cust_name)).order_by('-pk')
             
             fquery = list(queryset.filter().order_by('-pk').values_list('sa_transacno', flat=True).distinct())
             # print(queryset,"queryset11")
