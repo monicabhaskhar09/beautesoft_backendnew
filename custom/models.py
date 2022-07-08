@@ -1990,7 +1990,7 @@ class Currencytable(models.Model):
     curr_code = models.CharField(db_column='Curr_Code', max_length=3, blank=True, null=True)  
     curr_name = models.CharField(db_column='Curr_Name', max_length=255, blank=True, null=True)  
     curr_rate = models.DecimalField(db_column='Curr_Rate', max_digits=2, decimal_places=1, blank=True, null=True)  
-    curr_isactive = models.BooleanField(db_column='Curr_isactive', blank=True, null=True, default=False)  
+    curr_isactive = models.BooleanField(db_column='Curr_isactive', default=True)  
    
     class Meta:
         db_table = 'CurrencyTable'        

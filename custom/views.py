@@ -10610,6 +10610,9 @@ class ProjectListViewset(viewsets.ModelViewSet):
             serializer_class = None
             total = None
             request.POST._mutable = True
+            if not 'cust_id' in request.data or not request.data['cust_id']:
+                raise Exception('Please select Customer ID!!.') 
+
             serializer = self.get_serializer(data=request.data)
             if serializer.is_valid():
                 self.perform_create(serializer)

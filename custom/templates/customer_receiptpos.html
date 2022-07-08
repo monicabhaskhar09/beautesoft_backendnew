@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+  <!-- <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"> -->
+<style>
+hr{
+    border:0;
+    margin:0;
+    width:100%;
+    height:1px;
+    border-bottom: 1px dashed black;
+}
+.checkbox {
+  width:15px;
+  height:15px;
+  border: 1px solid #000;
+  display: inline-block;
+}
+
+/* This is what simulates a checkmark icon */
+.checkbox.checked:after {
+  content: '';
+  display: block;
+  width: 4px;
+  height: 7px;
+
+  /* "Center" the checkmark */
+  position:absolute;
+  top:4px;
+  left:7px;
+
+  border: solid #000;
+  border-width: 0 2px 2px 0;
+
+}
+table {
+    border-collapse: collapse;
+    width: 100%;
+}
+td {
+  padding: 5px;
+  text-align: center;
+}
+th {
+  border-top: 1px dashed black;
+  border-bottom: 1px dashed black;
+  text-align: center;
+}
+.split {
+  height: 500px;
+  width: 50%;
+  position: absolute;
+}
+.right {
+  right: 0;
+  text-align: left;
+}
+.right1 {
+  right: 40px;
+  text-align: right;
+}
+.box {
+  width: 50%;
+  height: 160px;
+}
+.clearfix {
+  content: "";
+  clear: both;
+  display: table;
+}
+img.sticky {
+  position: -webkit-sticky;
+  position: sticky;
+  top: 0;
+  width: 200px;}
+.column {
+  float: left;
+  width: 33.33%;
+  padding: 5px;
+}
+.row::after {
+  content: "";
+  clear: both;
+  display: table;
+}
+header {
+   position: fixed;
+   padding: 10px 16px;
+}
+fix {
+    position: fixed;
+    /* bottom: -400px; */
+    left: 15px;
+    right: 15px;
+    text-align: left;
+}
+.spaDetails img{
+        /* border-radius: 50%; */
+        width: 8rem;
+        height: 8rem;
+}
+.spaDetails h4{
+        font-weight: 700;
+}
+.spaDetails p{
+        margin-bottom: 0;
+        font-size: 14px;
+}
+body{
+  padding: 20px;
+}
+</style>
+</head>
+{% load static %}
+<body>
+
+  
+  <div class="container-fluid">
+      <div style="font-size: 10px;" width="30%">
+        <h7>{{name}}</h7>
+        <p>{{address}}</p>
+      </div>
+
+    <div class="clearfix mt-5">
+      <div class="box">
+        <div class="split" style="font-size: 10px;line-height: 10px">
+          <p><b>Code:</b> {{ hdr.sa_custno }} </p>
+          <p><b>Name:</b> {{ hdr.sa_custname }} </p>
+          <p><b>Member:</b> {{ member }} </p>
+          <p><b>Trans #: </b> {{ hdr.sa_transacno_ref }} </p>
+          <p><b>Date: </b>   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ date }} </p>
+          <p><b>Time: </b> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ time }} </p>
+          <p><b>Issued: </b> &nbsp;&nbsp;{{ hdr.cas_name }} </p>
+        </div>
+       
+      </div>
+    </div>
+    <br/>
+    {% load mathfilters %}
+
+
+    <table cellspacing="15" cellpadding="10" style="font-size: 10px;width: 20%;" >
+      <tr>
+        <th>No</th>
+        <th>Description</th>
+        <th></th>
+      </tr>
+      {% for d in daud %}
+      <tr>
+        <td>{{ forloop.counter }}</td>
+        <td>{{ d.dt_itemdesc }}</td>
+        <td></td>
+        </tr>
+      {% endfor %}
+      <tr>
+        <th>Qty</th>
+        <th>Net Price</th>
+        <th>Paid</th>
+       
+      </tr>
+
+      {% for da in daud %}
+      <tr>
+          <td>&nbsp;{{ da.dt_qty }}</td>
+          {% if da.dt_status == "SA" and da.record_detail_type == "TD" %}
+          <td>&nbsp;</td>
+          {% else %}
+            <td >$&nbsp;{{ da.dt_amt|floatformat:2 }}</td>
+          {% endif %}
+          <!-- <td style="font-weight: normal;font-size: 13px;border: 1px solid grey;">$&nbsp;{{ d.dt_discamt|floatformat:2 }}</td> -->
+          {% if da.dt_status == "SA" and da.record_detail_type == "TD" %}
+            <td>&nbsp;</td>
+          {% else %}
+            <td >$&nbsp;{{ da.dt_deposit|floatformat:2 }}</td>
+          {% endif %}
+        </tr>
+      {% endfor %}
+
+      <tr>
+        <th>Balance</th>
+        <th>Sold By</th>
+        <th>Service By</th>
+      </tr> 
+  
+     
+      {% for de in daud %}
+        <tr>
+           
+            <!-- <li>13 - 17 = {{ 13|sub:17 }}</li> -->
+            {% if de.dt_status == "SA" and de.record_detail_type == "TD" %}
+              <td>&nbsp;</td>
+            {% else %}
+              <td >$&nbsp;{{ de.dt_amt|sub:de.dt_deposit |floatformat:2 }}</td>
+            {% endif %}
+
+            {% if de.staffs %}
+              {% with de.staffs|split:"/" as staffs %}
+                  {% for staff in staffs %}
+                      {% if forloop.counter == 1 %} 
+                          <td>{{ staff }}</td>
+                      {% endif %} 
+                      {% if forloop.counter == 2 %} 
+                          <td>{{ staff }}</td>
+                      {% endif %}
+                  {% endfor %}
+              {% endwith %}
+            {% endif %} 
+           
+          </tr>
+          {% endfor %}
+
+      <tr>
+        
+        {% if d.dt_status == "SA" and d.record_detail_type == "TD" %}
+          <th>$&nbsp;{{ "0.00" }}</th>
+          <th>$&nbsp;{{ "0.00" }}</th>
+          <th>$&nbsp;{{ "0.00" }}</th>
+        {% else %}
+          <th >$&nbsp;{{ trans_amt|floatformat:2 }}</th>
+          <th >$&nbsp;{{ deposit_amt|floatformat:2 }}</th>
+          <th >$&nbsp;{{ total_balance|floatformat:2 }}</th>
+        {% endif %}
+        
+      </tr>
+  
+     
+      </table>
+
+      <div class="split">
+        <div class="box">
+        <th></th>
+        <table style="border-collapse: collapse;" cellspacing="2" cellpadding="5" width="20%" style="font-size: 10px">
+          <tr style="font-size: 10px">
+            <th>No</th>
+            <th>Type</th>
+            <th>Amount</th>
+          </tr>
+          {% for taud in postaud %}
+            <tr style="font-size: 10px">
+              <td>{% if taud.pay_rem1 %} {{ taud.pay_rem1 }} {% else %} {% endif %}</td>
+              <td>{{ taud.pay_typeid.pay_description }}</td>
+              <td>${{ taud.pay_amt|floatformat:2 }}</td>
+            </tr>
+          {% endfor %}
+  
+          <tr style="font-size: 10px">
+            <th>Inclusive {{ percent }}&nbsp;% GST {{ hdr.sa_totgst|floatformat:2 }}</th>
+            <th>Total</th>
+            <th>${{ billing_amount|floatformat:2 }}</th>
+          </tr>
+          
+        </table>
+
+        <div style="font-size: 12px">
+          <p>Tender Amount   &nbsp;&nbsp;&nbsp;&nbsp; {{ billing_amount|floatformat:2 }}</p>
+          <p>Change Amount  </p>
+          <p>Terms and Condition Apply</p>
+        </div>  
+        </div>
+      </div>
+     
+
+     
+      
+     <br/>
+    
+
+    
+	</div>
+
+
+  
+
+   
+
+      
+   
+  
+</body>
+</html>

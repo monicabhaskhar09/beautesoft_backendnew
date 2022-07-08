@@ -3887,3 +3887,15 @@ class ItemFlexiservice(models.Model):
 
     class Meta:
         db_table = 'Item_FlexiService'
+
+
+class AuditLog(models.Model):
+    id = models.AutoField(db_column='ID', primary_key=True)
+    user_loginid = models.ForeignKey('cl_table.Fmspw', on_delete=models.PROTECT,null=True)
+    username = models.CharField(db_column='username', max_length=500, blank=True, null=True)  
+    created_at = models.DateTimeField(blank=True, null=True)
+    pp_no = models.CharField(db_column='PP_NO',  max_length=500, null=True)  # Field name made lowercase.
+    line_no = models.BigIntegerField(db_column='Line_No', null=True)  # Field name made lowercase.
+    
+    class Meta:
+        db_table = 'AuditLog'

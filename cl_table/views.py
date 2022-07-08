@@ -126,7 +126,7 @@ from itertools import chain
 from django.db.models import Case, When, Value, IntegerField,CharField, DateField,BooleanField,FloatField
 from tablib import Dataset, Databook
 import xlrd
- 
+import calendar 
 
 type_ex = ['VT-Deposit','VT-Top Up','VT-Sales']
 
@@ -19981,3 +19981,182 @@ class ItemFlexiserviceListAPIView(generics.ListAPIView):
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)    
+
+
+class staffPerformanceAPIView(APIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    serializer_class = []
+
+    def get(self, request):
+        try:
+           
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)[0]
+            site = fmspw.loginsite
+            today_date = timezone.now().date()
+            year = today_date.year
+            month = today_date.month
+
+            _, num_days = calendar.monthrange(year, month)
+            # print(num_days,_,"kkk")
+            first_day = datetime.date(year, month, 1)
+            # print(first_day,"first_day")
+            last_day = datetime.date(year, month, num_days)
+            # print(last_day,"last_day")
+            staff_id = self.request.GET.get('staff_id',None)
+            if not staff_id:
+                raise Exception("Please Give Staff ID")
+
+            from_date = self.request.GET.get('from_date',None)
+
+            to_date = self.request.GET.get('to_date',None)
+           
+            emp_obj = Employee.objects.filter(pk=staff_id).order_by('-pk').first()
+            if not emp_obj:
+                raise Exception("Employee ID does not exist")
+                    
+            cust_code = [] ; hours_worked = 0
+            if from_date and to_date:
+                pass
+            else:
+                from_date = first_day
+                to_date = last_day
+
+            helper_ids = ItemHelper.objects.filter(sa_date__date__gte=from_date,
+            sa_date__date__lte=to_date,helper_code=emp_obj.emp_code,site_code=site.itemsite_code).order_by('pk')    
+            if helper_ids:
+                # print(helper_ids,"helper_ids")
+                for h in helper_ids:
+                    if h.item_code:
+                        treat_ids = Treatment.objects.filter(treatment_code=h.item_code,
+                        status='Done').order_by('pk')
+                        # print(treat_ids,"treat_ids")
+                        if treat_ids:
+                            for t in treat_ids:
+                                if t.duration:
+                                    hours_worked += t.duration
+                                else:
+                                    hours_worked += 30  
+
+                                if t.cust_code not in cust_code:
+                                    cust_code.append(t.cust_code)
+            
+            # print(cust_code,"cust_code")
+            
+            sales_amt = "0.00" 
+            month_haudids = list(set(PosHaud.objects.filter(sa_date__date__gte=from_date,
+            sa_date__date__lte=to_date,isvoid=False,itemsite_code=site.itemsite_code).order_by('-pk').values_list('sa_transacno', flat=True).distinct()))
+            # print(month_haudids,"month_haudids")
+            if month_haudids:
+                multi_ids = Multistaff.objects.filter(sa_transacno__in=month_haudids,
+                emp_code=emp_obj.emp_code).aggregate(amount=Coalesce(Sum('salesamt'), 0))
+
+                if multi_ids and multi_ids['amount'] > 0.0:
+                    sales_amt = "{:.2f}".format(multi_ids['amount'])
+                else:
+                    sales_amt = "0.00" 
+
+            #monthly Product
+            month_product_ids = PosDaud.objects.filter(itemsite_code=site.itemsite_code,sa_date__date__gte=from_date,
+            sa_date__date__lte=to_date,sa_transacno__in=month_haudids,dt_status="SA",record_detail_type='PRODUCT',
+            dt_staffno__icontains=emp_obj.emp_code).order_by('-pk')
+            # print(month_product_ids,"month_product_ids")
+            month_productdeposit = "{:.2f}".format(float(sum([i.dt_deposit for i in month_product_ids])))
+                
+            result = {'status': status.HTTP_200_OK,"message":"Listed Successful",'error': False,
+            'customers_served': len(cust_code),'sales_contribution': sales_amt,
+            'products_sold':month_productdeposit,'hours_worked': hours_worked} 
+           
+            return Response(result,status=status.HTTP_200_OK)
+                
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)    
+
+
+class staffCustomerHistoryAPIView(APIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    serializer_class = [] 
+
+    def get(self, request):
+        try:
+           
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)[0]
+            site = fmspw.loginsite
+            today_date = timezone.now().date()
+            year = today_date.year
+            month = today_date.month
+
+            _, num_days = calendar.monthrange(year, month)
+            # print(num_days,_,"kkk")
+            first_day = datetime.date(year, month, 1)
+            # print(first_day,"first_day")
+            last_day = datetime.date(year, month, num_days)
+            # print(last_day,"last_day")
+            staff_id = self.request.GET.get('staff_id',None)
+            if not staff_id:
+                raise Exception("Please Give Staff ID")
+
+            from_date = self.request.GET.get('from_date',None)
+
+            to_date = self.request.GET.get('to_date',None)
+           
+            emp_obj = Employee.objects.filter(pk=staff_id).order_by('-pk').first()
+            if not emp_obj:
+                raise Exception("Employee ID does not exist")
+                    
+            cust_code = [] ; hours_worked = 0
+            if from_date and to_date:
+                pass
+            else:
+                from_date = first_day
+                to_date = last_day
+            
+            service_lst = []
+            helper_ids = ItemHelper.objects.filter(sa_date__date__gte=from_date,
+            sa_date__date__lte=to_date,helper_code=emp_obj.emp_code,
+            site_code=site.itemsite_code).order_by('pk','sa_date')    
+            if helper_ids:
+                # print(helper_ids,"helper_ids")
+                for h in helper_ids:
+                    if h.item_code:
+                        treat_ids = Treatment.objects.filter(treatment_code=h.item_code,
+                        status='Done').order_by('pk')
+                        # print(treat_ids,"treat_ids")
+                        # print(treat_ids.values('course','unit_amount','treatment_date','cust_code'))
+                        if treat_ids:
+                            for t in treat_ids:
+                                splt = str(t.treatment_date).split(" ") 
+                                treatment_date = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d-%m-%Y")
+
+                                if not any(d['cust_code'] == t.cust_code for d in service_lst):
+                                    cust_obj = Customer.objects.filter(cust_code=t.cust_code,cust_isactive=True).order_by('-pk').first()
+                                    service_lst.append({'cust_code': t.cust_code,
+                                    'cust_name': t.cust_name,
+                                    'cust_address': cust_obj.cust_address if cust_obj and cust_obj.cust_address else "",
+                                    'cust_phone': cust_obj.cust_phone1 if cust_obj and cust_obj.cust_phone1 else "",
+                                    'service_cnt': 1,
+                                    'service_name': t.course, 
+                                    'last_visit': treatment_date, 
+                                    'contribution':  float("{:.2f}".format(t.unit_amount))})
+                                else:
+                                    for r in service_lst:
+                                        if t.cust_code in r.values():
+                                            r['service_cnt'] += 1
+                                            r['service_name'] = t.course
+                                            r['last_visit'] = treatment_date
+                                            r['contribution'] += float("{:.2f}".format(t.unit_amount))
+            
+            result = {'status': status.HTTP_200_OK,"message":"Listed Successful",'error': False,
+            'data': service_lst} 
+           
+            return Response(result,status=status.HTTP_200_OK)
+                
+
+        
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)    
+

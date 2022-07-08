@@ -1968,7 +1968,7 @@ def invoice_topup(self, request, topup_ids,sa_transacno, cust_obj, outstanding, 
                 # print(multi.id,"multi")
 
             for sale in c.multistaff_ids.all():
-                multi = Multistaff(sa_transacno=sa_transacno,item_code=multi_itemcode,
+                multi = Multistaff(sa_transacno=sa_transacno,item_code=str(c.itemcodeid.item_code)+"0000",
                 emp_code=sale.emp_code,ratio=sale.ratio,salesamt="{:.2f}".format(float(sale.salesamt)),type=None,isdelete=False,role=1,
                 dt_lineno=c.lineno,salescommpoints=sale.salescommpoints)
                 multi.save()

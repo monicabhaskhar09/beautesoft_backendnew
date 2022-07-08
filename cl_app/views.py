@@ -28,7 +28,7 @@ PackageDtl, ItemDiv, PosDaud, PosTaud, Customer, GstSetting, ControlNo, Treatmen
 PrepaidAccount, Treatment,PosHaud,TmpItemHelper,Appointment,Source,PosHaud,ReverseDtl,ReverseHdr,
 CreditNote,Multistaff,ItemHelper,ItemUom,Treatment_Master,Holditemdetail,PrepaidAccountCondition,
 CnRefund,ItemBrand,Title,ItemBatch,Stktrn,Paytable,ItemLink,Appointment,ItemStocklist,Systemsetup,
-Tmpmultistaff,PosDisc,CustomerPoint,CustomerPointDtl,RewardPolicy,PackageAuditingLog)
+Tmpmultistaff,PosDisc,CustomerPoint,CustomerPointDtl,RewardPolicy,PackageAuditingLog,AuditLog)
 from custom.models import ItemCart, Room, Combo_Services,VoucherRecord,PosPackagedeposit,SmtpSettings
 from datetime import date, timedelta
 from datetime import datetime
@@ -77,6 +77,7 @@ from django.db.models import FloatField, ExpressionWrapper, F
 from dateutil import parser
 from itertools import chain 
 from django.db.models import Case, When, Value, IntegerField,CharField, DateField,BooleanField
+from django.contrib.auth import authenticate, login , logout, get_user_model
 
 type_ex = ['VT-Deposit','VT-Top Up','VT-Sales']
 type_tx = ['Deposit','Top Up','Sales']
@@ -8020,7 +8021,70 @@ class PrepaidAccListViewset(viewsets.ModelViewSet):
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)         
-             
+
+
+    @action(methods=['post'], detail=False, permission_classes=[IsAuthenticated & authenticated_only],
+    authentication_classes=[ExpiringTokenAuthentication])
+    def terminateprepaid(self, request): 
+        try:   
+            
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True).order_by('-pk').first()
+            log_emp =  fmspw.Emp_Codeid ; logflag = False
+
+            if not log_emp:
+                raise Exception('Employee does not exist.') 
+
+            if not 'prepaid_id' in request.data or not request.data['prepaid_id'] :
+                raise Exception('Please give prepaid ID!!.') 
+            
+            pp_obj = PrepaidAccount.objects.filter(pk=request.data['prepaid_id']).first()
+            if not pp_obj:
+                raise Exception('PrepaidAccount ID does not exist!!.') 
+
+            if not 'username' in request.data or not request.data['username'] or not 'password' in request.data or not request.data['password']:
+                raise Exception('Please Enter Valid Username and Password!!.') 
+
+            if User.objects.filter(username=request.data['username']):
+                self.user = authenticate(username=request.data['username'], password=request.data['password'])
+                # print(self.user,"self.user")
+                if self.user:
+                    
+                    fmspw_c = Fmspw.objects.filter(user=self.user.id,pw_isactive=True).order_by('-pk').first()
+                    if not fmspw_c:
+                        raise Exception('User is inactive.') 
+
+                   
+                    log_emp = fmspw_c.Emp_Codeid
+                    logflag = True
+                else:
+                    raise Exception('Password Wrong !') 
+
+            else:
+                raise Exception('Invalid Username.') 
+           
+            if logflag == True:
+                last_acc_ids = PrepaidAccount.objects.filter(pp_no=pp_obj.pp_no,
+                line_no=pp_obj.line_no).order_by('pk').last()
+                if last_acc_ids:
+                    last_acc_ids.status = False
+                    last_acc_ids.save()
+                    
+                    AuditLog(user_loginid=fmspw_c,username=fmspw_c.pw_userlogin,
+                    created_at=timezone.now(),pp_no=pp_obj.pp_no,line_no=pp_obj.line_no).save()
+
+
+
+                result = {'status': status.HTTP_200_OK,"message":"Created Succesfully",'error': False}
+                return Response(result, status=status.HTTP_200_OK)
+            else:
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Username not Secure,Can't Proceed!!",'error': True}
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)  
+
+
 
 class ComboViewset(viewsets.ModelViewSet):
     authentication_classes = [ExpiringTokenAuthentication]
