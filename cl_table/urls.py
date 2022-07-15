@@ -1,12 +1,15 @@
 from django.urls import path
 from django.conf import settings
 from django.conf.urls.static import static
-
+from rest_framework.routers import DefaultRouter
+from django.urls import path, include
 from . import views
 
-
+router = DefaultRouter()
+router.register(r'termsandcondition', views.TermsandconditionViewset, basename='termsandcondition')
 
 urlpatterns = [
+    path('api/', include(router.urls)),
     path('api/login', views.UserLoginAPIView.as_view(), name='login'),
     path('api/logout', views.UserLogoutAPIView.as_view(), name='logout'),
     path('api/employeebranchwise', views.EmployeeList.as_view(), name='employee-branch'),

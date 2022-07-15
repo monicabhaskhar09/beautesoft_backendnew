@@ -7,7 +7,7 @@ StktrnModel, SystemLogModel, SupplyContactInfoModel, ControlNoModel,CommissionPr
 ManualInvoiceModel,ManualInvoiceDetailModel,ManualInvoiceAddrModel,ManualInvoiceItemModel,WorkOrderInvoiceModel,
 WorkOrderInvoiceDetailModel,WorkOrderInvoiceAddrModel,WorkOrderInvoiceItemModel,DeliveryOrderModel,DeliveryOrderAddrModel,
 DeliveryOrderDetailModel,DeliveryOrderItemModel,DeliveryOrdersign,EquipmentDropdownModel,EquipmentUsage,
-EquipmentUsageItemModel,Currencytable,QuotationPayment,ManualInvoicePayment)
+EquipmentUsageItemModel,Currencytable,QuotationPayment,ManualInvoicePayment,quotationsign)
 from cl_table.models import (Treatment, Stock, PackageDtl, ItemClass, ItemRange, Employee, Tmptreatment,
 TmpItemHelper,PosHaud,City, State, Country, Stock )
 from cl_table.serializers import get_client_ip
@@ -1165,6 +1165,22 @@ class DeliveryOrdersignSerializer(serializers.ModelSerializer):
         data['do_sig'] = do_sig
         return data
 
+class quotationsignSerializer(serializers.ModelSerializer):
+    
+    class Meta:
+        model = quotationsign
+        fields = ['id','fk_quotation','quotation_number','quo_sig']  
+    
+    def to_representation(self, obj):
+        request = self.context['request']
+        data = super(quotationsignSerializer, self).to_representation(obj)
+        ip = "http://"+request.META['HTTP_HOST']
+        quo_sig = ""
+        if obj.quo_sig:
+            quo_sig = ip+str(obj.quo_sig.url)
+
+        data['quo_sig'] = quo_sig
+        return data
 
 class InvoiceListingSerializer(serializers.ModelSerializer): 
     class Meta:

@@ -23,7 +23,7 @@ VoucherRecordAccSerializer,DeliveryOrderSerializer,DeliveryOrderAddrSerializer,D
 DeliveryOrderItemSerializer,DeliveryOrdersignSerializer,InvoiceListingSerializer,WorkOrderInvNoSerializer,
 EquipmentDropdownSerializer,EquipmentUsageSerializer,EquipmentUsageItemModelSerializer,StaffEquipmentSerializer,
 ItemEquipmentSerializer,ProjectSearchSerializer,CurrencytableSerializer,QuotationPaymentSerializer,
-ManualInvPaymentSerializer,QuotationItemDiscountSerializer)
+ManualInvPaymentSerializer,QuotationItemDiscountSerializer,quotationsignSerializer)
 from .models import (EmpLevel, Room, Combo_Services, ItemCart,VoucherRecord,RoundPoint, RoundSales,
 PaymentRemarks, HolditemSetup,PosPackagedeposit,SmtpSettings,MultiPricePolicy,salesStaffChangeLog,
 serviceStaffChangeLog,dateChangeLog,  TimeLogModel, ProjectModel, ActivityModel, QuotationModel, POModel, QuotationAddrModel, 
@@ -36,7 +36,7 @@ ManualInvoiceModel,ManualInvoiceDetailModel,ManualInvoiceAddrModel,ManualInvoice
 WorkOrderInvoiceDetailModel,WorkOrderInvoiceAddrModel,WorkOrderInvoiceItemModel,DeliveryOrderModel,
 DeliveryOrderDetailModel,DeliveryOrderAddrModel,DeliveryOrderItemModel,DeliveryOrdersign,
 EquipmentDropdownModel,EquipmentUsage,EquipmentUsageItemModel,Currencytable,QuotationPayment,
-ManualInvoicePayment,PosDiscQuant)
+ManualInvoicePayment,PosDiscQuant,quotationsign)
 from cl_table.models import(Treatment, Employee, Fmspw, Stock, ItemClass, ItemRange, Appointment,Customer,Treatment_Master,
 GstSetting,PosTaud,PosDaud,PosHaud,ControlNo,EmpSitelist,ItemStatus, TmpItemHelper, FocReason, PosDisc,
 TreatmentAccount, PosDaud, ItemDept, DepositAccount, PrepaidAccount, ItemDiv, Systemsetup, Title,
@@ -11608,10 +11608,93 @@ class DeliveryOrderFormatAPIView(generics.ListCreateAPIView):
             return general_error_response(invalid_message)     
 
 
-                   
+class QuotationFormatAPIView(generics.ListCreateAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = QuotationModel.objects.filter(active='active').order_by('-pk')
+    serializer_class = QuotationSerializer
+
+    def list(self, request):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True)[0]
+            site = fmspw.loginsite
+
+            searchid = self.request.GET.get('searchid','')
+            if not searchid == '':
+                qo_obj = QuotationModel.objects.filter(id=searchid,active='active').order_by('-pk')[0]
+                datalist = []
+                if qo_obj:
+                    serializer = QuotationSerializer(qo_obj)
+                    addr_k = {};dtl_k = {};item_k = [];pay_k = [];sign_k={}
+                    qoaddr_ids = QuotationAddrModel.objects.filter(fk_quotation=searchid,active='active').order_by('-pk')
+                    if qoaddr_ids:
+                        addr_ser = QuotationAddrSerializer(qoaddr_ids[0])
+                        addr_k = addr_ser.data
+
+                    qodtl_ids = QuotationDetailModel.objects.filter(fk_quotation=searchid,
+                    active='active').order_by('-pk') 
+                    if qodtl_ids:
+                        dtl_ser = QuotationDetailSerializer(qodtl_ids[0]) 
+                        dtl_k =  dtl_ser.data
+
+                    qoitem_ids =   QuotationItemModel.objects.filter(fk_quotation=searchid,
+                    active='active').order_by('-pk')  
+                    if qoitem_ids:
+                        item_ser = QuotationItemSerializer(qoitem_ids, many=True)
+                        item_k = item_ser.data
+
+                    qo_payids = QuotationPayment.objects.filter(fk_quotation=searchid,
+                    active='active').order_by('-pk')
+                    if qo_payids:
+                        pay_ser = QuotationPaymentSerializer(qo_payids, many=True)
+                        pay_k = pay_ser.data
+                    
+                    qosign_ids = quotationsign.objects.filter(fk_quotation=searchid,
+                    ).order_by('-pk') 
+                    if qosign_ids:
+                        sign_ser = quotationsignSerializer(qosign_ids[0],context={'request': self.request}) 
+                        sign_k =  sign_ser.data
 
 
-    
+
+                    current_date = datetime.datetime.strptime(str(date.today()), "%Y-%m-%d").strftime("%d-%m-%Y")
+                    time = str(datetime.datetime.now().time()).split(":")
+
+                    time_data = time[0]+":"+time[1]
+                    
+                    title = Title.objects.filter(product_license=site.itemsite_code).first()
+
+                    logo = ""
+                    if title and title.logo_pic:
+                        logo = "http://"+request.META['HTTP_HOST']+title.logo_pic.url
+     
+
+                    company_header = {'logo': logo,'date':current_date+" "+time_data,
+                    'issued': fmspw.pw_userlogin,
+                    'name': title.trans_h1 if title and title.trans_h1 else '', 
+                    'address': title.trans_h2 if title and title.trans_h2 else ''}    
+
+     
+                    val_lst = {'quotation': serializer.data,'quotationaddr': addr_k,
+                    'quotationdtl': dtl_k,'quotationitem': item_k,
+                    'quotationpayment': pay_k,'quotationsign': sign_k,
+                    'company_header': company_header}
+                    datalist.append(val_lst)
+                    
+
+                    result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 'data': datalist}
+                else:
+                    result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+
+            else:
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+            return Response(data=result, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)     
+
+
 
 
 class ManualInvoiceListViewset(viewsets.ModelViewSet):
@@ -25249,6 +25332,11 @@ class DeliveryOrderSignViewset(viewsets.ModelViewSet):
             do_id = request.GET.get('do_id',None)
             if not do_id:
                 raise Exception('Please Give Delivery Order ID!!') 
+
+            delivery = DeliveryOrderModel.objects.filter(pk=do_id).order_by("-pk").first()
+            if not delivery:
+                raise Exception('DeliveryOrderModel ID does not exist!!') 
+                
             queryset = DeliveryOrdersign.objects.filter(do_id=do_id)
             if queryset:
                 serializer = self.get_serializer(queryset, many=True, context={'request': self.request})
@@ -25280,6 +25368,64 @@ class DeliveryOrderSignViewset(viewsets.ModelViewSet):
                     raise Exception('Already Signature Uploaded for this Delivery Order!!') 
 
                 result = {'status': status.HTTP_201_CREATED,"message": "Created Succesfully",'error': False}
+                return Response(result, status=status.HTTP_201_CREATED)
+
+            result = {'status': status.HTTP_400_BAD_REQUEST,"message": "Invalid Input",'error': False, 
+            'data':  serializer.errors}
+            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)     
+
+
+class quotationsignViewset(viewsets.ModelViewSet):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = quotationsign.objects.filter().order_by('pk')
+    serializer_class = quotationsignSerializer
+
+    def list(self, request):
+        try:
+            quo_id = request.GET.get('quo_id',None)
+            if not quo_id:
+                raise Exception('Please Give Quotation ID!!') 
+
+            quo_obj = QuotationModel.objects.filter(pk=quo_id).order_by("-pk").first()
+            if not quo_obj:
+                raise Exception('QuotationModel ID does not exist!!') 
+                
+            queryset = quotationsign.objects.filter(fk_quotation=quo_id)
+            if queryset:
+                serializer = self.get_serializer(queryset, many=True, context={'request': self.request})
+                result = {'status': status.HTTP_200_OK,"message": "Listed Succesfully",'error': False, 'data':  serializer.data}
+            else:
+                serializer = self.get_serializer()
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+            return Response(data=result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)             
+    
+
+    def create(self, request):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+            site = fmspw[0].loginsite
+           
+            quo_obj = QuotationModel.objects.filter(pk=request.data['fk_quotation']).order_by("-pk").first()
+            if not quo_obj:
+                raise Exception('QuotationModel ID does not exist!!') 
+            
+            serializer = self.get_serializer(data=request.data)
+            if serializer.is_valid():
+                exist_ids = quotationsign.objects.filter(fk_quotation=request.data['fk_quotation']).order_by('pk')
+                if not exist_ids:
+                    temph = serializer.save(quotation_number=quo_obj.quotation_number)
+                else:
+                    raise Exception('Already Signature Uploaded for this Quotation!!') 
+
+                result = {'status': status.HTTP_201_CREATED,"message": "Created Succesfully",'error': False,
+                'data': serializer.data}
                 return Response(result, status=status.HTTP_201_CREATED)
 
             result = {'status': status.HTTP_400_BAD_REQUEST,"message": "Invalid Input",'error': False, 

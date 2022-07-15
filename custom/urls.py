@@ -114,6 +114,7 @@ router.register(r'equipmentdropdown', views.EquipmentDropdownViewset, 'equipment
 router.register(r'equipmentusagelist', views.EquipmentUsageViewset, 'equipmentusagelist')
 router.register(r'equipmentusageitem', views.EquipmentUsageItemModelViewset, 'equipmentusageitem')
 router.register(r'currencytable', views.CurrencytableViewset, 'currencytable')
+router.register(r'quotationsign', views.quotationsignViewset)
 
 
 # The API URLs are now determined automatically by the router.
@@ -145,6 +146,7 @@ urlpatterns = [
     path('api/itemequipmentlist/', views.ItemEquipmentAPIView.as_view(), name='itemequipmentlist'),
     path('api/projectsearch/', views.ProjectSearchAPI.as_view(), name='projectsearch'),
     path('api/quotationnewrevision/', views.CreateNewRevisionQuotationAPIView.as_view(), name='quotationnewrevision'),
+    path('api/quotationpdf/', views.QuotationFormatAPIView.as_view(), name='quotationpdf'),
 
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 

@@ -1698,6 +1698,8 @@ class TopupCombinedViewset(viewsets.ModelViewSet):
             "topup_amount" : "0.00","new_outstanding" : "0.00"}
             if tqueryset:
                 for q in tqueryset:
+                    ser_splt = str(q.description).split(":")
+                    # print(ser_splt,"ser_splt")
                     #acc_ids = TreatmentAccount.objects.filter(ref_transacno=q.sa_transacno,
                     #treatment_parentcode=q.treatment_parentcode,Site_Codeid=site).order_by('id').last()
                     tacc_ids = TreatmentAccount.objects.filter(ref_transacno=q.sa_transacno,
@@ -1722,12 +1724,12 @@ class TopupCombinedViewset(viewsets.ModelViewSet):
                             if system_setup and system_setup.value_data == 'True' and system_obj and system_obj.value_data == 'True':
                                 if tacc_ids.site_code != site.itemsite_code or tacc_ids.site_code == site.itemsite_code:
                                     tpos_haud = PosHaud.objects.filter(sa_custnoid=cust_id,
-                                    sa_transacno_type="Receipt",sa_transacno=q.sa_transacno).first()
+                                    sa_transacno=q.sa_transacno).first()
                             
                             else:
                                 if tacc_ids.site_code == site.itemsite_code: 
                                     tpos_haud = PosHaud.objects.filter(sa_custnoid=cust_id,ItemSite_Codeid__pk=site.pk,
-                                    sa_transacno_type="Receipt",sa_transacno=q.sa_transacno).first()
+                                    sa_transacno=q.sa_transacno).first()
                             
 
                             if tpos_haud:
@@ -1739,7 +1741,8 @@ class TopupCombinedViewset(viewsets.ModelViewSet):
                                 data['TreatmentAccountid'] = q.pk
                                 data["pay_amount"] = None
                                 data['qty'] = open_trmids
-                                data["total_amount"] = "{:.2f}".format(float(daud_l.dt_amt)) if daud_l and daud_l.dt_amt else "0.00"
+                                # data["total_amount"] = "{:.2f}".format(float(daud_l.dt_amt)) if daud_l and daud_l.dt_amt else "0.00"
+                                data["total_amount"] = ser_splt[1]
                                 if data['sa_transacno']:
                                     data['sa_transacno'] = tpos_haud.sa_transacno_ref if tpos_haud.sa_transacno_ref else "" 
                                 # if data['treatment_parentcode']:
@@ -1768,6 +1771,8 @@ class TopupCombinedViewset(viewsets.ModelViewSet):
             
             if pqueryset:
                 for pq in pqueryset:
+                    pro_splt = str(pq.description).split(":")
+                    # print(pro_splt,"pro_splt")
                     # ,type__in=('Deposit', 'Top Up')
                     pacc_ids = DepositAccount.objects.filter(ref_transacno=pq.sa_transacno,
                     ref_productcode=pq.treat_code).order_by('-sa_date','-sa_time','-id').first()
@@ -1785,12 +1790,12 @@ class TopupCombinedViewset(viewsets.ModelViewSet):
                                 if system_setup and system_setup.value_data == 'True' and system_obj and system_obj.value_data == 'True':
                                     if pacc_ids.site_code != site.itemsite_code or pacc_ids.site_code == site.itemsite_code:
                                         ppos_haud = PosHaud.objects.filter(sa_custnoid=cust_id,
-                                        sa_transacno_type="Receipt",sa_transacno=pq.sa_transacno).first()
+                                        sa_transacno=pq.sa_transacno).first()
 
                                 else:
                                     if pacc_ids.site_code == site.itemsite_code: 
                                         ppos_haud = PosHaud.objects.filter(sa_custnoid=cust_id,ItemSite_Codeid__pk=site.pk,
-                                        sa_transacno_type="Receipt",sa_transacno=pq.sa_transacno).first()
+                                        sa_transacno=pq.sa_transacno).first()
 
                                
                                 if ppos_haud:
@@ -1803,7 +1808,8 @@ class TopupCombinedViewset(viewsets.ModelViewSet):
                                     dat["pay_amount"] = None
                                     dat['sa_transacno'] = ppos_haud.sa_transacno_ref if ppos_haud.sa_transacno_ref else ""     
                                     dat['stock_id'] = pacc_ids.Item_Codeid.pk
-                                    dat["total_amount"] = "{:.2f}".format(float(daud_li.dt_amt)) if daud_li and daud_li.dt_amt else "0.00"
+                                    # dat["total_amount"] = "{:.2f}".format(float(daud_li.dt_amt)) if daud_li and daud_li.dt_amt else "0.00"
+                                    dat["total_amount"] = pro_splt[1]
                                     if dat["balance"]:
                                         dat["balance"] = "{:.2f}".format(float(dat['balance']))
                                     else:
@@ -1829,15 +1835,18 @@ class TopupCombinedViewset(viewsets.ModelViewSet):
                     daud = PosDaud.objects.filter(sa_transacno=rq.sa_transacno)
                     for d in daud:
                         pacc_ids = PrepaidAccount.objects.filter(pp_no=d.sa_transacno,sa_status='DEPOSIT',
-                        cust_code=cust_obj.cust_code,pos_daud_lineno=d.dt_lineno,outstanding__gt = 0)
+                        cust_code=cust_obj.cust_code,line_no=d.dt_lineno,outstanding__gt = 0)
                        
                         if pacc_ids:
-                            if int(d.dt_itemnoid.item_div) == 3 and d.dt_itemnoid.item_type == 'PACKAGE':
-                                acc_ids = PrepaidAccount.objects.filter(pp_no=d.sa_transacno,package_code=d.dt_combocode,
-                                pos_daud_lineno=d.dt_lineno,outstanding__gt = 0,status=True).order_by('id').last()
-                            else:
-                                acc_ids = PrepaidAccount.objects.filter(pp_no=d.sa_transacno,
-                                pos_daud_lineno=d.dt_lineno,outstanding__gt = 0,status=True).order_by('id').last()
+                            # if int(d.dt_itemnoid.item_div) == 3 and d.dt_itemnoid.item_type == 'PACKAGE':
+                            #     acc_ids = PrepaidAccount.objects.filter(pp_no=d.sa_transacno,package_code=d.dt_combocode,
+                            #     line_no=d.dt_lineno,outstanding__gt = 0,status=True).order_by('id').last()
+                            # else:
+                            #     acc_ids = PrepaidAccount.objects.filter(pp_no=d.sa_transacno,
+                            #     line_no=d.dt_lineno,outstanding__gt = 0,status=True).order_by('id').last()
+                            
+                            acc_ids = PrepaidAccount.objects.filter(pp_no=d.sa_transacno,
+                            line_no=d.dt_lineno,outstanding__gt = 0,status=True).order_by('id').last()
 
                             
                             if acc_ids:

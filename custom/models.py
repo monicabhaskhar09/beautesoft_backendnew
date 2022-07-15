@@ -275,9 +275,9 @@ class ItemCart(models.Model):
     treat_expiry = models.DateField(db_column='Treatment_Expiry', blank=True, null=True)  # Field name made lowercase.
     treat_type = models.CharField(db_column='treat_type', max_length=50, blank=True, null=True)  # Field name made lowercase.
     treatment_limit_times = models.FloatField(db_column='Treatment_Limit_Times', blank=True, null=True)  # Field name made lowercase.
-    is_flexi = models.BooleanField(default=False)
+    is_flexi = models.BooleanField(default=False, blank=True, null=True)
     quotationitem_id = models.ForeignKey('custom.QuotationItemModel', on_delete=models.PROTECT,blank=True, null=True)
-    is_flexinewservice = models.BooleanField(default=False)
+    is_flexinewservice = models.BooleanField(default=False, blank=True, null=True)
     
     class Meta:
         db_table = 'item_Cart'
@@ -813,16 +813,16 @@ class QuotationItemModel(models.Model):
     quotation_itemdesc = models.CharField(db_column='Quotation_Item_Desc', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
     active = models.CharField(db_column='Active', blank=True, max_length = 255, default='active', null=True)  # Field name made lowercase.
     fk_quotation = models.ForeignKey('custom.QuotationModel', on_delete=models.PROTECT, null=True, default=1)
-    discount = models.FloatField(default=0.0,  null=True)
-    discount_amt = models.FloatField(default=0.0,  null=True)
-    discount_price = models.FloatField(default=0.0,  null=True)
-    additional_discount = models.FloatField( null=True,default=0.0)
-    additional_discountamt = models.FloatField( null=True,default=0.0)
-    trans_amt = models.FloatField(default=0.0,  null=True)
-    disc_reason = models.ManyToManyField('custom.PaymentRemarks', blank=True)
-    discreason_txt = models.CharField(max_length=500,  null=True, blank=True)  # Field name made lowercase.
-    pos_disc = models.ManyToManyField('custom.PosDiscQuant', blank=True)
-    auto = models.BooleanField(default=True)
+    # discount = models.FloatField(default=0.0,  null=True)
+    # discount_amt = models.FloatField(default=0.0,  null=True)
+    # discount_price = models.FloatField(default=0.0,  null=True)
+    # additional_discount = models.FloatField( null=True,default=0.0)
+    # additional_discountamt = models.FloatField( null=True,default=0.0)
+    # trans_amt = models.FloatField(default=0.0,  null=True)
+    # disc_reason = models.ManyToManyField('custom.PaymentRemarks', blank=True)
+    # discreason_txt = models.CharField(max_length=500,  null=True, blank=True)  # Field name made lowercase.
+    # pos_disc = models.ManyToManyField('custom.PosDiscQuant', blank=True)
+    # auto = models.BooleanField(default=True)
   
 
     class Meta:
@@ -1933,6 +1933,17 @@ class DeliveryOrdersign(models.Model):
 
     class Meta:
         db_table = 'DeliveryOrdersign'
+
+class quotationsign(models.Model):
+
+    id = models.AutoField(db_column='ID', primary_key=True)
+    fk_quotation = models.ForeignKey('custom.QuotationModel', on_delete=models.PROTECT, null=True)
+    quotation_number = models.CharField(db_column='Quotation_Number', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    quo_sig = models.ImageField(db_column='quo_sig', blank=True, null=True,upload_to='img') 
+
+    class Meta:
+        db_table = 'quotationsign'
+
 
 
 class EquipmentUsage(models.Model):

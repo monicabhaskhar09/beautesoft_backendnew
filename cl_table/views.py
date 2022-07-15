@@ -24,7 +24,7 @@ from .models import (Gender, Employee, Fmspw, Attendance2, Customer, Images, Tre
                      Religious, Nationality, Races, DailysalestdSummary,
                      MrRewardItemType,CustomerPoint,TreatmentDuration,Smsreceivelog,TreatmentProtocol,CustomerTitle,CustomerPointDtl,
                      ItemDiv,Tempcustsign,CustomerDocument,TreatmentPackage,Tmptreatment,CustLogAudit,ContactPerson,
-                     ItemFlexiservice)
+                     ItemFlexiservice,termsandcondition)
 from cl_app.models import ItemSitelist, SiteGroup, LoggedInUser
 from custom.models import Room,ItemCart,VoucherRecord,EmpLevel,PosPackagedeposit,payModeChangeLog
 from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializer, Attendance2Serializer,
@@ -61,7 +61,7 @@ from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializ
                           ItemDescSerializer,TempcustsignSerializer,CustomerDocumentSerializer,
                           TreatmentPackageSerializer,ItemSitelistIntialSerializer,StaffInsertSerializer,
                           FmspwSerializernew,GenderSerializer,CustomerPlusnewSerializer,ContactPersonSerializer,
-                          ItemFlexiserviceSerializer)
+                          ItemFlexiserviceSerializer,termsandconditionSerializer)
 from datetime import date, timedelta, datetime
 import datetime
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
@@ -13484,7 +13484,8 @@ class AppointmentListPdf(APIView):
                         val = {'id':a.pk,'date':apptdate,'cust_name':a.cust_name if a.cust_name else "",
                             'phone':a.appt_phone if a.appt_phone else "",
                             'start_time': starttime,'end_time': endtime,'staff':a.emp_name,
-                            'service':a.appt_remark if a.appt_remark else "",'status':a.appt_status}
+                            'service':a.appt_remark if a.appt_remark else "",'status':a.appt_status,
+                            'source':a.Source_Codeid.source_desc if a.Source_Codeid and a.Source_Codeid.source_desc else ""}
                         if apptdate in appt_dict.keys():
                             # print("iff")
                             # print(appt_dict[apptdate],"appt_dict[apptdate]")
@@ -13606,8 +13607,9 @@ class AppointmentListPdf(APIView):
                 worksheet.write('C7', 'Contact (HP)', hformat)
                 worksheet.write('D7', 'Start Time', hformat)
                 worksheet.write('E7', 'End Time', hformat)
-                worksheet.write('F7', 'Staff', hformat)
-                worksheet.write('G7', 'Service', hformat)
+                worksheet.write('F7', 'Source', hformat)
+                worksheet.write('G7', 'Staff', hformat)
+                worksheet.write('H7', 'Service', hformat)
                 
                 row = 8
                 for i in appt_dict:
@@ -13625,8 +13627,9 @@ class AppointmentListPdf(APIView):
                                 worksheet.write(row, 2, l['phone'], dformat)
                                 worksheet.write(row, 3, l['start_time'], dformat)
                                 worksheet.write(row, 4, l['end_time'], dformat)
-                                worksheet.write(row, 5, l['staff'], dformat)
-                                worksheet.write(row, 6, l['service'], dformat)
+                                worksheet.write(row, 5, l['source'], dformat)
+                                worksheet.write(row, 6, l['staff'], dformat)
+                                worksheet.write(row, 7, l['service'], dformat)
                                 row += 1
 
                 workbook.close()
@@ -13839,26 +13842,32 @@ class DayEndListAPIView(generics.ListAPIView):
                     for c in check_ids:
                         if c.record_detail_type == 'SERVICE':
                             tracc_ids = TreatmentAccount.objects.filter(sa_transacno=d.sa_transacno,
-                            dt_lineno=c.dt_lineno,type__in=['Deposit','Top Up','Sales']).order_by('-pk').first()
+                            dt_lineno=c.dt_lineno,type__in=['Deposit']).order_by('-pk').first()
                             if tracc_ids:
-                                d_val = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
-                                'desc':c.dt_itemdesc,'qty':c.dt_qty,
-                                'amt': "{:.2f}".format(tracc_ids.amount) if tracc_ids.amount else "0.00",
-                                'balance': "{:.2f}".format(tracc_ids.balance) if tracc_ids.balance else "0.00",
-                                'satransac_ref' : d.sa_transacno_ref,'amount': "{:.2f}".format(c.dt_transacamt),
-                                'paid': "{:.2f}".format(c.dt_deposit),'outstanding': "{:.2f}".format(c.dt_transacamt - c.dt_deposit)}
-                                sal_det_lst.append(d_val)
+                                acc_ids = TreatmentAccount.objects.filter(ref_transacno=d.sa_transacno,
+                                treatment_parentcode=tracc_ids.treatment_parentcode).order_by('-sa_date','-sa_time','-id').first()
+                                if acc_ids:    
+                                    d_val = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
+                                    'desc':c.dt_itemdesc,'qty':c.dt_qty,
+                                    'amt': "{:.2f}".format(acc_ids.amount) if acc_ids.amount else "0.00",
+                                    'balance': "{:.2f}".format(acc_ids.balance) if acc_ids.balance else "0.00",
+                                    'satransac_ref' : d.sa_transacno_ref,'amount': "{:.2f}".format(c.dt_transacamt),
+                                    'paid': "{:.2f}".format(c.dt_deposit),'outstanding': "{:.2f}".format(c.dt_transacamt - c.dt_deposit)}
+                                    sal_det_lst.append(d_val)
                         elif c.record_detail_type == 'PRODUCT': 
                             deacc_ids = DepositAccount.objects.filter(sa_transacno=d.sa_transacno,
-                            dt_lineno=c.dt_lineno,type__in=['Deposit','Top Up']).order_by('-pk').first()
+                            dt_lineno=c.dt_lineno,type__in=['Deposit']).order_by('-pk').first()
                             if deacc_ids:
-                                deval = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
-                                'desc':c.dt_itemdesc,'qty':c.dt_qty,
-                                'amt': "{:.2f}".format(deacc_ids.amount) if deacc_ids.amount else "0.00",
-                                'balance': "{:.2f}".format(deacc_ids.balance) if deacc_ids.balance else "0.00",
-                                'satransac_ref' : d.sa_transacno_ref,'amount': "{:.2f}".format(c.dt_transacamt),
-                                'paid': "{:.2f}".format(c.dt_deposit),'outstanding': "{:.2f}".format(c.dt_transacamt - c.dt_deposit)}
-                                sal_det_lst.append(deval)
+                                dpacc_ids = DepositAccount.objects.filter(sa_transacno=d.sa_transacno,
+                                treat_code=deacc_ids.treat_code).order_by('-sa_date','-sa_time','-id').first()
+                                if dpacc_ids: 
+                                    deval = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
+                                    'desc':c.dt_itemdesc,'qty':c.dt_qty,
+                                    'amt': "{:.2f}".format(dpacc_ids.amount) if dpacc_ids.amount else "0.00",
+                                    'balance': "{:.2f}".format(dpacc_ids.balance) if dpacc_ids.balance else "0.00",
+                                    'satransac_ref' : d.sa_transacno_ref,'amount': "{:.2f}".format(c.dt_transacamt),
+                                    'paid': "{:.2f}".format(c.dt_deposit),'outstanding': "{:.2f}".format(c.dt_transacamt - c.dt_deposit)}
+                                    sal_det_lst.append(deval)
                         elif c.record_detail_type == 'PREPAID':
                             pracc_ids = PrepaidAccount.objects.filter(pp_no=d.sa_transacno,
                             line_no=c.dt_lineno,sa_status__in=['DEPOSIT','TOPUP','SA']).order_by('-pk').first()
@@ -15984,11 +15993,16 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
                         sou_obj = Source.objects.filter(pk=request.data['Cust_Sourceid'],source_isactive=True).first()
                         if sou_obj and sou_obj.source_code:
                             source = sou_obj.source_code
-                        
+
+                    if not 'custallowsendsms' in request.data or request.data['custallowsendsms'] == None:
+                        allowsendsms = True
+                    else:
+                        if 'custallowsendsms' in request.data and request.data['custallowsendsms']:
+                            allowsendsms = request.data['custallowsendsms']
 
                     k = serializer.save(site_code=site.itemsite_code, cust_code=cus_code,
                                         cust_sexes=gender, cust_joindate=timezone.now(),
-                                        cust_title=title,cust_source=source)
+                                        cust_title=title,cust_source=source,custallowsendsms=allowsendsms)
 
                     if 'cust_corporate' in request.data and request.data['cust_corporate']:
                         serializer.save(cust_corporate=request.data['cust_corporate'])
@@ -20062,10 +20076,33 @@ class staffPerformanceAPIView(APIView):
             dt_staffno__icontains=emp_obj.emp_code).order_by('-pk')
             # print(month_product_ids,"month_product_ids")
             month_productdeposit = "{:.2f}".format(float(sum([i.dt_deposit for i in month_product_ids])))
-                
+
+            statistics= [
+                {
+                    'label': "Customers served",
+                    'count': len(cust_code),
+                    'avatar': "icon-user-1",
+                },
+                {
+                    'label': "Hours worked",
+                    'count': hours_worked,
+                    'avatar': "icon-user-2",
+                },
+                {
+                    'label': "Products sold",
+                    'count': month_productdeposit,
+                    'avatar': "icon-shopping-bag",
+                },
+                {
+                    'label': "Sales Contribution",
+                    'count': sales_amt,
+                    'avatar': "icon-money-1-1",
+                },
+                ]    
             result = {'status': status.HTTP_200_OK,"message":"Listed Successful",'error': False,
-            'customers_served': len(cust_code),'sales_contribution': sales_amt,
-            'products_sold':month_productdeposit,'hours_worked': hours_worked} 
+            'statistics': statistics}
+            # 'customers_served': len(cust_code),'sales_contribution': sales_amt,
+            # 'products_sold':month_productdeposit,'hours_worked': hours_worked} 
            
             return Response(result,status=status.HTTP_200_OK)
                 
@@ -20160,3 +20197,138 @@ class staffCustomerHistoryAPIView(APIView):
             invalid_message = str(e)
             return general_error_response(invalid_message)    
 
+
+
+class TermsandconditionViewset(viewsets.ModelViewSet):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = termsandcondition.objects.filter(isactive=True).order_by('-pk')
+    serializer_class = termsandconditionSerializer
+
+    def retrieve(self, request, pk=None):
+        try:
+            terms = self.get_object(pk)
+            serializer = termsandconditionSerializer(terms, context={'request': self.request})
+            result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
+            'data': serializer.data}
+            return Response(data=result, status=status.HTTP_200_OK)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message) 
+    
+
+    def create(self, request):
+        try:
+            serializer = self.get_serializer(data=request.data)
+            if serializer.is_valid():
+                serializer.save()
+                result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully",
+                'error': False,'data': serializer.data}
+                return Response(result, status=status.HTTP_201_CREATED)
+            
+            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Invalid Input",
+            'error': True, 'data': serializer.errors}
+            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)  
+    
+
+    def list(self, request):
+        try:
+            serializer_class = termsandconditionSerializer
+            queryset = termsandcondition.objects.filter(isactive=True).order_by('-pk')
+            if queryset:
+                full_tot = queryset.count()
+                try:
+                    limit = int(request.GET.get("limit",12))
+                except:
+                    limit = 8
+                try:
+                    page = int(request.GET.get("page",1))
+                except:
+                    page = 1
+
+                paginator = Paginator(queryset, limit)
+                total_page = paginator.num_pages
+
+                try:
+                    queryset = paginator.page(page)
+                except (EmptyPage, InvalidPage):
+                    queryset = paginator.page(total_page) # last page
+
+                serializer = self.get_serializer(queryset, many=True)
+                resData = {
+                    'dataList': serializer.data,
+                    'pagination': {
+                           "per_page":limit,
+                           "current_page":page,
+                           "total":full_tot,
+                           "total_pages":total_page
+                    }
+                }
+                result = {'status': status.HTTP_200_OK,"message": "Listed Succesfully",'error': False, 'data':  resData}
+            else:
+                serializer = self.get_serializer()
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+            return Response(data=result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)         
+    
+
+    def update(self, request, pk=None):
+        try:
+            terms = self.get_object(pk)
+            serializer = termsandconditionSerializer(terms, data=request.data)
+            if serializer.is_valid():
+                serializer.save()
+                result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",
+                'error': False}
+                return Response(result, status=status.HTTP_200_OK)
+            
+
+            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Invalid Input",
+            'error': True, 'data': serializer.errors}
+            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)    
+
+           
+    def destroy(self, request, pk=None):
+        try:
+            data = None
+            queryset = None
+            total = None
+            serializer_class = None
+            request.data["isactive"] = False
+            terms = self.get_object(pk)
+            serializer = termsandconditionSerializer(terms, data=request.data)
+            state = status.HTTP_204_NO_CONTENT
+            if serializer.is_valid():
+                serializer.save()
+                message = "Deleted Succesfully"
+                error = False
+                state = status.HTTP_200_OK
+                result=response(self,request, queryset, total,  state, message, error, serializer_class, data, action=self.action)
+                return Response(result,status=status.HTTP_200_OK)    
+            
+
+            message = "No Content"
+            error = True
+            result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+            return Response(result,status=state)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)          
+
+
+    def get_object(self, pk):
+        try:
+            return termsandcondition.objects.get(pk=pk)
+        except termsandcondition.DoesNotExist:
+            raise Http404
+    

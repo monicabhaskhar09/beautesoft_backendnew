@@ -471,7 +471,7 @@ class Treatment(models.Model):
     is_payment = models.BooleanField(default=False,null=True)
     treatment_account = models.ForeignKey('cl_table.TreatmentAccount', on_delete=models.PROTECT, null=True)
     helper_ids = models.ManyToManyField('cl_table.TmpItemHelper', related_name='tmpitemhelper', blank=True)
-    is_datainsert = models.BooleanField(default=False)
+    is_datainsert = models.BooleanField(default=False, blank=True, null=True)
     flexipoints = models.FloatField(db_column='flexipoints', blank=True, null=True)
     redeempoints = models.FloatField(db_column='redeempoints', blank=True, null=True)
 
@@ -3899,3 +3899,13 @@ class AuditLog(models.Model):
     
     class Meta:
         db_table = 'AuditLog'
+
+class termsandcondition(models.Model):
+    id = models.AutoField(db_column='ID', primary_key=True)
+    template_name = models.CharField(db_column='template_name', max_length=500, blank=True, null=True)  
+    template_text = models.TextField(db_column='template_text', blank=True, null=True)  # Field name made lowercase.
+    isactive = models.BooleanField(db_column='isactive', default=True) 
+    
+    class Meta:
+        db_table = 'termsandcondition'
+ 
