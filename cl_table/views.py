@@ -10467,10 +10467,12 @@ class CustomerReceiptPrintList(generics.ListAPIView):
                 'email': title.email if title.email else '','cust_sig':cust_sig}
                 footer = {'remark':hdr[0].trans_remark if hdr[0].trans_remark else '','footer1':title.trans_footer1 if title.trans_footer1 else '','footer2':title.trans_footer2 if title.trans_footer2 else '',
                 'footer3':title.trans_footer3 if title.trans_footer3 else '','footer4':title.trans_footer4 if title.trans_footer4 else '',
+                'footer5':title.trans_footer5 if title.trans_footer5 else '','footer6':title.trans_footer6 if title.trans_footer6 else ''
                 }
             else:
                 company_hdr = {'remark':'','logo':'','name':'','address':'','email': ''}
-                footer = {'footer1':'','footer2':'','footer3':'','footer4':''}
+                footer = {'footer1':'','footer2':'','footer3':'','footer4':'',
+                'footer5':'','footer6':''}
                     
 
             if not taud:
@@ -19771,7 +19773,15 @@ class TmpTreatmentNewServiceAPIView(GenericAPIView):
                     if not trmobj:
                         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Treatment ID does not exist!!",'error': True} 
                         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-                
+
+                    done_ids = Treatment.objects.filter(treatment_parentcode=trmobj.treatment_parentcode,status="Done").order_by('pk').count()    
+                    trm_ids = Tmptreatment.objects.filter(treatment_id=trmobj,status='Open').count() 
+                    total =  done_ids + trm_ids + 1
+                    
+                    if trmobj.treatment_limit_times:
+                        if total >= trmobj.treatment_limit_times:
+                            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"treatment limit times is excided!!",'error': True} 
+                            return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
                     stock_obj = Stock.objects.filter(pk=request.data['newservice_id']).first()
                     if not stock_obj:

@@ -1775,11 +1775,11 @@ class CustApptSerializer(serializers.ModelSerializer):
             # print(contactperson,"contactperson")    
        
         mapped_object = {'id':instance.pk,'cust_name':instance.cust_name if instance.cust_name else "",
-        'cust_phone1': instance.cust_phone2 if instance.cust_phone2 else "",
+        'cust_phone2': instance.cust_phone2 if instance.cust_phone2 else "",
         'cust_email': instance.cust_email if instance.cust_email else "",
         'cust_code': instance.cust_code if instance.cust_code else "",
         'cust_nric': instance.cust_nric if instance.cust_nric else "",
-        'custphone2': instance.cust_phone1 if instance.cust_phone1 else "",
+        'cust_phone1': instance.cust_phone1 if instance.cust_phone1 else "",
         'site_code': instance.site_code,
         'cust_remark': instance.cust_remark if instance.cust_remark else "",
         'cust_refer': instance.cust_refer if instance.cust_refer else "",'iscurrent':iscurrent,
@@ -2648,7 +2648,23 @@ class CustomerPlusnewSerializer(serializers.ModelSerializer):
         read_only_fields = ('cust_isactive','created_at', 'updated_at','last_visit','upcoming_appointments',
         'Site_Code','cust_code','ProneToComplain')
         extra_kwargs = {'cust_name': {'required': True},'cust_phone2': {'required': False},}
-   
+    
+
+    def to_representation(self, obj):
+        request = self.context['request']
+        data = super(CustomerPlusnewSerializer, self).to_representation(obj)
+        
+        contactperson = []
+        if obj.cust_corporate == True:
+            cont_ids = ContactPerson.objects.filter(isactive=True,
+            customer_id=obj).order_by('pk')
+            if cont_ids:
+                serializer = ContactPersonSerializer(cont_ids, many=True)
+                contactperson = serializer.data
+                
+        data['contactperson'] = contactperson
+        return data        
+
 
 
 class CustomerPlusSerializer(serializers.ModelSerializer):

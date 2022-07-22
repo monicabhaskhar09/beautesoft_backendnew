@@ -364,6 +364,8 @@ def GeneratePDF(self,request, sa_transacno):
     'footer2':title.trans_footer2 if title and title.trans_footer2 else '',
     'footer3':title.trans_footer3 if title and title.trans_footer3 else '',
     'footer4':title.trans_footer4 if title and title.trans_footer4 else '',
+    'footer5':title.trans_footer5 if title and title.trans_footer5 else '',
+    'footer6':title.trans_footer6 if title and title.trans_footer6 else '',
     'hdr': hdr[0], 'daud':daud,'taud_f':taud_f,'postaud':taud,'day':day,'fmspw':fmspw,
     'date':date,'time':time,'percent':int(gst.item_value) if gst and gst.item_value else "0" ,'path':path if path else '','title':title if title else None,
     'packages': str(packages),'site':site,'treatment': treatopen_ids,'settings': set_obj,

@@ -813,8 +813,8 @@ class QuotationItemModel(models.Model):
     quotation_itemdesc = models.CharField(db_column='Quotation_Item_Desc', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
     active = models.CharField(db_column='Active', blank=True, max_length = 255, default='active', null=True)  # Field name made lowercase.
     fk_quotation = models.ForeignKey('custom.QuotationModel', on_delete=models.PROTECT, null=True, default=1)
-    # discount = models.FloatField(default=0.0,  null=True)
-    # discount_amt = models.FloatField(default=0.0,  null=True)
+    discount_percent = models.FloatField(default=0.0,  null=True)
+    discount_amt = models.FloatField(default=0.0,  null=True)
     # discount_price = models.FloatField(default=0.0,  null=True)
     # additional_discount = models.FloatField( null=True,default=0.0)
     # additional_discountamt = models.FloatField( null=True,default=0.0)
@@ -837,6 +837,8 @@ class ManualInvoiceItemModel(models.Model):
     quotation_itemdesc = models.CharField(db_column='ManualInvoice_Item_Desc', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
     active = models.CharField(db_column='Active', blank=True, max_length = 255, default='active', null=True)  # Field name made lowercase.
     fk_manualinvoice = models.ForeignKey('custom.ManualInvoiceModel', on_delete=models.PROTECT, null=True, default=1)
+    discount_percent = models.FloatField(default=0.0,  null=True)
+    discount_amt = models.FloatField(default=0.0,  null=True)
 
     class Meta:
         db_table = 'ManualInvoice_Item'

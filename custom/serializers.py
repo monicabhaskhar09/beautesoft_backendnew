@@ -839,6 +839,14 @@ class QuotationItemSerializer(serializers.ModelSerializer):
         model = QuotationItemModel
         fields = '__all__'
 
+
+    def to_representation(self, obj):
+        data = super(QuotationItemSerializer, self).to_representation(obj)
+       
+        data['discount_percent'] = "{:.2f}".format(float(obj.discount_percent)) if obj.discount_percent else 0
+        data['discount_amt'] = "{:.2f}".format(float(obj.discount_amt)) if obj.discount_amt else 0
+        return data     
+
 class QuotationItemDiscountSerializer(serializers.ModelSerializer): 
    
     class Meta:
@@ -885,6 +893,9 @@ class ManualInvoiceItemSerializer(serializers.ModelSerializer):
         data = super(ManualInvoiceItemSerializer, self).to_representation(obj)
        
         data['quotation_unitprice'] = "{:.2f}".format(float(obj.quotation_unitprice))
+        data['discount_percent'] = "{:.2f}".format(float(obj.discount_percent)) if obj.discount_percent else 0
+        data['discount_amt'] = "{:.2f}".format(float(obj.discount_amt)) if obj.discount_amt else 0
+       
         return data    
 
 class WorkOrderInvoiceItemSerializer(serializers.ModelSerializer):
@@ -897,7 +908,7 @@ class WorkOrderInvoiceItemSerializer(serializers.ModelSerializer):
     def to_representation(self, obj):
         data = super(WorkOrderInvoiceItemSerializer, self).to_representation(obj)
        
-        data['quotation_unitprice'] = "{:.2f}".format(float(obj.quotation_unitprice))
+        data['quotation_unitprice'] = "{:.2f}".format(float(obj.quotation_unitprice) if obj.quotation_unitprice else "")
         return data     
 
 class DeliveryOrderItemSerializer(serializers.ModelSerializer):
@@ -910,7 +921,7 @@ class DeliveryOrderItemSerializer(serializers.ModelSerializer):
     def to_representation(self, obj):
         data = super(DeliveryOrderItemSerializer, self).to_representation(obj)
        
-        data['quotation_unitprice'] = "{:.2f}".format(float(obj.quotation_unitprice))
+        data['quotation_unitprice'] = "{:.2f}".format(float(obj.quotation_unitprice)) if obj.quotation_unitprice else ""
         return data      
 
 

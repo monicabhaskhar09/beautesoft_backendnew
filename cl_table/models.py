@@ -3222,6 +3222,8 @@ class Title(models.Model):
     trans_footer2 = models.CharField(db_column='Trans_Footer2', max_length=500, blank=True, null=True)  # Field name made lowercase.
     trans_footer3 = models.CharField(db_column='Trans_Footer3', max_length=500, blank=True, null=True)  # Field name made lowercase.
     trans_footer4 = models.CharField(db_column='Trans_Footer4', max_length=500, blank=True, null=True)  # Field name made lowercase.
+    trans_footer5 = models.CharField(db_column='Trans_Footer5', max_length=500, blank=True, null=True)  # Field name made lowercase.
+    trans_footer6 = models.CharField(db_column='Trans_Footer6', max_length=500, blank=True, null=True)  # Field name made lowercase.
     trans_message1 = models.CharField(db_column='Trans_Message1', max_length=500, blank=True, null=True)  # Field name made lowercase.
     gst_reg_no = models.CharField(db_column='GST_REG_NO', max_length=20, blank=True, null=True)  # Field name made lowercase.
     comp_title5 = models.CharField(db_column='Comp_Title5', max_length=50, blank=True, null=True)  # Field name made lowercase.

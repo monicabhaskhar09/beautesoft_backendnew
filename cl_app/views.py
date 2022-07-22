@@ -28,7 +28,8 @@ PackageDtl, ItemDiv, PosDaud, PosTaud, Customer, GstSetting, ControlNo, Treatmen
 PrepaidAccount, Treatment,PosHaud,TmpItemHelper,Appointment,Source,PosHaud,ReverseDtl,ReverseHdr,
 CreditNote,Multistaff,ItemHelper,ItemUom,Treatment_Master,Holditemdetail,PrepaidAccountCondition,
 CnRefund,ItemBrand,Title,ItemBatch,Stktrn,Paytable,ItemLink,Appointment,ItemStocklist,Systemsetup,
-Tmpmultistaff,PosDisc,CustomerPoint,CustomerPointDtl,RewardPolicy,PackageAuditingLog,AuditLog)
+Tmpmultistaff,PosDisc,CustomerPoint,CustomerPointDtl,RewardPolicy,PackageAuditingLog,AuditLog,
+ItemFlexiservice)
 from custom.models import ItemCart, Room, Combo_Services,VoucherRecord,PosPackagedeposit,SmtpSettings
 from datetime import date, timedelta
 from datetime import datetime
@@ -420,7 +421,7 @@ class FlexiServicesListViewset(viewsets.ModelViewSet):
             fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
             site = fmspw[0].loginsite
             system_setupids = Systemsetup.objects.filter(title='listDepartmentOnTreatmentForFlexi',value_name='listDepartmentOnTreatmentForFlexi').first()
-            if system_setupids.value_data:
+            if system_setupids and system_setupids.value_data:
                 depart = system_setupids.value_data.split(',')
                 item_dept = list(set(ItemDept.objects.filter(pk__in=depart, is_service=True, itm_status=True).values_list('itm_code', flat=True).distinct()))
                 queryset = Stock.objects.filter(item_isactive=True, item_type="SINGLE", item_dept__in=item_dept).order_by('item_name')
@@ -2533,8 +2534,8 @@ class TreatmentDoneViewset(viewsets.ModelViewSet):
             def_setup = Systemsetup.objects.filter(title='Default TD List Years Ago',
             value_name='Default TD List Years Ago',isactive=True).first()
 
-            flexi_setup = Systemsetup.objects.filter(title='showServiceOnTreatmentForFlexi',
-            value_name='showServiceOnTreatmentForFlexi',isactive=True).first()
+            flexi_setup = Systemsetup.objects.filter(title='B21showServiceOnTreatmentForFlexi',
+            value_name='B21showServiceOnTreatmentForFlexi',isactive=True).first()
 
 
             current_year = date.today().year
@@ -2661,7 +2662,15 @@ class TreatmentDoneViewset(viewsets.ModelViewSet):
                 splt = str(trmt_obj.treatment_date).split(' ')
                 treatment_date = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d-%m-%Y")
                 unit_amount =  "{:.2f}".format(float(trmt_obj.unit_amount)) if trmt_obj.unit_amount else "0.00"
-                item_code = str(trmt_obj.item_code)
+                service_codeids = Treatment.objects.filter(treatment_parentcode=trmt_obj.treatment_parentcode).order_by('pk').first()    
+
+                if row.type in ['FFd','FFi']:
+                    course = service_codeids.course
+                    item_code = str(service_codeids.item_code) 
+                else:
+                    course = trmt_obj.course
+                    item_code = str(trmt_obj.item_code) 
+
                 if len(item_code) > 8:
                     itm_code = item_code[:-4]
                 else:
@@ -2727,15 +2736,32 @@ class TreatmentDoneViewset(viewsets.ModelViewSet):
                 exchange_flag = True if session == 1 else False 
 
                 if flexi_setup and flexi_setup.value_data == 'True' and row.type == 'FFi':
-                    flexitype = True
+                    b21flexitype = True
                 else:
-                    flexitype = False 
+                    b21flexitype = False 
+                
+                flexiservice_ids = ItemFlexiservice.objects.filter(item_code=str(trmt_obj.item_code)[:-4],
+                itm_isactive=True)
+                if row.type == 'FFi' and flexiservice_ids:
+                    itemflexiservice = True
+                else:
+                    itemflexiservice = False
+
                 
                 expiry_date = ""
                 if trmt_obj.expiry:
                     splti = str(trmt_obj.expiry).split(" ")
                     expiry_date = datetime.datetime.strptime(str(splti[0]), "%Y-%m-%d").strftime("%d-%b-%y")
                
+
+                done_ids = Treatment.objects.filter(treatment_parentcode=trmt_obj.treatment_parentcode,status="Done").order_by('pk').count()
+
+                if row.type in ['FFd','FFi'] and done_ids > 0:
+                    reversal_check = False
+                else:
+                    reversal_check = True
+
+                
 
                 # Thing.objects.annotate(favorited=Count(Case(When(favorites__user=john_cleese, then=1),default=0,output_field=BooleanField(),)),)
                 # print(fmspw[0].is_reversal,"fmspw[0].is_reversal")
@@ -2755,7 +2781,7 @@ class TreatmentDoneViewset(viewsets.ModelViewSet):
                 ).order_by('-pk'))
                 # print(q_val,"q_val")
                 # print(q_val[0],"kk")
-                q_val[0].update({'course':trmt_obj.course,'treatment_date': treatment_date,
+                q_val[0].update({'course': course,'treatment_date': treatment_date,
                 # 'expiry':trmt_obj.expiry,
                 # 'isfoc':trmt_obj.isfoc,'sa_transacno':trmt_obj.sa_transacno,
                 'treatment_code':trmt_obj.treatment_code,
@@ -2766,13 +2792,16 @@ class TreatmentDoneViewset(viewsets.ModelViewSet):
                 'unit_amount': unit_amount,'balance':balance,'ar':ar,
                 'treatmentids' : treatmentids,
                 'open' : len(treatmentids),
+                'done_sessioncnt': done_ids,
                 'session' : session,
                 'sel' : sel,
                 'type': row.type,
-                'flexitype': flexitype,
+                'b21flexitype': b21flexitype,
+                'itemflexiservice': itemflexiservice,
+                'reversal_check' : reversal_check,
                 'treatment_limit_times' : int(trmt_obj.treatment_limit_times) if trmt_obj.treatment_limit_times else "",
                 'expiry_date' : expiry_date,
-                'item_code': trmt_obj.service_itembarcode[:-4] if trmt_obj.service_itembarcode else ""
+                'item_code': service_codeids.service_itembarcode[:-4] if service_codeids and service_codeids.service_itembarcode else ""
                 })
                 # print( q_val[0]," q_val[0]")
                 expiry = False
@@ -2785,11 +2814,15 @@ class TreatmentDoneViewset(viewsets.ModelViewSet):
 
                 # print(q_val[0],"vv")
                 if row.type == 'N':
-                    lst.extend([q_val[0]])
+                    if expiry:
+                        if expiry >= str(date.today()):
+                            lst.extend([q_val[0]])
+                    else:  
+                        lst.extend([q_val[0]])
                 elif row.type in ['FFd','FFi']:
                     if expiry and treatment_limit_times:
                         if expiry >= str(date.today()):
-                            if treatment_limit_times > int(row.times) or treatment_limit_times == 0:
+                            if treatment_limit_times > done_ids or treatment_limit_times == 0:
                                 lst.extend([q_val[0]])       
                 # print(lst,"lst")
                 # site_code,treatment_date,course,transacno_ref,unit_amount,treatment_code,td,rev,open,ar,session,session_flag,iscurrentloggedinsalon,is_reversal,is_allow,
@@ -3368,6 +3401,12 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                 if not trmt_obj:
                     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Treatment ID does not exist/Status Should be in Open only!!",'error': True} 
                     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
+                if trmt_obj.type in ["FFi",'FFd'] and len(arrtreatmentid) > 1:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Multiple Treatment done not possible for type FFi/FFd!!",'error': True} 
+                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
+
 
                 # acc_ids = TreatmentAccount.objects.filter(ref_transacno=t_ids[0].sa_transacno,
                 # treatment_parentcode=t_ids[0].treatment_parentcode).order_by('-sa_date','-sa_time','-id').first()
@@ -5354,45 +5393,82 @@ class VoidViewset(viewsets.ModelViewSet):
                         taud.save()
 
                         if t.pay_desc == 'PREPAID':
-                            # pac_ids = PrepaidAccount.objects.filter(transac_no=haudobj.sa_transacno,sa_status='SA',
-                            # cust_code=haudobj.sa_custno,site_code=site.itemsite_code)
-                            pac_ids = PrepaidAccount.objects.filter(transac_no=t.sa_transacno,sa_status='SA',
-                            cust_code=haudobj.sa_custno)
-                            # pac_ids = PrepaidAccount.objects.filter(Q(pp_no=d.sa_transacno) | Q(topup_no=d.sa_transacno) | Q(topup_no=d.sa_transacno),
-                            # sa_status='SA',cust_code=haudobj.sa_custno,site_code=site.itemsite_code)
-                            # print(pac_ids,"pac_ids")
-                            for pa in pac_ids:
-                                remain = float(pa.remain) + float(pa.use_amt)
-                                # pac_lastid = PrepaidAccount.objects.filter(pp_no=pa.pp_no,line_no=pa.line_no,
-                                # cust_code=haudobj.sa_custno,site_code=site.itemsite_code,status=True).first()
-                                pac_lastid = PrepaidAccount.objects.filter(pp_no=pa.pp_no,line_no=pa.line_no,
-                                cust_code=haudobj.sa_custno,status=True).first()
+                            spltn = str(t.pay_rem1).split("-")
+                            ppno = spltn[0]
+                            lineno = spltn[1]
 
+                            depoprepaid_ids = PrepaidAccount.objects.filter(pp_no=ppno,line_no=lineno,
+                            cust_code=haudobj.sa_custno,sa_status='DEPOSIT').order_by('-pk').first()
 
-                                if pac_lastid:
-                                    # print(pac_lastid.pp_no,"pp_no")
-                                    remain = float(pac_lastid.remain) + float(pa.use_amt)
-                                    # PrepaidAccount.objects.filter(pk=pac_lastid.pk).update(status=False)
-                                    PrepaidAccount.objects.filter(pp_no=pa.pp_no,line_no=pa.line_no).update(status=False)
+                            last_preids = PrepaidAccount.objects.filter(pp_no=ppno,line_no=lineno,
+                            cust_code=haudobj.sa_custno).order_by('-pk').first()
+                            if last_preids:
+                                last_preids.status=False
+                                last_preids.save()
 
-                                pacc_ids = PrepaidAccountCondition.objects.filter(pp_no=pa.pp_no,
-                                pos_daud_lineno=pa.line_no).only('pp_no','pos_daud_lineno').first()
-                                if pacc_ids:                                
-                                    cuseamt = float(pacc_ids.use_amt) - float(pa.use_amt)
-                                    acc = PrepaidAccountCondition.objects.filter(pk=pacc_ids.pk).update(use_amt=cuseamt,remain=remain)
+                                remain = float(last_preids.remain) + float(t.pay_amt)
 
-                                useamt = 0 - float(pa.use_amt)
-                                prepacc = PrepaidAccount(pp_no=pa.pp_no,pp_type=pa.pp_type,
-                                pp_desc=pa.pp_desc,exp_date=pa.exp_date,cust_code=pa.cust_code,
-                                cust_name=pa.cust_name,pp_amt=pa.pp_amt,pp_total=pa.pp_total,
-                                pp_bonus=pa.pp_bonus,transac_no=sa_transacno,item_no=pa.item_no,use_amt=useamt,
-                                remain=remain,ref1=pa.ref1,ref2=pa.ref2,status=True,site_code=site.itemsite_code,sa_status="VT",exp_status=pa.exp_status,
-                                voucher_no=pa.voucher_no,isvoucher=pa.isvoucher,has_deposit=pa.has_deposit,topup_amt=0,
-                                outstanding=pa.outstanding if pa and pa.outstanding is not None and pa.outstanding > 0 else 0,active_deposit_bonus=pa.active_deposit_bonus,topup_no="",topup_date=None,
-                                line_no=pa.line_no,staff_name=None,staff_no=None,
-                                pp_type2=pa.pp_type2,condition_type1=pa.condition_type1,pos_daud_lineno=pa.line_no,Cust_Codeid=pa.Cust_Codeid,Site_Codeid=pa.Site_Codeid,
-                                Item_Codeid=pa.Item_Codeid,item_code=pa.item_code)
+                                prepacc = PrepaidAccount(pp_no=last_preids.pp_no,pp_type=last_preids.pp_type,
+                                pp_desc=last_preids.pp_desc,exp_date=last_preids.exp_date,cust_code=last_preids.cust_code,
+                                cust_name=last_preids.cust_name,pp_amt=last_preids.pp_amt,pp_total=last_preids.pp_total,
+                                pp_bonus=last_preids.pp_bonus,transac_no=sa_transacno,item_no=depoprepaid_ids.item_no if depoprepaid_ids and depoprepaid_ids.item_no else None,use_amt=0,
+                                remain=remain,ref1=last_preids.ref1,ref2=last_preids.ref2,status=True,site_code=site.itemsite_code,sa_status="VT",exp_status=last_preids.exp_status,
+                                voucher_no=last_preids.voucher_no,isvoucher=last_preids.isvoucher,has_deposit=last_preids.has_deposit,topup_amt=0,
+                                outstanding=last_preids.outstanding if last_preids and last_preids.outstanding is not None and last_preids.outstanding > 0 else 0,active_deposit_bonus=last_preids.active_deposit_bonus,topup_no="",topup_date=None,
+                                line_no=last_preids.line_no,staff_name=None,staff_no=None,
+                                pp_type2=last_preids.pp_type2,condition_type1=last_preids.condition_type1,pos_daud_lineno=last_preids.line_no,Cust_Codeid=last_preids.Cust_Codeid,Site_Codeid=last_preids.Site_Codeid,
+                                Item_Codeid=depoprepaid_ids.Item_Codeid if depoprepaid_ids and depoprepaid_ids.Item_Codeid else None,
+                                item_code=depoprepaid_ids.item_code if depoprepaid_ids and depoprepaid_ids.item_code else None)
                                 prepacc.save()
+
+                                pacc_ids = PrepaidAccountCondition.objects.filter(pp_no=ppno,
+                                pos_daud_lineno=lineno).only('pp_no','pos_daud_lineno').first()
+                                if pacc_ids:                                
+                                    acc = PrepaidAccountCondition.objects.filter(pk=pacc_ids.pk).update(use_amt=0,remain=remain)
+
+
+
+                            # # pac_ids = PrepaidAccount.objects.filter(transac_no=haudobj.sa_transacno,sa_status='SA',
+                            # # cust_code=haudobj.sa_custno,site_code=site.itemsite_code)
+                            # pac_ids = PrepaidAccount.objects.filter(transac_no=t.sa_transacno,sa_status='SA',
+                            # cust_code=haudobj.sa_custno)
+                            # # pac_ids = PrepaidAccount.objects.filter(Q(pp_no=d.sa_transacno) | Q(topup_no=d.sa_transacno) | Q(topup_no=d.sa_transacno),
+                            # # sa_status='SA',cust_code=haudobj.sa_custno,site_code=site.itemsite_code)
+                            # # print(pac_ids,"pac_ids")
+                            # for pa in pac_ids:
+                            #     remain = float(pa.remain) + float(pa.use_amt)
+                            #     # pac_lastid = PrepaidAccount.objects.filter(pp_no=pa.pp_no,line_no=pa.line_no,
+                            #     # cust_code=haudobj.sa_custno,site_code=site.itemsite_code,status=True).first()
+                            #     pac_lastid = PrepaidAccount.objects.filter(pp_no=pa.pp_no,line_no=pa.line_no,
+                            #     cust_code=haudobj.sa_custno,status=True).first()
+
+
+                            #     if pac_lastid:
+                            #         # print(pac_lastid.pp_no,"pp_no")
+                            #         remain = float(pac_lastid.remain) + float(pa.use_amt)
+                            #         # PrepaidAccount.objects.filter(pk=pac_lastid.pk).update(status=False)
+                            #         PrepaidAccount.objects.filter(pp_no=pa.pp_no,line_no=pa.line_no).update(status=False)
+
+                            #     pacc_ids = PrepaidAccountCondition.objects.filter(pp_no=pa.pp_no,
+                            #     pos_daud_lineno=pa.line_no).only('pp_no','pos_daud_lineno').first()
+                            #     if pacc_ids:                                
+                            #         cuseamt = float(pacc_ids.use_amt) - float(pa.use_amt)
+                            #         acc = PrepaidAccountCondition.objects.filter(pk=pacc_ids.pk).update(use_amt=cuseamt,remain=remain)
+
+                            #     useamt = 0 - float(pa.use_amt)
+                            #     prepacc = PrepaidAccount(pp_no=pa.pp_no,pp_type=pa.pp_type,
+                            #     pp_desc=pa.pp_desc,exp_date=pa.exp_date,cust_code=pa.cust_code,
+                            #     cust_name=pa.cust_name,pp_amt=pa.pp_amt,pp_total=pa.pp_total,
+                            #     pp_bonus=pa.pp_bonus,transac_no=pa.transac_no,item_no=pa.item_no,use_amt=useamt,
+                            #     remain=remain,ref1=pa.ref1,ref2=pa.ref2,status=True,site_code=site.itemsite_code,sa_status="VT",exp_status=pa.exp_status,
+                            #     voucher_no=pa.voucher_no,isvoucher=pa.isvoucher,has_deposit=pa.has_deposit,topup_amt=0,
+                            #     outstanding=pa.outstanding if pa and pa.outstanding is not None and pa.outstanding > 0 else 0,active_deposit_bonus=pa.active_deposit_bonus,topup_no="",topup_date=None,
+                            #     line_no=pa.line_no,staff_name=None,staff_no=None,
+                            #     pp_type2=pa.pp_type2,condition_type1=pa.condition_type1,pos_daud_lineno=pa.line_no,Cust_Codeid=pa.Cust_Codeid,Site_Codeid=pa.Site_Codeid,
+                            #     Item_Codeid=pa.Item_Codeid,item_code=pa.item_code)
+                            #     prepacc.save()
+
+                                
 
                         #print(t.pay_desc,"pay_desc")
                         if t.pay_desc == 'CREDIT NOTE':
