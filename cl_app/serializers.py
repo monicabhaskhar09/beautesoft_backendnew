@@ -7,7 +7,7 @@ ItemLink,Systemsetup,Employee,Multistaff,ItemDiv)
 from django.utils import timezone
 from django.db.models import Sum
 from custom.views import round_calc
-from custom.models import ItemCart,VoucherRecord
+from custom.models import ItemCart,VoucherRecord,ManualInvoiceModel
 from datetime import date, timedelta, datetime
 import datetime
 
@@ -358,7 +358,26 @@ class DashboardSerializer(serializers.ModelSerializer):
         'product':int(float(products_cnt)),'services':int(float(service_cnt)),'repeat_customer':cust_repeat if cust_repeat else 0,
         'monthly_earnigs':"{:.2f}".format(float(pay_amount)) if pay_amount else "0.00"}
         return mapped_object
-        
+
+
+class TransactionInvoiceSerializer(serializers.ModelSerializer):
+    flag = serializers.BooleanField(default=True)
+
+    
+    class Meta:
+        model = PosHaud
+        fields = ['id','sa_transacno_ref','flag'] 
+
+class TransactionManualInvoiceSerializer(serializers.ModelSerializer):
+
+    sa_transacno_ref = serializers.CharField(source='manualinv_number',required=False)
+    flag = serializers.BooleanField(default=False)
+
+    
+    class Meta:
+        model = ManualInvoiceModel
+        fields = ['id','sa_transacno_ref','flag'] 
+
 
 class BillingSerializer(serializers.ModelSerializer):
     

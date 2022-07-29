@@ -111,5 +111,6 @@ urlpatterns = [
     path('api/itemflexiservice/', views.ItemFlexiserviceListAPIView.as_view(), name='itemflexiservice'),
     path('api/staffperformance/', views.staffPerformanceAPIView.as_view(), name='staffperformance'),
     path('api/staffcustomerhistory/', views.staffCustomerHistoryAPIView.as_view(), name='staffcustomerhistory'),
+    path('api/securitylevellistdupdel/', views.SecuritylevellistDuplicateDelete.as_view(), name='securitylevellistdupdel'),
 
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

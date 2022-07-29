@@ -42,7 +42,7 @@ GstSetting,PosTaud,PosDaud,PosHaud,ControlNo,EmpSitelist,ItemStatus, TmpItemHelp
 TreatmentAccount, PosDaud, ItemDept, DepositAccount, PrepaidAccount, ItemDiv, Systemsetup, Title,
 PackageHdr,PackageDtl,Paytable,Multistaff,ItemBatch,Stktrn,ItemUomprice,Holditemdetail,CreditNote,
 CustomerClass,ItemClass,Tmpmultistaff,Tmptreatment,ExchangeDtl,ItemUom,ItemHelper,PrepaidAccountCondition,
-City, State, Country, Stock)
+City, State, Country, Stock,PayGroup)
 from cl_app.models import ItemSitelist, SiteGroup
 from cl_table.serializers import PostaudSerializer,StaffsAvailableSerializer,PosdaudSerializer,TmpItemHelperSerializer
 from datetime import date, timedelta, datetime
@@ -7485,7 +7485,10 @@ class CartServiceCourseViewset(viewsets.ModelViewSet):
                 if request.data['quantity'] > 1 or request.data['free_sessions'] >= 1:
                     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Flexi Treatment free sessions not allowed,qty must be 1!",'error': False}
                     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-
+            
+            if 'treat_type' in request.data and request.data['treat_type'] in ['FFi','FFd']:
+                if request.data['treatment_limit_times'] == None:
+                   request.data['treatment_limit_times'] = 0
 
             serializer = self.get_serializer(cart, data=request.data, partial=True)
             if serializer.is_valid():
@@ -7819,28 +7822,28 @@ class CourseTmpAPIView(generics.ListCreateAPIView):
 
 
 
-@api_view(['DELETE'])
-def cart_delete(request):    
-    try:
-        cart_ids = ItemCart.objects.filter()
-        for i in cart_ids:
-            TreatmentAccount.objects.filter(itemcart=i).update(itemcart=None)
-            PosDaud.objects.filter(itemcart=i).update(itemcart=None)
-            TmpItemHelper.objects.filter(itemcart=i).update(itemcart=None)
-            PosPackagedeposit.objects.filter(itemcart=i).delete()
-            Tmpmultistaff.objects.filter(itemcart=i).delete()
-            Tmptreatment.objects.filter(itemcart=i).delete()
-            i.delete() 
+# @api_view(['DELETE'])
+# def cart_delete(request):    
+#     try:
+#         cart_ids = ItemCart.objects.filter()
+#         for i in cart_ids:
+#             TreatmentAccount.objects.filter(itemcart=i).update(itemcart=None)
+#             PosDaud.objects.filter(itemcart=i).update(itemcart=None)
+#             TmpItemHelper.objects.filter(itemcart=i).update(itemcart=None)
+#             PosPackagedeposit.objects.filter(itemcart=i).delete()
+#             Tmpmultistaff.objects.filter(itemcart=i).delete()
+#             Tmptreatment.objects.filter(itemcart=i).delete()
+#             i.delete() 
 
-        cont_ids = ControlNo.objects.filter(control_description='ITEM CART').update(control_no='100001')     
+#         cont_ids = ControlNo.objects.filter(control_description='ITEM CART').update(control_no='100001')     
 
-        result = {'status': status.HTTP_200_OK,"message":"Deleted Sucessfully",
-        'error': False}
-        return Response(result, status=status.HTTP_200_OK)
+#         result = {'status': status.HTTP_200_OK,"message":"Deleted Sucessfully",
+#         'error': False}
+#         return Response(result, status=status.HTTP_200_OK)
 
-    except Exception as e:
-        invalid_message = str(e)
-        return general_error_response(invalid_message)   
+#     except Exception as e:
+#         invalid_message = str(e)
+#         return general_error_response(invalid_message)   
 
 
 class CartItemDeleteAPIView(APIView):
@@ -24997,20 +25000,28 @@ class SaTransacnorefAPIView(generics.ListAPIView):
 
     def list(self, request):
         try:
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+            site = fmspw[0].loginsite
             serializer_class = InvoiceListingSerializer
             cust_id = self.request.GET.get('cust_id',None)
-            if not cust_id:
-                raise Exception('Please Give customer id!!') 
-
-            cust_obj = Customer.objects.filter(pk=cust_id,
-            cust_isactive=True).first()
-            if not cust_obj:
-                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer ID does not exist!!",'error': True} 
-                return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-    
-            queryset = PosHaud.objects.filter(sa_custnoid=cust_obj,isvoid=False).order_by('pk')
+            # if not cust_id:
+            #     raise Exception('Please Give customer id!!') 
+            
+            if cust_id:
+                cust_obj = Customer.objects.filter(pk=cust_id,
+                cust_isactive=True).first()
+                if not cust_obj:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer ID does not exist!!",'error': True} 
+                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+        
+                queryset = PosHaud.objects.filter(sa_custnoid=cust_obj,isvoid=False).order_by('pk')
+            else:
+                queryset = PosHaud.objects.filter(isvoid=False,ItemSite_Codeid__pk=site.pk).order_by('pk')
+                # print(queryset,len(queryset),"queryset")
+            
             if queryset:
                 serializer = self.get_serializer(queryset, many=True)
+                # print(len(serializer.data)," serializer.data")
                 result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 'data':  serializer.data}
             else:
                 serializer = self.get_serializer()
@@ -26097,3 +26108,151 @@ class CreateNewRevisionQuotationAPIView(generics.CreateAPIView):
             invalid_message = str(e)
             return general_error_response(invalid_message)   
 
+
+
+class TitleImageUploadAPIView(generics.CreateAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    serializer_class = []
+    
+    @transaction.atomic
+    def create(self, request):
+        try:
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True).first()
+                site = fmspw.loginsite
+
+                if not 'site_code' in request.data or not request.data['site_code']:
+                    raise Exception('Please Give Site Code!!') 
+
+                if not 'logo_pic' in request.data or not request.data['logo_pic']:
+                    raise Exception('Please Give Image Pic!!') 
+                      
+                site_code = request.data['site_code'].split(',')
+                title_ids = Title.objects.filter(product_license__in=site_code).order_by('pk')    
+                if title_ids:
+                    for t in title_ids:
+                        t.logo_pic =  request.data['logo_pic']
+                        t.save()
+                    result = {'status': status.HTTP_200_OK,"message":"Uploaded Succesfully",
+                    'error': False}  
+                    return Response(result, status=status.HTTP_200_OK)
+                else:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,
+                    "message": "Record Does't Exist",'error': False}
+                    return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)   
+
+
+class StockImageUploadAPIView(generics.CreateAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    serializer_class = []
+    
+    @transaction.atomic
+    def create(self, request):
+        try:
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True).first()
+                site = fmspw.loginsite
+
+                if not 'stock_id' in request.data or not request.data['stock_id']:
+                    raise Exception('Please Give Stock ID!!') 
+
+                if not 'Stock_PIC' in request.data or not request.data['Stock_PIC']:
+                    raise Exception('Please Give Image Pic!!') 
+                      
+                stock_id = request.data['stock_id'].split(',')
+                stock_ids = Stock.objects.filter(pk__in=stock_id).order_by('pk')    
+                if stock_ids:
+                    for t in stock_ids:
+                        t.Stock_PIC =  request.data['Stock_PIC']
+                        t.save()
+                    result = {'status': status.HTTP_200_OK,"message":"Uploaded Succesfully",
+                    'error': False}  
+                    return Response(result, status=status.HTTP_200_OK)
+                else:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,
+                    "message": "Record Does't Exist",'error': False}
+                    return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)   
+
+
+class PaygroupImageUploadAPIView(generics.CreateAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    serializer_class = []
+    
+    @transaction.atomic
+    def create(self, request):
+        try:
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True).first()
+                site = fmspw.loginsite
+
+                if not 'paygroup_id' in request.data or not request.data['paygroup_id']:
+                    raise Exception('Please Give Paygroup ID!!') 
+
+                if not 'picturelocation' in request.data or not request.data['picturelocation']:
+                    raise Exception('Please Give picturelocation!!') 
+                      
+                paygroup_id = request.data['paygroup_id'].split(',')
+                paygroup_ids = PayGroup.objects.filter(pk__in=paygroup_id).order_by('pk')    
+                if paygroup_ids:
+                    for t in paygroup_ids:
+                        t.picturelocation =  request.data['picturelocation']
+                        t.save()
+                    result = {'status': status.HTTP_200_OK,"message":"Uploaded Succesfully",
+                    'error': False}  
+                    return Response(result, status=status.HTTP_200_OK)
+                else:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,
+                    "message": "Record Does't Exist",'error': False}
+                    return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)   
+
+
+class ItemDeptImageUploadAPIView(generics.CreateAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    serializer_class = []
+    
+    @transaction.atomic
+    def create(self, request):
+        try:
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True).first()
+                site = fmspw.loginsite
+
+                if not 'dept_id' in request.data or not request.data['dept_id']:
+                    raise Exception('Please Give Department ID!!') 
+
+                if not 'deptpic' in request.data or not request.data['deptpic']:
+                    raise Exception('Please Give Image Pic!!') 
+                      
+                dept_id = request.data['dept_id'].split(',')
+                dept_ids = ItemDept.objects.filter(pk__in=dept_id).order_by('pk')    
+                if dept_ids:
+                    for t in dept_ids:
+                        t.deptpic =  request.data['deptpic']
+                        t.save()
+                    result = {'status': status.HTTP_200_OK,"message":"Uploaded Succesfully",
+                    'error': False}  
+                    return Response(result, status=status.HTTP_200_OK)
+                else:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,
+                    "message": "Record Does't Exist",'error': False}
+                    return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)   

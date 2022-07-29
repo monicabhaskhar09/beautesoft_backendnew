@@ -68,7 +68,8 @@ class CustomerClass(models.Model):
 
     objects = models.Manager()
     active_objects = IsActiveManager(active_field="class_isactive",label="class_desc",value="id")
-
+    autoclassamount =  models.IntegerField(db_column='autoclassamount', blank=True, null=True)  # Field name made lowercase.
+   
     class Meta:
         db_table = 'Customer_Class'
 
@@ -2055,6 +2056,7 @@ class Paytable(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     pay_color = models.CharField(max_length=255, blank=True, null=True)
     qr_code = models.ImageField(upload_to='img', blank=True, null=True)
+    paykey = models.IntegerField(db_column='paykey', default=0,blank=True, null=True)  # Field name made lowercase.
 
     class Meta:
         db_table = 'PAYTABLE'

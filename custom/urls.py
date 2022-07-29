@@ -127,7 +127,7 @@ urlpatterns = [
     path('api/exchangeproduct/', views.ExchangeProductAPIView.as_view(), name='exchangeproduct'),
     path('api/exchangeproductconfirm/', views.ExchangeProductConfirmAPIView.as_view(), name='exchangeproductconfirm'),
     path('api/coursetmp/', views.CourseTmpAPIView.as_view(), name='coursetmp'),
-    path('api/cartdelete/', views.cart_delete, name='cartdelete'),
+    # path('api/cartdelete/', views.cart_delete, name='cartdelete'),
     path('api/cartitemdelete/', views.CartItemDeleteAPIView.as_view(), name='cartitemdelete'),
     path('api/userauthorizationpopup/', views.UserAuthorizationPopup.as_view(), name='userauthorizationpopup'),
     path('api/manualinvoicepdf/', views.ManualInvoiceFormatAPIView.as_view(), name='manualinvoicepdf'),
@@ -147,6 +147,10 @@ urlpatterns = [
     path('api/projectsearch/', views.ProjectSearchAPI.as_view(), name='projectsearch'),
     path('api/quotationnewrevision/', views.CreateNewRevisionQuotationAPIView.as_view(), name='quotationnewrevision'),
     path('api/quotationpdf/', views.QuotationFormatAPIView.as_view(), name='quotationpdf'),
+    path('api/titleimageupload/', views.TitleImageUploadAPIView.as_view(), name='titleimageupload'),
+    path('api/stockimageupload/', views.StockImageUploadAPIView.as_view(), name='stockimageupload'),
+    path('api/paygroupimageupload/', views.PaygroupImageUploadAPIView.as_view(), name='paygroupimageupload'),
+    path('api/deptimageupload/', views.ItemDeptImageUploadAPIView.as_view(), name='deptimageupload'),
 
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 

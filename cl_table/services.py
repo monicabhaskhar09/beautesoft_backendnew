@@ -1752,6 +1752,38 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                    
                     dtl.save()
 
+                    if c.helper_ids.exists():
+                        treatk_ids = Treatment.objects.filter(treatment_parentcode=treatment_parentcode).order_by('pk').first()
+                        if treatk_ids and treatk_ids.type in ['FFi','FFd']:
+                            ef_done_ids = Treatment.objects.filter(treatment_parentcode=treatment_parentcode,status="Done").order_by('pk').count()
+                            efd_treat_ids = Treatment.objects.filter(treatment_parentcode=treatment_parentcode).order_by('-pk')
+                            ef_open_ids = Treatment.objects.filter(treatment_parentcode=treatment_parentcode,status="Open").order_by('pk')
+                            if treatk_ids.expiry and treatk_ids.treatment_limit_times is not None:
+                                splte_t = str(treatk_ids.expiry).split(' ')
+                                expiry_t = splte_t[0]
+                                if expiry_t >= str(date.today()):
+                                    if not ef_open_ids:
+                                        if treatk_ids.treatment_limit_times > ef_done_ids or treatk_ids.treatment_limit_times == 0:
+                                            ct = treatk_ids
+                                            times_ve = str(len(efd_treat_ids) + 1).zfill(2)
+                                            treatment_coder = ct.treatment_parentcode+"-"+times_ve
+                                            treatids = Treatment(treatment_code=treatment_coder,course=ct.course,times=times_ve,
+                                            treatment_no=times_ve,price=ct.price,treatment_date=ct.treatment_date,
+                                            next_appt=ct.next_appt,cust_name=ct.cust_name,Cust_Codeid=ct.Cust_Codeid,
+                                            cust_code=ct.cust_code,status="Open",unit_amount=0,
+                                            Item_Codeid=ct.Item_Codeid,item_code=ct.item_code,treatment_parentcode=ct.treatment_parentcode,
+                                            prescription=ct.prescription,allergy=ct.allergy,sa_transacno=ct.sa_transacno,
+                                            sa_status=ct.sa_status,record_status=ct.record_status,appt_time=ct.appt_time,
+                                            remarks=ct.remarks,duration=ct.duration,hold_item=ct.hold_item,transaction_time=ct.transaction_time,
+                                            dt_lineno=ct.dt_lineno,expiry=ct.expiry,lpackage=ct.lpackage,package_code=ct.package_code,
+                                            Site_Codeid=ct.Site_Codeid,site_code=ct.site_code,type=ct.type,treatment_limit_times=ct.treatment_limit_times,
+                                            treatment_count_done=ct.treatment_count_done,treatment_history_last_modify=ct.treatment_history_last_modify,
+                                            service_itembarcode=ct.service_itembarcode,isfoc=ct.isfoc,Trmt_Room_Codeid=ct.Trmt_Room_Codeid,
+                                            trmt_room_code=ct.trmt_room_code,trmt_is_auto_proportion=ct.trmt_is_auto_proportion,
+                                            smsout=ct.smsout,emailout=ct.emailout,treatment_account=ct.treatment_account).save()
+
+
+
             # tmptrd_ids = Tmptreatment.objects.filter(itemcart=c).order_by('pk').delete()
 
         return id_lst
@@ -2453,7 +2485,7 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
             efopen_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Open").order_by('pk')
             
             if ct.type in ['FFd']:
-                if ct.expiry and ct.treatment_limit_times:
+                if ct.expiry and ct.treatment_limit_times is not None:
                     splte = str(ct.expiry).split(' ')
                     expiry = splte[0]
                     if expiry >= str(date.today()):

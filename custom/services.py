@@ -283,10 +283,10 @@ def GeneratePDF(self,request, sa_transacno):
     status='Open').values('item_code','course').annotate(total=Count('item_code'))
     
     set_obj = False
-    if site.inv_templatename:
-        set_obj = TemplateSettings.objects.filter(site_code=site.itemsite_code,template_name=site.inv_templatename).order_by('pk').first()
-        if not set_obj:
-            raise Exception('Template Settings not found') 
+    # if site.inv_templatename:
+    #     set_obj = TemplateSettings.objects.filter(site_code=site.itemsite_code,template_name=site.inv_templatename).order_by('pk').first()
+    #     if not set_obj:
+    #         raise Exception('Template Settings not found') 
 
     pre_acc_ids = PrepaidAccount.objects.filter(cust_code=hdr[0].sa_custno,outstanding__gt = 0,status=True
     ).order_by('-pk').aggregate(balance=Coalesce(Sum('remain'), 0))

@@ -5177,9 +5177,9 @@ class AppointmentEditViewset(viewsets.ModelViewSet):
                                     if appt_obj.appt_status == 'Done':
                                         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Completed Appointment cannot move cancelled!!",'error': True} 
                                         return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-                                    if appt_obj.appt_status == 'Cancelled':
-                                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cancelled Appointment cannot move Cancelled again!!",'error': True} 
-                                        return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                                    # if appt_obj.appt_status == 'Cancelled':
+                                    #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cancelled Appointment cannot move Cancelled again!!",'error': True} 
+                                    #     return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
                                     # if not trmtt_ids:
                                     #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cannot move done because treatmentcode,sa_transacno does not exist!!",'error': True} 
@@ -5189,9 +5189,9 @@ class AppointmentEditViewset(viewsets.ModelViewSet):
                                         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Appointment Cannot move Cancelled because treatment is in Done!!",'error': True} 
                                         return Response(result, status=status.HTTP_400_BAD_REQUEST)    
 
-                                    if trmtt_ids and  trmtt_ids.status == "Cancel":
-                                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Already Treatment is cancelled only!!",'error': True} 
-                                        return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                                    # if trmtt_ids and  trmtt_ids.status == "Cancel":
+                                    #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Already Treatment is cancelled only!!",'error': True} 
+                                    #     return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
                                     # if trmtt_ids and  master_ids:
                                     #     master_ids.status = "Cancel"
@@ -7628,6 +7628,11 @@ def postaud_calculation(self, request, queryset):
     if request.data is not None:
         for rgt in request.data:
             paytablegt = Paytable.objects.filter(pk=rgt['pay_typeid'],pay_isactive=True).first()
+            if not paytablegt:
+                msg = "Paytable ID does not exist"
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":msg,'error': True} 
+                return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
             stringgt = paytablegt.gt_group
             st_newgt= "".join(stringgt.split())
             linetax=0
@@ -9007,7 +9012,7 @@ class postaudViewset(viewsets.ModelViewSet):
                 # print(reitemdiv_ids,"reitemdiv_ids")
                 cust_class = cust_obj.cust_class
                 # print(cust_class,"cust_class")
-                # custclass_ids = CustomerClass.objects.filter(class_code=cust_class,class_isactive=True).order_by('-pk').first()
+                
 
 
                 # checkreward_ids = RewardPolicy.objects.filter(cust_type=cust_class,isactive=True,item_divids__in=reitemdiv_ids).order_by('pk')  
@@ -9184,6 +9189,27 @@ class postaudViewset(viewsets.ModelViewSet):
                     #     cust_obj.cust_class =  nonmember_ids.class_code
                     #     cust_obj.Cust_Classid = nonmember_ids
                     #     cust_obj.save()
+                
+                sys_obj = Systemsetup.objects.filter(title='CustomerClassUpgrade',
+                value_name='CustomerClassUpgrade',isactive=True).first()
+                custclass_ids = CustomerClass.objects.filter(class_code=cust_obj.cust_class
+                ,class_isactive=True).order_by('-pk').first()
+                if sys_obj and sys_obj.value_data == 'True' and custclass_ids:
+                    if taud_salesids and taud_salesids['pay_amt'] > 0.0:
+                        class_ids = CustomerClass.objects.filter(class_isactive=True,
+                        autoclassamount__lte=int(taud_salesids['pay_amt'])
+                        ).order_by('-autoclassamount').first()
+                        # print(class_ids,"class_ids")
+                        if class_ids and class_ids.autoclassamount and custclass_ids.autoclassamount:
+                            # print(class_ids.autoclassamount,"class_ids.autoclassamount")
+                            # print(custclass_ids.autoclassamount,"custclass_ids.autoclassamount")
+                            if class_ids.autoclassamount > custclass_ids.autoclassamount:
+                                # print("iff")
+                                cust_obj.cust_class =  class_ids.class_code
+                                cust_obj.Cust_Classid = class_ids
+                                cust_obj.save()
+
+
 
 
                 # serializer_final.data
@@ -11564,10 +11590,10 @@ class EmployeeAppointmentViewNew(viewsets.ModelViewSet):
                     for i in appt:
                         obj = Appointment.objects.filter(pk=i['appt_id']).first()
                         if obj:
-                            if obj.appt_status == 'Cancelled':
-                                i['id'] = "001"
-                            elif obj.appt_status == 'Waiting':
-                                i['id'] = "002"
+                            # if obj.appt_status == 'Cancelled':
+                            #     i['id'] = "001"
+                            # elif obj.appt_status == 'Waiting':
+                            #     i['id'] = "002"
 
                             apptdate = datetime.datetime.strptime(str(obj.appt_date), "%Y-%m-%d").strftime("%d/%m/%Y")
                             statusval = primary_lst[obj.appt_status]
@@ -11644,6 +11670,7 @@ class EmployeeAppointmentViewNew(viewsets.ModelViewSet):
                     # serializer = AppointmentCalSerializer(app_queryset,many=True, context={'request': self.request,'site' : site,'date': date})
                     # event = serializer.data
                     event = list(appt)
+                    # print(event,"event")
 
                 result['event'] = event
                 now1 = timezone.now()
@@ -16543,6 +16570,11 @@ class RewardPolicyViewSet(viewsets.ModelViewSet):
         try:
             # qs = RewardPolicy.objects.all()
             qs = self.filter_queryset(self.get_queryset())
+            # fig = qs.filter(item_divids__in=[27,29])
+            # # print(fig,"fig")
+            # appt = qs.values('pk').annotate(id=F('item_divids'),cust_type=F('cust_type'),
+            # cur_value=F('cur_value'))
+            # print(appt,"appt")
             full_tot = qs.count()
             try:
                 limit = int(request.GET.get("limit", 8))
@@ -20341,4 +20373,34 @@ class TermsandconditionViewset(viewsets.ModelViewSet):
             return termsandcondition.objects.get(pk=pk)
         except termsandcondition.DoesNotExist:
             raise Http404
-    
+
+
+
+class SecuritylevellistDuplicateDelete(APIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+
+    def post(self, request):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user,
+            pw_isactive=True).order_by('-pk').first()
+            security_ids = Securities.objects.filter(level_isactive=True)
+            for s in security_ids:
+                level_ids = Securitylevellist.objects.filter(level_itemid=s.level_code)
+                for t in level_ids:
+                    levelitem_ids = Securitylevellist.objects.filter(level_itemid=s.level_code,
+                    controlname=t.controlname)
+                    if levelitem_ids and len(levelitem_ids) > 1:
+                        for idx, reqt in enumerate(levelitem_ids, start=1): 
+                            if idx != 1:
+                                reqt.delete()
+
+            result = {'status': status.HTTP_200_OK,"message":"Deleted Succesfully",
+            'error': False}
+            return Response(result, status=status.HTTP_200_OK)
+        
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)          
+
+  

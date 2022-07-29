@@ -1483,7 +1483,8 @@ class PaytableSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Paytable
-        fields = ['id','pay_code','pay_description','pay_groupid','pay_group_name','gt_group','qr_code']
+        fields = ['id','pay_code','pay_description','pay_groupid','pay_group_name',
+        'gt_group','qr_code','paykey']
 
 class PostaudSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source='pk',required=False)

@@ -19,7 +19,7 @@ CartPrepaidSerializer, VoidCancelSerializer,HolditemdetailSerializer,HolditemSer
 TreatmentHistorySerializer,StockUsageSerializer,StockUsageProductSerializer,TreatmentUsageSerializer,
 StockUsageMemoSerializer,TreatmentfaceSerializer,SiteApptSettingSerializer,HolditemAccListSerializer,
 PodhaudSerializer,CustomerAccountSerializer,TreatmentUsageListSerializer,TreatmentUsageStockSerializer,
-ItemDivSerializer,ProductPurchaseSerializer)
+ItemDivSerializer,ProductPurchaseSerializer,TransactionInvoiceSerializer,TransactionManualInvoiceSerializer)
 from cl_table.serializers import PostaudSerializer, TmpItemHelperSerializer
 from .models import (SiteGroup, ItemSitelist, ReverseTrmtReason, VoidReason,TreatmentUsage,UsageMemo,
 Treatmentface,Usagelevel,priceChangeLog)
@@ -30,7 +30,8 @@ CreditNote,Multistaff,ItemHelper,ItemUom,Treatment_Master,Holditemdetail,Prepaid
 CnRefund,ItemBrand,Title,ItemBatch,Stktrn,Paytable,ItemLink,Appointment,ItemStocklist,Systemsetup,
 Tmpmultistaff,PosDisc,CustomerPoint,CustomerPointDtl,RewardPolicy,PackageAuditingLog,AuditLog,
 ItemFlexiservice)
-from custom.models import ItemCart, Room, Combo_Services,VoucherRecord,PosPackagedeposit,SmtpSettings
+from custom.models import (ItemCart, Room, Combo_Services,VoucherRecord,PosPackagedeposit,SmtpSettings,
+ManualInvoiceModel)
 from datetime import date, timedelta
 from datetime import datetime
 import datetime
@@ -2799,7 +2800,7 @@ class TreatmentDoneViewset(viewsets.ModelViewSet):
                 'b21flexitype': b21flexitype,
                 'itemflexiservice': itemflexiservice,
                 'reversal_check' : reversal_check,
-                'treatment_limit_times' : int(trmt_obj.treatment_limit_times) if trmt_obj.treatment_limit_times else "",
+                'treatment_limit_times' : trmt_obj.treatment_limit_times,
                 'expiry_date' : expiry_date,
                 'item_code': service_codeids.service_itembarcode[:-4] if service_codeids and service_codeids.service_itembarcode else ""
                 })
@@ -2808,9 +2809,10 @@ class TreatmentDoneViewset(viewsets.ModelViewSet):
                 if row.expiry:
                     splte = str(row.expiry).split(' ')
                     expiry = splte[0]
-                treatment_limit_times = False
-                if row.treatment_limit_times:
-                    treatment_limit_times = row.treatment_limit_times
+                # treatment_limit_times = False
+                # print(row.treatment_limit_times,"row.treatment_limit_times")
+                # if row.treatment_limit_times:
+                treatment_limit_times = row.treatment_limit_times
 
                 # print(q_val[0],"vv")
                 if row.type == 'N':
@@ -2820,7 +2822,7 @@ class TreatmentDoneViewset(viewsets.ModelViewSet):
                     else:  
                         lst.extend([q_val[0]])
                 elif row.type in ['FFd','FFi']:
-                    if expiry and treatment_limit_times:
+                    if expiry and treatment_limit_times is not None:
                         if expiry >= str(date.today()):
                             if treatment_limit_times > done_ids or treatment_limit_times == 0:
                                 lst.extend([q_val[0]])       
@@ -4370,6 +4372,16 @@ class ReversalListViewset(viewsets.ModelViewSet):
 
                 fmspw = fmspw.first()
                 treat_id = treatment_id.split(',')
+
+                treat_obj = Treatment.objects.filter(pk=treat_id[0]).order_by('-pk').first()
+
+                if treat_obj and treat_obj.type in ['FFd','FFi']:
+                    done_ids = Treatment.objects.filter(treatment_parentcode=treat_obj.treatment_parentcode,status="Done").order_by('pk').count()
+                    if done_ids > 0:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,
+                        "message":"Reversal Not possible for FFi/FFd already have treatment done!!",'error': True} 
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
                 # print(treat_id,"treat_id")
                 sum = 0; lst = [];total = 0;trm_lst = [];total_r = 0.0;rea_obj = False
                 
@@ -11962,8 +11974,77 @@ class TreatmentFaceViewset(viewsets.ModelViewSet):
              
         except Exception as e:
             invalid_message = str(e)
-            return general_error_response(invalid_message)     
-                 
+            return general_error_response(invalid_message)   
+
+
+class TransactionInvoicesViewset(viewsets.ModelViewSet):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    serializer_class = []
+
+    def list(self, request):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+            site = fmspw[0].loginsite
+            q = self.request.GET.get('search',None)
+            custid = self.request.GET.get('custid',None)
+            data = []
+            if q:
+                queryset = PosHaud.objects.filter(isvoid=False,
+                ItemSite_Codeid__pk=site.pk,
+                sa_transacno_ref__icontains=q).order_by('pk')
+                # print(queryset,"queryset")
+                serializer = TransactionInvoiceSerializer(queryset, many=True)
+                # print(serializer.data,"serializer")
+
+                manual_query = ManualInvoiceModel.objects.filter(active='active',
+                manualinv_number__icontains=q).order_by('pk')
+                # print(manual_query,"manual_query")
+                serializerdata = TransactionManualInvoiceSerializer(manual_query, many=True)
+                # print(serializerdata.data,"serializerdata")
+
+                data = serializer.data + serializerdata.data
+
+                result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",
+                'error': False, 'data' :data}
+                return Response(result, status=status.HTTP_200_OK)
+            else:
+                if custid:
+                    cust_obj = Customer.objects.filter(pk=custid,
+                    cust_isactive=True).first()
+                    if not cust_obj:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer ID does not exist!!",'error': True} 
+                        return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+        
+                    queryset = PosHaud.objects.filter(isvoid=False,
+                    ItemSite_Codeid__pk=site.pk,sa_custnoid=cust_obj,
+                    ).order_by('pk')
+                    # print(queryset,"queryset")
+                    serializer = TransactionInvoiceSerializer(queryset, many=True)
+                    # print(serializer.data,"serializer")
+
+                    manual_query = ManualInvoiceModel.objects.filter(active='active',
+                    cust_id=cust_obj).order_by('pk')
+                    # print(manual_query,"manual_query")
+                    serializerdata = TransactionManualInvoiceSerializer(manual_query, many=True)
+                    # print(serializerdata.data,"serializerdata")
+
+                    data = serializer.data + serializerdata.data
+
+                    result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",
+                    'error': False, 'data' :data}
+                    return Response(result, status=status.HTTP_200_OK)
+
+            
+            result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",
+            'error': False, 'data' :data}
+            return Response(result, status=status.HTTP_200_OK)
+
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)   
+        
 
             
 class TransactionHistoryViewset(viewsets.ModelViewSet):

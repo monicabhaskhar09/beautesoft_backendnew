@@ -51,6 +51,7 @@ router.register(r'department', views.DepartmentViewset, basename='department')
 router.register(r'brand', views.BrandViewset, basename='brand')
 router.register(r'productpurchase', views.ProductPurchaseListViewset, basename='productpurchase')
 router.register(r'flexiserviceslist', views.FlexiServicesListViewset, basename='flexiserviceslist')
+router.register(r'transactioninvoices', views.TransactionInvoicesViewset, basename='transactioninvoices')
 
 
 
