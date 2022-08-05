@@ -23,7 +23,8 @@ VoucherRecordAccSerializer,DeliveryOrderSerializer,DeliveryOrderAddrSerializer,D
 DeliveryOrderItemSerializer,DeliveryOrdersignSerializer,InvoiceListingSerializer,WorkOrderInvNoSerializer,
 EquipmentDropdownSerializer,EquipmentUsageSerializer,EquipmentUsageItemModelSerializer,StaffEquipmentSerializer,
 ItemEquipmentSerializer,ProjectSearchSerializer,CurrencytableSerializer,QuotationPaymentSerializer,
-ManualInvPaymentSerializer,QuotationItemDiscountSerializer,quotationsignSerializer)
+ManualInvPaymentSerializer,QuotationItemDiscountSerializer,quotationsignSerializer,
+ManualInvoiceItemTableSerializer)
 from .models import (EmpLevel, Room, Combo_Services, ItemCart,VoucherRecord,RoundPoint, RoundSales,
 PaymentRemarks, HolditemSetup,PosPackagedeposit,SmtpSettings,MultiPricePolicy,salesStaffChangeLog,
 serviceStaffChangeLog,dateChangeLog,  TimeLogModel, ProjectModel, ActivityModel, QuotationModel, POModel, QuotationAddrModel, 
@@ -94,6 +95,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login , logout, get_user_model
 from itertools import chain 
 from fpdf import FPDF 
+from cl_app.serializers import TransactionManualInvoiceSerializer
 
 
 type_ex = ['VT-Deposit','VT-Top Up','VT-Sales']
@@ -2288,33 +2290,39 @@ class itemCartViewset(viewsets.ModelViewSet):
 
                         cls_ids = CustomerClass.objects.filter(class_code=cust_obj.cust_class,class_isactive=True).first()
                         itmcls_ids = ItemClass.objects.filter(itm_code=stock_obj.item_class,itm_isactive=True).first()
+                        
+                        asystem_obj = Systemsetup.objects.filter(title='autoclassdiscount',
+                        value_name='autoclassdiscount',isactive=True).first()
 
-                        if stock_obj.autocustdisc == True and cls_ids and itmcls_ids:
-                            muti_ids = MultiPricePolicy.objects.filter(item_class_code=stock_obj.item_class,
-                            cust_class_code=cust_obj.cust_class).order_by('pk').first()
-                            if muti_ids and muti_ids.disc_percent_limit > 0:
-                                discper = muti_ids.disc_percent_limit
-                                discamt = (float(req['price']) * discper) / 100
+                        if asystem_obj and asystem_obj.value_data == 'True':
+                            if stock_obj.autocustdisc == True and cls_ids and itmcls_ids:
+                                muti_ids = MultiPricePolicy.objects.filter(item_class_code=stock_obj.item_class,
+                                cust_class_code=cust_obj.cust_class).order_by('pk').first()
+                                if muti_ids and muti_ids.disc_percent_limit > 0:
+                                    discper = muti_ids.disc_percent_limit
+                                    discamt = (float(req['price']) * discper) / 100
 
-                                value = float(req['price']) - discamt
-                                amount = value * int(req['qty'])
+                                    value = float(req['price']) - discamt
 
-                                cart.discount = discper
-                                cart.discount_amt = discamt
-                                cart.discount_price = value
-                                cart.deposit = amount
-                                cart.trans_amt = amount
-                                cart.save()
+                                    if value > 0:
+                                        amount = value * int(req['qty'])
 
-                                posdisc = PosDisc(sa_transacno=None,dt_itemno=stock_obj.item_code+"0000",
-                                disc_amt=discamt,disc_percent=discper,
-                                dt_lineno=cart.lineno,remark='Member',site_code=site.itemsite_code,
-                                dt_status="New",dt_auto=1,line_no=1,disc_user=fmspw[0].emp_code,lnow=1,dt_price=None,
-                                istransdisc=False)
-                                posdisc.save()
-                                # print(posdisc.id,"posdisc")  
-                                cart.pos_disc.add(posdisc.id) 
-                                
+                                        cart.discount = discper
+                                        cart.discount_amt = discamt
+                                        cart.discount_price = value
+                                        cart.deposit = amount
+                                        cart.trans_amt = amount
+                                        cart.save()
+
+                                        posdisc = PosDisc(sa_transacno=None,dt_itemno=stock_obj.item_code+"0000",
+                                        disc_amt=discamt,disc_percent=discper,
+                                        dt_lineno=cart.lineno,remark='Member',site_code=site.itemsite_code,
+                                        dt_status="New",dt_auto=1,line_no=1,disc_user=fmspw[0].emp_code,lnow=1,dt_price=None,
+                                        istransdisc=False)
+                                        posdisc.save()
+                                        # print(posdisc.id,"posdisc")  
+                                        cart.pos_disc.add(posdisc.id) 
+                                    
                     
                     if int(stock_obj.item_div) == 3 and stock_obj.item_type == 'PACKAGE':
                         packhdr_ids = PackageHdr.objects.filter(code=stock_obj.item_code).first()
@@ -11018,7 +11026,7 @@ class DeliveryOrderListViewset(viewsets.ModelViewSet):
                         #     except:
                         #         t_amount += 0
 
-                        t_amount += int(float(allqueryt.q_total)) if allqueryt.q_total else 0
+                        t_amount += float(allqueryt.q_total) if allqueryt.q_total else 0
 
                     serializer = DateFormatSerializer.datetime_formatting(self,allquery)
                     data_list.append({
@@ -11036,7 +11044,7 @@ class DeliveryOrderListViewset(viewsets.ModelViewSet):
                         "active": allquery.active,
                         "fk_project_id": allquery.fk_project_id,
                         "created_at": serializer["created_at"],
-                        "total_amount": t_amount,
+                        "total_amount": "{:.2f}".format(t_amount),
                         "cust_id" : allquery.cust_id.pk if allquery.cust_id else "",
                         "cust_name": allquery.cust_id.cust_name if allquery.cust_id else "",
                     })    
@@ -11244,7 +11252,7 @@ class WorkOrderInvoiceListViewset(viewsets.ModelViewSet):
                             # except:
                             #     t_amount += 0
                         
-                        t_amount += int(float(allqueryt.q_total)) if allqueryt.q_total else 0
+                        t_amount += float(allqueryt.q_total) if allqueryt.q_total else 0
 
                     serializer = DateFormatSerializer.datetime_formatting(self,allquery)
                     data_list.append({
@@ -11262,7 +11270,7 @@ class WorkOrderInvoiceListViewset(viewsets.ModelViewSet):
                         "active": allquery.active,
                         "fk_project_id": allquery.fk_project_id,
                         "created_at": serializer["created_at"],
-                        "total_amount": t_amount,
+                        "total_amount":  "{:.2f}".format(t_amount),
                         "cust_id" : allquery.cust_id.pk if allquery.cust_id else "",
                         "cust_name": allquery.cust_id.cust_name if allquery.cust_id else "",
                     })    
@@ -11774,7 +11782,7 @@ class ManualInvoiceListViewset(viewsets.ModelViewSet):
                             # except:
                             #     t_amount += 0
                         
-                        t_amount += int(float(allqueryt.q_total)) if allqueryt.q_total else 0
+                        t_amount += float(allqueryt.q_total) if allqueryt.q_total else 0
                     
                     serializer = DateFormatSerializer.datetime_formatting(self,allquery)
                     data_list.append({
@@ -11792,7 +11800,7 @@ class ManualInvoiceListViewset(viewsets.ModelViewSet):
                         "active": allquery.active,
                         "fk_project_id": allquery.fk_project_id,
                         "created_at": serializer["created_at"],
-                        "total_amount": t_amount,
+                        "total_amount": "{:.2f}".format(t_amount),
                         "cust_id" : allquery.cust_id.pk if allquery.cust_id else "",
                         "cust_name": allquery.cust_id.cust_name if allquery.cust_id else "",
                         "currency_id" : allquery.currency_id.pk if allquery.currency_id else ""
@@ -12261,7 +12269,7 @@ class QuotationListViewset(viewsets.ModelViewSet):
                         #     except:
                         #         t_amount += 0
 
-                        t_amount += int(float(allqueryt.q_total)) if allqueryt.q_total else 0
+                        t_amount += float(allqueryt.q_total) if allqueryt.q_total else 0
 
                     serializer = DateFormatSerializer.datetime_formatting(self,allquery)
                     data_list.append({
@@ -12279,7 +12287,7 @@ class QuotationListViewset(viewsets.ModelViewSet):
                         "active": allquery.active,
                         "fk_project_id": allquery.fk_project_id,
                         "created_at": serializer["created_at"],
-                        "total_amount": t_amount,
+                        "total_amount": "{:.2f}".format(t_amount),
                         "cust_id" : allquery.cust_id.pk if allquery.cust_id else "",
                         "cust_name": allquery.cust_id.cust_name if allquery.cust_id else "",
                         "currency_id" : allquery.currency_id.pk if allquery.currency_id else ""
@@ -12502,7 +12510,7 @@ class POListViewset(viewsets.ModelViewSet):
                         #     except:
                         #         t_amount += 0
 
-                        t_amount += int(float(allqueryt.po_total)) if allqueryt.po_total else 0
+                        t_amount += float(allqueryt.po_total) if allqueryt.po_total else 0
 
                     if allquery.fk_quotation_id is not None:
                         quotationno = QuotationListViewset.quotationnumberfromid(allquery.fk_quotation_id)
@@ -12520,7 +12528,7 @@ class POListViewset(viewsets.ModelViewSet):
                         "active": allquery.active,
                         "created_at": serializer["created_at"],
                         "in_charge": allquery.in_charge,
-                        "total_amount": t_amount,
+                        "total_amount":  "{:.2f}".format(t_amount),
                         "cust_id" : allquery.cust_id.pk if allquery.cust_id else "",
                         "cust_name": allquery.cust_id.cust_name if allquery.cust_id else "",
                     })
@@ -14685,7 +14693,7 @@ class EquipmentUsageItemModelViewset(viewsets.ModelViewSet):
                         "item_uom": allquery.item_uom,
                         "item_div" : allquery.item_div,
                         "active": allquery.active,
-                        "Item_Codeid" : allquery.Item_Codeid.pk,
+                        "Item_Codeid" : allquery.Item_Codeid.pk if allquery.Item_Codeid else "",
                         "fk_equipment_id": allquery.fk_equipment_id
                     })    
                     
@@ -24815,6 +24823,7 @@ class QuotationToCartAPIView(generics.CreateAPIView):
                 if not quotation_ids:
                     raise Exception('Quotation id does not exist!!.')
                 item_ids = QuotationItemModel.objects.filter(fk_quotation=quotation_ids,active='active').order_by('-pk')    
+                # print(item_ids,"item_ids")
                 if not item_ids:
                     raise Exception('QuotationItemModel id does not exist!!.')
 
@@ -24929,12 +24938,27 @@ class QuotationToCartAPIView(generics.CreateAPIView):
                     else:
                         recorddetail= False
 
-                    itemtype=stock_obj.item_type    
+                    itemtype=stock_obj.item_type 
+
+                    compl_ids = ItemCart.objects.filter(isactive=True,cart_date=cart_date,cust_noid=cust_obj,
+                    type="Deposit",quotationitem_id=i,cart_status="Completed",is_payment=True) 
+                    if compl_ids:
+                        raise Exception('Cart item already payment completed !!.')
+
 
                     check_ids = ItemCart.objects.filter(isactive=True,cart_date=cart_date,cust_noid=cust_obj,
                     type="Deposit",quotationitem_id=i)
+                    if check_ids:
+                        for c in check_ids:
+                            mul_ids = Tmpmultistaff.objects.filter(
+                            itemcart__pk=c.pk).delete()
+                            c.pos_disc.all().delete()
+                            c.delete()
+                    
+                    tcheck_ids = ItemCart.objects.filter(isactive=True,cart_date=cart_date,cust_noid=cust_obj,
+                    type="Deposit",quotationitem_id=i)
 
-                    if not check_ids: 
+                    if not tcheck_ids: 
                         cart = ItemCart(cart_date=cart_date,phonenumber=cust_obj.cust_phone2,
                         customercode=cust_obj.cust_code,cust_noid=cust_obj,lineno=lineno,
                         itemcodeid=stock_obj,itemcode=stock_obj.item_code,itemdesc=i.quotation_itemdesc,
@@ -24946,13 +24970,44 @@ class QuotationToCartAPIView(generics.CreateAPIView):
                         trans_amt=float(i.quotation_unitprice) * int(i.quotation_quantity),
                         deposit=float(i.quotation_unitprice) * int(i.quotation_quantity),
                         type="Deposit",quotationitem_id=i,item_uom=uom_id,itemtype=itemtype,
-                        recorddetail=recorddetail,holdreason=holdreason,holditemqty=holditemqty)
+                        recorddetail=recorddetail,holdreason=holdreason,holditemqty=holditemqty,is_foc=False)
                         cart.save()
 
                         if cart.pk not in cartlst:
                             cartlst.append(cart.pk)
+                        
+                        if int(cart.itemcodeid.item_div) in [1,3] and cart.itemcodeid.item_type != 'PACKAGE' and cart.is_foc == False and cart.type == 'Deposit':
+                            discamt = 0; discper = 0
+                            if i.discount_amt:
+                                discamt = i.discount_amt
+                                discper = 0
+                            else:
+                                if i.discount_percent:
+                                    discper = i.discount_percent
+                                    discamt = (float(i.quotation_unitprice) * discper) / 100
+ 
+                            if discamt > 0:       
+                                value = float(i.quotation_unitprice) - discamt
 
-                       
+                                if value > 0:
+                                    amount = value * int(i.quotation_quantity)
+
+                                    cart.discount = discper
+                                    cart.discount_amt = discamt
+                                    cart.discount_price = value
+                                    cart.deposit = amount
+                                    cart.trans_amt = amount
+                                    cart.save()
+
+                                    posdisc = PosDisc(sa_transacno=None,dt_itemno=stock_obj.item_code+"0000",
+                                    disc_amt=discamt,disc_percent=discper,
+                                    dt_lineno=cart.lineno,remark='Others',site_code=site.itemsite_code,
+                                    dt_status="New",dt_auto=1,line_no=1,disc_user=fmspw.emp_code,lnow=1,dt_price=None,
+                                    istransdisc=False)
+                                    posdisc.save()
+                                    # print(posdisc.id,"posdisc")  
+                                    cart.pos_disc.add(posdisc.id) 
+
                         logstaff = emp_obj
 
                         if logstaff:
@@ -24975,7 +25030,8 @@ class QuotationToCartAPIView(generics.CreateAPIView):
                                 dt_lineno=cart.lineno,itemcart=cart,emp_id=logstaff,salescommpoints=salescommpoints)
                                 tmpmulti.save()
                                 cart.multistaff_ids.add(tmpmulti.pk) 
-            
+
+                # print(cartlst,"cartlst") 
                 if cartlst != []:
                     cart_ids = ItemCart.objects.filter(pk__in=cartlst)
                     cartdata = list(set([i.cart_id for i in cart_ids]))
@@ -24984,6 +25040,10 @@ class QuotationToCartAPIView(generics.CreateAPIView):
                     result = {'status': status.HTTP_201_CREATED,"message":"Cart Created Succesfully ",'error': False,
                     'data': cartdata[0],'customer_id': cust_obj.pk}
                     return Response(result, status=status.HTTP_201_CREATED)
+                else:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,
+                    "message":"Cart Not created!!",'error': True} 
+                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
 
 
@@ -24996,7 +25056,7 @@ class SaTransacnorefAPIView(generics.ListAPIView):
     authentication_classes = [ExpiringTokenAuthentication]
     permission_classes = [IsAuthenticated & authenticated_only]
     queryset = PosHaud.objects.filter().order_by('-pk')
-    serializer_class = InvoiceListingSerializer
+    serializer_class = []
 
     def list(self, request):
         try:
@@ -25015,17 +25075,36 @@ class SaTransacnorefAPIView(generics.ListAPIView):
                     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
         
                 queryset = PosHaud.objects.filter(sa_custnoid=cust_obj,isvoid=False).order_by('pk')
+                serializer = InvoiceListingSerializer(queryset, many=True)
+
+                manual_query = ManualInvoiceModel.objects.filter(active='active',
+                cust_id=cust_obj).order_by('pk')
+                serializerdata = TransactionManualInvoiceSerializer(manual_query, many=True)
+
+                data = serializer.data + serializerdata.data
+
+                result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",
+                'error': False, 'data' :data}
+                return Response(result, status=status.HTTP_200_OK)
+
+                
             else:
                 queryset = PosHaud.objects.filter(isvoid=False,ItemSite_Codeid__pk=site.pk).order_by('pk')
-                # print(queryset,len(queryset),"queryset")
+                serializer = InvoiceListingSerializer(queryset, many=True)
+
+                manual_query = ManualInvoiceModel.objects.filter(active='active').order_by('pk')
+                serializerdata = TransactionManualInvoiceSerializer(manual_query, many=True)
+
+                data = serializer.data + serializerdata.data
+
+                result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",
+                'error': False, 'data' :data}
+                return Response(result, status=status.HTTP_200_OK)
+
+
             
-            if queryset:
-                serializer = self.get_serializer(queryset, many=True)
-                # print(len(serializer.data)," serializer.data")
-                result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 'data':  serializer.data}
-            else:
-                serializer = self.get_serializer()
-                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+            result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",
+            'error': False, 'data': []}
             return Response(data=result, status=status.HTTP_200_OK) 
         except Exception as e:
             invalid_message = str(e)
@@ -26256,3 +26335,33 @@ class ItemDeptImageUploadAPIView(generics.CreateAPIView):
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)   
+
+
+class manualinvoiceitemtableAPIView(generics.ListAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = ManualInvoiceItemModel.objects.filter().order_by('-pk')
+    serializer_class = ManualInvoiceItemTableSerializer
+
+    def list(self, request):
+        try:
+            searchid = self.request.GET.get('searchqitemid','')
+            if not searchid:
+                raise Exception('Please Give searchqitemid!!') 
+
+            queryset = ManualInvoiceItemModel.objects.filter(fk_manualinvoice_id=searchid,
+            active='active').order_by('-pk')
+            if queryset:
+                serializer = self.get_serializer(queryset, many=True)
+                result = {'status': status.HTTP_200_OK,"message": "Listed Succesfully",'error': False, 'data':  serializer.data}
+            else:
+                serializer = self.get_serializer()
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+            return Response(data=result, status=status.HTTP_200_OK) 
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)   
+
+
+

@@ -50,7 +50,7 @@ th {
 }
 .split {
   height: 500px;
-  width: 50%;
+  width: 48.5%;
   position: absolute;
 }
 .right {
@@ -109,7 +109,8 @@ fix {
         font-size: 14px;
 }
 body{
-  padding: 20px;
+  margin:0;
+  padding:0;
 }
 </style>
 </head>
@@ -123,9 +124,9 @@ body{
         <p>{{address}}</p>
       </div>
 
-    <div class="clearfix mt-5">
+    <div class="clearfix mt-3">
       <div class="box">
-        <div class="split" style="font-size: 10px;line-height: 10px">
+        <div class="split" style="font-size: 10px;line-height: 2px">
           <p><b>Code:</b> {{ hdr.sa_custno }} </p>
           <p><b>Name:</b> {{ hdr.sa_custname }} </p>
           <p><b>Member:</b> {{ member }} </p>
@@ -137,7 +138,7 @@ body{
        
       </div>
     </div>
-    <br/>
+    
     {% load mathfilters %}
 
 
@@ -145,93 +146,47 @@ body{
       <tr>
         <th>No</th>
         <th>Description</th>
-        <th></th>
+        <th>Qty</th>
+        <th>Paid</th>
       </tr>
       {% for d in daud %}
       <tr>
         <td>{{ forloop.counter }}</td>
         <td>{{ d.dt_itemdesc }}</td>
-        <td></td>
-        </tr>
-      {% endfor %}
-      <tr>
-        <th>Qty</th>
-        <th>Net Price</th>
-        <th>Paid</th>
-       
-      </tr>
-
-      {% for da in daud %}
-      <tr>
-          <td>&nbsp;{{ da.dt_qty }}</td>
-          {% if da.dt_status == "SA" and da.record_detail_type == "TD" %}
+        <td>&nbsp;{{ d.dt_qty }}</td>
+        {% if d.dt_status == "SA" and d.record_detail_type == "TD" %}
           <td>&nbsp;</td>
-          {% else %}
-            <td >$&nbsp;{{ da.dt_amt|floatformat:2 }}</td>
-          {% endif %}
-          <!-- <td style="font-weight: normal;font-size: 13px;border: 1px solid grey;">$&nbsp;{{ d.dt_discamt|floatformat:2 }}</td> -->
-          {% if da.dt_status == "SA" and da.record_detail_type == "TD" %}
-            <td>&nbsp;</td>
-          {% else %}
-            <td >$&nbsp;{{ da.dt_deposit|floatformat:2 }}</td>
-          {% endif %}
-        </tr>
+        {% else %}
+          <td >$&nbsp;{{ d.dt_deposit|floatformat:2 }}</td>
+        {% endif %}
+      </tr>
       {% endfor %}
-
-      <tr>
-        <th>Balance</th>
-        <th>Sold By</th>
-        <th>Service By</th>
-      </tr> 
-  
      
-      {% for de in daud %}
-        <tr>
-           
-            <!-- <li>13 - 17 = {{ 13|sub:17 }}</li> -->
-            {% if de.dt_status == "SA" and de.record_detail_type == "TD" %}
-              <td>&nbsp;</td>
-            {% else %}
-              <td >$&nbsp;{{ de.dt_amt|sub:de.dt_deposit |floatformat:2 }}</td>
-            {% endif %}
-
-            {% if de.staffs %}
-              {% with de.staffs|split:"/" as staffs %}
-                  {% for staff in staffs %}
-                      {% if forloop.counter == 1 %} 
-                          <td>{{ staff }}</td>
-                      {% endif %} 
-                      {% if forloop.counter == 2 %} 
-                          <td>{{ staff }}</td>
-                      {% endif %}
-                  {% endfor %}
-              {% endwith %}
-            {% endif %} 
-           
-          </tr>
-          {% endfor %}
 
       <tr>
         
         {% if d.dt_status == "SA" and d.record_detail_type == "TD" %}
-          <th>$&nbsp;{{ "0.00" }}</th>
-          <th>$&nbsp;{{ "0.00" }}</th>
-          <th>$&nbsp;{{ "0.00" }}</th>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td>$&nbsp;{{ "0.00" }}</td>
         {% else %}
-          <th >$&nbsp;{{ trans_amt|floatformat:2 }}</th>
-          <th >$&nbsp;{{ deposit_amt|floatformat:2 }}</th>
-          <th >$&nbsp;{{ total_balance|floatformat:2 }}</th>
+          <td></td>
+          <td></td>
+          <td></td>
+          <!-- <th >$&nbsp;{{ trans_amt|floatformat:2 }}</th> -->
+          <td >$&nbsp;{{ deposit_amt|floatformat:2 }}</td>
+          <!-- <th >$&nbsp;{{ total_balance|floatformat:2 }}</th> -->
         {% endif %}
         
       </tr>
   
-     
       </table>
 
       <div class="split">
         <div class="box">
         <th></th>
-        <table style="border-collapse: collapse;" cellspacing="2" cellpadding="5" width="20%" style="font-size: 10px">
+        <table style="border-collapse: collapse;" cellspacing="2" cellpadding="5"  style="font-size: 10px;width: 15%;">
           <tr style="font-size: 10px">
             <th>No</th>
             <th>Type</th>
@@ -253,7 +208,7 @@ body{
           
         </table>
 
-        <div style="font-size: 12px">
+        <div style="font-size: 10px">
           <p>Tender Amount   &nbsp;&nbsp;&nbsp;&nbsp; {{ billing_amount|floatformat:2 }}</p>
           <p>Change Amount  </p>
           <p>Terms and Condition Apply</p>
@@ -261,9 +216,6 @@ body{
         </div>
       </div>
      
-
-     
-      
      <br/>
     
 

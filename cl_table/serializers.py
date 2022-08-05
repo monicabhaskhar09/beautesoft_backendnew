@@ -210,9 +210,17 @@ class CustomerSerializer(serializers.ModelSerializer):
             customer_mail =  Customer.objects.filter(cust_email=request.data['cust_email'])
             if len(customer_mail) > 0:
                 raise serializers.ValidationError("Email id is already associated with another account")
-        customer =  Customer.objects.filter(cust_phone2=request.data['cust_phone2'])
-        if len(customer) > 0:
-            raise serializers.ValidationError("Mobile number is already associated with another account")
+        
+        if 'cust_phone2' in request.data and request.data['cust_phone2']:
+            customer =  Customer.objects.filter(cust_phone2=request.data['cust_phone2'])
+            if len(customer) > 0:
+                raise serializers.ValidationError("Mobile number cust phone2 is already associated with another account")
+        
+        if 'cust_phone1' in request.data and request.data['cust_phone1']:
+            customerp =  Customer.objects.filter(cust_phone1=request.data['cust_phone1'])
+            if len(customerp) > 0:
+                raise serializers.ValidationError("Mobile number cust phone1 is already associated with another account")
+        
         return data    
 
 
@@ -2856,14 +2864,24 @@ class CustomerPlusSerializer(serializers.ModelSerializer):
         # else:
         #     if request.data['custallowsendsms'] is None:
         #         raise serializers.ValidationError("custallowsendsms Field is required.")
+        
         # Email and Mobile number validation
-        # if request.data['cust_email']:
-        #     customer_mail =  Customer.objects.filter(cust_email=request.data['cust_email'])
-        #     if len(customer_mail) > 0:
-        #         raise serializers.ValidationError("Email id is already associated with another account")
-        # customer =  Customer.objects.filter(cust_phone2=request.data['cust_phone2'])
-        # if len(customer) > 0:
-        #     raise serializers.ValidationError("Mobile number is already associated with another account")
+
+        if request.data['cust_email']:
+            customer_mail =  Customer.objects.filter(cust_email=request.data['cust_email'])
+            if len(customer_mail) > 0:
+                raise serializers.ValidationError("Email id is already associated with another account")
+        
+        if 'cust_phone2' in request.data and request.data['cust_phone2']:
+            customer =  Customer.objects.filter(cust_phone2=request.data['cust_phone2'])
+            if len(customer) > 0:
+                raise serializers.ValidationError("Mobile number cust phone2 is already associated with another account")
+        
+        if 'cust_phone1' in request.data and request.data['cust_phone1']:    
+            customerphone =  Customer.objects.filter(cust_phone1=request.data['cust_phone1'])
+            if len(customerphone) > 0:
+                raise serializers.ValidationError("Mobile number cust phone1 is already associated with another account")
+            
         return validate_data
 
     # def update(self, instance, validated_data):

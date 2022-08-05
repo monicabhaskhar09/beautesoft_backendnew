@@ -5512,7 +5512,6 @@ class VoidViewset(viewsets.ModelViewSet):
                         multi.save()
                     
                     for d in daud_ids:
-                    
                         cart_obj = ItemCart.objects.filter(isactive=True,cart_id=cart_id,lineno=d.dt_lineno,
                         sitecode=site.itemsite_code,cart_date=date.today(),cart_status="Inprogress",
                         cust_noid=haudobj.sa_custnoid).exclude(type__in=type_tx).first()
@@ -5703,7 +5702,6 @@ class VoidViewset(viewsets.ModelViewSet):
                                 #cust_code=haudobj.sa_custno,site_code=site.itemsite_code)
                                 sacc_ids = TreatmentAccount.objects.filter(sa_transacno=haudobj.sa_transacno,type='Sales',
                                 cust_code=haudobj.sa_custno,treatment_parentcode=d.itemcart.treatment.treatment_parentcode)
-                            
                                 description = d.itemcart.itemcodeid.item_name+" "+"(Void Transaction by {0})".format(fmspw[0].pw_userlogin)
                                 
                                 for i in d.itemcart.multi_treat.all():
@@ -5712,6 +5710,18 @@ class VoidViewset(viewsets.ModelViewSet):
 
                                     TmpItemHelper.objects.filter(treatment__pk=i.pk).delete()
                                     
+                                    # ihelper_ids = ItemHelper.objects.filter(helper_transacno=haudobj.sa_transacno,site_code=site.itemsite_code)
+                                    ihelper_ids = ItemHelper.objects.filter(helper_transacno=haudobj.sa_transacno,
+                                    item_code=i.treatment_code)
+                                    for hlp in ihelper_ids:
+                                        ItemHelper(item_code=hlp.item_code,item_name=hlp.item_name,line_no=hlp.line_no,
+                                        sa_transacno=hlp.sa_transacno,amount=-hlp.amount,helper_name=hlp.helper_name,
+                                        helper_code=hlp.helper_code,site_code=hlp.site_code,share_amt=-hlp.share_amt,
+                                        helper_transacno=sa_transacno,system_remark=hlp.system_remark,
+                                        wp1=hlp.wp1,wp2=hlp.wp2,wp3=hlp.wp3,td_type_code=hlp.td_type_code,
+                                        td_type_short_desc=hlp.td_type_short_desc,times=hlp.times,
+                                        treatment_no=hlp.treatment_no).save()
+
                                     treat_obj = i
                                     accids = TreatmentAccount.objects.filter(ref_transacno=treat_obj.sa_transacno,
                                     treatment_parentcode=treat_obj.treatment_parentcode,site_code=site.itemsite_code,ref_no=treat_obj.treatment_code,
@@ -5783,6 +5793,7 @@ class VoidViewset(viewsets.ModelViewSet):
 
                                 
                                 for sa in sacc_ids:
+                                    # print(sa,"SAAAAAAAAAAAAAAAAAAAAA")
                                     # master_ids = Treatment_Master.objects.filter(sa_transacno=sa.ref_transacno,
                                     # treatment_code=sa.ref_no,site_code=site.itemsite_code).update(status="Cancel")
                                     
@@ -5799,14 +5810,14 @@ class VoidViewset(viewsets.ModelViewSet):
                                     TreatmentAccount.objects.filter(pk=sa.pk).update(sa_status='VOID')
                                     # type__in=('Deposit', 'Top Up')
                                     olacc_ids = TreatmentAccount.objects.filter(ref_transacno=sa.ref_transacno,
-                                    treatment_parentcode=sa.treatment_parentcode,cust_code=haudobj.sa_custno).order_by('id').exclude(type='Sales').last()
+                                    treatment_parentcode=sa.treatment_parentcode,cust_code=haudobj.sa_custno).order_by('id').last()
                                     
                                     PackageAuditingLog(treatment_parentcode=sa.treatment_parentcode,
                                     user_loginid=fmspw[0],package_type="Void",pa_qty=sa.qty if sa.qty else None).save()    
 
                                     TreatmentAccount(Cust_Codeid=sa.Cust_Codeid,cust_code=sa.cust_code,
                                     description=description,ref_no=sa.ref_no,type=sa.type,amount="{:.2f}".format(float(abs(sa.amount))),
-                                    balance="{:.2f}".format(float(olacc_ids.balance)),user_name=sa.user_name,User_Nameid=sa.User_Nameid,
+                                    balance="{:.2f}".format(float(olacc_ids.balance + abs(sa.amount))),user_name=sa.user_name,User_Nameid=sa.User_Nameid,
                                     ref_transacno=sa.ref_transacno,sa_transacno=sa_transacno,qty=sa.qty,
                                     outstanding="{:.2f}".format(float(olacc_ids.outstanding)) if olacc_ids and olacc_ids.outstanding is not None and olacc_ids.outstanding > 0 else 0,deposit=-float("{:.2f}".format(float(sa.deposit))) if sa.deposit else 0,treatment_parentcode=sa.treatment_parentcode,
                                     treatment_code=sa.treatment_code,sa_status="SA",cas_name=fmspw[0].pw_userlogin,sa_staffno=sa.sa_staffno,
@@ -5815,16 +5826,7 @@ class VoidViewset(viewsets.ModelViewSet):
                                     site_code=sa.site_code,treat_code=sa.treat_code,focreason=sa.focreason,itemcart=cart_obj).save()
 
                                 
-                            # ihelper_ids = ItemHelper.objects.filter(helper_transacno=haudobj.sa_transacno,site_code=site.itemsite_code)
-                            ihelper_ids = ItemHelper.objects.filter(helper_transacno=haudobj.sa_transacno)
-                            for hlp in ihelper_ids:
-                                ItemHelper(item_code=hlp.item_code,item_name=hlp.item_name,line_no=hlp.line_no,
-                                sa_transacno=hlp.sa_transacno,amount=-hlp.amount,helper_name=hlp.helper_name,
-                                helper_code=hlp.helper_code,site_code=hlp.site_code,share_amt=-hlp.share_amt,
-                                helper_transacno=sa_transacno,system_remark=hlp.system_remark,
-                                wp1=hlp.wp1,wp2=hlp.wp2,wp3=hlp.wp3,td_type_code=hlp.td_type_code,
-                                td_type_short_desc=hlp.td_type_short_desc).save()
-
+                           
                         elif int(d.itemcart.itemcodeid.item_div) == 1:
                             if d.itemcart.type == 'Deposit':
                             
@@ -6234,9 +6236,11 @@ class VoidViewset(viewsets.ModelViewSet):
                             if da.itemcart.type == 'Sales':
                                 #sacc_ids = TreatmentAccount.objects.filter(sa_transacno=haudobj.sa_transacno,type='Sales',
                                 #cust_code=haudobj.sa_custno,site_code=site.itemsite_code)
+
                                 sacc_ids = TreatmentAccount.objects.filter(sa_transacno=haudobj.sa_transacno,type='Sales',
-                                cust_code=haudobj.sa_custno)
-                            
+                                cust_code=haudobj.sa_custno,treatment_parentcode=da.itemcart.treatment.treatment_parentcode)
+                              
+                               
                                 description = da.itemcart.itemcodeid.item_name+" "+"(Void Transaction by {0})".format(fmspw[0].pw_userlogin)
                                 
                                 for i in da.itemcart.multi_treat.all():
@@ -6244,6 +6248,21 @@ class VoidViewset(viewsets.ModelViewSet):
                                     trmt_room_code=None,treatment_count_done=0)
 
                                     TmpItemHelper.objects.filter(treatment__pk=i.pk).delete()
+
+                                    # ihelper_ids = ItemHelper.objects.filter(helper_transacno=haudobj.sa_transacno,
+                                    # site_code=site.itemsite_code)
+                                    ihelper_ids = ItemHelper.objects.filter(helper_transacno=haudobj.sa_transacno,
+                                    item_code=i.treatment_code)
+                                    
+                                    for hlp in ihelper_ids:
+                                        ItemHelper(item_code=hlp.item_code,item_name=hlp.item_name,line_no=hlp.line_no,
+                                        sa_transacno=hlp.sa_transacno,amount=-float("{:.2f}".format(float(hlp.amount))) if hlp.amount else 0,helper_name=hlp.helper_name,
+                                        helper_code=hlp.helper_code,site_code=hlp.site_code,share_amt=-hlp.share_amt,
+                                        helper_transacno=sa_transacno,system_remark=hlp.system_remark,
+                                        wp1=hlp.wp1,wp2=hlp.wp2,wp3=hlp.wp3,td_type_code=hlp.td_type_code,
+                                        td_type_short_desc=hlp.td_type_short_desc,times=hlp.times,
+                                        treatment_no=hlp.treatment_no).save()
+                        
 
                                     treat_obj = i
                                     # accids = TreatmentAccount.objects.filter(ref_transacno=treat_obj.sa_transacno,
@@ -6328,14 +6347,14 @@ class VoidViewset(viewsets.ModelViewSet):
                                     TreatmentAccount.objects.filter(pk=sa.pk).update(sa_status='VOID')
                                     # type__in=('Deposit', 'Top Up')
                                     olacc_ids = TreatmentAccount.objects.filter(ref_transacno=sa.ref_transacno,
-                                    treatment_parentcode=sa.treatment_parentcode,cust_code=haudobj.sa_custno).order_by('id').exclude(type='Sales').last()
+                                    treatment_parentcode=sa.treatment_parentcode,cust_code=haudobj.sa_custno).order_by('id').last()
 
                                     PackageAuditingLog(treatment_parentcode=sa.treatment_parentcode,
                                     user_loginid=fmspw[0],package_type="Void",pa_qty=sa.qty if sa.qty else None).save()    
  
                                     TreatmentAccount(Cust_Codeid=sa.Cust_Codeid,cust_code=sa.cust_code,
                                     description=description,ref_no=sa.ref_no,type=sa.type,amount="{:.2f}".format(float(abs(sa.amount))),
-                                    balance="{:.2f}".format(float(olacc_ids.balance)),user_name=sa.user_name,User_Nameid=sa.User_Nameid,
+                                    balance="{:.2f}".format(float(olacc_ids.balance + abs(sa.amount))),user_name=sa.user_name,User_Nameid=sa.User_Nameid,
                                     ref_transacno=sa.ref_transacno,sa_transacno=sa_transacno,qty=sa.qty,
                                     outstanding="{:.2f}".format(float(olacc_ids.outstanding)) if olacc_ids and olacc_ids.outstanding is not None and olacc_ids.outstanding > 0 else 0,deposit=-float("{:.2f}".format(float(sa.deposit))) if sa.deposit else 0,treatment_parentcode=sa.treatment_parentcode,
                                     treatment_code=sa.treatment_code,sa_status="SA",cas_name=fmspw[0].pw_userlogin,sa_staffno=sa.sa_staffno,
@@ -6345,19 +6364,7 @@ class VoidViewset(viewsets.ModelViewSet):
 
                                 
 
-                                # ihelper_ids = ItemHelper.objects.filter(helper_transacno=haudobj.sa_transacno,
-                                # site_code=site.itemsite_code)
-                                ihelper_ids = ItemHelper.objects.filter(helper_transacno=haudobj.sa_transacno,
-                                )
-                                
-                                for hlp in ihelper_ids:
-                                    ItemHelper(item_code=hlp.item_code,item_name=hlp.item_name,line_no=hlp.line_no,
-                                    sa_transacno=hlp.sa_transacno,amount=-float("{:.2f}".format(float(hlp.amount))) if hlp.amount else 0,helper_name=hlp.helper_name,
-                                    helper_code=hlp.helper_code,site_code=hlp.site_code,share_amt=-hlp.share_amt,
-                                    helper_transacno=sa_transacno,system_remark=hlp.system_remark,
-                                    wp1=hlp.wp1,wp2=hlp.wp2,wp3=hlp.wp3,td_type_code=hlp.td_type_code,
-                                    td_type_short_desc=hlp.td_type_short_desc).save()
-                    
+                               
                     
                     v_refcontrol_obj = ControlNo.objects.filter(control_description__iexact="Reference VOID No",Site_Codeid__pk=fmspw[0].loginsite.pk).first()
                 

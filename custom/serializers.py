@@ -771,6 +771,14 @@ class QuotationDetailSerializer(serializers.ModelSerializer):
         model = QuotationDetailModel
         fields = '__all__'
 
+    def to_representation(self, obj):
+        data = super(QuotationDetailSerializer, self).to_representation(obj)
+       
+        data['q_discpercent'] = int(float(obj.q_discpercent)) if obj.q_discpercent else 0
+        data['q_discount'] = "{:.2f}".format(float(obj.q_discount)) if obj.q_discount else 0
+       
+        return data      
+
 class QuotationPaymentSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source='pk',required=False)
 
@@ -795,7 +803,10 @@ class ManualInvoiceDetailSerializer(serializers.ModelSerializer):
     def to_representation(self, obj):
         data = super(ManualInvoiceDetailSerializer, self).to_representation(obj)
        
-        data['q_total'] = "{:.2f}".format(float(obj.q_total))
+        data['q_total'] = "{:.2f}".format(float(obj.q_total)) if obj.q_total else 0
+        data['q_discpercent'] = int(float(obj.q_discpercent)) if obj.q_discpercent else 0
+        data['q_discount'] = "{:.2f}".format(float(obj.q_discount)) if obj.q_discount else 0
+       
         return data     
 
 class WorkOrderDetailSerializer(serializers.ModelSerializer):
@@ -808,7 +819,7 @@ class WorkOrderDetailSerializer(serializers.ModelSerializer):
     def to_representation(self, obj):
         data = super(WorkOrderDetailSerializer, self).to_representation(obj)
        
-        data['q_total'] = "{:.2f}".format(float(obj.q_total))
+        data['q_total'] = "{:.2f}".format(float(obj.q_total)) if obj.q_total else 0
         return data     
 
 class DeliveryOrderDetailSerializer(serializers.ModelSerializer):
@@ -821,7 +832,7 @@ class DeliveryOrderDetailSerializer(serializers.ModelSerializer):
     def to_representation(self, obj):
         data = super(DeliveryOrderDetailSerializer, self).to_representation(obj)
        
-        data['q_total'] = "{:.2f}".format(float(obj.q_total))
+        data['q_total'] = "{:.2f}".format(float(obj.q_total)) if obj.q_total else 0
         return data    
 
 
@@ -843,7 +854,7 @@ class QuotationItemSerializer(serializers.ModelSerializer):
     def to_representation(self, obj):
         data = super(QuotationItemSerializer, self).to_representation(obj)
        
-        data['discount_percent'] = "{:.2f}".format(float(obj.discount_percent)) if obj.discount_percent else 0
+        data['discount_percent'] = int(float(obj.discount_percent)) if obj.discount_percent else 0
         data['discount_amt'] = "{:.2f}".format(float(obj.discount_amt)) if obj.discount_amt else 0
         return data     
 
@@ -892,11 +903,28 @@ class ManualInvoiceItemSerializer(serializers.ModelSerializer):
     def to_representation(self, obj):
         data = super(ManualInvoiceItemSerializer, self).to_representation(obj)
        
-        data['quotation_unitprice'] = "{:.2f}".format(float(obj.quotation_unitprice))
-        data['discount_percent'] = "{:.2f}".format(float(obj.discount_percent)) if obj.discount_percent else 0
+        data['quotation_unitprice'] = "{:.2f}".format(float(obj.quotation_unitprice)) if obj.quotation_unitprice else 0
+        data['discount_percent'] = int(float(obj.discount_percent)) if obj.discount_percent else 0
         data['discount_amt'] = "{:.2f}".format(float(obj.discount_amt)) if obj.discount_amt else 0
        
-        return data    
+        return data  
+
+class ManualInvoiceItemTableSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='pk',required=False)
+
+    class Meta:
+        model = ManualInvoiceItemModel
+        fields = ['id']
+
+    def to_representation(self, obj):
+        data = super(ManualInvoiceItemTableSerializer, self).to_representation(obj)
+
+        data['item_code'] =  obj.quotation_itemcode
+        data['item_desc'] =  obj.quotation_itemdesc
+        data['dt_price'] = "{:.2f}".format(float(obj.quotation_unitprice)) if obj.quotation_unitprice else 0
+        data['dt_qty'] = obj.quotation_quantity
+       
+        return data      
 
 class WorkOrderInvoiceItemSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source='pk',required=False)
@@ -1193,10 +1221,12 @@ class quotationsignSerializer(serializers.ModelSerializer):
         data['quo_sig'] = quo_sig
         return data
 
-class InvoiceListingSerializer(serializers.ModelSerializer): 
+class InvoiceListingSerializer(serializers.ModelSerializer):
+    flag = serializers.BooleanField(default=True)
+
     class Meta:
         model = PosHaud
-        fields = ['id','sa_transacno_ref']
+        fields = ['id','sa_transacno_ref','flag']
 
 class WorkOrderInvNoSerializer(serializers.ModelSerializer): 
     class Meta:

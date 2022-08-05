@@ -14097,7 +14097,8 @@ class DayEndListAPIView(generics.ListAPIView):
                     
 
                 ser_daudids = PosDaud.objects.filter(itemsite_code=site.itemsite_code,sa_date__date=givendate,
-                sa_transacno__in=given_haudids,dt_status="SA",record_detail_type__in=['SERVICE','TP SERVICE']
+                sa_transacno__in=given_haudids,dt_status="SA",record_detail_type__in=['SERVICE','TP SERVICE',
+                'PREPAID','PACKAGE','TP PREPAID','VOUCHER']
                 ).order_by('-pk')
                 # print(ser_daudids,"ser_daudids")
                 
@@ -14134,7 +14135,15 @@ class DayEndListAPIView(generics.ListAPIView):
                                             course_amt += ta_valacc_ids.amount
                                         elif depo_valacc_ids.qty == 1:
                                             single_amt += ta_valacc_ids.amount
-                    
+                        
+                        elif ser.record_detail_type in ['PACKAGE','PREPAID','TP PREPAID']:
+                            if ser.dt_qty >= 1:
+                                course_amt += ser.dt_deposit
+                        elif ser.record_detail_type == 'VOUCHER':
+                            if ser.dt_qty >= 1:
+                                single_amt += ser.dt_deposit
+
+     
 
                     service_sales.append({'desc': 'Single', 'amount': "{:.2f}".format(single_amt)})
                     service_sales.append({'desc': 'Course', 'amount': "{:.2f}".format(course_amt)})
@@ -14717,7 +14726,7 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
                             user = User.objects.create_user(username=request.data['display_name'], email=s.emp_email,
                                                             password=request.data['pw_password'])
                             levelobj = Securities.objects.filter(pk=request.data['LEVEL_ItmIDid'], level_isactive=True).first()
-                            Fmspw(pw_userlogin=request.data['display_name'],
+                            f = Fmspw(pw_userlogin=request.data['display_name'],
                                   pw_password=request.data['pw_password'],
                                   LEVEL_ItmIDid=levelobj,
                                   level_itmid=levelobj.level_code,
@@ -14728,15 +14737,27 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
                                   loginsite=None,
                                   flgappt = s.show_in_appt,
                                   flgsales = s.show_in_sales,
-                                  ).save()
+                                  )
+                            f.save()
+
                             s.pw_userlogin = request.data['display_name']
                             s.pw_password = request.data['pw_password']
                             s.LEVEL_ItmIDid = levelobj
                             s.save()
                             token = Token.objects.create(user=user)
+                            
                         if s.pk:
                             control_obj.control_no = int(control_obj.control_no) + 1
                             control_obj.save()
+
+                        site_list = request.data.get('site_list', "").split(",")
+                        for si in site_list:
+                            empsite_ids = EmpSitelist.objects.filter(Emp_Codeid=s,
+                            Site_Codeid_id=int(si)).order_by('pk')
+                            if not empsite_ids:
+                                emp_s = EmpSitelist(Emp_Codeid=s,Site_Codeid_id=int(si)) 
+                                emp_s.save()
+
                 except ValueError as e:
                     result = {'status': state, "message": str(e),
                               'error': True}
@@ -14843,22 +14864,24 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
                         employee.LEVEL_ItmIDid = levelobj
                         employee.save()
 
-                if 'is_login' in request.data and request.data['is_login'] == True:
+                   
+                if 'is_login' in request.data and request.data['is_login'] == "True":
                     site_ids = EmpSitelist.objects.filter(Emp_Codeid=employee,
-                    emp_code=employee.emp_code,Site_Codeid=employee.Site_Codeid,
-                    site_code=employee.Site_Codeid.itemsite_code,
-                    isactive=True)
+                    Site_Codeid=employee.defaultSiteCodeid)
+                    print(site_ids,"site_ids")
                     if not site_ids:
                         EmpSitelist(Emp_Codeid=employee, emp_code=employee.emp_code, 
-                        Site_Codeid=employee.Site_Codeid,
-                        site_code=employee.Site_Codeid.itemsite_code).save()
+                        Site_Codeid=employee.defaultSiteCodeid,
+                        site_code=employee.defaultSiteCodeid.itemsite_code).save()
 
                     fmspw_ids = Fmspw.objects.filter(Emp_Codeid=employee, pw_isactive=True).first()
                     if not fmspw_ids:
-                        user = User.objects.create_user(username=request.data['display_name'], email=employee.emp_email,
-                                                        password=request.data['pw_password'])
+                        user = User.objects.filter(username=request.data['display_name']).first()
+                        if not user:
+                            user = User.objects.create_user(username=request.data['display_name'], email=employee.emp_email,
+                                                            password=request.data['pw_password'])
                         level_obj = Securities.objects.filter(pk=request.data['LEVEL_ItmIDid'], level_isactive=True).first()
-                        Fmspw(pw_userlogin=request.data['display_name'],
+                        test = Fmspw(pw_userlogin=request.data['display_name'],
                                 pw_password=request.data['pw_password'],
                                 LEVEL_ItmIDid=level_obj,
                                 level_itmid=level_obj.level_code,
@@ -14874,7 +14897,15 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
                         employee.pw_password = request.data['pw_password']
                         employee.LEVEL_ItmIDid = level_obj
                         employee.save()
-                        token = Token.objects.create(user=user)
+                        token_ids = Token.objects.filter(user=user)
+                        if not token_ids:
+                            token = Token.objects.create(user=user)
+                
+                if 'emp_isactive' in request.data and request.data['emp_isactive'] == "False":
+                    fmspwids_s = Fmspw.objects.filter(Emp_Codeid=employee, pw_isactive=True).first()
+                    if fmspwids_s:
+                        fmspwids_s.pw_isactive = False
+                        fmspwids_s.save()
 
 
                 serializer.save(type_code=jobtitle.level_code)

@@ -722,6 +722,7 @@ class QuotationDetailModel(models.Model):
     id = models.AutoField(db_column='Quotation_Detail_ID',primary_key=True)  # Field name made lowercase.
     q_shipcost = models.CharField(db_column='Quotation_ShipCost', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
     q_discount = models.CharField(db_column='Quotation_Discount', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    q_discpercent = models.FloatField(default=0.0,  null=True)
     q_taxes = models.CharField(db_column='Quotation_Taxes', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
     q_total = models.CharField(db_column='Quotation_Total', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
     active = models.CharField(db_column='Active', blank=True, max_length = 255, default='active', null=True)  # Field name made lowercase.
@@ -745,6 +746,7 @@ class ManualInvoiceDetailModel(models.Model):
     id = models.AutoField(db_column=' ManualInvoice_Detail_ID',primary_key=True)  # Field name made lowercase.
     q_shipcost = models.CharField(db_column=' ManualInvoice_ShipCost', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
     q_discount = models.CharField(db_column=' ManualInvoice_Discount', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    q_discpercent = models.FloatField(default=0.0,  null=True)
     q_taxes = models.CharField(db_column='ManualInvoice_Taxes', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
     q_total = models.CharField(db_column=' ManualInvoice_Total', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
     active = models.CharField(db_column='Active', blank=True, max_length = 255, default='active', null=True)  # Field name made lowercase.
