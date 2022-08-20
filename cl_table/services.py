@@ -7,14 +7,15 @@ from .models import (Employee,  Fmspw, Customer, Treatment, Stock, Appointment,I
 Treatment_Master,ItemClass,Paytable,PosTaud,PayGroup,PosDaud,PosHaud,GstSetting,PayGroup,TreatmentAccount, 
 ItemStatus,Source,ApptType, ItemHelper, Multistaff, DepositType, TmpItemHelper, PosDisc, FocReason, Holditemdetail,
 DepositAccount,PrepaidAccount,PrepaidAccountCondition,VoucherCondition,ItemUom,Title,PackageHdr,PackageDtl,
-ItemBatch,Stktrn,ItemUomprice,Tmptreatment,ExchangeDtl,Systemsetup,PackageAuditingLog)
+ItemBatch,Stktrn,ItemUomprice,Tmptreatment,ExchangeDtl,Systemsetup,PackageAuditingLog,
+TreatmentPackage)
 from datetime import date, timedelta, datetime
 import datetime
 from django.utils import timezone
 from custom.views import get_in_val
 from cl_app.utils import general_error_response
 from dateutil.relativedelta import relativedelta
-from cl_app.models import ItemSitelist,Usagelevel,TreatmentUsage
+from cl_app.models import ItemSitelist,Usagelevel,TreatmentUsage,TmpTreatmentSession
 
 from django.db.models import Q
 
@@ -77,7 +78,8 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
         empl = fmspw.Emp_Codeid
         id_lst = [] ; totQty = 0; discount_amt=0.0;additional_discountamt=0.0; total_disc = 0.0
         outstanding_new = 0.0
-        gst = GstSetting.objects.filter(item_code="100001",item_desc='GST',isactive=True).first()
+        gst = GstSetting.objects.filter(isactive=True,activefromdate__date__lte=pay_date,
+        activetodate__date__gte=pay_date).first()
 
         for idx, c in enumerate(depo_ids, start=1):
             if idx == 1:
@@ -147,7 +149,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
             # Yoonus Tax Chcking
             gst_amt_collect = 0
             if calcgst > 0:
-                if gst and gst.is_exclusive == True:
+                if site and site.is_exclusive == True:
                     gst_amt_collect = c.deposit * (calcgst/ 100)
                     # tax_amt = deposit_amt * (gst.item_value / 100)
                     # billable_amount = "{:.2f}".format(deposit_amt + tax_amt)
@@ -687,6 +689,29 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                             p.sa_transacno = sa_transacno
                                             p.status = "COMPLETED"
                                             p.save()
+
+                                        if patreatment_parentcode:
+                                            search_ids = TreatmentPackage.objects.filter(treatment_parentcode=patreatment_parentcode)
+                                            if not search_ids:
+                                                tpdone_ids = Treatment.objects.filter(treatment_parentcode=patreatment_parentcode,status="Done").order_by('pk').count()
+                                                tpcancel_ids = Treatment.objects.filter(treatment_parentcode=patreatment_parentcode,status="Cancel").order_by('pk').count()
+                                                tpopen_ids = Treatment.objects.filter(treatment_parentcode=patreatment_parentcode,status="Open").order_by('pk').count()
+                                            
+
+                                                tr = TreatmentPackage(treatment_parentcode=patreatment_parentcode,
+                                                item_code=patreatmentid.Item_Codeid.item_code,course=patreatmentid.course,
+                                                treatment_no=patreatmentid.treatment_no,open_session=tpopen_ids,done_session=tpdone_ids,
+                                                cancel_session=tpcancel_ids,expiry_date=patreatmentid.expiry,unit_amount=patreatmentid.unit_amount,
+                                                customerid=cust_obj,cust_name=patreatmentid.cust_name,cust_code=patreatmentid.cust_code,
+                                                treatment_accountid=patreatmentid.treatment_account,totalprice=patreatmentid.price,
+                                                type=patreatmentid.type,treatment_date=patreatmentid.treatment_date,
+                                                Item_Codeid=patreatmentid.Item_Codeid,treatment_limit_times=patreatmentid.treatment_limit_times,
+                                                Site_Codeid=patreatmentid.Site_Codeid,site_code=patreatmentid.site_code,
+                                                sa_transacno=sa_transacno)
+                                                tr.save()
+
+
+
 
                                     elif int(itmstock.Item_Divid.itm_code) == 1 and itmstock.Item_Divid.itm_desc == 'RETAIL PRODUCT' and itmstock.Item_Divid.itm_isactive == True:
                                         desc = "Total Product Amount : "+str("{:.2f}".format(float(pa_trasac)))
@@ -1334,10 +1359,14 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                     treat_type = "N"
                     treatment_limit_times = None
                     flexipoints = None
-                    
-                    if c.treat_expiry:
-                        expiry = c.treat_expiry
 
+                    if c.itemcodeid.limitservice_flexionly == True:
+                        treat_type = "FFi"
+                        treatment_limit_times = 0
+                        if c.itemcodeid.treatment_limit_active == True:
+                            treatment_limit_times = c.itemcodeid.treatment_limit_count
+                    
+                   
                     if c.is_flexi == True:
                         expiry = c.treat_expiry
                         treat_type = c.treat_type
@@ -1782,6 +1811,25 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                             trmt_room_code=ct.trmt_room_code,trmt_is_auto_proportion=ct.trmt_is_auto_proportion,
                                             smsout=ct.smsout,emailout=ct.emailout,treatment_account=ct.treatment_account).save()
 
+                    if treatment_parentcode:
+                        searchids = TreatmentPackage.objects.filter(treatment_parentcode=treatment_parentcode)
+                        if not searchids:
+                            tptdone_ids = Treatment.objects.filter(treatment_parentcode=treatment_parentcode,status="Done").order_by('pk').count()
+                            tptcancel_ids = Treatment.objects.filter(treatment_parentcode=treatment_parentcode,status="Cancel").order_by('pk').count()
+                            tptopen_ids = Treatment.objects.filter(treatment_parentcode=treatment_parentcode,status="Open").order_by('pk').count()
+                        
+
+                            tr = TreatmentPackage(treatment_parentcode=treatment_parentcode,
+                            item_code=treatmentid.Item_Codeid.item_code,course=treatmentid.course,
+                            treatment_no=treatmentid.treatment_no,open_session=tptopen_ids,done_session=tptdone_ids,
+                            cancel_session=tptcancel_ids,expiry_date=treatmentid.expiry,unit_amount=treatmentid.unit_amount,
+                            customerid=cust_obj,cust_name=treatmentid.cust_name,cust_code=treatmentid.cust_code,
+                            treatment_accountid=treatmentid.treatment_account,totalprice=treatmentid.price,
+                            type=treatmentid.type,treatment_date=treatmentid.treatment_date,
+                            Item_Codeid=treatmentid.Item_Codeid,treatment_limit_times=treatmentid.treatment_limit_times,
+                            Site_Codeid=treatmentid.Site_Codeid,site_code=treatmentid.site_code,
+                            sa_transacno=sa_transacno)
+                            tr.save()   
 
 
             # tmptrd_ids = Tmptreatment.objects.filter(itemcart=c).order_by('pk').delete()
@@ -1799,7 +1847,8 @@ def invoice_topup(self, request, topup_ids,sa_transacno, cust_obj, outstanding, 
         empl = fmspw.Emp_Codeid
         id_lst = [] ; totQty = 0; discount_amt=0.0;additional_discountamt=0.0; total_disc = 0.0
         outstanding_new = 0.0
-        gst = GstSetting.objects.filter(item_code="100001",item_desc='GST',isactive=True).first()
+        gst = GstSetting.objects.filter(isactive=True,activefromdate__date__lte=pay_date,
+        activetodate__date__gte=pay_date).first()
 
         for idx, c in enumerate(topup_ids, start=1):
             if idx == 1:
@@ -1846,7 +1895,7 @@ def invoice_topup(self, request, topup_ids,sa_transacno, cust_obj, outstanding, 
             # Yoonus Tax Chcking
             gst_amt_collect = 0
             if calcgst > 0:
-                if gst and gst.is_exclusive == True:
+                if site and site.is_exclusive == True:
                     gst_amt_collect = c.deposit * (calcgst / 100)
                     # tax_amt = deposit_amt * (gst.item_value / 100)
                     # billable_amount = "{:.2f}".format(deposit_amt + tax_amt)
@@ -3122,6 +3171,20 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
             # dtl.first_trmt_done_staff_name = ','.join([v.helper_id.display_name for v in c.helper_ids.all() if v.helper_id.display_name])
             # dtl.save()
 
+            searcids = TreatmentPackage.objects.filter(treatment_parentcode=ct.treatment_parentcode).first()
+            if searcids:
+                stptdone_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Done").order_by('pk').count()
+                stptcancel_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Cancel").order_by('pk').count()
+                stptopen_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Open").order_by('pk').count()
+                searcids.open_session = stptopen_ids
+                searcids.done_session = stptdone_ids
+                searcids.cancel_session = stptcancel_ids
+                searcids.save()
+
+            searchhids = TmpTreatmentSession.objects.filter(treatment_parentcode=ct.treatment_parentcode,
+            created_at=date.today()) 
+            if searchhids:
+                searchhids.delete()
            
 
 
@@ -3137,15 +3200,33 @@ def invoice_exchange(self, request, exchange_ids, sa_transacno, cust_obj, outsta
         fmspw = Fmspw.objects.filter(user=request.user,pw_isactive=True).first()
         site = fmspw.loginsite
         id_lst = [] 
-        gst = GstSetting.objects.filter(item_code="100001",item_desc='GST',isactive=True).first()
+        gst = GstSetting.objects.filter(isactive=True,activefromdate__date__lte=pay_date,
+        activetodate__date__gte=pay_date).first()
 
+        
+        calcgst = 0
+        if gst:
+            calcgst = gst.item_value if gst and gst.item_value else 0.0
+        if calcgst > 0:
+            sitegst = ItemSitelist.objects.filter(pk=site.pk).first()
+            if sitegst:
+                if sitegst.site_is_gst == False:
+                    calcgst = 0
+        # print(calcgst,"0 calcgst")
+        # Yoonus Tax Chcking
+      
         for idx, c in enumerate(exchange_ids, start=1):
             
             sales_staff = c.sales_staff.all().first()
             salesstaff = c.sales_staff.all()
 
-         
-            gst_amt_collect = c.deposit * (gst.item_value / 100) if gst and gst.item_value else 0.0
+            gst_amt_collect = 0
+            if calcgst > 0:
+                if site and site.is_exclusive == True:
+                    gst_amt_collect = c.deposit * (calcgst/ 100)
+                else:
+                    gst_amt_collect = c.deposit * calcgst / (100+calcgst)
+                
             
             sales = "";service = ""
             if c.sales_staff.all():

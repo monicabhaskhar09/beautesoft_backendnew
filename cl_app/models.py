@@ -80,7 +80,8 @@ class ItemSitelist(models.Model):
     url = models.CharField(max_length=1000, null=True)
     is_dragappt = models.BooleanField(db_column='is_dragappt',default=True)  # Field name made lowercase.
     is_empvalidate = models.BooleanField(db_column='is_empvalidate',default=True)  # Field name made lowercase.
-  
+    is_exclusive = models.BooleanField(null=True)
+    
     class Meta:
         db_table = 'Item_SiteList'
         unique_together = [['itemsite_desc','itemsite_phone1','itemsite_email']]
@@ -265,3 +266,12 @@ class priceChangeLog(models.Model):
 
 
 
+class TmpTreatmentSession(models.Model):
+
+    id = models.AutoField(db_column='ID',primary_key=True)  # Field name made lowercase.
+    treatment_parentcode = models.CharField(db_column='Treatment_ParentCode', max_length=200, blank=True, null=True)  # Field name made lowercase.
+    session = models.IntegerField(db_column='session', blank=True, null=True)  # Field name made lowercase.
+    created_at = models.DateField(auto_now_add=True, null=True)
+
+    class Meta:
+        db_table = 'TmpTreatmentSession'

@@ -265,7 +265,7 @@ class UserLoginAPIView(GenericAPIView):
             data['backendauthorization'] = webbe
             data['foc'] = foc
             data['currency'] = currency
-            data['role']:fmspw.LEVEL_ItmIDid.level_name
+            data['role'] = fmspw.LEVEL_ItmIDid.level_name
             data['sites'] = sites
             data['controlsite'] = controlsite
             # data['expires_in']= expires_in(token)
@@ -5836,41 +5836,41 @@ class AppointmentSortAPIView(generics.ListCreateAPIView):
 
         if fmspw[0].flgappt == True: 
             #Therapist
-            if emp.show_in_appt == True:
-                site_list = EmpSitelist.objects.filter(Emp_Codeid=emp,Site_Codeid__pk=site.pk,isactive=True)
-                if site_list:
-                    if sc_system_obj and sc_system_obj.value_data == 'True':
-                        month = ScheduleMonth.objects.filter(itm_date=date,Emp_Codeid=emp,
-                        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
+            # if emp.show_in_appt == True:
+            #     site_list = EmpSitelist.objects.filter(Emp_Codeid=emp,Site_Codeid__pk=site.pk,isactive=True)
+            #     if site_list:
+            #         if sc_system_obj and sc_system_obj.value_data == 'True':
+            #             month = ScheduleMonth.objects.filter(itm_date=date,Emp_Codeid=emp,
+            #             site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
 
-                        if month:
-                            emp_id = month.Emp_Codeid
-                            queryset = Employee.objects.filter(pk=emp_id.pk,emp_isactive=True,
-                            show_in_appt=True).order_by('emp_seq_webappt')
-                            # print(queryset,"queryset")
-                    else:
-                        if sc_system_obj and sc_system_obj.value_data == 'False': 
-                            queryset = Employee.objects.filter(pk=emp.pk,emp_isactive=True,
-                            show_in_appt=True).order_by('emp_seq_webappt')       
+            #             if month:
+            #                 emp_id = month.Emp_Codeid
+            #                 queryset = Employee.objects.filter(pk=emp_id.pk,emp_isactive=True,
+            #                 show_in_appt=True).order_by('emp_seq_webappt')
+            #                 # print(queryset,"queryset")
+            #         else:
+            #             if sc_system_obj and sc_system_obj.value_data == 'False': 
+            #                 queryset = Employee.objects.filter(pk=emp.pk,emp_isactive=True,
+            #                 show_in_appt=True).order_by('emp_seq_webappt')       
                         
-            #manager -> Therapist,Consultant staffs as Resources
-            elif emp.show_in_appt == False:
-                emp_siteids = EmpSitelist.objects.filter(Site_Codeid__pk=site.pk,isactive=True)
-                staffs = list(set([e.Emp_Codeid.pk for e in emp_siteids if e.Emp_Codeid and e.Emp_Codeid.emp_isactive == True]))
-                emp_queryset = Employee.objects.filter(pk__in=staffs,emp_isactive=True,
-                show_in_appt=True) 
-                if sc_system_obj and sc_system_obj.value_data == 'True':
-                    staffs_f = list(set([e.pk for e in emp_queryset if e.pk and e.emp_isactive == True]))
-                    month = ScheduleMonth.objects.filter(itm_date=date,Emp_Codeid__pk__in=staffs_f,
-                    site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007'))
-                    final = list(set([e.Emp_Codeid.pk for e in month if e.Emp_Codeid]))
-                    queryset = Employee.objects.filter(pk__in=final,emp_isactive=True,
-                    show_in_appt=True).order_by('emp_seq_webappt')
-                else:
-                    if sc_system_obj and sc_system_obj.value_data == 'False': 
-                        queryset = Employee.objects.filter(pk__in=staffs,emp_isactive=True,
-                        show_in_appt=True).order_by('emp_seq_webappt')     
-            
+            # #manager -> Therapist,Consultant staffs as Resources
+            # elif emp.show_in_appt == False:
+            emp_siteids = EmpSitelist.objects.filter(Site_Codeid__pk=site.pk,isactive=True)
+            staffs = list(set([e.Emp_Codeid.pk for e in emp_siteids if e.Emp_Codeid and e.Emp_Codeid.emp_isactive == True]))
+            emp_queryset = Employee.objects.filter(pk__in=staffs,emp_isactive=True,
+            show_in_appt=True) 
+            if sc_system_obj and sc_system_obj.value_data == 'True':
+                staffs_f = list(set([e.pk for e in emp_queryset if e.pk and e.emp_isactive == True]))
+                month = ScheduleMonth.objects.filter(itm_date=date,Emp_Codeid__pk__in=staffs_f,
+                site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007'))
+                final = list(set([e.Emp_Codeid.pk for e in month if e.Emp_Codeid]))
+                queryset = Employee.objects.filter(pk__in=final,emp_isactive=True,
+                show_in_appt=True).order_by('emp_seq_webappt')
+            else:
+                if sc_system_obj and sc_system_obj.value_data == 'False': 
+                    queryset = Employee.objects.filter(pk__in=staffs,emp_isactive=True,
+                    show_in_appt=True).order_by('emp_seq_webappt')     
+        
         return queryset
    
     def list(self, request):
@@ -6110,71 +6110,59 @@ class TreatmentApptAPI(generics.ListAPIView):
             fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
             site = fmspw[0].loginsite
             cust_id = self.request.GET.get('cust_id',None)
-            serializer_class = TreatmentApptSerializer
             now = timezone.now()
             print(str(now.hour) + '  ' +  str(now.minute) + '  ' +  str(now.second),"Start hour, minute, second\n")
-            queryset = Treatment.objects.none()
             cust_obj = Customer.objects.filter(pk=cust_id,
             cust_isactive=True).first()
             if cust_obj is None:
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give customer id!!",'error': True} 
-                return Response(data=result, status=status.HTTP_400_BAD_REQUEST)  
-            queryset_t = Treatment.objects.filter(cust_code=cust_obj.cust_code,
-            status='Open').order_by('-pk').values_list('treatment_parentcode', flat=True).distinct()
-            par_lst = list(set(queryset_t))
-            lst = [];querylst = []
-            if par_lst != []:
-                for p in par_lst:
-                    queryid = Treatment.objects.filter(cust_code=cust_obj.cust_code,
-                    treatment_parentcode=p,status='Open').order_by('-pk').first()
-                    if queryid.pk not in querylst:
-                        querylst.append(queryid.pk)
+                return Response(data=result, status=status.HTTP_400_BAD_REQUEST) 
 
-                if querylst !=[]:
-                    queryset = Treatment.objects.filter(pk__in=querylst,cust_code=cust_obj.cust_code).order_by('-pk')
+            tre_queryset = TreatmentPackage.objects.filter(cust_code=cust_obj.cust_code,
+            open_session__gt=0).order_by('-pk')
+            print(tre_queryset,"tre_queryset")
 
             # #prepaid account 
             pre_queryset = PrepaidAccount.objects.filter(cust_code=cust_obj.cust_code,
             status=True,remain__gt=0).only('site_code','cust_code','sa_status').order_by('-pk')
-            
+            print(pre_queryset,"pre_queryset") 
             system_setup = Systemsetup.objects.filter(title='ApptPackagePrepaidBalanceList',
             value_name='ApptPackagePrepaidBalanceList',isactive=True).first()
             
             if system_setup and system_setup.value_data == 'True':
-                combined_ids = list(sorted(chain(queryset,pre_queryset),key=lambda objects: objects.pk,reverse=True))
+                combined_ids = list(sorted(chain(tre_queryset,pre_queryset),key=lambda objects: objects.pk,reverse=True))
             else:
-                combined_ids = queryset
+                combined_ids = tre_queryset
             # print(combined_ids,"combined_ids")
 
-            limit = int(request.GET.get('limit',10)) if request.GET.get('limit',10) else 10
-            page= int(request.GET.get('page',1)) if request.GET.get('page',1) else 1
-            if page <= 0:
-                raise Exception('Page less than one not allowed!!') 
+            
+            full_tot = combined_ids.count()
+            try:
+                limit = int(request.GET.get("limit",12))
+            except:
+                limit = 12
+            try:
+                page = int(request.GET.get("page",1))
+            except:
+                page = 1
 
-            paginator = Paginator(combined_ids, limit) # chunks of 1000
-            total_page = 1;total = len(combined_ids)
-            if len(combined_ids) > int(limit):
-                total_page = math.ceil(len(combined_ids)/int(limit))
+            paginator = Paginator(combined_ids, limit)
+            total_page = paginator.num_pages
 
-            if combined_ids:
-                if int(page) > total_page:
-                    result = {'status': status.HTTP_200_OK,"message":"No Content",'error': False, 
-                    'data': {'meta': {'pagination': {"per_page":limit,"current_page":page,"total":total,"total_pages":total_page}}, 
-                    'dataList': []}}
-                    return Response(result, status=status.HTTP_200_OK) 
+            try:
+                queryset = paginator.page(page)
+                # print(queryset,"queryset")
+            except (EmptyPage, InvalidPage):
+                queryset = paginator.page(total_page) # last page
 
-            # for page_idx in range(1, paginator.num_pages+1):
-                # print(page_idx,"KKKKKKKKKKKKKKKKKKKKK")
-                # if page_idx == page:
-            lst = [] 
-            for row in paginator.page(page).object_list:
-                # print(row,"row")
-                # print(row.__class__.__name__,"__class__")
-                if row.__class__.__name__ == 'Treatment':
+            data_list= []
+            for row in queryset:
+                if row.__class__.__name__ == 'TreatmentPackage':
                     open_ids = Treatment.objects.filter(cust_code=cust_obj.cust_code,
                     treatment_parentcode=row.treatment_parentcode,status='Open').order_by('pk').count()
-                    
-                    stock = Stock.objects.filter(item_code=row.item_code[:-4]).first()
+                    last_ids = Treatment.objects.filter(treatment_parentcode=row.treatment_parentcode).order_by('-pk').first()
+
+                    stock = row.Item_Codeid
                     if stock:
                         if stock.srv_duration is None or stock.srv_duration == 0.0:
                             srvduration = 60
@@ -6186,8 +6174,8 @@ class TreatmentApptAPI(generics.ListAPIView):
                     unit_amount = "{:.2f}".format(float(row.unit_amount))
 
                     expiry = ""
-                    if row.expiry:
-                        split = str(row.expiry).split(" ")
+                    if row.expiry_date:
+                        split = str(row.expiry_date).split(" ")
                         expiry = datetime.datetime.strptime(str(split[0]), '%Y-%m-%d').strftime("%d/%m/%Y")
                     
                     acc_ids = TreatmentAccount.objects.filter(ref_transacno=row.sa_transacno,
@@ -6196,19 +6184,31 @@ class TreatmentApptAPI(generics.ListAPIView):
                     balance = "{:.2f}".format(float(acc_ids.balance)) if acc_ids and acc_ids.balance else "0.00"    
                     outstanding = "{:.2f}".format(float(acc_ids.outstanding)) if acc_ids and acc_ids.outstanding else "0.00"
                     
-                    q_val = list(Treatment.objects.filter(pk=row.pk).order_by('-pk').values('pk').annotate(id=F('pk'),
-                    treatment_parentcode=F('treatment_parentcode'),
-                    item_name= Value(name, output_field=CharField()),
-                    tr_open=Value(open_ids, output_field=CharField()),
-                    tr_done=F('treatment_no'),price=Value(unit_amount, output_field=CharField()),
-                    expiry=Value(expiry, output_field=CharField()),
-                    add_duration=Value(hrs, output_field=CharField()),
-                    stock_id=Value(stock.pk, output_field=IntegerField()),
-                    balance=Value(balance, output_field=CharField()),
-                    outstanding=Value(outstanding, output_field=CharField()),
-                    type=Value('TD', output_field=CharField())).order_by('-pk'))
+                    # q_val = list(Treatment.objects.filter(pk=row.pk).order_by('-pk').values('pk').annotate(id=F('pk'),
+                    # treatment_parentcode=F('treatment_parentcode'),
+                    # item_name= Value(name, output_field=CharField()),
+                    # tr_open=Value(open_ids, output_field=CharField()),
+                    # tr_done=F('treatment_no'),price=Value(unit_amount, output_field=CharField()),
+                    # expiry=Value(expiry, output_field=CharField()),
+                    # add_duration=Value(hrs, output_field=CharField()),
+                    # stock_id=Value(stock.pk, output_field=IntegerField()),
+                    # balance=Value(balance, output_field=CharField()),
+                    # outstanding=Value(outstanding, output_field=CharField()),
+                    # type=Value('TD', output_field=CharField())).order_by('-pk'))
                     
-                    lst.extend([q_val[0]])
+                    # lst.extend([q_val[0]])
+
+                    pre = {'treatment_parentcode': row.treatment_parentcode,'item_name': name ,
+                    'tr_open': open_ids, 'tr_done': last_ids.treatment_no, 
+                    'price': unit_amount,'expiry': expiry,'add_duration': hrs,
+                    'stock_id': stock.pk,
+                    'balance': balance,
+                    'outstanding': outstanding,
+                    'type':'TD'}
+
+                    data_list.append(pre)
+
+
                 else:
                     last_acc_ids = PrepaidAccount.objects.filter(pp_no=row.pp_no,
                     status=True,line_no=row.line_no).order_by('pk').last()
@@ -6225,18 +6225,16 @@ class TreatmentApptAPI(generics.ListAPIView):
                         'outstanding': "{:.2f}".format(float(last_acc_ids.outstanding)) if last_acc_ids.outstanding else "0.00",
                         'type':'prepaid'}
 
-                        lst.append(pre)
-
-
-
-            if lst != []:
+                        data_list.append(pre)
+            
+            if data_list != []:
                 now1 = timezone.now()
                 print(str(now1.hour) + '  ' +  str(now1.minute) + '  ' +  str(now1.second),"End hour, minute, second\n")
                 totalh = now1.second - now.second
                 print(totalh,"total")
                 result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
-                'data': {'meta': {'pagination': {"per_page":limit,"current_page":page,"total":total,
-                "total_pages":total_page}}, 'dataList': lst},
+                'data': {'meta': {'pagination': {"per_page":limit,"current_page":page,"total":full_tot,
+                "total_pages":total_page}}, 'dataList': data_list},
                 'cust_data': {'cust_name': cust_obj.cust_name if cust_obj.cust_name else "", 
                 'cust_refer': cust_obj.cust_refer if cust_obj.cust_refer else ""},
                 }
@@ -6248,6 +6246,153 @@ class TreatmentApptAPI(generics.ListAPIView):
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)  
+
+    
+    
+
+    # def list(self, request):
+    #     try:
+    #         fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+    #         site = fmspw[0].loginsite
+    #         cust_id = self.request.GET.get('cust_id',None)
+    #         serializer_class = TreatmentApptSerializer
+    #         now = timezone.now()
+    #         print(str(now.hour) + '  ' +  str(now.minute) + '  ' +  str(now.second),"Start hour, minute, second\n")
+    #         queryset = Treatment.objects.none()
+    #         cust_obj = Customer.objects.filter(pk=cust_id,
+    #         cust_isactive=True).first()
+    #         if cust_obj is None:
+    #             result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give customer id!!",'error': True} 
+    #             return Response(data=result, status=status.HTTP_400_BAD_REQUEST)  
+    #         queryset_t = Treatment.objects.filter(cust_code=cust_obj.cust_code,
+    #         status='Open').order_by('-pk').values_list('treatment_parentcode', flat=True).distinct()
+    #         par_lst = list(set(queryset_t))
+    #         lst = [];querylst = []
+    #         if par_lst != []:
+    #             for p in par_lst:
+    #                 queryid = Treatment.objects.filter(cust_code=cust_obj.cust_code,
+    #                 treatment_parentcode=p,status='Open').order_by('-pk').first()
+    #                 if queryid.pk not in querylst:
+    #                     querylst.append(queryid.pk)
+
+    #             if querylst !=[]:
+    #                 queryset = Treatment.objects.filter(pk__in=querylst,cust_code=cust_obj.cust_code).order_by('-pk')
+
+    #         # #prepaid account 
+    #         pre_queryset = PrepaidAccount.objects.filter(cust_code=cust_obj.cust_code,
+    #         status=True,remain__gt=0).only('site_code','cust_code','sa_status').order_by('-pk')
+            
+    #         system_setup = Systemsetup.objects.filter(title='ApptPackagePrepaidBalanceList',
+    #         value_name='ApptPackagePrepaidBalanceList',isactive=True).first()
+            
+    #         if system_setup and system_setup.value_data == 'True':
+    #             combined_ids = list(sorted(chain(queryset,pre_queryset),key=lambda objects: objects.pk,reverse=True))
+    #         else:
+    #             combined_ids = queryset
+    #         # print(combined_ids,"combined_ids")
+
+    #         limit = int(request.GET.get('limit',10)) if request.GET.get('limit',10) else 10
+    #         page= int(request.GET.get('page',1)) if request.GET.get('page',1) else 1
+    #         if page <= 0:
+    #             raise Exception('Page less than one not allowed!!') 
+
+    #         paginator = Paginator(combined_ids, limit) # chunks of 1000
+    #         total_page = 1;total = len(combined_ids)
+    #         if len(combined_ids) > int(limit):
+    #             total_page = math.ceil(len(combined_ids)/int(limit))
+
+    #         if combined_ids:
+    #             if int(page) > total_page:
+    #                 result = {'status': status.HTTP_200_OK,"message":"No Content",'error': False, 
+    #                 'data': {'meta': {'pagination': {"per_page":limit,"current_page":page,"total":total,"total_pages":total_page}}, 
+    #                 'dataList': []}}
+    #                 return Response(result, status=status.HTTP_200_OK) 
+
+    #         # for page_idx in range(1, paginator.num_pages+1):
+    #             # print(page_idx,"KKKKKKKKKKKKKKKKKKKKK")
+    #             # if page_idx == page:
+    #         lst = [] 
+    #         for row in paginator.page(page).object_list:
+    #             # print(row,"row")
+    #             # print(row.__class__.__name__,"__class__")
+    #             if row.__class__.__name__ == 'Treatment':
+    #                 open_ids = Treatment.objects.filter(cust_code=cust_obj.cust_code,
+    #                 treatment_parentcode=row.treatment_parentcode,status='Open').order_by('pk').count()
+                    
+    #                 stock = Stock.objects.filter(item_code=row.item_code[:-4]).first()
+    #                 if stock:
+    #                     if stock.srv_duration is None or stock.srv_duration == 0.0:
+    #                         srvduration = 60
+    #                     else:
+    #                         srvduration = int(stock.srv_duration) if stock.srv_duration else 60   
+    #                 hrs = '{:02d}:{:02d}'.format(*divmod(srvduration, 60))        
+
+    #                 name = str(stock.item_name)+" "+str(row.treatment_parentcode) if stock and stock.item_name else "" 
+    #                 unit_amount = "{:.2f}".format(float(row.unit_amount))
+
+    #                 expiry = ""
+    #                 if row.expiry:
+    #                     split = str(row.expiry).split(" ")
+    #                     expiry = datetime.datetime.strptime(str(split[0]), '%Y-%m-%d').strftime("%d/%m/%Y")
+                    
+    #                 acc_ids = TreatmentAccount.objects.filter(ref_transacno=row.sa_transacno,
+    #                 treatment_parentcode=row.treatment_parentcode,
+    #                 cust_code=cust_obj.cust_code).order_by('-sa_date','-sa_time','-pk').only('ref_transacno','treatment_parentcode','site_code').first()
+    #                 balance = "{:.2f}".format(float(acc_ids.balance)) if acc_ids and acc_ids.balance else "0.00"    
+    #                 outstanding = "{:.2f}".format(float(acc_ids.outstanding)) if acc_ids and acc_ids.outstanding else "0.00"
+                    
+    #                 q_val = list(Treatment.objects.filter(pk=row.pk).order_by('-pk').values('pk').annotate(id=F('pk'),
+    #                 treatment_parentcode=F('treatment_parentcode'),
+    #                 item_name= Value(name, output_field=CharField()),
+    #                 tr_open=Value(open_ids, output_field=CharField()),
+    #                 tr_done=F('treatment_no'),price=Value(unit_amount, output_field=CharField()),
+    #                 expiry=Value(expiry, output_field=CharField()),
+    #                 add_duration=Value(hrs, output_field=CharField()),
+    #                 stock_id=Value(stock.pk, output_field=IntegerField()),
+    #                 balance=Value(balance, output_field=CharField()),
+    #                 outstanding=Value(outstanding, output_field=CharField()),
+    #                 type=Value('TD', output_field=CharField())).order_by('-pk'))
+                    
+    #                 lst.extend([q_val[0]])
+    #             else:
+    #                 last_acc_ids = PrepaidAccount.objects.filter(pp_no=row.pp_no,
+    #                 status=True,line_no=row.line_no).order_by('pk').last()
+
+    #                 if last_acc_ids:
+    #                     pexpiry = ""
+    #                     if last_acc_ids.exp_date:
+    #                         esplit = str(last_acc_ids.exp_date).split(" ")
+    #                         pexpiry = datetime.datetime.strptime(str(esplit[0]), '%Y-%m-%d').strftime("%d/%m/%Y")
+
+    #                     pre = {'item_name': last_acc_ids.pp_desc ,'tr_open': '-', 'tr_done': '-', 
+    #                     'price': "{:.2f}".format(float(last_acc_ids.pp_total)),'expiry': pexpiry,
+    #                     'balance': "{:.2f}".format(float(last_acc_ids.remain)) if last_acc_ids.remain else "0.00",
+    #                     'outstanding': "{:.2f}".format(float(last_acc_ids.outstanding)) if last_acc_ids.outstanding else "0.00",
+    #                     'type':'prepaid'}
+
+    #                     lst.append(pre)
+
+
+
+    #         if lst != []:
+    #             now1 = timezone.now()
+    #             print(str(now1.hour) + '  ' +  str(now1.minute) + '  ' +  str(now1.second),"End hour, minute, second\n")
+    #             totalh = now1.second - now.second
+    #             print(totalh,"total")
+    #             result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
+    #             'data': {'meta': {'pagination': {"per_page":limit,"current_page":page,"total":total,
+    #             "total_pages":total_page}}, 'dataList': lst},
+    #             'cust_data': {'cust_name': cust_obj.cust_name if cust_obj.cust_name else "", 
+    #             'cust_refer': cust_obj.cust_refer if cust_obj.cust_refer else ""},
+    #             }
+    #             return Response(result, status=status.HTTP_200_OK) 
+    #         else:
+    #             result = {'status':status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False,  'data': []}
+    #             return Response(data=result, status=status.HTTP_200_OK)  
+        
+    #     except Exception as e:
+    #         invalid_message = str(e)
+    #         return general_error_response(invalid_message)  
 
 
     # def list(self, request):
@@ -7556,7 +7701,7 @@ class PaytableListAPIView(generics.ListAPIView):
             invalid_message = str(e)
             return general_error_response(invalid_message)     
 
-def postaud_calculation(self, request, queryset):
+def postaud_calculation(self, request, queryset, paydate):
     fmspw = Fmspw.objects.filter(user=request.user,pw_isactive=True).first()
     if not self.request.GET.get('sitecodeid',None) is None:
         site = ItemSitelist.objects.filter(pk=self.request.GET.get('sitecodeid',None),itemsite_isactive=True).first()
@@ -7567,7 +7712,9 @@ def postaud_calculation(self, request, queryset):
         site = fmspw.loginsite
 
     cart_ids = queryset
-    gst = GstSetting.objects.filter(item_code="100001",item_desc='GST',isactive=True).first()
+    gst = GstSetting.objects.filter(isactive=True,activefromdate__date__lte=paydate,
+    activetodate__date__gte=paydate).first()
+    
     subtotal = 0.0; discount = 0.0;discount_amt=0.0;additional_discountamt=0.0; 
     trans_amt=0.0 ;deposit_amt =0.0; tax_amt = 0.0; billable_amount=0.0;balance=0.0
     for c in cart_ids:
@@ -7604,14 +7751,17 @@ def postaud_calculation(self, request, queryset):
             if sitegst.site_is_gst == False:
                 calcgst = 0
     # print(calcgst,"0 calcgst")
-
+    is_exclusive = None; gst_percent = 0
     if calcgst > 0:
-        if gst and gst.is_exclusive == True:
+        gst_percent = calcgst
+        if site and site.is_exclusive == True:
+            is_exclusive = True
             # tax_amt = deposit_amt * (gst.item_value / 100)
             # billable_amount = "{:.2f}".format(deposit_amt + tax_amt)
             tax_amt = balance * (calcgst / 100)
             billable_amount = "{:.2f}".format(balance + tax_amt)
         else:
+            is_exclusive = False
             billable_amount = "{:.2f}".format(balance)
             # tax_amt = deposit_amt * gst.item_value / (100+gst.item_value)
             tax_amt = balance * calcgst / (100+calcgst)
@@ -7623,30 +7773,34 @@ def postaud_calculation(self, request, queryset):
         itemvalue = 0
 
     # print(request.data,"request_data")
-    totaltax=0
-    linetax=0
-    if request.data is not None:
-        for rgt in request.data:
-            paytablegt = Paytable.objects.filter(pk=rgt['pay_typeid'],pay_isactive=True).first()
-            if not paytablegt:
-                msg = "Paytable ID does not exist"
-                result = {'status': status.HTTP_400_BAD_REQUEST,"message":msg,'error': True} 
-                return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+    # totaltax=0
+    # linetax=0
+    # if request.data is not None:
+    #     for rgt in request.data:
+    #         paytablegt = Paytable.objects.filter(pk=rgt['pay_typeid'],pay_isactive=True).first()
+    #         if not paytablegt:
+    #             msg = "Paytable ID does not exist"
+    #             result = {'status': status.HTTP_400_BAD_REQUEST,"message":msg,'error': True} 
+    #             return Response(result, status=status.HTTP_400_BAD_REQUEST) 
 
-            stringgt = paytablegt.gt_group
-            st_newgt= "".join(stringgt.split())
-            linetax=0
-            if st_newgt == 'GT1': 
-                if calcgst > 0:
-                    if gst and gst.is_exclusive == True:
-                        linetax = rgt['pay_amt'] * (calcgst/ 100)
-                    else:
-                        linetax = rgt['pay_amt'] * calcgst / (100+calcgst)
-            totaltax+=linetax
+    #         stringgt = paytablegt.gt_group
+    #         print(stringgt,"stringgt")
+    #         st_newgt= "".join(stringgt.split())
+    #         print(st_newgt,"st_newgt")
+    #         linetax=0
+    #         if st_newgt == 'GT1': 
+    #             print("iff")
+    #             if calcgst > 0:
+    #                 if site and site.is_exclusive == True:
+    #                     linetax = rgt['pay_amt'] * (calcgst/ 100)
+    #                 else:
+    #                     linetax = rgt['pay_amt'] * calcgst / (100+calcgst)
+    #         totaltax+=linetax
 
     # print(totaltax,"totaltax")
-    if totaltax>0:
-        tax_amt = totaltax
+    # if totaltax>0:
+    #     print("jj")
+    #     tax_amt = totaltax
 
 
     sub_total = "{:.2f}".format(float(subtotal))
@@ -7666,7 +7820,8 @@ def postaud_calculation(self, request, queryset):
     'subtotal':sub_total,'discount': "{:.2f}".format(float(discount)),'trans_amt': "{:.2f}".format(float(trans_amt)),
     'deposit_amt': "{:.2f}".format(float(balance)),'tax_amt':"{:.2f}".format(float(tax_amt)),
     'tax_lable': "Tax Amount"+"("+str(itemvalue)+" "+"%"+")",'sa_Round': "{:.2f}".format(float(sa_Round)),
-    'billable_amount': "{:.2f}".format(float(billable_amount)),'tot_deposit':"{:.2f}".format(float(deposit_amt))}
+    'billable_amount': "{:.2f}".format(float(billable_amount)),'tot_deposit':"{:.2f}".format(float(deposit_amt)),
+    'is_exclusive': is_exclusive, 'gst_percent': gst_percent}
     return value
 
 
@@ -7789,9 +7944,10 @@ class postaudViewset(viewsets.ModelViewSet):
 
             prepaid_data = {'service_only': "{:.2f}".format(float(service_only)), 
             'product_only': "{:.2f}".format(float(product_only)), 'all_only': "{:.2f}".format(float(all_only)),
-            'prepaid': dict_pre}         
-        
-            value = postaud_calculation(self, request, queryset)
+            'prepaid': dict_pre}  
+
+            paydate = date.today() 
+            value = postaud_calculation(self, request, queryset, paydate)
 
             if fmspw[0].is_paymentdate == True:
                 value['is_paymentdate'] = True
@@ -8038,7 +8194,7 @@ class postaudViewset(viewsets.ModelViewSet):
 
     @transaction.atomic
     def create(self, request):
-        # try:
+        try:
             with transaction.atomic():
 
                 cart_date = timezone.now().date()
@@ -8083,8 +8239,11 @@ class postaudViewset(viewsets.ModelViewSet):
                     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Invalid Cart ID,Send correct Cart Id,Given Cart ID Payment done for this Customer!!",'error': True} 
                     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
         
+                paydate = request.GET.get('pay_date',date.today())
 
-                gst = GstSetting.objects.filter(item_code="100001",item_desc='GST',isactive=True).first()
+                gst = GstSetting.objects.filter(isactive=True,activefromdate__date__lte=paydate,
+                activetodate__date__gte=paydate).first()
+
                 calcgst = 0
                 if gst:
                     calcgst = gst.item_value if gst and gst.item_value else 0.0
@@ -8101,7 +8260,8 @@ class postaudViewset(viewsets.ModelViewSet):
                     return Response(data=result, status=status.HTTP_200_OK)
                 
                 cart_ids = queryset
-                value = postaud_calculation(self, request, queryset)
+                
+                value = postaud_calculation(self, request, queryset, paydate)
 
                 #control no Validation
                 pscontrolobj = ControlNo.objects.filter(control_description__iexact="Treatment",Site_Codeid__pk=fmspw.loginsite.pk).first()
@@ -8401,7 +8561,7 @@ class postaudViewset(viewsets.ModelViewSet):
                 #     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
                 add = 0.0
-                value['tax_amt'] = 0
+                # value['tax_amt'] = 0
                 transremark = None
 
                 if fmspw.is_paymentdate == True:
@@ -8446,18 +8606,21 @@ class postaudViewset(viewsets.ModelViewSet):
                     if serializer_one.is_valid():
                         # pay_gst = (float(req['pay_amt']) / (100+gst.item_value)) * gst.item_value
                         pay_gst = 0
+                        if 'pay_gst' in req and req['pay_gst']:
+                            pay_gst = req['pay_gst']
+
                         # stnewgetgt= "".join(stringgetgt.split())
                         # print(paytable.gt_group,"paytable.gt_group")
                         # if stnewgetgt == 'GT1':
                         amount = float(req['pay_amt'])
-                        if paytable.gt_group == 'GT1': 
-                            if calcgst > 0:
-                                if gst and gst.is_exclusive == True:
-                                    pay_gst = float(req['pay_amt']) * (gst.item_value / 100) if gst and gst.item_value else 0.0
-                                else:
-                                    pay_gst = (float(req['pay_amt']) * gst.item_value ) / (100+gst.item_value) if gst and gst.item_value else 0.0
-                                amount = float(req['pay_amt']) - pay_gst
-                                value['tax_amt'] += pay_gst
+                        # if paytable.gt_group == 'GT1': 
+                        #     if calcgst > 0:
+                        #         if site and site.is_exclusive == True:
+                        #             pay_gst = float(req['pay_amt']) * (gst.item_value / 100) if gst and gst.item_value else 0.0
+                        #         else:
+                        #             pay_gst = (float(req['pay_amt']) * gst.item_value ) / (100+gst.item_value) if gst and gst.item_value else 0.0
+                        #         amount = float(req['pay_amt']) - pay_gst
+                        #         value['tax_amt'] += pay_gst
                         # print(value['tax_amt'],"tax1")
                         card_no = False
                         
@@ -8521,42 +8684,42 @@ class postaudViewset(viewsets.ModelViewSet):
                                         all_ids = depo_ids.filter(itemcodeid__item_div=1)
                                         
                                     check_amt = float(req['pay_amt'])
-                                    for i in all_ids:
-                                        if check_amt > 0:
-                                            checkamt = check_amt
-                                            p_pac_ids = PrepaidAccount.objects.filter(pp_no=pp_no,line_no=line_no,
-                                            cust_code=cust_obj.cust_code,status=True).only('pp_no','line_no','site_code','cust_code','status').order_by('pk').last()
-                                            
-                                            PrepaidAccount.objects.filter(pk=p_pac_ids.pk).update(status=False)
-                                            
-                                            check_amt -= i.deposit 
-                                            if check_amt > 0:
-                                                use_amt = i.deposit
-                                                remain = float(p_pac_ids.remain) - float(i.deposit)
-                                            else:
-                                                use_amt = checkamt
-                                                remain = float(p_pac_ids.remain) - float(use_amt)
-
-                                            vstatus = True
-                                            if remain == 0 and p_pac_ids.outstanding == 0:
-                                                vstatus = False
-       
-                                            prepacc = PrepaidAccount(pp_no=pac_ids.pp_no,pp_type=pac_ids.pp_type,
-                                            pp_desc=pac_ids.pp_desc,exp_date=pac_ids.exp_date,cust_code=pac_ids.cust_code,
-                                            cust_name=pac_ids.cust_name,pp_amt=pac_ids.pp_amt,pp_total=pac_ids.pp_total,
-                                            pp_bonus=pac_ids.pp_bonus,transac_no=sa_transacno,item_no=i.itemcodeid.item_code,use_amt=use_amt,
-                                            remain=remain,ref1=pac_ids.ref1,ref2=pac_ids.ref2,status=vstatus,site_code=site.itemsite_code,sa_status="SA",exp_status=pac_ids.exp_status,
-                                            voucher_no=pac_ids.voucher_no,isvoucher=pac_ids.isvoucher,has_deposit=pac_ids.has_deposit,topup_amt=0,
-                                            outstanding=pac_ids.outstanding if pac_ids and pac_ids.outstanding is not None and pac_ids.outstanding > 0 else 0,active_deposit_bonus=pac_ids.active_deposit_bonus,topup_no="",topup_date=None,
-                                            line_no=pac_ids.line_no,staff_name=None,staff_no=None,
-                                            pp_type2=open_ids.conditiontype2,condition_type1=open_ids.conditiontype1,pos_daud_lineno=pac_ids.line_no,Cust_Codeid=cust_obj,Site_Codeid=site,
-                                            Item_Codeid=i.itemcodeid,item_code=i.itemcodeid.item_code)
-                                            prepacc.save()
-                                            prepacc.sa_date = pay_date 
-                                            prepacc.start_date = pay_date
-                                            prepacc.save()
-                                            
                                     if all_ids:
+                                        for i in all_ids:
+                                            if check_amt > 0:
+                                                checkamt = check_amt
+                                                p_pac_ids = PrepaidAccount.objects.filter(pp_no=pp_no,line_no=line_no,
+                                                cust_code=cust_obj.cust_code,status=True).only('pp_no','line_no','site_code','cust_code','status').order_by('pk').last()
+                                                
+                                                PrepaidAccount.objects.filter(pk=p_pac_ids.pk).update(status=False)
+                                                
+                                                check_amt -= i.deposit 
+                                                if check_amt > 0:
+                                                    use_amt = i.deposit
+                                                    remain = float(p_pac_ids.remain) - float(i.deposit)
+                                                else:
+                                                    use_amt = checkamt
+                                                    remain = float(p_pac_ids.remain) - float(use_amt)
+
+                                                vstatus = True
+                                                if remain == 0 and p_pac_ids.outstanding == 0:
+                                                    vstatus = False
+        
+                                                prepacc = PrepaidAccount(pp_no=pac_ids.pp_no,pp_type=pac_ids.pp_type,
+                                                pp_desc=pac_ids.pp_desc,exp_date=pac_ids.exp_date,cust_code=pac_ids.cust_code,
+                                                cust_name=pac_ids.cust_name,pp_amt=pac_ids.pp_amt,pp_total=pac_ids.pp_total,
+                                                pp_bonus=pac_ids.pp_bonus,transac_no=sa_transacno,item_no=i.itemcodeid.item_code,use_amt=use_amt,
+                                                remain=remain,ref1=pac_ids.ref1,ref2=pac_ids.ref2,status=vstatus,site_code=site.itemsite_code,sa_status="SA",exp_status=pac_ids.exp_status,
+                                                voucher_no=pac_ids.voucher_no,isvoucher=pac_ids.isvoucher,has_deposit=pac_ids.has_deposit,topup_amt=0,
+                                                outstanding=pac_ids.outstanding if pac_ids and pac_ids.outstanding is not None and pac_ids.outstanding > 0 else 0,active_deposit_bonus=pac_ids.active_deposit_bonus,topup_no="",topup_date=None,
+                                                line_no=pac_ids.line_no,staff_name=None,staff_no=None,
+                                                pp_type2=open_ids.conditiontype2,condition_type1=open_ids.conditiontype1,pos_daud_lineno=pac_ids.line_no,Cust_Codeid=cust_obj,Site_Codeid=site,
+                                                Item_Codeid=i.itemcodeid,item_code=i.itemcodeid.item_code)
+                                                prepacc.save()
+                                                prepacc.sa_date = pay_date 
+                                                prepacc.start_date = pay_date
+                                                prepacc.save()
+                                                
                                         acc = PrepaidAccountCondition.objects.filter(pk=open_ids.pk).update(use_amt=float(req['pay_amt']),
                                         remain=remain)
                                     
@@ -8934,6 +9097,11 @@ class postaudViewset(viewsets.ModelViewSet):
                     hdr.sa_date = pay_date
                     hdr.sa_time = pay_time
                     hdr.save()
+
+                    #treatmentpackage
+                    p_ids = TreatmentPackage.objects.filter(sa_transacno=sa_transacno).update(sa_transacno_ref=hdr.sa_transacno_ref)
+
+
                     # print(hdr.id,"hdr")
                     # if hdr.pk:
                         # control_obj.control_no = int(control_obj.control_no) + 1
@@ -9216,9 +9384,9 @@ class postaudViewset(viewsets.ModelViewSet):
                 result = {'status': state,"message":message,'error': error, 'data': {'sa_transacno':taud_d.sa_transacno if taud_d and taud_d.sa_transacno else ""}}
                 return Response(result, status=status.HTTP_201_CREATED)
 
-        # except Exception as e:
-        #    invalid_message = str(e)
-        #    return general_error_response(invalid_message)
+        except Exception as e:
+           invalid_message = str(e)
+           return general_error_response(invalid_message)
      
         # state = status.HTTP_400_BAD_REQUEST
         # message = "Invalid Input"
@@ -10707,9 +10875,13 @@ class CustomerReceiptPrintList(generics.ListAPIView):
                 # val = {'pay_mode': t['pay_type_name'],'pay_amt':pay}
 
             # print(tot_gst,"tot_gst")
+            s = str(hdr[0].sa_date).split(" ")
+            paydate =  s[0]
 
             calcgst = 0
-            gst = GstSetting.objects.filter(item_code="100001",item_desc='GST',isactive=True).first()
+            gst = GstSetting.objects.filter(isactive=True,activefromdate__date__lte=paydate,
+            activetodate__date__gte=paydate).first()
+
             if gst and gst.item_value:
                 calcgst = gst.item_value
                 if calcgst > 0:
@@ -10721,7 +10893,7 @@ class CustomerReceiptPrintList(generics.ListAPIView):
             tax_amt = 0
             label = False
             if calcgst > 0:
-                if gst and gst.is_exclusive == True:
+                if site and site.is_exclusive == True:
                     tax_amt = "{:.2f}".format(float(tot_depo * (calcgst / 100)))
             else:
                 # tax_amt = "0.00"    
@@ -10734,34 +10906,35 @@ class CustomerReceiptPrintList(generics.ListAPIView):
                 # Yoonus 
 
             # print(request.data,"request_data")
-            totaltax=0
-            linetax=0
-            if request.data is not None:
-                for rgt in request.data:
-                    paytablegt = Paytable.objects.filter(pk=rgt['pay_typeid'],pay_isactive=True).first()
-                    stringgt = paytablegt.gt_group
-                    st_newgt= "".join(stringgt.split())
-                    linetax=0
-                    if st_newgt == 'GT1': 
-                        if calcgst > 0:
-                            if gst and gst.is_exclusive == True:
-                                linetax = rgt['pay_amt'] * (calcgst / 100)
-                            else:
-                                linetax = rgt['pay_amt'] * calcgst / (100+calcgst)
-                    totaltax+=linetax
+            # totaltax=0
+            # linetax=0
+            # if request.data is not None:
+            #     for rgt in request.data:
+            #         paytablegt = Paytable.objects.filter(pk=rgt['pay_typeid'],pay_isactive=True).first()
+            #         stringgt = paytablegt.gt_group
+            #         st_newgt= "".join(stringgt.split())
+            #         linetax=0
+            #         if st_newgt == 'GT1': 
+            #             if calcgst > 0:
+            #                 if site and site.is_exclusive == True:
+            #                     linetax = rgt['pay_amt'] * (calcgst / 100)
+            #                 else:
+            #                     linetax = rgt['pay_amt'] * calcgst / (100+calcgst)
+            #         totaltax+=linetax
 
-            # print(totaltax,"totaltax")
-            if totaltax>0:
-                tax_amt = totaltax
+            # # print(totaltax,"totaltax")
+            # if totaltax>0:
+            #     tax_amt = totaltax
 
-            tax_amt = tot_gst
+            # tax_amt = tot_gst
+            tax_amt = hdr[0].sa_totgst 
             if hdr:
                 if hdr[0].sa_round:
                     rounding = str("{:.2f}".format(float(hdr[0].sa_round)))
                 else:
                     rounding = "0.00"
 
-            taud_sub = {'gst_label':label if label else '','gst':str("{:.2f}".format(tax_amt)),'total':str("{:.2f}".format((tot_payamt))),
+            taud_sub = {'gst_label':label if label else '','gst':str("{:.2f}".format(tax_amt)) if tax_amt else "0.00",'total':str("{:.2f}".format((tot_payamt))),
             'rounding':rounding,'grand_tot':str("{:.2f}".format((tot_payamt)))}   
 
             state = status.HTTP_200_OK
@@ -14603,7 +14776,7 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
         return queryset
 
     def list(self, request):
-        #try:
+        try:
             serializer_class = StaffPlusSerializer
             queryset = self.filter_queryset(self.get_queryset())
             query_parm_dict = request.GET
@@ -14621,9 +14794,9 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
             result = response(self, request, queryset, total, state, message, error, serializer_class, data,
                               action=self.action)
             return Response(result, status=status.HTTP_200_OK)
-        #except Exception as e:
-        #   invalid_message = str(e)
-        #   return general_error_response(invalid_message)
+        except Exception as e:
+          invalid_message = str(e)
+          return general_error_response(invalid_message)
 
     def create(self, request):
         try:
@@ -14654,6 +14827,7 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
             if serializer.is_valid():
                 try:
                     with transaction.atomic():
+
                         control_obj = ControlNo.objects.filter(control_description__iexact="EMP CODE",
                                                                Site_Codeid__pk=fmspw[0].loginsite.pk).first()
                         if not control_obj:
@@ -14661,7 +14835,13 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
                                       'error': True}
                             # return Response(result, status=status.HTTP_400_BAD_REQUEST)
                             raise ValueError("Employee Control No does not exist!!")
-                        emp_code = str(control_obj.control_prefix) + str(control_obj.control_no)
+                        if control_obj.control_prefix:
+                            control_prefix = control_obj.control_prefix
+                        else:
+                            control_prefix = fmspw[0].loginsite.itemsite_code
+
+
+                        emp_code = str(control_prefix) + str(control_obj.control_no)
                         defaultobj = ItemSitelist.objects.filter(pk=request.data['Site_Codeid'],
                                                                  itemsite_isactive=True).first()
 
@@ -14735,8 +14915,14 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
                                   emp_code=emp_code,
                                   user=user,
                                   loginsite=None,
-                                  flgappt = s.show_in_appt,
-                                  flgsales = s.show_in_sales,
+                                  flgappt = True,
+                                  flgsales = True,
+                                  flgdisc=True,flgexchange=True,flgrevtrm=True,flgvoid=True,
+                                  flgrefund=True,flgemail=True,flgcustadd=True,flgfoc=True,
+                                  flgrefundpp=True,flgrefundcn=True,flgstockusagememo=True,
+                                  flgchangeunitprice=True,flgallowinsufficent=True,
+                                  flgallowblockappointment=True,flgchangeexpirydate=True,
+                                  flgalldayendsettlement=True,flgtransacdisc=True,flgeditath=True
                                   )
                             f.save()
 
@@ -16021,6 +16207,22 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
                 if 'phone4' not in request.data:
                     request.data['phone4'] = None
 
+                if 'cust_email' in request.data and request.data['cust_email']:
+                    customer_mail =  Customer.objects.filter(cust_email=request.data['cust_email'])
+                    if len(customer_mail) > 0:
+                        raise Exception("Email id is already associated with another account")
+                
+                if 'cust_phone2' in request.data and request.data['cust_phone2']:
+                    customer =  Customer.objects.filter(cust_phone2=request.data['cust_phone2'])
+                    if len(customer) > 0:
+                        raise Exception("Mobile number cust phone2 is already associated with another account")
+                
+                if 'cust_phone1' in request.data and request.data['cust_phone1']:    
+                    customerphone =  Customer.objects.filter(cust_phone1=request.data['cust_phone1'])
+                    if len(customerphone) > 0:
+                        raise Exception("Mobile number cust phone1 is already associated with another account")
+                        
+
 
                 if serializer.is_valid():
                     self.perform_create(serializer)
@@ -16039,17 +16241,22 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
 
                     cus_code = str(control_obj.Site_Codeid.itemsite_code) + str(control_obj.control_no)
                     gender = False;title = False;source = False
-                    if request.data['Cust_sexesid']:
+
+                    if 'Cust_sexesid' in request.data and request.data['Cust_sexesid']:
                         gender_obj = Gender.objects.filter(pk=request.data['Cust_sexesid'], itm_isactive=True).first()
                         if gender_obj and gender_obj.itm_code:
                             gender = gender_obj.itm_code
+                    else:
+                        gender_obj = Gender.objects.filter(pk=2, itm_isactive=True).first()
+                        if gender_obj and gender_obj.itm_code:
+                            gender = gender_obj.itm_code      
 
-                    if request.data['Cust_titleid']:
+                    if 'Cust_titleid' in request.data and request.data['Cust_titleid']:
                         title_obj = CustomerTitle.objects.filter(pk=request.data['Cust_titleid'],isactive=True).first()
                         if title_obj and title_obj.itm_code:
                             title = title_obj.itm_code
                     
-                    if request.data['Cust_Sourceid']:
+                    if 'Cust_Sourceid' in request.data and request.data['Cust_Sourceid']:
                         sou_obj = Source.objects.filter(pk=request.data['Cust_Sourceid'],source_isactive=True).first()
                         if sou_obj and sou_obj.source_code:
                             source = sou_obj.source_code
@@ -16062,7 +16269,8 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
 
                     k = serializer.save(site_code=site.itemsite_code, cust_code=cus_code,
                                         cust_sexes=gender, cust_joindate=timezone.now(),
-                                        cust_title=title,cust_source=source,custallowsendsms=allowsendsms)
+                                        cust_title=title,cust_source=source,custallowsendsms=allowsendsms,
+                                        Site_Codeid=site,join_status=True,Cust_sexesid=gender_obj)
 
                     if 'cust_corporate' in request.data and request.data['cust_corporate']:
                         serializer.save(cust_corporate=request.data['cust_corporate'])
@@ -16149,13 +16357,52 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
             total = None
             serializer_class = None
             customer = self.get_object(pk)
+
+            if 'cust_email' in request.data and request.data['cust_email']:
+                customer_mail =  Customer.objects.filter(cust_email=request.data['cust_email']).exclude(pk=customer.pk)
+                if len(customer_mail) > 0:
+                    raise Exception("Email id is already associated with another account")
+            
+            if 'cust_phone2' in request.data and request.data['cust_phone2']:
+                custphone2 =  Customer.objects.filter(cust_phone2=request.data['cust_phone2']).exclude(pk=customer.pk)
+                if len(custphone2) > 0:
+                    raise Exception("Mobile number cust phone2 is already associated with another account")
+            
+            if 'cust_phone1' in request.data and request.data['cust_phone1']:    
+                customerphone =  Customer.objects.filter(cust_phone1=request.data['cust_phone1']).exclude(pk=customer.pk)
+                if len(customerphone) > 0:
+                    raise Exception("Mobile number cust phone1 is already associated with another account")
+                        
             requestData = request.data
             if requestData.get('cust_nric',"").startswith("*"):
                 requestData['cust_nric'] = customer.cust_nric
                 # print(requestData)
             serializer = CustomerPlusSerializer(customer, data=requestData, context={'request': self.request, "action": self.action})
             if serializer.is_valid():
-                serializer.save()
+                gender = False;title = False;source = False
+                if 'Cust_sexesid' in request.data and request.data['Cust_sexesid']:
+                    gender_obj = Gender.objects.filter(pk=request.data['Cust_sexesid'], itm_isactive=True).first()
+                    if gender_obj and gender_obj.itm_code:
+                        gender = gender_obj.itm_code
+                else:
+                    gender_obj = Gender.objects.filter(pk=2, itm_isactive=True).first()
+                    if gender_obj and gender_obj.itm_code:
+                        gender = gender_obj.itm_code      
+
+
+                if 'Cust_titleid' in request.data and request.data['Cust_titleid']:
+                    title_obj = CustomerTitle.objects.filter(pk=request.data['Cust_titleid'],isactive=True).first()
+                    if title_obj and title_obj.itm_code:
+                        title = title_obj.itm_code
+                
+                if 'Cust_Sourceid' in request.data and request.data['Cust_Sourceid']:
+                    sou_obj = Source.objects.filter(pk=request.data['Cust_Sourceid'],source_isactive=True).first()
+                    if sou_obj and sou_obj.source_code:
+                        source = sou_obj.source_code
+                
+                serializer.save(cust_sexes=gender,cust_title=title,cust_source=source,
+                Cust_sexesid=gender_obj)
+
                 if 'cust_corporate' in requestData and requestData['cust_corporate']:
                     customer.cust_corporate = requestData['cust_corporate']
                     customer.save()

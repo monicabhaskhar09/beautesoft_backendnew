@@ -115,7 +115,10 @@ router.register(r'equipmentusagelist', views.EquipmentUsageViewset, 'equipmentus
 router.register(r'equipmentusageitem', views.EquipmentUsageItemModelViewset, 'equipmentusageitem')
 router.register(r'currencytable', views.CurrencytableViewset, 'currencytable')
 router.register(r'quotationsign', views.quotationsignViewset)
-
+router.register(r'titleimage', views.TitleImageViewset , 'titleimage')
+router.register(r'stockimage', views.StockImageViewset , 'stockimage')
+router.register(r'paygroupimage', views.PaygroupImageViewset , 'paygroupimage')
+router.register(r'itemdeptimage', views.ItemDeptImageViewset , 'itemdeptimage')
 
 # The API URLs are now determined automatically by the router.
 urlpatterns = [

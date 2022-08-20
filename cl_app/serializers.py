@@ -3,7 +3,7 @@ from .models import (SiteGroup,ItemSitelist,ReverseTrmtReason,VoidReason,Treatme
 Treatmentface)
 from cl_table.models import (ItemDept, ItemRange, Stktrn, Stock, TreatmentAccount, Treatment,DepositAccount,
 PrepaidAccount,PosHaud,PosDaud, Customer, PosTaud,CreditNote,PrepaidAccountCondition,Fmspw,Holditemdetail,
-ItemLink,Systemsetup,Employee,Multistaff,ItemDiv)
+ItemLink,Systemsetup,Employee,Multistaff,ItemDiv,TreatmentPackage)
 from django.utils import timezone
 from django.db.models import Sum
 from custom.views import round_calc
@@ -362,21 +362,31 @@ class DashboardSerializer(serializers.ModelSerializer):
 
 class TransactionInvoiceSerializer(serializers.ModelSerializer):
     flag = serializers.BooleanField(default=True)
+    cust_name = serializers.CharField(source='sa_custnoid.cust_name',required=False)
 
     
     class Meta:
         model = PosHaud
-        fields = ['id','sa_transacno_ref','flag'] 
+        fields = ['id','sa_transacno_ref','flag','cust_name'] 
 
 class TransactionManualInvoiceSerializer(serializers.ModelSerializer):
 
     sa_transacno_ref = serializers.CharField(source='manualinv_number',required=False)
     flag = serializers.BooleanField(default=False)
 
+
     
     class Meta:
         model = ManualInvoiceModel
         fields = ['id','sa_transacno_ref','flag'] 
+
+    def to_representation(self, instance):
+       
+        data = super(TransactionManualInvoiceSerializer, self).to_representation(instance)
+
+        data['cust_name'] = instance.cust_id.cust_name if instance.cust_id and instance.cust_id.cust_name else ""
+ 
+        return data      
 
 
 class BillingSerializer(serializers.ModelSerializer):
@@ -825,3 +835,10 @@ class ProductPurchaseSerializer(serializers.ModelSerializer):
                 data['replenish_date'] = rep_date
            
         return data   
+
+class TreatmentPackageDoneListSerializer(serializers.ModelSerializer): 
+    id = serializers.IntegerField(source='pk',required=False)
+
+    class Meta:
+        model = TreatmentPackage
+        fields = ['id']

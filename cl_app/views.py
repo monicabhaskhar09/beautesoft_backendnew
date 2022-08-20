@@ -19,17 +19,18 @@ CartPrepaidSerializer, VoidCancelSerializer,HolditemdetailSerializer,HolditemSer
 TreatmentHistorySerializer,StockUsageSerializer,StockUsageProductSerializer,TreatmentUsageSerializer,
 StockUsageMemoSerializer,TreatmentfaceSerializer,SiteApptSettingSerializer,HolditemAccListSerializer,
 PodhaudSerializer,CustomerAccountSerializer,TreatmentUsageListSerializer,TreatmentUsageStockSerializer,
-ItemDivSerializer,ProductPurchaseSerializer,TransactionInvoiceSerializer,TransactionManualInvoiceSerializer)
+ItemDivSerializer,ProductPurchaseSerializer,TransactionInvoiceSerializer,TransactionManualInvoiceSerializer,
+TreatmentPackageDoneListSerializer)
 from cl_table.serializers import PostaudSerializer, TmpItemHelperSerializer
 from .models import (SiteGroup, ItemSitelist, ReverseTrmtReason, VoidReason,TreatmentUsage,UsageMemo,
-Treatmentface,Usagelevel,priceChangeLog)
+Treatmentface,Usagelevel,priceChangeLog,TmpTreatmentSession)
 from cl_table.models import (Employee, Fmspw, ItemClass, ItemDept, ItemRange, Stock, ItemUomprice, 
 PackageDtl, ItemDiv, PosDaud, PosTaud, Customer, GstSetting, ControlNo, TreatmentAccount, DepositAccount, 
 PrepaidAccount, Treatment,PosHaud,TmpItemHelper,Appointment,Source,PosHaud,ReverseDtl,ReverseHdr,
 CreditNote,Multistaff,ItemHelper,ItemUom,Treatment_Master,Holditemdetail,PrepaidAccountCondition,
 CnRefund,ItemBrand,Title,ItemBatch,Stktrn,Paytable,ItemLink,Appointment,ItemStocklist,Systemsetup,
 Tmpmultistaff,PosDisc,CustomerPoint,CustomerPointDtl,RewardPolicy,PackageAuditingLog,AuditLog,
-ItemFlexiservice)
+ItemFlexiservice,TreatmentPackage)
 from custom.models import (ItemCart, Room, Combo_Services,VoucherRecord,PosPackagedeposit,SmtpSettings,
 ManualInvoiceModel)
 from datetime import date, timedelta
@@ -1849,7 +1850,7 @@ class TopupCombinedViewset(viewsets.ModelViewSet):
                             
                             acc_ids = PrepaidAccount.objects.filter(pp_no=d.sa_transacno,
                             line_no=d.dt_lineno,outstanding__gt = 0,status=True).order_by('id').last()
-
+                            
                             
                             if acc_ids:
                                 acc = PrepaidAccount.objects.filter(pk=acc_ids.pk)
@@ -1887,7 +1888,7 @@ class TopupCombinedViewset(viewsets.ModelViewSet):
                                         pdata['prepaid_id']  = acc_ids.pk
 
                                         if int(d.dt_itemnoid.item_div) == 3 and d.dt_itemnoid.item_type == 'PACKAGE':
-                                            pdata['stock_id'] = acc_ids.Item_Codeid.pk
+                                            pdata['stock_id'] = pacc_ids[0].Item_Codeid.pk
                                         else:
                                             pdata['stock_id'] = d.dt_itemnoid.pk
 
@@ -2476,7 +2477,276 @@ class TopupViewset(viewsets.ModelViewSet):
 #                 return Response(result, status=status.HTTP_200_OK)
 #         except Exception as e:
 #             invalid_message = str(e)
-#             return general_error_response(invalid_message)        
+#             return general_error_response(invalid_message)    
+
+class TreatmentDoneNewViewset(viewsets.ModelViewSet):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = TreatmentPackage.objects.filter().order_by('-pk')
+    serializer_class = TreatmentPackageDoneListSerializer
+
+    def list(self, request):
+        try:
+            now = timezone.now()
+            print(str(now.hour) + '  ' +  str(now.minute) + '  ' +  str(now.second),"Start hour, minute, second\n")
+           
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+            site = fmspw[0].loginsite
+
+            cust_id = self.request.GET.get('cust_id',None)
+            cust_obj = Customer.objects.filter(pk=request.GET.get('cust_id',None),cust_isactive=True).first()
+            if not cust_obj:
+                result = {'status': status.HTTP_200_OK,"message":"Please give customer id!!",'error': True} 
+                return Response(data=result, status=status.HTTP_200_OK) 
+
+            system_obj = Systemsetup.objects.filter(title='Other Outlet Customer Listings',
+            value_name='Other Outlet Customer Listings',isactive=True).first()
+
+            system_setup = Systemsetup.objects.filter(title='Other Outlet Customer Reversal',
+            value_name='Other Outlet Customer Reversal',isactive=True).first()
+
+            flexi_setup = Systemsetup.objects.filter(title='B21showServiceOnTreatmentForFlexi',
+            value_name='B21showServiceOnTreatmentForFlexi',isactive=True).first()
+            def_setup = Systemsetup.objects.filter(title='Default TD List Years Ago',
+            value_name='Default TD List Years Ago',isactive=True).first()
+
+            current_year = date.today().year
+            
+            queryset = TreatmentPackage.objects.none()
+
+            if not request.GET.get('year',None):
+                raise Exception('Please give year!!') 
+
+            if request.GET.get('year',None):
+                year = request.GET.get('year',None)
+                if year == "Default":
+                    if def_setup and def_setup.value_data: 
+                        ylst = []
+                        for i in range(0,int(def_setup.value_data)):
+                            yr = current_year - i
+                            if yr not in ylst:
+                                ylst.append(yr)
+                                
+                        if ylst != []: 
+                            queryset = TreatmentPackage.objects.filter(cust_code=cust_obj.cust_code,
+                            open_session__gt=0, treatment_date__year__in=ylst).order_by('-pk')
+
+                    else:
+                        raise Exception('Please Give Systemsetup year in Default TD List Years Ago!!')     
+                elif year == "Expiry":
+                    queryset = TreatmentPackage.objects.filter(cust_code=cust_obj.cust_code,
+                    open_session__gt=0,expiry_date__date__lt=date.today()).order_by('-pk')
+
+                elif year == "All":
+                    queryset = TreatmentPackage.objects.filter(cust_code=cust_obj.cust_code,
+                    open_session__gt=0).order_by('-pk')
+
+            if queryset:
+                full_tot = queryset.count()
+                try:
+                    limit = int(request.GET.get("limit",12))
+                except:
+                    limit = 12
+                try:
+                    page = int(request.GET.get("page",1))
+                except:
+                    page = 1
+
+                paginator = Paginator(queryset, limit)
+                total_page = paginator.num_pages
+
+                try:
+                    queryset = paginator.page(page)
+                    # print(queryset,"queryset")
+                except (EmptyPage, InvalidPage):
+                    queryset = paginator.page(total_page) # last page
+                data_list= []
+                for row in queryset:
+                    trmt_obj = row ;is_allow=False
+                    session = 0; balance = "0.00"; ar= "0.00" 
+                    done_ids = Treatment.objects.filter(treatment_parentcode=row.treatment_parentcode,status="Done").order_by('pk').count()
+                    open_ids = Treatment.objects.filter(treatment_parentcode=trmt_obj.treatment_parentcode,status="Open").only('pk').order_by('pk').count()
+                    
+                    last_ids = Treatment.objects.filter(treatment_parentcode=row.treatment_parentcode).order_by('-pk').first()
+
+                    expiry = False; query = False;expiry_date = ""
+                    if row.expiry_date:
+                        splte = str(row.expiry_date).split(' ')
+                        expiry = splte[0]
+                        expiry_date = datetime.datetime.strptime(str(splte[0]), "%Y-%m-%d").strftime("%d-%b-%y")
+                        
+                    
+                    treatment_limit_times = row.treatment_limit_times
+
+                    # print(q_val[0],"vv")
+                    if row.type == 'N':
+                        query = row
+                    elif row.type in ['FFd','FFi']:
+                        if expiry and treatment_limit_times is not None:
+                            if expiry >= str(date.today()):
+                                if treatment_limit_times > done_ids or treatment_limit_times == 0:
+                                    query = row
+                    
+                    if query:
+                        search_ids = TmpTreatmentSession.objects.filter(treatment_parentcode=trmt_obj.treatment_parentcode,
+                        created_at=date.today()).order_by('-pk').first()
+
+                        iscurrentloggedinsalon = True if site.itemsite_code == trmt_obj.site_code else False 
+                        trmtAccObj = TreatmentAccount.objects.filter(treatment_parentcode=row.treatment_parentcode).order_by('-sa_date','-sa_time','-id').first()
+                        # print(trmtAccObj,"trmtAccObj")
+                        if trmtAccObj:
+                            balance = "{:.2f}".format(float(trmtAccObj.balance)) if trmtAccObj.balance else "0.00"
+                            ar = "{:.2f}".format(float(trmtAccObj.outstanding)) if trmtAccObj.outstanding else "0.00"
+
+                        if flexi_setup and flexi_setup.value_data == 'True' and row.type == 'FFi':
+                            b21flexitype = True
+                        else:
+                            b21flexitype = False  
+
+                        session =  search_ids.session if search_ids and search_ids.session else 0
+                         
+                        session_flag = False if session == 0 else True 
+                        exchange_flag = True if session == 1 else False 
+    
+                        
+                        if system_setup and system_setup.value_data == 'True' and system_obj and system_obj.value_data == 'True':
+                            if trmt_obj.site_code != site.itemsite_code or trmt_obj.site_code == site.itemsite_code:
+                                is_allow = True
+                        else:
+                            if trmt_obj.site_code == site.itemsite_code:
+                                is_allow = True  
+
+                        flexiservice_ids = ItemFlexiservice.objects.filter(item_code=str(trmt_obj.item_code),
+                        itm_isactive=True)
+                        if row.type == 'FFi' and flexiservice_ids:
+                            itemflexiservice = True
+                        else:
+                            itemflexiservice = False
+        
+                        rev = "0"+"/"+last_ids.treatment_no
+                        td = str(open_ids)+"/"+last_ids.treatment_no
+
+                        if row.type in ['FFd','FFi'] and done_ids > 0:
+                            reversal_check = False
+                        else:
+                            reversal_check = True
+                        
+                       
+                        sel = True if search_ids else None  
+
+                        splt = str(trmt_obj.treatment_date).split(' ')
+                        treatment_date = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d-%m-%Y")
+                        unit_amount =  "{:.2f}".format(float(trmt_obj.unit_amount)) if trmt_obj.unit_amount else "0.00"
+
+                        data_list.append({
+                            "TreatmentAccountid": row.treatment_accountid.pk if row.treatment_accountid else "",
+                            "balance": balance,
+                            "ar": ar,
+                            "b21flexitype": b21flexitype,
+                            "course": row.course,
+                            "done_sessioncnt": done_ids,
+                            "session_flag": session_flag,
+                            "exchange_flag" : exchange_flag,
+                            "expiry_date" : expiry_date,
+                            "is_allow" : is_allow,
+                            "is_reversal" : fmspw[0].is_reversal,
+                            "iscurrentloggedinsalon": iscurrentloggedinsalon,
+                            "item_code" : str(trmt_obj.item_code),
+                            "itemflexiservice" : itemflexiservice,
+                            "open" : open_ids,
+                            "rev": rev,
+                            "td":td,
+                            "reversal_check": reversal_check, 
+                            "sel": sel,
+                            "session" : session,
+                            "site_code" :  trmt_obj.site_code,
+                            "stockid" :  trmt_obj.Item_Codeid.pk if trmt_obj.Item_Codeid else "",
+                            "transacno_ref": trmt_obj.sa_transacno_ref,
+                            "treatment_code" : trmt_obj.treatment_parentcode,
+                            "treatment_date" : treatment_date,
+                            "treatment_limit_times": trmt_obj.treatment_limit_times,
+                            "type" : trmt_obj.type,
+                            "unit_amount" : unit_amount
+                        })        
+                    
+               
+                resData = {
+                    'dataList': data_list,
+                    'meta' : {'pagination': {
+                           "per_page":limit,
+                           "current_page":page,
+                           "total":full_tot,
+                           "total_pages":total_page
+                    }},
+                    
+                }
+                now1 = timezone.now()
+                print(str(now1.hour) + '  ' +  str(now1.minute) + '  ' +  str(now1.second),"End hour, minute, second\n")
+                totalh = now1.second - now.second
+                print(totalh,"total")
+                result = {'status': status.HTTP_200_OK,"message": "Listed Succesfully",
+                'error': False, 'data':  resData ,
+                'cust_data': {'cust_name': cust_obj.cust_name if cust_obj.cust_name else "", 
+                'cust_refer': cust_obj.cust_refer if cust_obj.cust_refer else ""}}
+            else:
+                serializer = self.get_serializer()
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+            return Response(data=result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)          
+
+
+    @transaction.atomic
+    @action(detail=False, methods=['GET'], name='treatmentget')
+    def treatmentget(self, request):
+        try:
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+        
+                site = fmspw[0].loginsite
+                session = request.GET.get('session',None)
+                if not session:
+                    raise Exception('Please Give Session Value') 
+                
+                parentcode = request.GET.get('treatment_parentcode',None)
+                if not parentcode:
+                    raise Exception('Please Give treatment parentcode')
+
+                trmt_ids = Treatment.objects.filter(treatment_parentcode=parentcode,status="Open").only('pk').order_by('-pk')    
+                # print(trmt_ids,"trmt_ids")
+                if not trmt_ids:
+                    raise Exception('Open Treatment Does not exist')
+
+                val = trmt_ids.order_by('-pk').values_list('pk', flat=True).distinct()
+                # print(val,"val")
+                if int(session) > len(val):
+                    raise Exception('Session should not be greater than open treatments')
+
+                resData = val[:int(session)]    
+                
+                var = TmpItemHelper.objects.filter(treatment__pk__in=val,created_at__date__lt=date.today(),line_no__isnull=True).delete() 
+                
+                search_ids = TmpTreatmentSession.objects.filter(treatment_parentcode=parentcode,
+                created_at=date.today()) 
+                if not search_ids:
+                    var_ids = TmpItemHelper.objects.filter(treatment__pk__in=val,line_no__isnull=True).delete() 
+
+                sear_ids = TmpTreatmentSession.objects.filter(treatment_parentcode=parentcode,
+                created_at__lt=date.today()).delete()
+
+                result = {'status': status.HTTP_200_OK,"message": "Listed Succesfully",
+                'error': False, 'treatmentid':  resData}
+                return Response(data=result, status=status.HTTP_200_OK) 
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)          
+        
+
+
+
+    
 
 
 class TreatmentDoneViewset(viewsets.ModelViewSet):
@@ -2816,11 +3086,11 @@ class TreatmentDoneViewset(viewsets.ModelViewSet):
 
                 # print(q_val[0],"vv")
                 if row.type == 'N':
-                    if expiry:
-                        if expiry >= str(date.today()):
-                            lst.extend([q_val[0]])
-                    else:  
-                        lst.extend([q_val[0]])
+                    # if expiry:
+                    #     if expiry >= str(date.today()):
+                    #         lst.extend([q_val[0]])
+                    # else:  
+                    lst.extend([q_val[0]])
                 elif row.type in ['FFd','FFi']:
                     if expiry and treatment_limit_times is not None:
                         if expiry >= str(date.today()):
@@ -3885,8 +4155,23 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                             cartobj.treatment.helper_ids.add(t) 
                             if helper_obj:
                                 cartobj.service_staff.add(helper_obj.pk) 
-        
-                
+            
+            session_ids = list(set(TmpItemHelper.objects.filter(treatment__pk__in=arrtreatmentid).values_list('treatment', flat=True).distinct()))
+            print(session_ids,"session_ids")
+            if session_ids:
+                trmtobj = Treatment.objects.filter(pk=arrtreatmentid[0]).first()
+                if not trmtobj:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Treatment ID does not exist!!",'error': True} 
+                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
+                search_ids = TmpTreatmentSession.objects.filter(treatment_parentcode=trmtobj.treatment_parentcode,
+                created_at=date.today()) 
+                if not search_ids:
+                    t = TmpTreatmentSession(treatment_parentcode=trmtobj.treatment_parentcode,session=len(arrtreatmentid))
+                    t.save()
+            
+
+
             result = {'status': status.HTTP_200_OK , "message": "Confirmed Succesfully", 'error': False}
             return Response(result, status=status.HTTP_200_OK)
 
@@ -4052,7 +4337,19 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                         TmpItemHelper.objects.filter(id=j.id).update(wp1=c)
                     last_rec.wp1 = x   
                     last_rec.save()     
-    
+            
+            
+            if not oldobj:
+                trmtrobj = Treatment.objects.filter(pk=arrtreatmentid[0]).first()
+                if not trmtrobj:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Treatment ID does not exist!!",'error': True} 
+                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
+                search_ids = TmpTreatmentSession.objects.filter(treatment_parentcode=trmtrobj.treatment_parentcode,
+                created_at=date.today()) 
+                if search_ids:
+                    search_ids.delete()
+
             result = {'status': status.HTTP_200_OK , "message": "Deleted Succesfully", 'error': False}
             return Response(result, status=status.HTTP_200_OK)
             
@@ -4557,7 +4854,16 @@ class ReversalListViewset(viewsets.ModelViewSet):
                         reversehdr.credit_note_amt = total
                         reversehdr.save()
 
-
+                if treat_obj:
+                    searcids = TreatmentPackage.objects.filter(treatment_parentcode=treat_obj.treatment_parentcode).first()
+                    if searcids:
+                        stptdone_ids = Treatment.objects.filter(treatment_parentcode=treat_obj.treatment_parentcode,status="Done").order_by('pk').count()
+                        stptcancel_ids = Treatment.objects.filter(treatment_parentcode=treat_obj.treatment_parentcode,status="Cancel").order_by('pk').count()
+                        stptopen_ids = Treatment.objects.filter(treatment_parentcode=treat_obj.treatment_parentcode,status="Open").order_by('pk').count()
+                        searcids.open_session = stptopen_ids
+                        searcids.done_session = stptdone_ids
+                        searcids.cancel_session = stptcancel_ids
+                        searcids.save()
             
                 if lst != [] and trm_lst != []:
                     title = Title.objects.filter(product_license=site.itemsite_code).first()
@@ -4863,7 +5169,15 @@ def sa_transacno_update_void(self, site, fmspw):
     slst = []
     if haudfinal != []:
         for fh in haudfinal:
-            fhstr = int(fh[silicon:])
+            # Yoonus remove MC1 and Mc2
+            fhstr = fh.replace("MC1","")
+            fhstr = fh.replace("MC2","")
+            fhstr = fh.replace("T1","")
+            fhstr = fh.replace("T2","")
+            fhstr = fh.replace("T3","")
+
+            # fhstr = int(fh[silicon:])
+            fhstr = int(fhstr[silicon:])
             # fhstr = fh.replace(prefix_s,"")
             # fhnew_str = fhstr.replace(code_site, "")
             slst.append(fhstr)
@@ -5658,6 +5972,17 @@ class VoidViewset(viewsets.ModelViewSet):
                                 cust_code=haudobj.sa_custno,dt_lineno=d.dt_lineno)
                                 for trt in treat_ids:
                                     Treatment.objects.filter(pk=trt.pk).update(status="Cancel",sa_status="VOID")
+
+                                searc_ids = TreatmentPackage.objects.filter(treatment_parentcode=treat_ids[0].treatment_parentcode).first()
+                                if searc_ids:
+                                    stptdone_ids = Treatment.objects.filter(treatment_parentcode=treat_ids[0].treatment_parentcode,status="Done").order_by('pk').count()
+                                    stptcancel_ids = Treatment.objects.filter(treatment_parentcode=treat_ids[0].treatment_parentcode,status="Cancel").order_by('pk').count()
+                                    stptopen_ids = Treatment.objects.filter(treatment_parentcode=treat_ids[0].treatment_parentcode,status="Open").order_by('pk').count()
+                                    searc_ids.open_session = stptopen_ids
+                                    searc_ids.done_session = stptdone_ids
+                                    searc_ids.cancel_session = stptcancel_ids
+                                    searc_ids.save()
+    
                                 
                                 #sal_acc_ids = TreatmentAccount.objects.filter(sa_transacno=haudobj.sa_transacno,type='Sales',
                                 #cust_code=haudobj.sa_custno,site_code=site.itemsite_code)
@@ -5790,6 +6115,17 @@ class VoidViewset(viewsets.ModelViewSet):
                                                     item_batch=None,mov_type=None,item_batch_cost=None,
                                                     stock_in=None,trans_package_line_no=None).save()
                                         
+                                ct = d.itemcart.multi_treat.all()[0]
+                                searcids = TreatmentPackage.objects.filter(treatment_parentcode=ct.treatment_parentcode).first()
+                                if searcids:
+                                    stptdone_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Done").order_by('pk').count()
+                                    stptcancel_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Cancel").order_by('pk').count()
+                                    stptopen_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Open").order_by('pk').count()
+                                    searcids.open_session = stptopen_ids
+                                    searcids.done_session = stptdone_ids
+                                    searcids.cancel_session = stptcancel_ids
+                                    searcids.save()
+  
 
                                 
                                 for sa in sacc_ids:
@@ -6336,7 +6672,16 @@ class VoidViewset(viewsets.ModelViewSet):
                                                     item_batch=None,mov_type=None,item_batch_cost=None,
                                                     stock_in=None,trans_package_line_no=None).save()
                                         
-
+                                ct = da.itemcart.multi_treat.all()[0]
+                                searcids = TreatmentPackage.objects.filter(treatment_parentcode=ct.treatment_parentcode).first()
+                                if searcids:
+                                    stptdone_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Done").order_by('pk').count()
+                                    stptcancel_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Cancel").order_by('pk').count()
+                                    stptopen_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Open").order_by('pk').count()
+                                    searcids.open_session = stptopen_ids
+                                    searcids.done_session = stptdone_ids
+                                    searcids.cancel_session = stptcancel_ids
+                                    searcids.save()
                                 
                                 for sa in sacc_ids:
                                     master_ids = Treatment_Master.objects.filter(sa_transacno=sa.ref_transacno,
@@ -8170,6 +8515,9 @@ class PrepaidAccListViewset(viewsets.ModelViewSet):
                 last_acc_ids = PrepaidAccount.objects.filter(pp_no=pp_obj.pp_no,
                 line_no=pp_obj.line_no).order_by('pk').last()
                 if last_acc_ids:
+                    if last_acc_ids.status == False:
+                        raise Exception('Prepaid Already in terminate status.') 
+
                     last_acc_ids.status = False
                     last_acc_ids.save()
                     

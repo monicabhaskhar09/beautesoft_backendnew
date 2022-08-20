@@ -501,8 +501,15 @@ class TreatmentPackage(models.Model):
     cust_code = models.CharField(db_column='Cust_Code', max_length=50, blank=True, null=True)  # Field name made lowercase.
     treatment_accountid = models.ForeignKey('cl_table.TreatmentAccount', on_delete=models.PROTECT, null=True)
     totalprice = models.FloatField(db_column='Price', blank=True, null=True)  # Field name made lowercase.
-    packagetype = models.CharField(db_column='Type', max_length=50, blank=True, null=True)  # Field name made lowercase.
+    type = models.CharField(db_column='Type', max_length=50, blank=True, null=True)  # Field name made lowercase.
     lastsession_unit_amount = models.FloatField(db_column='lastsession_unit_amount', blank=True, null=True)  # Field name made lowercase.
+    treatment_date = models.DateTimeField(db_column='Treatment_Date',auto_now_add=True, blank=True, null=True)  # Field name made lowercase.
+    Item_Codeid = models.ForeignKey('cl_table.Stock', on_delete=models.PROTECT, null=True) 
+    treatment_limit_times = models.FloatField(db_column='Treatment_Limit_Times', blank=True, null=True)  # Field name made lowercase. 
+    Site_Codeid = models.ForeignKey('cl_app.ItemSitelist', on_delete=models.PROTECT, null=True)
+    site_code = models.CharField(db_column='Site_Code', max_length=50, blank=True, null=True)  # Field name made lowercase.
+    sa_transacno = models.CharField(max_length=200, blank=True, null=True)
+    sa_transacno_ref = models.CharField(db_column='SA_TransacNo_Ref', max_length=200, blank=True, null=True)  # Field name made lowercase.
 
     class Meta:
         db_table = 'Treatment_Package'
@@ -3408,6 +3415,8 @@ class GstSetting(models.Model):
     updated_at = models.DateTimeField(auto_now=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     is_exclusive = models.BooleanField(null=True)
+    activefromdate = models.DateTimeField(db_column='activefromdate', blank=True, null=True)  # Field name made lowercase.
+    activetodate = models.DateTimeField(db_column='activetodate', blank=True, null=True)  # Field name made lowercase.
 
     class Meta:
         db_table = 'GST_Setting'

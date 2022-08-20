@@ -2867,20 +2867,20 @@ class CustomerPlusSerializer(serializers.ModelSerializer):
         
         # Email and Mobile number validation
 
-        if request.data['cust_email']:
-            customer_mail =  Customer.objects.filter(cust_email=request.data['cust_email'])
-            if len(customer_mail) > 0:
-                raise serializers.ValidationError("Email id is already associated with another account")
+        # if 'cust_email' in request.data and request.data['cust_email']:
+        #     customer_mail =  Customer.objects.filter(cust_email=request.data['cust_email'])
+        #     if len(customer_mail) > 0:
+        #         raise serializers.ValidationError("Email id is already associated with another account")
         
-        if 'cust_phone2' in request.data and request.data['cust_phone2']:
-            customer =  Customer.objects.filter(cust_phone2=request.data['cust_phone2'])
-            if len(customer) > 0:
-                raise serializers.ValidationError("Mobile number cust phone2 is already associated with another account")
+        # if 'cust_phone2' in request.data and request.data['cust_phone2']:
+        #     customer =  Customer.objects.filter(cust_phone2=request.data['cust_phone2'])
+        #     if len(customer) > 0:
+        #         raise serializers.ValidationError("Mobile number cust phone2 is already associated with another account")
         
-        if 'cust_phone1' in request.data and request.data['cust_phone1']:    
-            customerphone =  Customer.objects.filter(cust_phone1=request.data['cust_phone1'])
-            if len(customerphone) > 0:
-                raise serializers.ValidationError("Mobile number cust phone1 is already associated with another account")
+        # if 'cust_phone1' in request.data and request.data['cust_phone1']:    
+        #     customerphone =  Customer.objects.filter(cust_phone1=request.data['cust_phone1'])
+        #     if len(customerphone) > 0:
+        #         raise serializers.ValidationError("Mobile number cust phone1 is already associated with another account")
             
         return validate_data
 

@@ -9,7 +9,7 @@ WorkOrderInvoiceDetailModel,WorkOrderInvoiceAddrModel,WorkOrderInvoiceItemModel,
 DeliveryOrderDetailModel,DeliveryOrderItemModel,DeliveryOrdersign,EquipmentDropdownModel,EquipmentUsage,
 EquipmentUsageItemModel,Currencytable,QuotationPayment,ManualInvoicePayment,quotationsign)
 from cl_table.models import (Treatment, Stock, PackageDtl, ItemClass, ItemRange, Employee, Tmptreatment,
-TmpItemHelper,PosHaud,City, State, Country, Stock )
+TmpItemHelper,PosHaud,City, State, Country, Stock,Title,PayGroup,ItemDept )
 from cl_table.serializers import get_client_ip
 from django.db.models import Sum
 from datetime import date, timedelta, datetime
@@ -1321,3 +1321,63 @@ class CurrencytableSerializer(serializers.ModelSerializer):
     class Meta:
         model = Currencytable
         fields = '__all__'
+
+
+class TitleImageSerializer(serializers.ModelSerializer):
+    
+    class Meta:
+        model = Title
+        fields = ['id','logo_pic','title']  
+    
+    def to_representation(self, obj):
+        request = self.context['request']
+        data = super(TitleImageSerializer, self).to_representation(obj)
+        ip = "http://"+request.META['HTTP_HOST']
+        logo_pic = ""
+        if obj.logo_pic:
+            logo_pic = ip+str(obj.logo_pic.url)
+
+        data['logo_pic'] = logo_pic
+        return data
+
+class StockImageSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='pk',required=False)
+    
+    class Meta:
+        model = Stock
+        fields = ['id','Stock_PIC','item_code']  
+    
+    def to_representation(self, obj):
+        request = self.context['request']
+        data = super(StockImageSerializer, self).to_representation(obj)
+        ip = "http://"+request.META['HTTP_HOST']
+        stock_pic = ""
+        if obj.Stock_PIC:
+            stock_pic = ip+str(obj.Stock_PIC.url)
+
+        data['Stock_PIC'] = stock_pic
+        return data
+
+class PaygroupImageSerializer(serializers.ModelSerializer):
+    
+    class Meta:
+        model = PayGroup
+        fields = ['id','picturelocation','pay_group_code']  
+    
+class ItemDeptImageSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='pk',required=False)
+    
+    class Meta:
+        model = ItemDept
+        fields = ['id','deptpic','itm_desc']  
+    
+    def to_representation(self, obj):
+        request = self.context['request']
+        data = super(ItemDeptImageSerializer, self).to_representation(obj)
+        ip = "http://"+request.META['HTTP_HOST']
+        deptpic = ""
+        if obj.deptpic:
+            deptpic = ip+str(obj.deptpic.url)
+
+        data['deptpic'] = deptpic
+        return data

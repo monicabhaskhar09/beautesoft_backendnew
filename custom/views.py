@@ -24,7 +24,8 @@ DeliveryOrderItemSerializer,DeliveryOrdersignSerializer,InvoiceListingSerializer
 EquipmentDropdownSerializer,EquipmentUsageSerializer,EquipmentUsageItemModelSerializer,StaffEquipmentSerializer,
 ItemEquipmentSerializer,ProjectSearchSerializer,CurrencytableSerializer,QuotationPaymentSerializer,
 ManualInvPaymentSerializer,QuotationItemDiscountSerializer,quotationsignSerializer,
-ManualInvoiceItemTableSerializer)
+ManualInvoiceItemTableSerializer,TitleImageSerializer,StockImageSerializer,PaygroupImageSerializer,
+ItemDeptImageSerializer)
 from .models import (EmpLevel, Room, Combo_Services, ItemCart,VoucherRecord,RoundPoint, RoundSales,
 PaymentRemarks, HolditemSetup,PosPackagedeposit,SmtpSettings,MultiPricePolicy,salesStaffChangeLog,
 serviceStaffChangeLog,dateChangeLog,  TimeLogModel, ProjectModel, ActivityModel, QuotationModel, POModel, QuotationAddrModel, 
@@ -1254,7 +1255,16 @@ def sa_transacno_update(self, site, fmspw):
     slst = []
     if haudfinal != []:
         for fh in haudfinal:
-            fhstr = int(fh[silicon:])
+            # Yoonus remove MC1 and Mc2
+            fhstr = fh.replace("MC1","")
+            fhstr = fh.replace("MC2","")
+            fhstr = fh.replace("T1","")
+            fhstr = fh.replace("T2","")
+            fhstr = fh.replace("T3","")
+
+
+            #fhstr = int(fh[silicon:])
+            fhstr = int(fhstr[silicon:])
             # fhstr = fh.replace(prefix_s,"")
             # fhnew_str = fhstr.replace(code_site, "")
             slst.append(fhstr)
@@ -3260,7 +3270,7 @@ class itemCartViewset(viewsets.ModelViewSet):
     @action(methods=['post'], detail=False, permission_classes=[IsAuthenticated & authenticated_only],
     authentication_classes=[ExpiringTokenAuthentication])
     def TrmtDoneCartCreate(self, request):
-        try:
+        # try:
             with transaction.atomic():
                 global type_ex
                 cartdate = timezone.now().date()
@@ -3546,13 +3556,15 @@ class itemCartViewset(viewsets.ModelViewSet):
                                 trans_amt=float(req['price']) * qtyid,deposit=0.0,type="Sales",recorddetail=recorddetail,
                                 itemtype=itemtype)
                             
-                            tmp_treatment_ids = Tmptreatment.objects.filter(treatment_id=treat[0],status='Open').first()
-                            if tmp_treatment_ids:
-                                cart.itemcodeid = tmp_treatment_ids.newservice_id
-                                cart.itemcode = tmp_treatment_ids.newservice_id.item_code
-                                cart.itemdesc = tmp_treatment_ids.newservice_id.item_desc
-                                cart.is_flexinewservice = True
-                                cart.save()
+                            
+                            if not req['ori_stockid']:
+                                tmp_treatment_ids = Tmptreatment.objects.filter(treatment_id=treat[0],status='Open').first()
+                                if tmp_treatment_ids:
+                                    cart.itemcodeid = tmp_treatment_ids.newservice_id
+                                    cart.itemcode = tmp_treatment_ids.newservice_id.item_code
+                                    cart.itemdesc = tmp_treatment_ids.newservice_id.item_desc
+                                    cart.is_flexinewservice = True
+                                    cart.save()
                         
                             for s in trmt_obj.helper_ids.all(): 
                                 cart.service_staff.add(s.helper_id)
@@ -3660,9 +3672,9 @@ class itemCartViewset(viewsets.ModelViewSet):
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":message,'error': error, 'data': data}
                 return Response(result, status=status.HTTP_400_BAD_REQUEST)
                 
-        except Exception as e:
-            invalid_message = str(e)
-            return general_error_response(invalid_message)     
+        # except Exception as e:
+        #     invalid_message = str(e)
+        #     return general_error_response(invalid_message)     
            
             
        
@@ -4412,10 +4424,10 @@ class itemCartViewset(viewsets.ModelViewSet):
                 lst.append(val)
                 #if c.auto == True:
                 if c.auto == True and c.recorddetail != 'TD' and c.recorddetail[0:2] != 'TP' and c.is_foc != True:
-                    print("l: ", c.total_price)
+                    # print("l: ", c.total_price)
                     total_amount += c.total_price
                     other_disc += c.discount_amt * int(c.treatment_no) if c.treatment_no else c.discount_amt * c.quantity
-                    tran_disc += c.additional_discountamt 
+                    tran_disc += float("{:.2f}".format(float(c.additional_discountamt)))
                     net_amount += c.trans_amt
                     deposit_amount += c.deposit
 
@@ -26226,6 +26238,30 @@ class TitleImageUploadAPIView(generics.CreateAPIView):
             return general_error_response(invalid_message)   
 
 
+class TitleImageViewset(viewsets.ModelViewSet):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = Title.objects.filter().order_by('-pk')
+    serializer_class = []
+    
+    def get_object(self, pk):
+        try:
+            return Title.objects.get(pk=pk)
+        except Title.DoesNotExist:
+            raise Exception('Title Does not Exist') 
+
+    def retrieve(self, request, pk=None):
+        try:
+            title = self.get_object(pk)
+            serializer = TitleImageSerializer(title, context={'request': self.request})
+            result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
+            'data': serializer.data}
+            return Response(data=result, status=status.HTTP_200_OK)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message) 
+    
+
 class StockImageUploadAPIView(generics.CreateAPIView):
     authentication_classes = [ExpiringTokenAuthentication]
     permission_classes = [IsAuthenticated & authenticated_only]
@@ -26238,14 +26274,22 @@ class StockImageUploadAPIView(generics.CreateAPIView):
                 fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True).first()
                 site = fmspw.loginsite
 
-                if not 'stock_id' in request.data or not request.data['stock_id']:
-                    raise Exception('Please Give Stock ID!!') 
+                if (not 'stock_id' in request.data or not request.data['stock_id']) and (not 'item_code' in request.data or not request.data['item_code']):
+                    raise Exception('Please Give Stock ID/Item code!!')
 
                 if not 'Stock_PIC' in request.data or not request.data['Stock_PIC']:
                     raise Exception('Please Give Image Pic!!') 
                       
-                stock_id = request.data['stock_id'].split(',')
-                stock_ids = Stock.objects.filter(pk__in=stock_id).order_by('pk')    
+                
+                stock_ids = Stock.objects.none()
+                if 'stock_id' in request.data and request.data['stock_id']:
+                    stock_id = request.data['stock_id'].split(',')
+                    stock_ids = Stock.objects.filter(pk__in=stock_id).order_by('pk')
+                else:
+                    if 'item_code' in request.data and request.data['item_code']:
+                        item_code = request.data['item_code'].split(',')
+                        stock_ids = Stock.objects.filter(item_code__in=item_code).order_by('pk')
+
                 if stock_ids:
                     for t in stock_ids:
                         t.Stock_PIC =  request.data['Stock_PIC']
@@ -26262,6 +26306,29 @@ class StockImageUploadAPIView(generics.CreateAPIView):
             invalid_message = str(e)
             return general_error_response(invalid_message)   
 
+class StockImageViewset(viewsets.ModelViewSet):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = Stock.objects.filter().order_by('-pk')
+    serializer_class = []
+    
+    def get_object(self, pk):
+        try:
+            return Stock.objects.get(pk=pk)
+        except Stock.DoesNotExist:
+            raise Exception('Stock Does not Exist') 
+
+    def retrieve(self, request, pk=None):
+        try:
+            stock = self.get_object(pk)
+            serializer = StockImageSerializer(stock, context={'request': self.request})
+            result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
+            'data': serializer.data}
+            return Response(data=result, status=status.HTTP_200_OK)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message) 
+    
 
 class PaygroupImageUploadAPIView(generics.CreateAPIView):
     authentication_classes = [ExpiringTokenAuthentication]
@@ -26275,14 +26342,21 @@ class PaygroupImageUploadAPIView(generics.CreateAPIView):
                 fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True).first()
                 site = fmspw.loginsite
 
-                if not 'paygroup_id' in request.data or not request.data['paygroup_id']:
-                    raise Exception('Please Give Paygroup ID!!') 
+                if (not 'paygroup_id' in request.data or not request.data['paygroup_id']) and (not 'paygroup_code' in request.data or not request.data['paygroup_code']):
+                    raise Exception('Please Give Paygroup ID/Code!!') 
 
                 if not 'picturelocation' in request.data or not request.data['picturelocation']:
                     raise Exception('Please Give picturelocation!!') 
-                      
-                paygroup_id = request.data['paygroup_id'].split(',')
-                paygroup_ids = PayGroup.objects.filter(pk__in=paygroup_id).order_by('pk')    
+
+                paygroup_ids = PayGroup.objects.none()
+                if 'paygroup_id' in request.data and request.data['paygroup_id']:
+                    paygroup_id = request.data['paygroup_id'].split(',')
+                    paygroup_ids = PayGroup.objects.filter(pk__in=paygroup_id).order_by('pk')    
+                else:
+                    if 'paygroup_code' in request.data and request.data['paygroup_code']:
+                        paygroup_code = request.data['paygroup_code'].split(',')
+                        paygroup_ids = PayGroup.objects.filter(pay_group_code__in=paygroup_code).order_by('pk')    
+
                 if paygroup_ids:
                     for t in paygroup_ids:
                         t.picturelocation =  request.data['picturelocation']
@@ -26297,7 +26371,31 @@ class PaygroupImageUploadAPIView(generics.CreateAPIView):
 
         except Exception as e:
             invalid_message = str(e)
-            return general_error_response(invalid_message)   
+            return general_error_response(invalid_message)
+
+
+class PaygroupImageViewset(viewsets.ModelViewSet):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = PayGroup.objects.filter().order_by('-pk')
+    serializer_class = []
+    
+    def get_object(self, pk):
+        try:
+            return PayGroup.objects.get(pk=pk)
+        except PayGroup.DoesNotExist:
+            raise Exception('PayGroup Does not Exist') 
+
+    def retrieve(self, request, pk=None):
+        try:
+            paygroup = self.get_object(pk)
+            serializer = PaygroupImageSerializer(paygroup, context={'request': self.request})
+            result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
+            'data': serializer.data}
+            return Response(data=result, status=status.HTTP_200_OK)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message) 
 
 
 class ItemDeptImageUploadAPIView(generics.CreateAPIView):
@@ -26312,14 +26410,21 @@ class ItemDeptImageUploadAPIView(generics.CreateAPIView):
                 fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True).first()
                 site = fmspw.loginsite
 
-                if not 'dept_id' in request.data or not request.data['dept_id']:
-                    raise Exception('Please Give Department ID!!') 
+                if (not 'dept_id' in request.data or not request.data['dept_id']) and (not 'dept_code' in request.data or not request.data['dept_code']):
+                    raise Exception('Please Give Department ID/Code!!') 
 
                 if not 'deptpic' in request.data or not request.data['deptpic']:
                     raise Exception('Please Give Image Pic!!') 
-                      
-                dept_id = request.data['dept_id'].split(',')
-                dept_ids = ItemDept.objects.filter(pk__in=dept_id).order_by('pk')    
+
+                dept_ids = ItemDept.objects.none()      
+                if 'dept_id' in request.data and request.data['dept_id']:
+                    dept_id = request.data['dept_id'].split(',')
+                    dept_ids = ItemDept.objects.filter(pk__in=dept_id).order_by('pk')    
+                else:
+                    if 'dept_code' in request.data and request.data['dept_code']:
+                        dept_code = request.data['dept_code'].split(',')
+                        dept_ids = ItemDept.objects.filter(itm_code__in=dept_code).order_by('pk')    
+
                 if dept_ids:
                     for t in dept_ids:
                         t.deptpic =  request.data['deptpic']
@@ -26331,10 +26436,34 @@ class ItemDeptImageUploadAPIView(generics.CreateAPIView):
                     result = {'status': status.HTTP_400_BAD_REQUEST,
                     "message": "Record Does't Exist",'error': False}
                     return Response(result, status=status.HTTP_400_BAD_REQUEST)
-
+    
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)   
+
+class ItemDeptImageViewset(viewsets.ModelViewSet):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = ItemDept.objects.filter().order_by('-pk')
+    serializer_class = []
+    
+    def get_object(self, pk):
+        try:
+            return ItemDept.objects.get(pk=pk)
+        except ItemDept.DoesNotExist:
+            raise Exception('ItemDept Does not Exist') 
+
+    def retrieve(self, request, pk=None):
+        try:
+            dept = self.get_object(pk)
+            serializer = ItemDeptImageSerializer(dept, context={'request': self.request})
+            result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
+            'data': serializer.data}
+            return Response(data=result, status=status.HTTP_200_OK)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message) 
+
 
 
 class manualinvoiceitemtableAPIView(generics.ListAPIView):
