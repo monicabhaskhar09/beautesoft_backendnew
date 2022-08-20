@@ -14528,7 +14528,7 @@ class ManualInvoiceItemViewset(viewsets.ModelViewSet):
                     data_list.append({
                         "id": allquery.id,
                         "quotation_quantity": allquery.quotation_quantity,
-                        "quotation_unitprice": "{:.2f}".format(float(allquery.quotation_unitprice)),
+                        "quotation_unitprice": "{:.2f}".format(float(allquery.quotation_unitprice)) if allquery.quotation_unitprice else "",
                         "quotation_itemremarks": allquery.quotation_itemremarks,
                         "quotation_itemcode": allquery.quotation_itemcode,
                         "quotation_itemdesc": allquery.quotation_itemdesc,
