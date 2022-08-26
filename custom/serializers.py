@@ -522,13 +522,23 @@ class CartServiceCourseSerializer(serializers.ModelSerializer):
         
         treat_expiry = obj.treat_expiry
         if not obj.treat_expiry:
-            if obj.itemcodeid.service_expire_month:
+            if obj.itemcodeid.service_expire_month and obj.itemcodeid.service_expire_active == True:
                 month = obj.itemcodeid.service_expire_month
                 current_date = datetime.datetime.strptime(str(date.today()), "%Y-%m-%d")
                 expiry = current_date + relativedelta(months=month)
                 treat_expiry = datetime.datetime.strptime(str(expiry), "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d")
-                    
-    
+
+        treatment_limit_times = obj.treatment_limit_times
+        if not obj.treatment_limit_times:
+            if obj.itemcodeid.treatment_limit_active == True:
+                treatment_limit_times = obj.itemcodeid.Treatment_Limit_Count
+
+        treat_type = obj.treat_type
+        if not obj.treat_type:
+            if (obj.itemcodeid.flexipoints and obj.itemcodeid.flexipoints > 0 or obj.itemcodeid.limitservice_flexionly == True):
+                treat_type = "FFi"
+
+
         mapped_object = {
             'id': obj.id,
             'itemdesc' : obj.itemdesc,
@@ -552,9 +562,9 @@ class CartServiceCourseSerializer(serializers.ModelSerializer):
             'is_service' : obj.is_service,
             'is_flexi': obj.is_flexi,
             'treat_expiry': treat_expiry,
-            'treat_type': "FFi" if not obj.treat_type and obj.itemcodeid.flexipoints and obj.itemcodeid.flexipoints > 0 else obj.treat_type,
+            'treat_type': treat_type,
             'flexipoint': int(obj.itemcodeid.flexipoints) if obj.itemcodeid.flexipoints else None,
-            'treatment_limit_times': obj.treatment_limit_times
+            'treatment_limit_times': treatment_limit_times
             }
        
         return mapped_object

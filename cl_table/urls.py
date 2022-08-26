@@ -7,6 +7,8 @@ from . import views
 
 router = DefaultRouter()
 router.register(r'termsandcondition', views.TermsandconditionViewset, basename='termsandcondition')
+router.register(r'participants', views.ParticipantsViewset, basename='participants')
+
 
 urlpatterns = [
     path('api/', include(router.urls)),

@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+  <!-- <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"> -->
+<style>
+hr{
+    border:0;
+    margin:0;
+    width:100%;
+    height:1px;
+    border-bottom: 1px dashed black;
+}
+.checkbox {
+  width:15px;
+  height:15px;
+  border: 1px solid #000;
+  display: inline-block;
+}
+
+/* This is what simulates a checkmark icon */
+.checkbox.checked:after {
+  content: '';
+  display: block;
+  width: 4px;
+  height: 7px;
+
+  /* "Center" the checkmark */
+  position:absolute;
+  top:4px;
+  left:7px;
+
+  border: solid #000;
+  border-width: 0 2px 2px 0;
+
+}
+table {
+    border-collapse: collapse;
+    width: 100%;
+}
+td {
+  padding: 5px;
+  text-align: center;
+}
+th {
+  text-align: center;
+}
+.split {
+  height: 500px;
+  width: 48.5%;
+  position: absolute;
+}
+.right {
+  right: 0;
+  text-align: left;
+}
+.right1 {
+  right: 40px;
+  text-align: right;
+}
+.box {
+  width: 50%;
+  height: 160px;
+}
+.clearfix {
+  content: "";
+  clear: both;
+  display: table;
+}
+img.sticky {
+  position: -webkit-sticky;
+  position: sticky;
+  top: 0;
+  width: 200px;}
+.column {
+  float: left;
+  width: 33.33%;
+  padding: 5px;
+}
+.row::after {
+  content: "";
+  clear: both;
+  display: table;
+}
+header {
+   position: fixed;
+   padding: 10px 16px;
+}
+fix {
+    position: fixed;
+    /* bottom: -400px; */
+    left: 15px;
+    right: 15px;
+    text-align: left;
+}
+.spaDetails img{
+        /* border-radius: 50%; */
+        width: 8rem;
+        height: 8rem;
+}
+.spaDetails h4{
+        font-weight: 700;
+}
+.spaDetails p{
+        margin-bottom: 0;
+        font-size: 14px;
+}
+body{
+  margin:0;
+  padding:0;
+}
+</style>
+</head>
+{% load static %}
+<body>
+
+  
+  <div class="container-fluid">
+      <div style="font-size: 10px;" width="30%">
+		  <img src="">{{logo}}</img></br>
+        <h7>{{name}}</h7>
+        <p>{{address}}</br>
+		  <b>GST No:</b> {{GST_Reg_No}}
+		  </p>
+        <p> </p>
+      </div>
+
+    <div class="clearfix mt-3">
+        <div class="split" style="font-size: 10px;line-height: 2px">
+          <p><b>Receipt: </b> {{ hdr.sa_transacno_ref }} </p>
+        </div>  
+    </div>
+    
+    {% load mathfilters %}
+
+
+    <table cellspacing="15" cellpadding="10" style="font-size: 10px;width: 20%;" >
+      <tr>
+        <th>Qty</th>
+        <th>Description</th>
+        <th>Paid</th>
+      </tr>
+      {% for d in daud %}
+      <tr>
+        <td>{{ forloop.counter }}</td>
+        <td>{{ d.dt_qty }}</td>
+        <td>{{ d.dt_itemdesc }}</td>
+        {% if d.dt_status == "SA" and d.record_detail_type == "TD" %}
+          <td>&nbsp;</td>
+        {% else %}
+          <td >$&nbsp;{{ d.dt_deposit|floatformat:2 }}</td>
+        {% endif %}
+      </tr>
+      {% endfor %}
+  
+      </table>
+	 <hr>
+    <table cellspacing="15" cellpadding="10" style="font-size: 10px;width: 20%;" >
+      <tr>
+			<td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+			<td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+			<td><b>Sub Total</b></td>
+			<td>${{ sub_total|floatformat:2 }}</td>
+      </tr>
+      <tr>
+			<td></td>
+			<td></td>
+			<td><b>GST (EXC 7%)</b></td>
+			<td>${{ gst_amount|floatformat:2 }}</td>
+      </tr>
+      <tr>
+			<td></td>
+			<td></td>
+			<td><b>Total</b></td>
+			<td>${{ billing_amount|floatformat:2 }}</td>
+      </tr>
+      </table>
+
+        <table cellspacing="15" cellpadding="10" style="font-size: 10px;width: 20%;" >
+          {% for taud in postaud %}
+            <tr>
+					<td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+					<td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+					<td>{{ taud.pay_typeid.pay_description }}</td>
+					<td>${{ taud.pay_amt|floatformat:2 }}</td>
+            </tr>
+          {% endfor %}
+        </table>
+		<hr>
+		<div class="container-fluid" width="30%">
+			<div style="font-size: 10px;">
+			 <p><b>Member Info</b></br>
+				<b>Name:</b> {{ hdr.cust_name }} </br>
+				<b>No:</b> {{ hdr.masked_phone2 }} </br>
+				<b>ID:</b> {{ hdr.masked_nric }} </br>
+			 </p> 
+			</div>	
+      </div>	
+		<hr>	
+		<div class="container-fluid" width="30%">
+			<div style="font-size: 10px;">
+			 <p>
+				<b>Cashier:</b> {{ hdr.cas_name }} </br>
+				<b>Order By:</b> {{ hdr.Sales_Staff }} </br>
+				<b>Date:</b> {{ hdr.sa_date }} </br>
+			 </p>
+			</div>	
+		</div>	
+
+
+		<table cellspacing="15" cellpadding="10" style="font-size: 10px; width: 20%;" >
+			<tr>
+			  <th>GST (INC)</th>
+			  <th>Rate</th>
+			  <th>Taxable</th>
+			  <th>GST (INC)</th>			
+			</tr>
+			<tr>
+			  <td></td>
+			  <td>{{ hdr.GST_Rate }}</td>
+			  <td>{{ hdr.Taxable }}</td>
+			  <td>{{ hdr.GST_Amt }}</td>
+			</tr>  
+		</table>
+
+		<table cellspacing="15" cellpadding="10" style="font-size: 10px; width: 20%;" >
+			<tr>
+			  <th>{{ hdr.Footer1 }}<br>{{ hdr.Footer2 }}
+			  </th>		
+			</tr> 
+		</table>
+</body>
+</html>

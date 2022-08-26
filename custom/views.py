@@ -1888,12 +1888,29 @@ class itemCartViewset(viewsets.ModelViewSet):
 
                     is_apply = True      
                 
-                
                 for idg, u in enumerate(queryset, start=1):
-                    pos = PosPackagedeposit.objects.filter(itemcart=u).first()
+                    pos = PosPackagedeposit.objects.filter(itemcart=u)
+                    tot_amt = 0
                     if pos:
-                        pos.deposit_amt=u.deposit 
-                        pos.save()
+                        autoamt = float(u.deposit)
+                        auto_ids = pos.filter(auto=True)
+                        auto_net = sum([ca.price * ca.qty for ca in auto_ids if ca.price and ca.qty])
+                        autonet = float("{:.2f}".format(auto_net))
+                       
+                        for idg, l in enumerate(pos, start=1):
+                            if l.auto == True:
+                                net_amt = l.price * l.qty
+                                if net_amt > 0:
+                                    percent = (net_amt / autonet) * 100 
+                                    updateval = (float(autoamt) * float(percent)) / 100
+                                    l.deposit_amt = "{:.2f}".format(float(updateval))
+                                    l.save()
+                                    tot_amt += float(l.deposit_amt)
+                                    if idg == len(pos):
+                                        v = autoamt - tot_amt
+                                        l.deposit_amt = float(l.deposit_amt) + v
+                                        l.save()
+
 
                 if is_apply == True:
                     result = {'status': status.HTTP_200_OK,"message":"Auto Deposit Added Succesfully",'error': False}
@@ -4768,14 +4785,14 @@ class itemCartViewset(viewsets.ModelViewSet):
                 return Response(data=result, status=status.HTTP_200_OK)
 
             queryset = self.filter_queryset(self.get_queryset()).filter(itemcodeid__item_div__in=[3]).filter(~Q(itemcodeid__item_type='PACKAGE')).exclude(type__in=('Top Up','Sales'),is_foc=True)
-            if not queryset:
-                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
-                return Response(data=result, status=status.HTTP_200_OK)
+            # if not queryset:
+            #     result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+            #     return Response(data=result, status=status.HTTP_200_OK)
 
             cart_ids = queryset
-            if not cart_ids:
-                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"There is not cart based on this Cart ID so create cart then add addtional discount!!",'error': True} 
-                return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+            # if not cart_ids:
+            #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"There is not cart based on this Cart ID so create cart then add addtional discount!!",'error': True} 
+            #     return Response(result, status=status.HTTP_400_BAD_REQUEST) 
             
             tmp = False
             for g in cart_ids:
@@ -7509,6 +7526,11 @@ class CartServiceCourseViewset(viewsets.ModelViewSet):
             if 'treat_type' in request.data and request.data['treat_type'] in ['FFi','FFd']:
                 if request.data['treatment_limit_times'] == None:
                    request.data['treatment_limit_times'] = 0
+            
+            if 'treat_expiry' in request.data and request.data['treat_expiry']:
+                if request.data['treat_expiry'] <= str(date.today()):
+                    request.data['treat_expiry'] = None
+                    
 
             serializer = self.get_serializer(cart, data=request.data, partial=True)
             if serializer.is_valid():
@@ -12231,9 +12253,12 @@ class QuotationListViewset(viewsets.ModelViewSet):
         number = self.request.GET.get('searchnumber','')
         datefrom = self.request.GET.get('searchfrom','2021-01-01')
         dateto = self.request.GET.get('searchto','2022-01-21')
-        date_select = datetime.datetime.strptime(dateto, '%Y-%m-%d')
-        delta = timedelta(days=1)
-        dateto = date_select + delta
+        # date_select = datetime.datetime.strptime(dateto, '%Y-%m-%d')
+        # delta = timedelta(days=1)
+        # dateto = date_select + delta
+
+        # print(datefrom,"datefrom")
+        # print(dateto,"dateto")
         
         if not searchid == '':
             return QuotationModel.objects.filter(id=searchid,active='active').order_by('-pk')

@@ -394,7 +394,38 @@ img.sticky {
       </table>
     </div>
   </div>
+  <br/>
+
+  <div class="row">
+    <div class="column" style="width: 30%">
+      <table>
+        <tr>
+          <th>Daily Summary</th>
+        </tr>
+        <tr>
+          <td style="text-align: left">No of Sales Receipt  - {{ receipt_count }}</td>
+          
+        </tr>
+        <tr>
+          <td style="text-align: left">No of Treatment Done  - {{ td_count }}</td>
+        </tr>
+       
+      </table>
+    </div>
+  </div>
+  <br/>
   
+  {% if dayendclose %}
+    <div class="d-flex justify-content-end">
+      <div class="split" style="width: 25%;line-height: 10px">
+        <p>Checked By : {{ confirmed_user }} </p>
+        <p>at {{ confirm_date }} </p>
+      </div>
+
+  </div>
+ {% endif %}
+
+
   <!-- <fix>
     <div class="box">
       <div class="split">

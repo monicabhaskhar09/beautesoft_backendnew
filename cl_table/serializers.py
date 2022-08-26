@@ -7,7 +7,7 @@ CustomerClass, RewardPolicy, RedeemPolicy, Diagnosis, DiagnosisCompare, Security
 DailysalesdataDetail, DailysalesdataSummary,Holditemdetail,PrepaidAccount,CreditNote,TreatmentAccount,
 DepositAccount, CustomerPoint, MrRewardItemType,Smsreceivelog,Systemsetup,TreatmentProtocol,
 CustomerTitle,ItemDiv,Tempcustsign,CustomerDocument,TreatmentPackage,ContactPerson,ItemFlexiservice,
-termsandcondition)
+termsandcondition,Participants)
 from cl_app.models import ItemSitelist, SiteGroup
 from custom.models import EmpLevel,Room,VoucherRecord
 from django.contrib.auth.models import User
@@ -279,7 +279,7 @@ class CustomerdetailSerializer(serializers.ModelSerializer):
         for i in tr_acc: 
             last_tracc_ids = TreatmentAccount.objects.filter(ref_transacno=i.sa_transacno,
             treatment_parentcode=i.treatment_parentcode
-            ).only('ref_transacno','treatment_parentcode').order_by('-pk').first()
+            ).only('ref_transacno','treatment_parentcode').order_by('-sa_date','-sa_time','-id').first()
             if last_tracc_ids:
                 tr_balance += last_tracc_ids.balance if last_tracc_ids.balance else 0
                 tr_outstanding += last_tracc_ids.outstanding if last_tracc_ids.outstanding else 0 
@@ -291,7 +291,7 @@ class CustomerdetailSerializer(serializers.ModelSerializer):
         type='Deposit').only('cust_code','type').order_by('pk')
         for j in dep_acc:
             de_acc_ids = DepositAccount.objects.filter(sa_transacno=j.sa_transacno,
-            ref_productcode=j.ref_productcode).only('sa_transacno','ref_productcode').order_by('-pk').first()
+            ref_productcode=j.ref_productcode).only('sa_transacno','ref_productcode').order_by('-sa_date','-sa_time','-id').first()
             # print(de_acc_ids,"de_acc_ids")
             # print(de_acc_ids.balance,"de_acc_ids.balance")
             if de_acc_ids and not de_acc_ids.balance is None and de_acc_ids.balance > 0:
@@ -421,7 +421,8 @@ class CustomerdetailSerializer(serializers.ModelSerializer):
         'voucher_count': voucherids,
         'appoint' : appointment,
         'cust_img': cust_img,
-        'is_allowedit':is_allowedit
+        'is_allowedit':is_allowedit,
+        'cust_point_value' : "{:.2f}".format(float(obj.cust_point_value)) if obj.cust_point_value else 0
         }
         return mapped_object    
        
@@ -1000,7 +1001,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
         fields = ['id','appt_date','appt_code','appt_fr_time','appt_to_time','Appt_typeid','appt_type','cust_noid',
         'cust_name','appt_phone','new_remark','appt_created_by','Source_Codeid','source_name','Room_Codeid',
         'room_code','appt_status','emp_noid','emp_name','requesttherapist','ItemSite_Codeid','itemsite_code',
-        'site_name','cust_refer','sec_status','walkin']
+        'site_name','cust_refer','sec_status','walkin','maxclasssize']
         read_only_fields = ('cust_name','appt_code')
 
     def validate(self, data):
@@ -3037,7 +3038,7 @@ class CustomerDocumentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomerDocument
-        fields = ['id','customer_id','filename','document_name','file']  
+        fields = ['id','customer_id','filename','document_name','file','photo']  
             
     def to_representation(self, obj):
         request = self.context['request']
@@ -3117,3 +3118,16 @@ class termsandconditionSerializer(serializers.ModelSerializer):
     class Meta:
         model = termsandcondition
         fields = '__all__'
+
+class ParticipantsSerializer(serializers.ModelSerializer):
+
+    cust_name = serializers.CharField(source='cust_id.cust_name',required=False)
+    cust_phone2 = serializers.CharField(source='cust_id.cust_phone2',required=False)
+    cust_code = serializers.CharField(source='cust_id.cust_code',required=False)
+    cust_refer = serializers.CharField(source='cust_id.cust_refer',required=False)
+
+
+    class Meta:
+        model = Participants
+        fields = ['id','appt_id','cust_id','isactive','cust_name','cust_phone2',
+        'cust_code','cust_refer'] 

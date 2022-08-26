@@ -3067,6 +3067,7 @@ class Appointment(models.Model):
     treat_parentcode = models.CharField(db_column='Treat_ParentCode', max_length=20, blank=True, null=True)  # Field name made lowercase.
     bookedby = models.CharField(db_column='bookedby', max_length=200, blank=True, null=True)  # Field name made lowercase.
     editedby = models.CharField(db_column='editedby', max_length=200, blank=True, null=True)  # Field name made lowercase.
+    maxclasssize = models.IntegerField(db_column='maxclasssize', null=True,  blank=True)  # Field name made lowercase.
 
     class Meta:
         db_table = 'Appointment'
@@ -3859,6 +3860,7 @@ class CustomerDocument(models.Model):
     document_name = models.CharField(db_column='document_name', max_length=500, blank=True, null=True)
     created_at = models.DateTimeField(default=timezone.now, editable=False) 
     file = models.FileField(upload_to='img')
+    photo = models.BooleanField(db_column='photo', blank=True, null=True)
  
     class Meta:
         db_table = 'CustomerDocument'
@@ -3922,3 +3924,26 @@ class termsandcondition(models.Model):
     class Meta:
         db_table = 'termsandcondition'
  
+
+class Dayendconfirmlog(models.Model):
+    id = models.AutoField(db_column='ID', primary_key=True)
+    user_loginid = models.ForeignKey('cl_table.Fmspw', on_delete=models.PROTECT,null=True)
+    username = models.CharField(db_column='username', max_length=500, blank=True, null=True) 
+    dayend_date = models.DateField(db_column='dayend_date', blank=True, null=True) 
+    confirm_date = models.DateTimeField(blank=True, null=True)
+    Site_Codeid = models.ForeignKey('cl_app.ItemSitelist', on_delete=models.PROTECT, null=True)
+    site_code = models.CharField(db_column='Site_Code', max_length=50, null=True, blank=True)  # Field name made lowercase.
+    dayend_pdf = models.ImageField(upload_to='img', null=True)
+
+    class Meta:
+        db_table = 'Dayendconfirmlog'
+
+
+class Participants(models.Model):
+    id = models.AutoField(db_column='ID', primary_key=True)
+    appt_id = models.ForeignKey('cl_table.Appointment', on_delete=models.PROTECT,null=True)
+    cust_id = models.ForeignKey('cl_table.Customer', on_delete=models.PROTECT, null=True) 
+    isactive = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = 'Participants'

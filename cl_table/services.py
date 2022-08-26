@@ -1782,6 +1782,13 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                     dtl.save()
 
                     if c.helper_ids.exists():
+                        dohelperids = list(set(ItemHelper.objects.filter(sa_transacno=sa_transacno,
+                        line_no=dtl.dt_lineno).values_list('times', flat=True).distinct()))
+                        if dohelperids != []:
+                            dtl.dt_itemdesc = dtl.dt_itemdesc+" "+"(TD - "+str(len(dohelperids))+")"
+                            dtl.save()
+
+
                         treatk_ids = Treatment.objects.filter(treatment_parentcode=treatment_parentcode).order_by('pk').first()
                         if treatk_ids and treatk_ids.type in ['FFi','FFd']:
                             ef_done_ids = Treatment.objects.filter(treatment_parentcode=treatment_parentcode,status="Done").order_by('pk').count()
