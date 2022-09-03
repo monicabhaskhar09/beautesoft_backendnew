@@ -2936,7 +2936,7 @@ class TreatmentDoneViewset(viewsets.ModelViewSet):
                 service_codeids = Treatment.objects.filter(treatment_parentcode=trmt_obj.treatment_parentcode).order_by('pk').first()    
 
                 if row.type in ['FFd','FFi']:
-                    course = service_codeids.course
+                    course = service_codeids.Item_Codeid.item_name
                     item_code = str(service_codeids.item_code) 
                 else:
                     course = trmt_obj.course
@@ -3100,7 +3100,14 @@ class TreatmentDoneViewset(viewsets.ModelViewSet):
                             flsystem_ids = Systemsetup.objects.filter(title='flexitdexpiredlist',value_name='flexitdexpiredlist',value_data='True',isactive=True).first()
                             if flsystem_ids: 
                                 if treatment_limit_times > done_ids or treatment_limit_times == 0:
-                                    lst.extend([q_val[0]])  
+                                    lst.extend([q_val[0]]) 
+                    else:
+                        if treatment_limit_times is not None:
+                            if treatment_limit_times > done_ids or treatment_limit_times == 0:
+                                lst.extend([q_val[0]])   
+
+
+
                                 
 
                 # print(lst,"lst")
@@ -6138,8 +6145,30 @@ class VoidViewset(viewsets.ModelViewSet):
                                 description = d.itemcart.itemcodeid.item_name+" "+"(Void Transaction by {0})".format(fmspw[0].pw_userlogin)
                                 
                                 for i in d.itemcart.multi_treat.all():
-                                    Treatment.objects.filter(pk=i.pk).update(course=description,status="Open",
-                                    trmt_room_code=None,treatment_count_done=0)
+                                    if i.type in ['FFi','FFd']:
+                                        # Treatment.objects.filter(pk=i.pk).update(course=description,status="Cancel",
+                                        # trmt_room_code=None,treatment_count_done=0)
+                                        
+                                        i.treatment_code = str(i.treatment_code)+"-"+"VT"
+                                        i.times =  str(i.times)+"-"+"VT"
+                                        i.treatment_no =  str(i.treatment_no)+"-"+"VT"
+                                        i.course = description
+                                        i.status = "Cancel"
+                                        i.trmt_room_code = None
+                                        i.treatment_count_done = 0
+                                        i.save()
+                                        ex_ids = Treatment.objects.filter(~Q(pk=i.pk)).filter(treatment_parentcode=d.itemcart.treatment.treatment_parentcode).order_by('pk')
+                                        for e in ex_ids:
+                                            tim = str(int(e.times) -1).zfill(2)
+                                            tr_no = str(int(e.treatment_no) -1).zfill(2)
+                                            e.times = tim
+                                            e.treatment_no = tr_no
+                                            e.treatment_code = str(d.itemcart.treatment.treatment_parentcode)+"-"+str(tim)
+                                            e.save() 
+
+                                    else:
+                                        Treatment.objects.filter(pk=i.pk).update(course=description,status="Open",
+                                        trmt_room_code=None,treatment_count_done=0)
 
                                     TmpItemHelper.objects.filter(treatment__pk=i.pk).delete()
                                     
@@ -6689,8 +6718,30 @@ class VoidViewset(viewsets.ModelViewSet):
                                 description = da.itemcart.itemcodeid.item_name+" "+"(Void Transaction by {0})".format(fmspw[0].pw_userlogin)
                                 
                                 for i in da.itemcart.multi_treat.all():
-                                    Treatment.objects.filter(pk=i.pk).update(course=description,status="Open",
-                                    trmt_room_code=None,treatment_count_done=0)
+                                    if i.type in ['FFi','FFd']:
+                                        # Treatment.objects.filter(pk=i.pk).update(course=description,status="Cancel",
+                                        # trmt_room_code=None,treatment_count_done=0)
+                                        
+                                        i.treatment_code = str(i.treatment_code)+"-"+"VT"
+                                        i.times =  str(i.times)+"-"+"VT"
+                                        i.treatment_no =  str(i.treatment_no)+"-"+"VT"
+                                        i.course = description
+                                        i.status = "Cancel"
+                                        i.trmt_room_code = None
+                                        i.treatment_count_done = 0
+                                        i.save()
+                                        ex_ids = Treatment.objects.filter(~Q(pk=i.pk)).filter(treatment_parentcode=da.itemcart.treatment.treatment_parentcode).order_by('pk')
+                                        for e in ex_ids:
+                                            tim = str(int(e.times) -1).zfill(2)
+                                            tr_no = str(int(e.treatment_no) -1).zfill(2)
+                                            e.times = tim
+                                            e.treatment_no = tr_no
+                                            e.treatment_code = str(da.itemcart.treatment.treatment_parentcode)+"-"+str(tim)
+                                            e.save() 
+
+                                    else:
+                                        Treatment.objects.filter(pk=i.pk).update(course=description,status="Open",
+                                        trmt_room_code=None,treatment_count_done=0)
 
                                     TmpItemHelper.objects.filter(treatment__pk=i.pk).delete()
 
@@ -7254,9 +7305,9 @@ class TreatmentAccListViewset(viewsets.ModelViewSet):
                                     
                             sumacc_ids = TreatmentAccount.objects.filter(ref_transacno=trobj.sa_transacno,
                             treatment_parentcode=data["treatment_parentcode"],
-                            type__in=('Deposit', 'Top Up')).only('ref_transacno','treatment_parentcode','site_code','type').order_by('pk').aggregate(Sum('balance'))
+                            type__in=('Deposit', 'Top Up')).only('ref_transacno','treatment_parentcode','site_code','type').order_by('pk').aggregate(Sum('deposit'))
                             if sumacc_ids:
-                                data["payment"] = "{:.2f}".format(float(sumacc_ids['balance__sum']))
+                                data["payment"] = "{:.2f}".format(float(sumacc_ids['deposit__sum']))
                             else:
                                 data["payment"] = "0.00"
 
@@ -11071,7 +11122,7 @@ class HolditemdetailViewset(viewsets.ModelViewSet):
             dt_lineno=hold_obj.hi_lineno).order_by('pk').first() 
             
             if depo_obj:
-                print(depo_obj,depo_obj.pk,"depo_obj")
+                # print(depo_obj,depo_obj.pk,"depo_obj")
                 if hold_obj.hi_amt == 0:
                     result = {'status': status.HTTP_200_OK , "message": "Validated Succesfully", 
                     'error': False}

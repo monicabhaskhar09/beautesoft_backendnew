@@ -395,6 +395,13 @@ class CustomerdetailSerializer(serializers.ModelSerializer):
             if obj.site_code == site.itemsite_code: 
                 is_allowedit = True
 
+        cus_haudids = list(set(PosHaud.objects.filter(sa_custno=obj.cust_code,
+        isvoid=False).values_list('sa_transacno',flat=True).distinct()))
+        cus_daudids = PosDaud.objects.filter(sa_transacno__in=cus_haudids,dt_itemnoid__Item_Deptid__isfirsttrial=True).values('pk','sa_date','itemsite_code','dt_itemdesc','dt_deposit')        
+        if cus_daudids:
+            isfirsttrial = True
+        else:
+            isfirsttrial = False  
        
 
         mapped_object = {'id': obj.pk,'cust_code':obj.cust_code,'cust_name':obj.cust_name,
@@ -422,7 +429,9 @@ class CustomerdetailSerializer(serializers.ModelSerializer):
         'appoint' : appointment,
         'cust_img': cust_img,
         'is_allowedit':is_allowedit,
-        'cust_point_value' : "{:.2f}".format(float(obj.cust_point_value)) if obj.cust_point_value else 0
+        'cust_point_value' : "{:.2f}".format(float(obj.cust_point_value)) if obj.cust_point_value else 0,
+        'isfirsttrial': isfirsttrial,
+        'isfirsttrial_data': cus_daudids
         }
         return mapped_object    
        
@@ -1794,7 +1803,8 @@ class CustApptSerializer(serializers.ModelSerializer):
         'cust_remark': instance.cust_remark if instance.cust_remark else "",
         'cust_refer': instance.cust_refer if instance.cust_refer else "",'iscurrent':iscurrent,
         'cust_corporate': instance.cust_corporate,
-        'contactperson': contactperson}
+        'contactperson': contactperson,
+        'outstanding_amt': "{:.2f}".format(float(instance.outstanding_amt)) if instance.outstanding_amt else "0.00"}
         return mapped_object    
 
    

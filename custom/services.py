@@ -153,14 +153,14 @@ def GeneratePDF(self,request, sa_transacno):
     template_path = 'customer_receipt.html'
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = 'attachment; filename="Customer Receipt Report.pdf"'
-    gst = GstSetting.objects.filter(item_desc='GST',isactive=True).first()
+    # gst = GstSetting.objects.filter(item_desc='GST',isactive=True).first()
     #hdr = PosHaud.objects.filter(sa_transacno=sa_transacno,ItemSite_Codeid__pk=site.pk).only('sa_transacno','ItemSite_Codeid').order_by("id")[:1]
     hdr = PosHaud.objects.filter(sa_transacno=sa_transacno).only('sa_transacno','ItemSite_Codeid').order_by("-id")[:1]
     if not hdr:
         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"PosHaud Does not exist in this outlet!!",'error': True} 
         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)   
 
-    daud = PosDaud.objects.filter(sa_transacno=sa_transacno)
+    daud = PosDaud.objects.filter(sa_transacno=sa_transacno).order_by('pk')
     if not daud:
         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"sa_transacno PosDaud Does not exist!!",'error': True}
         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)   
@@ -243,22 +243,41 @@ def GeneratePDF(self,request, sa_transacno):
     #         'total_balance':"{:.2f}".format(float(value['total_balance'])),'total_qty': value['total_qty']} 
     
     #gst = GstSetting.objects.filter(item_code="100001",item_desc='GST',isactive=True).first()
+    gst = GstSetting.objects.filter(isactive=True,activefromdate__lte=hdr[0].sa_date,
+    activetodate__gte=hdr[0].sa_date).first()
+
     if gst and gst.is_exclusive == True and gst.item_value:
         tax_amt = tot_depo * (gst.item_value / 100)
         billable_amount = "{:.2f}".format(tot_depo + tax_amt)
     else:
         billable_amount = "{:.2f}".format(tot_depo)
 
-    tot_payamt = 0.0
+    gst_lable = ""; gstlable = ""
+    if site.site_is_gst == True:
+        if site.is_exclusive == True:
+            if gst and gst.item_value:
+                gst_lable = "GST (EXC "+str(int(gst.item_value))+"%)"
+        elif site.is_exclusive == False: 
+            gstlable = "GST (INC)" 
+            
+                
+
+    tot_payamt = 0.0;tot_gst = 0 ; pay_actamt = 0
     for ta in taud:
         pay_amt = float(ta.pay_amt)
         tot_payamt += pay_amt
-
-
+        pay_gst = float(ta.pay_gst)
+        tot_gst += pay_gst
+        pay_actamt += float(ta.pay_actamt)
+ 
+    taxable = pay_actamt - tot_gst
     sub_data = {'total_qty':str(tot_qty),'trans_amt':str("{:.2f}".format((tot_trans))),
     'deposit_amt':str("{:.2f}".format((tot_depo))),'total_balance':str("{:.2f}".format((tot_bal))),
     'subtotal':str("{:.2f}".format((tot_depo))),'billing_amount':"{:.2f}".format(float(tot_payamt)),
-    'tot_disc':str("{:.2f}".format((tot_disc)))}
+    'tot_disc':str("{:.2f}".format((tot_disc))),
+    'pay_gst':str("{:.2f}".format(tot_gst)) if tot_gst else "0.00",
+    'taxable':  str("{:.2f}".format(taxable)) if taxable else "0.00"
+    }
 
     split = str(hdr[0].sa_date).split(" ")
     #date = datetime.datetime.strptime(str(split[0]), '%Y-%m-%d').strftime('%d.%m.%Y')
@@ -266,6 +285,7 @@ def GeneratePDF(self,request, sa_transacno):
     Time = str(esplit[1]).split(":")
 
     time = Time[0]+":"+Time[1]
+    dtime = datetime.datetime.strptime(str(time),"%H:%M").strftime("%I:%M:%S %p")
     day = datetime.datetime.strptime(str(split[0]), '%Y-%m-%d').strftime('%a')
     title = Title.objects.filter(product_license=site.itemsite_code).first()
     path = None
@@ -367,13 +387,16 @@ def GeneratePDF(self,request, sa_transacno):
     'footer5':title.trans_footer5 if title and title.trans_footer5 else '',
     'footer6':title.trans_footer6 if title and title.trans_footer6 else '',
     'hdr': hdr[0], 'daud':daud,'taud_f':taud_f,'postaud':taud,'day':day,'fmspw':fmspw,
-    'date':date,'time':time,'percent':int(gst.item_value) if gst and gst.item_value else "0" ,'path':path if path else '','title':title if title else None,
+    'date':date,'time':dtime,'percent':int(gst.item_value) if gst and gst.item_value else "0" ,'path':path if path else '','title':title if title else None,
     'packages': str(packages),'site':site,'treatment': treatopen_ids,'settings': set_obj,
     'tot_price':tot_price,'prepaid_balance': prepaid_amt,
     'creditnote_balance': credit_amt,'total_netprice':str("{:.2f}".format((total_netprice))),
     'custsign_ids':path_custsign if path_custsign else '','prepaid_lst':prepaid_lst,
     'prepaidbal':prepaidbal,'treatmentbal':treatmentbal,'showprepaid': showprepaid,
-    'showvoidreason':showvoidreason,'showcredit':showcredit,'creditlst': creditlst}
+    'showvoidreason':showvoidreason,'showcredit':showcredit,'creditlst': creditlst,
+    'gst_reg_no': title.gst_reg_no if title and title.gst_reg_no else '',
+    'gst_lable': gst_lable,'first_sales': daud[0].dt_Staffnoid.display_name if daud[0].dt_Staffnoid else '',
+    'gstlable': gstlable}
     data.update(sub_data)
     if site.inv_templatename:
         template = get_template(site.inv_templatename)

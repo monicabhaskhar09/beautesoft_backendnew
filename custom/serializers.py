@@ -190,7 +190,7 @@ class VoucherRecordSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = VoucherRecord
-        fields = ['id','voucher_no','cust_codeid','cust_name','value','percent','site_codeid','sitecode_name','issued_expiry_date','isvalid']
+        fields = ['id','voucher_no','cust_codeid','cust_name','value','percent','site_codeid','sitecode_name','issued_expiry_date','isvalid','voucher_name']
                  
 class VoucherRecordAccSerializer(serializers.ModelSerializer):
 
@@ -531,7 +531,7 @@ class CartServiceCourseSerializer(serializers.ModelSerializer):
         treatment_limit_times = obj.treatment_limit_times
         if not obj.treatment_limit_times:
             if obj.itemcodeid.treatment_limit_active == True:
-                treatment_limit_times = obj.itemcodeid.Treatment_Limit_Count
+                treatment_limit_times = obj.itemcodeid.treatment_limit_count
 
         treat_type = obj.treat_type
         if not obj.treat_type:

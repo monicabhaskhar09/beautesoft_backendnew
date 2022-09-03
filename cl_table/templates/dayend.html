@@ -418,7 +418,9 @@ img.sticky {
   {% if dayendclose %}
     <div class="d-flex justify-content-end">
       <div class="split" style="width: 25%;line-height: 10px">
-        <p>Checked By : {{ confirmed_user }} </p>
+        <!-- <hr style="width: 25%"> -->
+        <p style="border-top: 1px solid black"></p>
+        <p>Confirmed By : {{ confirmed_user }} </p>
         <p>at {{ confirm_date }} </p>
       </div>
 

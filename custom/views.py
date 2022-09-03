@@ -5052,6 +5052,10 @@ class VoucherRecordViewset(viewsets.ModelViewSet):
         else:
             queryset = VoucherRecord.objects.filter(isvalid=True,cust_codeid=cust_obj.cust_no).order_by('-pk')
 
+        if request.GET.get('is_all',None):
+            queryset = VoucherRecord.objects.filter(cust_codeid=cust_obj.cust_no).order_by('-pk')
+
+
         state = status.HTTP_200_OK
         message = "Listed Succesfully"
         error = False

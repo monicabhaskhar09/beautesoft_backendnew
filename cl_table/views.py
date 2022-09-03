@@ -8636,14 +8636,15 @@ class postaudViewset(viewsets.ModelViewSet):
                         # print(paytable.gt_group,"paytable.gt_group")
                         # if stnewgetgt == 'GT1':
                         amount = float(req['pay_amt'])
-                        # if paytable.gt_group == 'GT1': 
-                        #     if calcgst > 0:
-                        #         if site and site.is_exclusive == True:
-                        #             pay_gst = float(req['pay_amt']) * (gst.item_value / 100) if gst and gst.item_value else 0.0
-                        #         else:
-                        #             pay_gst = (float(req['pay_amt']) * gst.item_value ) / (100+gst.item_value) if gst and gst.item_value else 0.0
-                        #         amount = float(req['pay_amt']) - pay_gst
-                        #         value['tax_amt'] += pay_gst
+                        if paytable.gt_group == 'GT1': 
+                            if calcgst > 0:
+                                if site and site.is_exclusive == True:
+                                    pass
+                                    # pay_gst = float(req['pay_amt']) * (gst.item_value / 100) if gst and gst.item_value else 0.0
+                                else:
+                                    pay_gst = (float(req['pay_amt']) * gst.item_value ) / (100+gst.item_value) if gst and gst.item_value else 0.0
+                                amount = float(req['pay_amt']) - pay_gst
+                                # value['tax_amt'] += pay_gst
                         # print(value['tax_amt'],"tax1")
                         card_no = False
                         
@@ -15553,13 +15554,40 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
                                       'error': True}
                             # return Response(result, status=status.HTTP_400_BAD_REQUEST)
                             raise ValueError("Employee Control No does not exist!!")
-                        if control_obj.control_prefix:
-                            control_prefix = control_obj.control_prefix
+                       
+                        if control_obj.include_sitecode == True:
+                            emp_code = str(control_obj.Site_Codeid.itemsite_code) + str(control_obj.control_no)
                         else:
-                            control_prefix = fmspw[0].loginsite.itemsite_code
+                            if control_obj.control_prefix:
+                                emp_code = str(control_obj.control_prefix) + str(control_obj.control_no)
+                            else:
+                                emp_code = str(control_obj.control_no)
+                        
+                        sa_count = 1
+
+                        while sa_count > 0:
+                            emp_v = Employee.objects.filter(emp_code=emp_code)
+                            
+                            if emp_v:    
+                                newcontrol_obj = ControlNo.objects.filter(control_description__iexact="EMP CODE",
+                                                               Site_Codeid__pk=fmspw[0].loginsite.pk).first()
+
+                                if newcontrol_obj.include_sitecode == True:
+                                    emp_code = str(newcontrol_obj.Site_Codeid.itemsite_code) + str(newcontrol_obj.control_no)
+                                else:
+                                    if newcontrol_obj.control_prefix:
+                                        emp_code = str(newcontrol_obj.control_prefix) + str(newcontrol_obj.control_no)
+                                    else:
+                                        emp_code = str(newcontrol_obj.control_no)
+                                                    
+                                newcontrol_obj.control_no = int(newcontrol_obj.control_no) + 1
+                                newcontrol_obj.save() 
+                                sa_count += 1
+                            else:
+                                sa_count = 0   
+                        
 
 
-                        emp_code = str(control_prefix) + str(control_obj.control_no)
                         defaultobj = ItemSitelist.objects.filter(pk=request.data['Site_Codeid'],
                                                                  itemsite_isactive=True).first()
 
@@ -15684,12 +15712,23 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
 
                 return Response(result, status=status.HTTP_201_CREATED)
 
-            message = "Invalid Input"
+          
             error = True
             data = serializer.errors
+            # print(data,"data")
+            if 'non_field_errors' in data:
+                message = data['non_field_errors'][0]
+            else:
+                # message = "Invalid Input"
+                first_key = list(data.keys())[0]
+                # print(first_key,"first_key")
+                # print(data[first_key][0],"jj")
+                message = str(first_key)+":  "+str(data[first_key][0])
+
             result = response(self, request, queryset, total, state, message, error, serializer_class, data,
-                              action=self.action)
+                            action=self.action)
             return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
         except Exception as e:
           invalid_message = str(e)
           return general_error_response(invalid_message)
@@ -15794,8 +15833,14 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
                                 emp_code=employee.emp_code,
                                 user=user,
                                 loginsite=None,
-                                flgappt = employee.show_in_appt,
-                                flgsales = employee.show_in_sales,
+                                flgappt = True,
+                                flgsales = True,
+                                flgdisc=True,flgexchange=True,flgrevtrm=True,flgvoid=True,
+                                flgrefund=True,flgemail=True,flgcustadd=True,flgfoc=True,
+                                flgrefundpp=True,flgrefundcn=True,flgstockusagememo=True,
+                                flgchangeunitprice=True,flgallowinsufficent=True,
+                                flgallowblockappointment=True,flgchangeexpirydate=True,
+                                flgalldayendsettlement=True,flgtransacdisc=True,flgeditath=True
                                 ).save()
                         employee.pw_userlogin = request.data['display_name']
                         employee.pw_password = request.data['pw_password']
@@ -15821,13 +15866,22 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
                                   action=self.action)
                 return Response(result, status=status.HTTP_200_OK)
 
-            state = status.HTTP_204_NO_CONTENT
-            message = "Invalid Input"
+           
             error = True
             data = serializer.errors
+            # print(data,"data")
+            state = status.HTTP_400_BAD_REQUEST
+            if 'non_field_errors' in data:
+                message = data['non_field_errors'][0]
+            else:
+                # message = "Invalid Input"
+                first_key = list(data.keys())[0]
+                message = str(first_key)+": "+str(data[first_key][0])
+
             result = response(self, request, queryset, total, state, message, error, serializer_class, data,
-                              action=self.action)
-            return Response(result, status=status.HTTP_200_OK)
+                            action=self.action)
+            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
         except Exception as e:
           invalid_message = str(e)
           return general_error_response(invalid_message)
@@ -15838,7 +15892,7 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
             total = None
             serializer_class = None
             employee = self.get_object(pk)
-            print(request.data)
+            # print(request.data)
             serializer = StaffPlusSerializer(employee, data=request.data, partial=True,
                                              context={'request': self.request})
             if serializer.is_valid():
@@ -15851,19 +15905,28 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
                                   action=self.action)
                 return Response(result, status=status.HTTP_200_OK)
 
-            state = status.HTTP_204_NO_CONTENT
-            message = "Invalid Input"
             error = True
             data = serializer.errors
+            # print(data,"data")
+            state = status.HTTP_400_BAD_REQUEST
+            if 'non_field_errors' in data:
+                message = data['non_field_errors'][0]
+            else:
+                # message = "Invalid Input"
+                first_key = list(data.keys())[0]
+                message = str(first_key)+": "+str(data[first_key][0])
+
             result = response(self, request, queryset, total, state, message, error, serializer_class, data,
-                              action=self.action)
-            return Response(result, status=status.HTTP_200_OK)
+                            action=self.action)
+            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+
         except Exception as e:
           invalid_message = str(e)
           return general_error_response(invalid_message)
 
     def destroy(self, request, pk=None):
-        #try:
+        try:
             queryset = None
             total = None
             serializer_class = None
@@ -15885,9 +15948,9 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
             result = response(self, request, queryset, total, state, message, error, serializer_class, data,
                               action=self.action)
             return Response(result, status=status.HTTP_200_OK)
-        #except Exception as e:
-        #    invalid_message = str(e)
-        #    return general_error_response(invalid_message)
+        except Exception as e:
+           invalid_message = str(e)
+           return general_error_response(invalid_message)
 
     def perform_destroy(self, instance):
         instance.emp_isactive = False
@@ -16957,8 +17020,42 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
                                 'error': True}
                         return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
-                    cus_code = str(control_obj.Site_Codeid.itemsite_code) + str(control_obj.control_no)
+                    
+                    
+                    if control_obj.include_sitecode == True:
+                        cus_code = str(control_obj.Site_Codeid.itemsite_code) + str(control_obj.control_no)
+                    else:
+                        if control_obj.control_prefix:
+                            cus_code = str(control_obj.control_prefix) + str(control_obj.control_no)
+                        else:
+                            cus_code = str(control_obj.control_no)
+                    
+                    sa_count = 1
+
+                    while sa_count > 0:
+                        cust_v = Customer.objects.filter(cust_code=cus_code)
+                        
+                        if cust_v:    
+                            newcontrol_obj = ControlNo.objects.filter(control_description__iexact="VIP CODE",
+                                                        Site_Codeid__pk=site.pk).first()
+
+                            if newcontrol_obj.include_sitecode == True:
+                                cus_code = str(newcontrol_obj.Site_Codeid.itemsite_code) + str(newcontrol_obj.control_no)
+                            else:
+                                if newcontrol_obj.control_prefix:
+                                    cus_code = str(newcontrol_obj.control_prefix) + str(newcontrol_obj.control_no)
+                                else:
+                                    cus_code = str(newcontrol_obj.control_no)
+                                                
+                            newcontrol_obj.control_no = int(newcontrol_obj.control_no) + 1
+                            newcontrol_obj.save() 
+                            sa_count += 1
+                        else:
+                            sa_count = 0   
+                                 
+
                     gender = False;title = False;source = False
+
 
                     if 'Cust_sexesid' in request.data and request.data['Cust_sexesid']:
                         gender_obj = Gender.objects.filter(pk=request.data['Cust_sexesid'], itm_isactive=True).first()
@@ -17031,7 +17128,7 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
                     first_key = list(data.keys())[0]
                     # print(first_key,"first_key")
                     # print(data[first_key][0],"jj")
-                    message = data[first_key][0]
+                    message = str(first_key)+":  "+str(data[first_key][0])
 
                 result = response(self, request, queryset, total, state, message, error, serializer_class, data,
                                 action=self.action)
@@ -17153,13 +17250,13 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
                 first_key = list(data.keys())[0]
                 # print(first_key,"first_key")
                 # print(data[first_key][0],"jj")
-                message = data[first_key][0]
+                message = str(first_key)+":  "+str(data[first_key][0])
 
-            state = status.HTTP_204_NO_CONTENT
+            state = status.HTTP_400_BAD_REQUEST
             error = True
             result = response(self, request, queryset, total, state, message, error, serializer_class, data,
                               action=self.action)
-            return Response(result, status=status.HTTP_200_OK)
+            return Response(result, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)
@@ -17187,13 +17284,22 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
                                   action=self.action)
                 return Response(result, status=status.HTTP_200_OK)
 
-            state = status.HTTP_204_NO_CONTENT
-            message = "Invalid Input"
-            error = True
+           
             data = serializer.errors
+            # print(data,"data")
+
+            if 'non_field_errors' in data:
+                message = data['non_field_errors'][0]
+            else:
+                # message = "Invalid Input"
+                first_key = list(data.keys())[0]
+                message = str(first_key)+":  "+str(data[first_key][0])
+
+            state = status.HTTP_400_BAD_REQUEST
+            error = True
             result = response(self, request, queryset, total, state, message, error, serializer_class, data,
                               action=self.action)
-            return Response(result, status=status.HTTP_200_OK)
+            return Response(result, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)
@@ -21492,7 +21598,10 @@ class ParticipantsViewset(viewsets.ModelViewSet):
             if not cust_obj:
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer id does not exist!!",'error': True} 
                 return Response(data=result, status=status.HTTP_400_BAD_REQUEST) 
- 
+            
+            check_ids = Participants.objects.filter(appt_id=request.data['appt_id'],cust_id=request.data['cust_id']).order_by('-pk')
+            if check_ids:
+                raise Exception("Appointment id and cust id already exist in table")
 
             serializer = ParticipantsSerializer(data=request.data)
             if serializer.is_valid():

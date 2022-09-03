@@ -1,3 +1,4 @@
+from operator import mod
 from xml.dom.minidom import Document
 from django.db import models, transaction
 from django.core.validators import MaxValueValidator, MinValueValidator
@@ -420,7 +421,7 @@ class Treatment(models.Model):
     ]
 
     sys_code = models.AutoField(db_column='Sys_Code', primary_key=True)  # Field name made lowercase.
-    treatment_code = models.CharField(db_column='Treatment_Code', max_length=20, null=True)  # Field name made lowercase.
+    treatment_code = models.CharField(db_column='Treatment_Code', max_length=200, null=True)  # Field name made lowercase.
     course = models.CharField(db_column='Course', max_length=255, blank=True, null=True)  # Field name made lowercase.
     times = models.CharField(db_column='Times', max_length=10, blank=True, null=True)  # Field name made lowercase.
     treatment_no = models.CharField(db_column='Treatment_No', max_length=10, blank=True, null=True)  # Field name made lowercase.
@@ -2473,6 +2474,7 @@ class Stock(models.Model):
     item_price_ceiling = models.FloatField(db_column='Item_Price_Ceiling', blank=True, null=True)  # Field name made lowercase.
     flexipoints = models.FloatField(db_column='flexipoints', blank=True, null=True)
     redeempoints = models.FloatField(db_column='redeempoints', blank=True, null=True)
+    autoappointment = models.BooleanField(db_column='Autoappointment', blank=True, null=True)  # Field name made lowercase.
 
     class Meta:
         db_table = 'Stock'
@@ -3068,7 +3070,8 @@ class Appointment(models.Model):
     bookedby = models.CharField(db_column='bookedby', max_length=200, blank=True, null=True)  # Field name made lowercase.
     editedby = models.CharField(db_column='editedby', max_length=200, blank=True, null=True)  # Field name made lowercase.
     maxclasssize = models.IntegerField(db_column='maxclasssize', null=True,  blank=True)  # Field name made lowercase.
-
+    dt_lineno = models.IntegerField(db_column='dt_LineNo', blank=True, null=True)  # Field name made lowercase.
+    
     class Meta:
         db_table = 'Appointment'
 
@@ -3327,6 +3330,7 @@ class ControlNo(models.Model):
     mac_code = models.CharField(db_column='Mac_Code', max_length=4, blank=True, null=True)  # Field name made lowercase.
     updated_at = models.DateTimeField(auto_now=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
+    include_sitecode = models.BooleanField(default=False, blank=True, null=True)
 
     class Meta:
         db_table = 'Control_No'
@@ -3947,3 +3951,18 @@ class Participants(models.Model):
 
     class Meta:
         db_table = 'Participants'
+
+
+class StudioWork(models.Model):
+    id = models.AutoField(db_column='ID', primary_key=True)
+    work = models.CharField(db_column='work', max_length=500, blank=True, null=True) 
+    dateplus = models.IntegerField(db_column='dateplus', blank=True, null=True)  # Field name made lowercase.
+    isactive = models.BooleanField(default=True) 
+    emp_id = models.ForeignKey(Employee, on_delete=models.PROTECT,null=True)
+
+    class Meta:
+        db_table = 'StudioWork'
+
+    def __str__(self):
+        return str(self.work) 
+    
