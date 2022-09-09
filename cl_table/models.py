@@ -2065,7 +2065,8 @@ class Paytable(models.Model):
     pay_color = models.CharField(max_length=255, blank=True, null=True)
     qr_code = models.ImageField(upload_to='img', blank=True, null=True)
     paykey = models.IntegerField(db_column='paykey', default=0,blank=True, null=True)  # Field name made lowercase.
-
+    pay_is_rounding = models.BooleanField(db_column='Pay_Is_Rounding',default=False,blank=True, null=True)  # Field name made lowercase.
+    
     class Meta:
         db_table = 'PAYTABLE'
     
@@ -3865,10 +3866,24 @@ class CustomerDocument(models.Model):
     created_at = models.DateTimeField(default=timezone.now, editable=False) 
     file = models.FileField(upload_to='img')
     photo = models.BooleanField(db_column='photo', blank=True, null=True)
+    selected = models.BooleanField(db_column='selected', blank=True, null=True)
  
     class Meta:
         db_table = 'CustomerDocument'
 
+class ProjectDocument(models.Model):
+    id = models.AutoField(db_column='ID', primary_key=True) 
+    customer_id = models.ForeignKey('cl_table.Customer', on_delete=models.PROTECT,null=True) 
+    filename = models.CharField(db_column='filename', max_length=500, blank=True, null=True)
+    document_name = models.CharField(db_column='document_name', max_length=500, blank=True, null=True)
+    created_at = models.DateTimeField(default=timezone.now, editable=False) 
+    file = models.FileField(upload_to='img')
+    photo = models.BooleanField(db_column='photo', blank=True, null=True)
+    fk_project = models.ForeignKey('custom.ProjectModel', on_delete=models.PROTECT, null=True)
+    selected = models.BooleanField(db_column='selected', blank=True, null=True)
+
+    class Meta:
+        db_table = 'ProjectDocument'
 
 class CustLogAudit(models.Model):
     id = models.AutoField(db_column='ID', primary_key=True)

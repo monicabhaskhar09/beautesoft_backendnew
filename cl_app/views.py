@@ -13254,7 +13254,7 @@ class CustomerAccountViewset(viewsets.ModelViewSet):
                         sadate = datetime.datetime.strptime(str(datetime_ob), "%Y-%m-%d").strftime("%d-%m-%Y")
                         if not any(t['CustCode'] == te['CustCode'] for te in final_lst):
                             # print("iff")
-                            t_val = {'CustCode': t['CustCode'],'Site_Code': d['Site_Code'],'CustName': t['CustName'],'sa_date':sadate,'treat_bal': float("{:.2f}".format(t['Balance'])) if t['Balance'] else 0,'treat_out': float("{:.2f}".format(t['Outstanding'])) if t['Outstanding'] else 0}
+                            t_val = {'CustCode': t['CustCode'],'Site_Code': t['Site_Code'],'CustName': t['CustName'],'sa_date':sadate,'treat_bal': float("{:.2f}".format(t['Balance'])) if t['Balance'] else 0,'treat_out': float("{:.2f}".format(t['Outstanding'])) if t['Outstanding'] else 0}
                             final_lst.append(t_val)
                         else:
                             # print("elsee")

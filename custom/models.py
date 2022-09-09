@@ -113,6 +113,7 @@ class RoundSales(models.Model):
     roundvalue = models.FloatField(db_column='RoundValue', blank=True, null=True)  # Field name made lowercase.
     updated_at  = models.DateTimeField(auto_now=True,null=True)
     created_at = models.DateTimeField(auto_now_add=True,null=True)
+    site_code = models.CharField(db_column='Site_Code', max_length=500, blank=True, null=True)  # Field name made lowercase.
 
     class Meta:
         db_table = 'Round_Sales'

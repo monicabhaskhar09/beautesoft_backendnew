@@ -25,7 +25,7 @@ EquipmentDropdownSerializer,EquipmentUsageSerializer,EquipmentUsageItemModelSeri
 ItemEquipmentSerializer,ProjectSearchSerializer,CurrencytableSerializer,QuotationPaymentSerializer,
 ManualInvPaymentSerializer,QuotationItemDiscountSerializer,quotationsignSerializer,
 ManualInvoiceItemTableSerializer,TitleImageSerializer,StockImageSerializer,PaygroupImageSerializer,
-ItemDeptImageSerializer)
+ItemDeptImageSerializer,RoundSalesSerializer)
 from .models import (EmpLevel, Room, Combo_Services, ItemCart,VoucherRecord,RoundPoint, RoundSales,
 PaymentRemarks, HolditemSetup,PosPackagedeposit,SmtpSettings,MultiPricePolicy,salesStaffChangeLog,
 serviceStaffChangeLog,dateChangeLog,  TimeLogModel, ProjectModel, ActivityModel, QuotationModel, POModel, QuotationAddrModel, 
@@ -38,7 +38,7 @@ ManualInvoiceModel,ManualInvoiceDetailModel,ManualInvoiceAddrModel,ManualInvoice
 WorkOrderInvoiceDetailModel,WorkOrderInvoiceAddrModel,WorkOrderInvoiceItemModel,DeliveryOrderModel,
 DeliveryOrderDetailModel,DeliveryOrderAddrModel,DeliveryOrderItemModel,DeliveryOrdersign,
 EquipmentDropdownModel,EquipmentUsage,EquipmentUsageItemModel,Currencytable,QuotationPayment,
-ManualInvoicePayment,PosDiscQuant,quotationsign)
+ManualInvoicePayment,PosDiscQuant,quotationsign,RoundSales)
 from cl_table.models import(Treatment, Employee, Fmspw, Stock, ItemClass, ItemRange, Appointment,Customer,Treatment_Master,
 GstSetting,PosTaud,PosDaud,PosHaud,ControlNo,EmpSitelist,ItemStatus, TmpItemHelper, FocReason, PosDisc,
 TreatmentAccount, PosDaud, ItemDept, DepositAccount, PrepaidAccount, ItemDiv, Systemsetup, Title,
@@ -1189,29 +1189,50 @@ class EmployeeCartAPI(viewsets.ModelViewSet):
             return general_error_response(invalid_message)             
         
        
-def round_calc(value):
-    val = "{:.2f}".format(float(value))
+def round_calc(value, site):
+    # print(value,"value")
+    # value = 1.475
+    # val = "{:.2f}".format(float(value))
+    # print(val,"val")
+    # 1.48 val
+
+    v = str(value).split('.')
+    val = float(v[0]+"."+v[1][:2])
     fractional = math.modf(float(val))
+    # print(fractional,"fractional")
     data = "{:.2f}".format(float(fractional[0]))
+    # print(data,"data")
     split_d = str(data).split('.')
+    # print(split_d,"split_d")
     con = "0.0"+split_d[1][-1]
-    round_ids = RoundSales.objects.filter(sales=float(con)).first()
-    rounded = 0.0
-    if type(val) == 'str':
-        if '-' in str(round_ids.roundvalue):
-            split_value = str(round_ids.roundvalue).split('-')
-            rounded = str(val) - split_value[1]
-        elif '+' in str(round_ids.roundvalue):
-            split = str(round_ids.roundvalue).split('+')
-            rounded = str(val) + split_value[1]
-    elif type(val) == 'float': 
-        if '-' in str(round_ids.roundvalue):
-            split_value = str(round_ids.roundvalue).split('-')
-            rounded = float(val) - float(split_value[1])
-        elif '+' in str(round_ids.roundvalue):
-            split = str(round_ids.roundvalue).split('+')
-            rounded = float(val) + float(split_value[1])        
-    return rounded    
+    # print(con,"con")
+    round_ids = RoundSales.objects.filter(sales=float(con),site_code=site.itemsite_code).first()
+    # print(round_ids,"round_ids")
+    rounded = float(val)
+    round_value = 0
+    if round_ids:
+        rounded = float(val) + round_ids.roundvalue
+        round_value = round_ids.roundvalue
+
+    # if type(val) == 'str':
+    #     print("iff")
+    #     if '-' in str(round_ids.roundvalue):
+    #         print("igg")
+    #         split_value = str(round_ids.roundvalue).split('-')
+    #         rounded = str(val) - split_value[1]
+    #     elif '+' in str(round_ids.roundvalue):
+    #         split = str(round_ids.roundvalue).split('+')
+    #         rounded = str(val) + split_value[1]
+    # elif type(val) == 'float': 
+    #     if '-' in str(round_ids.roundvalue):
+    #         split_value = str(round_ids.roundvalue).split('-')
+    #         rounded = float(val) - float(split_value[1])
+    #     elif '+' in str(round_ids.roundvalue):
+    #         split = str(round_ids.roundvalue).split('+')
+    #         rounded = float(val) + float(split_value[1]) 
+           
+    # print(rounded,"rounded")
+    return rounded,round_value     
 
 
 
@@ -1735,11 +1756,23 @@ class itemCartViewset(viewsets.ModelViewSet):
                 #     billable_amount = "{:.2f}".format(after_add_disc + taxamt)
                 # else:
                 #     billable_amount = "{:.2f}".format(after_add_disc)
+                
+                rsub_systemids = Systemsetup.objects.filter(title='ROUNDING',
+                value_name='Rounding at SubTotal',isactive=True).first()
 
+                
+                       
                 # print(balance,"balance")
                 sub_total = "{:.2f}".format(float(subtotal))
                 # billable_amount = "{:.2f}".format(deposit_amt + float(round_calc(deposit_amt))) # round()
-                billable_amount = "{:.2f}".format(balance + float(round_calc(balance))) # round()
+                # print(round_calc(balance, site),"ll")
+
+                if rsub_systemids and rsub_systemids.value_data == 'True':
+                    billable_amount = "{:.2f}".format(float(round_calc(balance, site)[0])) # round()
+                else:
+                    billable_amount = balance
+
+                # print(billable_amount,"billable_amount")
                 total_disc = discount_amt + additional_discountamt
                 out_standing = trans_amt - balance
                 result = {'status': state,"message":message,'error': error, 'data':  lst,'subtotal':"{:.2f}".format(float(sub_total)),
@@ -3704,6 +3737,9 @@ class itemCartViewset(viewsets.ModelViewSet):
 
     def retrieve(self, request, pk=None):
         try:
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True).first()
+            site = fmspw.loginsite
+        
             global type_ex
             cart = self.get_object(pk)
             if cart.type in ['Top Up','Sales','Exchange']:
@@ -3727,7 +3763,7 @@ class itemCartViewset(viewsets.ModelViewSet):
             # data['products_used'] = ""
             data['discount_reason'] = ""
             data['discreason_txt'] = ""
-            data['discpercent'] = int(float(round_calc(data['discount'])))
+            data['discpercent'] = int(float(round_calc(data['discount'],site)[0]))
             data['discountamt'] = "{:.2f}".format(float(data['discount_amt']))
             data['total_price'] = "{:.2f}".format(float(data['total_price']))
             data['discount_price'] = "{:.2f}".format(float(data['discount_price']))
@@ -25652,6 +25688,18 @@ class StudioPdfGeneration(APIView):
 
             time = Time[0]+":"+Time[1] 
             date = datetime.datetime.strptime(str(split[0]), '%Y-%m-%d').strftime("%d-%b-%Y")
+
+            drappt_ids = Appointment.objects.filter(appt_isactive=True,appt_remark="Dress Fitting",
+            sa_transacno=hdr.sa_transacno).first()
+            if drappt_ids:
+                hdr.date_ofchoose_dress = drappt_ids.appt_date
+                hdr.save()
+
+            phappt_ids = Appointment.objects.filter(appt_isactive=True,appt_remark="Photo Shoot",
+            sa_transacno=hdr.sa_transacno).first()   
+            if phappt_ids:
+                hdr.date_ofphotoshooting = phappt_ids.appt_date
+                hdr.save()  
             
             date_ofchoose_dress = ""
             if hdr.date_ofchoose_dress:
@@ -26254,8 +26302,10 @@ class TitleImageUploadAPIView(generics.CreateAPIView):
                     for t in title_ids:
                         t.logo_pic =  request.data['logo_pic']
                         t.save()
+
+                    serializer = TitleImageSerializer(title_ids,many=True, context={'request': self.request})    
                     result = {'status': status.HTTP_200_OK,"message":"Uploaded Succesfully",
-                    'error': False}  
+                    'error': False,'data': serializer.data}  
                     return Response(result, status=status.HTTP_200_OK)
                 else:
                     result = {'status': status.HTTP_400_BAD_REQUEST,
@@ -26323,8 +26373,10 @@ class StockImageUploadAPIView(generics.CreateAPIView):
                     for t in stock_ids:
                         t.Stock_PIC =  request.data['Stock_PIC']
                         t.save()
+
+                    serializer = StockImageSerializer(stock_ids,many=True, context={'request': self.request})    
                     result = {'status': status.HTTP_200_OK,"message":"Uploaded Succesfully",
-                    'error': False}  
+                    'error': False,'data': serializer.data}  
                     return Response(result, status=status.HTTP_200_OK)
                 else:
                     result = {'status': status.HTTP_400_BAD_REQUEST,
@@ -26390,8 +26442,9 @@ class PaygroupImageUploadAPIView(generics.CreateAPIView):
                     for t in paygroup_ids:
                         t.picturelocation =  request.data['picturelocation']
                         t.save()
+                    serializer = PaygroupImageSerializer(paygroup_ids,many=True, context={'request': self.request})    
                     result = {'status': status.HTTP_200_OK,"message":"Uploaded Succesfully",
-                    'error': False}  
+                    'error': False,'data': serializer.data}  
                     return Response(result, status=status.HTTP_200_OK)
                 else:
                     result = {'status': status.HTTP_400_BAD_REQUEST,
@@ -26407,7 +26460,7 @@ class PaygroupImageViewset(viewsets.ModelViewSet):
     authentication_classes = [ExpiringTokenAuthentication]
     permission_classes = [IsAuthenticated & authenticated_only]
     queryset = PayGroup.objects.filter().order_by('-pk')
-    serializer_class = []
+    serializer_class = PaygroupImageSerializer
     
     def get_object(self, pk):
         try:
@@ -26458,8 +26511,10 @@ class ItemDeptImageUploadAPIView(generics.CreateAPIView):
                     for t in dept_ids:
                         t.deptpic =  request.data['deptpic']
                         t.save()
+
+                    serializer = ItemDeptImageSerializer(dept_ids,many=True, context={'request': self.request})    
                     result = {'status': status.HTTP_200_OK,"message":"Uploaded Succesfully",
-                    'error': False}  
+                    'error': False, 'data': serializer.data}  
                     return Response(result, status=status.HTTP_200_OK)
                 else:
                     result = {'status': status.HTTP_400_BAD_REQUEST,
@@ -26522,4 +26577,27 @@ class manualinvoiceitemtableAPIView(generics.ListAPIView):
             return general_error_response(invalid_message)   
 
 
+class RoundSalesViewset(viewsets.ModelViewSet):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = RoundSales.objects.filter().order_by('-pk')
+    serializer_class = RoundSalesSerializer
+
+    def list(self, request):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True).first()
+            site = fmspw.loginsite
+
+            queryset = RoundSales.objects.filter(site_code=site.itemsite_code).order_by('pk')
+            if queryset:
+                serializer = self.get_serializer(queryset, many=True)
+                result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully"
+                ,'error': False, 'data': serializer.data}
+            else:
+                serializer = self.get_serializer()
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+            return Response(data=result, status=status.HTTP_200_OK)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)     
 

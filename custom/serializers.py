@@ -7,7 +7,7 @@ StktrnModel, SystemLogModel, SupplyContactInfoModel, ControlNoModel,CommissionPr
 ManualInvoiceModel,ManualInvoiceDetailModel,ManualInvoiceAddrModel,ManualInvoiceItemModel,WorkOrderInvoiceModel,
 WorkOrderInvoiceDetailModel,WorkOrderInvoiceAddrModel,WorkOrderInvoiceItemModel,DeliveryOrderModel,DeliveryOrderAddrModel,
 DeliveryOrderDetailModel,DeliveryOrderItemModel,DeliveryOrdersign,EquipmentDropdownModel,EquipmentUsage,
-EquipmentUsageItemModel,Currencytable,QuotationPayment,ManualInvoicePayment,quotationsign)
+EquipmentUsageItemModel,Currencytable,QuotationPayment,ManualInvoicePayment,quotationsign,RoundSales)
 from cl_table.models import (Treatment, Stock, PackageDtl, ItemClass, ItemRange, Employee, Tmptreatment,
 TmpItemHelper,PosHaud,City, State, Country, Stock,Title,PayGroup,ItemDept )
 from cl_table.serializers import get_client_ip
@@ -933,6 +933,7 @@ class ManualInvoiceItemTableSerializer(serializers.ModelSerializer):
         data['item_desc'] =  obj.quotation_itemdesc
         data['dt_price'] = "{:.2f}".format(float(obj.quotation_unitprice)) if obj.quotation_unitprice else 0
         data['dt_qty'] = obj.quotation_quantity
+        data['remarks'] = obj.quotation_itemremarks
        
         return data      
 
@@ -946,7 +947,7 @@ class WorkOrderInvoiceItemSerializer(serializers.ModelSerializer):
     def to_representation(self, obj):
         data = super(WorkOrderInvoiceItemSerializer, self).to_representation(obj)
        
-        data['quotation_unitprice'] = "{:.2f}".format(float(obj.quotation_unitprice) if obj.quotation_unitprice else "")
+        # data['quotation_unitprice'] = "{:.2f}".format(float(obj.quotation_unitprice) if obj.quotation_unitprice else "")
         return data     
 
 class DeliveryOrderItemSerializer(serializers.ModelSerializer):
@@ -1373,6 +1374,17 @@ class PaygroupImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = PayGroup
         fields = ['id','picturelocation','pay_group_code']  
+
+    def to_representation(self, obj):
+        request = self.context['request']
+        data = super(PaygroupImageSerializer, self).to_representation(obj)
+        ip = "http://"+request.META['HTTP_HOST']
+        picturelocation = ""
+        if obj.picturelocation:
+            picturelocation = ip+"/media/"+str(obj.picturelocation)
+
+        data['picturelocation'] = picturelocation
+        return data    
     
 class ItemDeptImageSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source='pk',required=False)
@@ -1391,3 +1403,10 @@ class ItemDeptImageSerializer(serializers.ModelSerializer):
 
         data['deptpic'] = deptpic
         return data
+
+class RoundSalesSerializer(serializers.ModelSerializer):
+    
+    class Meta:
+        model = RoundSales
+        fields = ['id','sales','roundvalue','site_code']  
+    

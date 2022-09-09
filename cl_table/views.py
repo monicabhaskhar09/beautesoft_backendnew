@@ -24,9 +24,9 @@ from .models import (Gender, Employee, Fmspw, Attendance2, Customer, Images, Tre
                      Religious, Nationality, Races, DailysalestdSummary,
                      MrRewardItemType,CustomerPoint,TreatmentDuration,Smsreceivelog,TreatmentProtocol,CustomerTitle,CustomerPointDtl,
                      ItemDiv,Tempcustsign,CustomerDocument,TreatmentPackage,Tmptreatment,CustLogAudit,ContactPerson,
-                     ItemFlexiservice,termsandcondition,Dayendconfirmlog,Participants)
+                     ItemFlexiservice,termsandcondition,Dayendconfirmlog,Participants,ProjectDocument)
 from cl_app.models import ItemSitelist, SiteGroup, LoggedInUser
-from custom.models import Room,ItemCart,VoucherRecord,EmpLevel,PosPackagedeposit,payModeChangeLog
+from custom.models import Room,ItemCart,VoucherRecord,EmpLevel,PosPackagedeposit,payModeChangeLog,ProjectModel
 from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializer, Attendance2Serializer,
                           CustomerallSerializer, CustomerSerializer, ServicesSerializer, ItemSiteListSerializer,
                           AppointmentSerializer,
@@ -61,7 +61,8 @@ from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializ
                           ItemDescSerializer,TempcustsignSerializer,CustomerDocumentSerializer,
                           TreatmentPackageSerializer,ItemSitelistIntialSerializer,StaffInsertSerializer,
                           FmspwSerializernew,GenderSerializer,CustomerPlusnewSerializer,ContactPersonSerializer,
-                          ItemFlexiserviceSerializer,termsandconditionSerializer,ParticipantsSerializer)
+                          ItemFlexiserviceSerializer,termsandconditionSerializer,ParticipantsSerializer,ProjectDocumentSerializer,
+                          Custphone2Serializer)
 from datetime import date, timedelta, datetime
 import datetime
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
@@ -7579,6 +7580,12 @@ class UsersList(APIView):
             value_name='studioAbooking',isactive=True).first()
             avantebooking_setup = Systemsetup.objects.filter(title='avantebooking',
             value_name='avantebooking',isactive=True).first()
+            roundadj_ids = Systemsetup.objects.filter(title='ROUNDING',
+            value_name='Rounding Adjustment at Tender',isactive=True).first()
+            roundsubtotal_ids = Systemsetup.objects.filter(title='ROUNDING',
+            value_name='Rounding at SubTotal',isactive=True).first()
+            roundpayment_ids = Systemsetup.objects.filter(title='ROUNDING',
+            value_name='Rounding at Payment',isactive=True).first()
 
 
 
@@ -7642,6 +7649,9 @@ class UsersList(APIView):
             'dayendusernamepopup' : True if dayenduser_setup and dayenduser_setup.value_data == 'True' else False,
             'studioAbooking' : True if studioabooking_setup and studioabooking_setup.value_data == 'True' else False,
             'avantebooking' : True if avantebooking_setup and avantebooking_setup.value_data == 'True' else False,
+            'round_adjustment' : True if roundadj_ids and roundadj_ids.value_data == 'True' else False,
+            'round_subtotal' : True if roundsubtotal_ids and roundsubtotal_ids.value_data == 'True' else False,
+            'round_payment' : True if roundpayment_ids and roundpayment_ids.value_data == 'True' else False,
             }
 
             level_qs = Securitylevellist.objects.filter(level_itemid=fmspw.LEVEL_ItmIDid.level_code).order_by('pk')
@@ -7824,12 +7834,21 @@ def postaud_calculation(self, request, queryset, paydate):
     # if totaltax>0:
     #     print("jj")
     #     tax_amt = totaltax
+    rsub_systemids = Systemsetup.objects.filter(title='ROUNDING',
+    value_name='Rounding at SubTotal',isactive=True).first()
 
 
     sub_total = "{:.2f}".format(float(subtotal))
-    round_val = float(round_calc(billable_amount)) # round()
-    billable_amount = float(billable_amount) + round_val 
-    sa_Round = round_val
+    if rsub_systemids and rsub_systemids.value_data == 'True':
+        round_val = float(round_calc(billable_amount, site)[0]) # round()
+        sa_Round = float(round_calc(billable_amount, site)[1])
+    else:
+        round_val = billable_amount
+        sa_Round = 0
+
+    # billable_amount = float(billable_amount) + round_val 
+    billable_amount = round_val 
+    
 
     discount = discount_amt + additional_discountamt
 
@@ -8591,18 +8610,18 @@ class postaudViewset(viewsets.ModelViewSet):
                     pay_date = request.GET.get('pay_date',None)
                     
                     if not pay_date:
-                        pay_date = timezone.now() 
+                        pay_date = date.today()
                         pay_time = timezone.now()  
                     else:    
                         time = datetime.datetime.now()
                         current_time = time.strftime("%H:%M:%S")
                         pay_time = datetime.datetime.strptime(str(pay_date)+" "+str(current_time), "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S")
 
-                    if pay_date != str(date.today()):
+                    if str(pay_date) != str(date.today()):
                         transremark = "backdated"
     
                 else:
-                    pay_date = timezone.now() 
+                    pay_date = date.today()
                     pay_time = timezone.now()        
                 
 
@@ -15546,7 +15565,7 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
             if serializer.is_valid():
                 try:
                     with transaction.atomic():
-
+ 
                         control_obj = ControlNo.objects.filter(control_description__iexact="EMP CODE",
                                                                Site_Codeid__pk=fmspw[0].loginsite.pk).first()
                         if not control_obj:
@@ -15563,7 +15582,7 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
                             else:
                                 emp_code = str(control_obj.control_no)
                         
-                        sa_count = 1
+                        sa_count = 1 ; control_check = False
 
                         while sa_count > 0:
                             emp_v = Employee.objects.filter(emp_code=emp_code)
@@ -15571,7 +15590,6 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
                             if emp_v:    
                                 newcontrol_obj = ControlNo.objects.filter(control_description__iexact="EMP CODE",
                                                                Site_Codeid__pk=fmspw[0].loginsite.pk).first()
-
                                 if newcontrol_obj.include_sitecode == True:
                                     emp_code = str(newcontrol_obj.Site_Codeid.itemsite_code) + str(newcontrol_obj.control_no)
                                 else:
@@ -15579,10 +15597,11 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
                                         emp_code = str(newcontrol_obj.control_prefix) + str(newcontrol_obj.control_no)
                                     else:
                                         emp_code = str(newcontrol_obj.control_no)
-                                                    
+
                                 newcontrol_obj.control_no = int(newcontrol_obj.control_no) + 1
                                 newcontrol_obj.save() 
                                 sa_count += 1
+                                control_check = True
                             else:
                                 sa_count = 0   
                         
@@ -15679,8 +15698,9 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
                             token = Token.objects.create(user=user)
                             
                         if s.pk:
-                            control_obj.control_no = int(control_obj.control_no) + 1
-                            control_obj.save()
+                            if control_check == False:
+                                control_obj.control_no = int(control_obj.control_no) + 1
+                                control_obj.save()
 
                         site_list = request.data.get('site_list', "").split(",")
                         for si in site_list:
@@ -16993,17 +17013,33 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
                     if len(customer_mail) > 0:
                         raise Exception("Email id is already associated with another account")
                 
-                if 'cust_phone2' in request.data and request.data['cust_phone2']:
-                    customer =  Customer.objects.filter(cust_phone2=request.data['cust_phone2'])
-                    if len(customer) > 0:
-                        raise Exception("Mobile number cust phone2 is already associated with another account")
-                
                 if 'cust_phone1' in request.data and request.data['cust_phone1']:    
                     customerphone =  Customer.objects.filter(cust_phone1=request.data['cust_phone1'])
                     if len(customerphone) > 0:
                         raise Exception("Mobile number cust phone1 is already associated with another account")
-                        
 
+
+                dupphone2_setup = Systemsetup.objects.filter(title='allowDuplicatePhone',
+                value_name='allowDuplicatePhone',isactive=True).first()
+
+                if dupphone2_setup and dupphone2_setup.value_data == 'True':
+                    if 'cust_refer' in request.data and request.data['cust_refer']:
+                        refer_ids =  Customer.objects.filter(cust_refer=request.data['cust_refer'])
+                        if len(refer_ids) > 0:
+                            raise Exception("Customer Reference is already associated with another account")
+        
+                else:
+                    if 'cust_phone2' in request.data and request.data['cust_phone2']:
+                        customer =  Customer.objects.filter(cust_phone2=request.data['cust_phone2'])
+                        if len(customer) > 0:
+                            raise Exception("Mobile number cust phone2 is already associated with another account")
+                
+                if 'cust_refer' in request.data and request.data['cust_refer'] and 'cust_phone2' in request.data and request.data['cust_phone2']:
+                    x_customer =  Customer.objects.filter(cust_phone2=request.data['cust_phone2'],cust_refer=request.data['cust_refer'])
+                    if len(x_customer) > 0:
+                            raise Exception("Customer Reference,cust_phone2 is already associated with another account")
+        
+           
 
                 if serializer.is_valid():
                     self.perform_create(serializer)
@@ -17030,7 +17066,7 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
                         else:
                             cus_code = str(control_obj.control_no)
                     
-                    sa_count = 1
+                    sa_count = 1; control_check = False
 
                     while sa_count > 0:
                         cust_v = Customer.objects.filter(cust_code=cus_code)
@@ -17050,6 +17086,7 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
                             newcontrol_obj.control_no = int(newcontrol_obj.control_no) + 1
                             newcontrol_obj.save() 
                             sa_count += 1
+                            control_check = True
                         else:
                             sa_count = 0   
                                  
@@ -17095,8 +17132,9 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
                         k.save()
                                                 
                     if k.pk:
-                        control_obj.control_no = int(control_obj.control_no) + 1
-                        control_obj.save()
+                        if control_check == False:
+                            control_obj.control_no = int(control_obj.control_no) + 1
+                            control_obj.save()
 
                         CustLogAudit(customer_id=k,cust_code=cus_code,username=fmspw[0].pw_userlogin,
                         user_loginid=fmspw[0],created_at=timezone.now()).save()
@@ -17183,15 +17221,33 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
                 if len(customer_mail) > 0:
                     raise Exception("Email id is already associated with another account")
             
-            if 'cust_phone2' in request.data and request.data['cust_phone2']:
-                custphone2 =  Customer.objects.filter(cust_phone2=request.data['cust_phone2']).exclude(pk=customer.pk)
-                if len(custphone2) > 0:
-                    raise Exception("Mobile number cust phone2 is already associated with another account")
-            
+           
             if 'cust_phone1' in request.data and request.data['cust_phone1']:    
                 customerphone =  Customer.objects.filter(cust_phone1=request.data['cust_phone1']).exclude(pk=customer.pk)
                 if len(customerphone) > 0:
                     raise Exception("Mobile number cust phone1 is already associated with another account")
+            
+            
+            dupphone2_setup = Systemsetup.objects.filter(title='allowDuplicatePhone',
+            value_name='allowDuplicatePhone',isactive=True).first()
+
+            if dupphone2_setup and dupphone2_setup.value_data == 'True':
+                if 'cust_refer' in request.data and request.data['cust_refer']:    
+                    ref_ids =  Customer.objects.filter(cust_refer=request.data['cust_refer']).exclude(pk=customer.pk)
+                    if len(ref_ids) > 0:
+                        raise Exception("Customer Reference is already associated with another account")
+
+            else:   
+                if 'cust_phone2' in request.data and request.data['cust_phone2']:
+                    custphone2 =  Customer.objects.filter(cust_phone2=request.data['cust_phone2']).exclude(pk=customer.pk)
+                    if len(custphone2) > 0:
+                        raise Exception("Mobile number cust phone2 is already associated with another account")
+            
+            if 'cust_refer' in request.data and request.data['cust_refer'] and 'cust_phone2' in request.data and request.data['cust_phone2']:
+                    x_customer =  Customer.objects.filter(cust_phone2=request.data['cust_phone2'],cust_refer=request.data['cust_refer']).exclude(pk=customer.pk)
+                    if len(x_customer) > 0:
+                            raise Exception("Customer Reference,cust_phone2 is already associated with another account")
+            
                         
             requestData = request.data
             if requestData.get('cust_nric',"").startswith("*"):
@@ -17339,6 +17395,50 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
     def perform_destroy(self, instance):
         instance.cust_isactive = False
         instance.save()
+
+    @action(detail=False, methods=['get'], name='checkduplicatecustphone2')
+    def checkduplicatecustphone2(self, request):
+        try:    
+            fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+            site = fmspw.loginsite
+            customer_id = self.request.GET.get('customer_id',None)
+
+            cust_phone2 = self.request.GET.get('cust_phone2',None)
+            if not cust_phone2:
+                raise Exception('Please give cust_phone2!!') 
+
+            cust_refer = self.request.GET.get('cust_refer',None)
+            if not cust_refer:
+                raise Exception('Please give cust_refer!!') 
+    
+            
+            exist_ids = None
+            if customer_id:
+                cust_obj = Customer.objects.filter(pk=customer_id,
+                cust_isactive=True).first()
+                if not cust_obj:
+                    result = {'status': status.HTTP_200_OK,"message":"Please give customer id!!",'error': True} 
+                    return Response(data=result, status=status.HTTP_200_OK)
+                
+                exist_ids = Customer.objects.filter(Q(cust_phone2=cust_phone2) | Q(cust_refer=cust_refer)).exclude(pk=cust_obj.pk)
+
+            else:
+                exist_ids = Customer.objects.filter(Q(cust_phone2=cust_phone2) | Q(cust_refer=cust_refer))        
+
+            if exist_ids:
+                serializer = Custphone2Serializer(exist_ids, many=True, context={'request': self.request})
+                result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",
+                'error': False, 'data':  serializer.data, 'check': True,'cust_refer': cust_refer,'cust_phone2':cust_phone2}
+            else:
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",
+                'error': False, 'data': [],'check': False,'cust_refer': cust_refer,'cust_phone2':cust_phone2}
+            return Response(data=result, status=status.HTTP_200_OK)     
+
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+
 
     @action(detail=True, methods=['GET', 'POST'], permission_classes=[IsAuthenticated & authenticated_only],
             authentication_classes=[TokenAuthentication], url_path='photoDiagnosis', url_name='photoDiagnosis')
@@ -20196,6 +20296,13 @@ class CustomerDocumentViewset(viewsets.ModelViewSet):
 
     def create(self, request, format=None):
         try:
+            if not 'customer_id' in request.data or not request.data['customer_id']:
+                raise Exception('Please give Customer ID!!.') 
+
+            if not 'file' in request.data or not request.data['file']:
+                raise Exception('Please give file!!.') 
+ 
+
             serializer = CustomerDocumentSerializer(data=request.data, context={'request': self.request})
             if serializer.is_valid():
                 serializer.save()
@@ -20204,7 +20311,12 @@ class CustomerDocumentViewset(viewsets.ModelViewSet):
                 return Response(result, status=status.HTTP_201_CREATED)
 
             data = serializer.errors
-            result = {'status': status.HTTP_400_BAD_REQUEST,"message":data['non_field_errors'][0],'error': True, 'data': serializer.errors} 
+            first_key = list(data.keys())[0]
+            message = str(first_key)+":  "+str(data[first_key][0])
+
+            result = {'status': status.HTTP_400_BAD_REQUEST,
+            "message":message,'error': True, 
+            'data': serializer.errors} 
             return Response(result, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             invalid_message = str(e)
@@ -20219,7 +20331,13 @@ class CustomerDocumentViewset(viewsets.ModelViewSet):
                 result = {'status': status.HTTP_200_OK,"message":"Please give customer id!!",'error': True} 
                 return Response(data=result, status=status.HTTP_200_OK) 
 
-            queryset = CustomerDocument.objects.filter(customer_id=customer_id).order_by('-pk')
+            photo = self.request.GET.get('photo',None)    
+
+            if photo:
+                queryset = CustomerDocument.objects.filter(customer_id=customer_id,photo=True).order_by('-pk')
+            else:
+                queryset = CustomerDocument.objects.filter(customer_id=customer_id).order_by('-pk')
+            
             if queryset:
                 serializer = CustomerDocumentSerializer(queryset, many=True, context={'request': self.request})
                 result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False,
@@ -20231,7 +20349,100 @@ class CustomerDocumentViewset(viewsets.ModelViewSet):
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)             
-     
+    
+    def partial_update(self, request, pk=None):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+            site = fmspw.loginsite
+
+            # if not 'selected' in request.data or not request.data['selected']:
+            #     raise Exception('Please give selected!!.') 
+ 
+            doc = self.get_object(pk)
+
+            serializer = self.get_serializer(doc, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+
+                result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",
+                'error': False , 'data': serializer.data}
+                return Response(result, status=status.HTTP_200_OK)
+
+            result = {'status': status.HTTP_400_BAD_REQUEST,"message":serializer.errors,'error': True}
+            return Response(result, status=status.HTTP_200_OK)  
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)   
+    
+
+    def get_object(self, pk):
+        try:
+            return CustomerDocument.objects.get(pk=pk)
+        except CustomerDocument.DoesNotExist:
+            raise Exception('CustomerDocument ID Does not Exist')                
+
+
+class ProjectDocumentViewset(viewsets.ModelViewSet):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = ProjectDocument.objects.filter().order_by('-pk')
+    serializer_class = ProjectDocumentSerializer
+
+
+    def create(self, request, format=None):
+        try:
+            if not 'customer_id' in request.data or not request.data['customer_id']:
+                raise Exception('Please give Customer ID!!.') 
+
+            if not 'file' in request.data or not request.data['file']:
+                raise Exception('Please give file!!.') 
+            
+            if not 'fk_project' in request.data or not request.data['fk_project']:
+                raise Exception('Please give Project ID!!.') 
+ 
+
+            serializer = ProjectDocumentSerializer(data=request.data, context={'request': self.request})
+            if serializer.is_valid():
+                serializer.save()
+                result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully ",'error': False,
+                'data': serializer.data}
+                return Response(result, status=status.HTTP_201_CREATED)
+
+            data = serializer.errors
+            first_key = list(data.keys())[0]
+            message = str(first_key)+":  "+str(data[first_key][0])
+
+            result = {'status': status.HTTP_400_BAD_REQUEST,
+            "message":message,'error': True, 
+            'data': serializer.errors} 
+            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message) 
+    
+
+    def list(self, request):
+        try:
+            project_id = self.request.GET.get('project_id',None)
+            proj_obj = ProjectModel.objects.filter(active='active',pk=project_id).order_by('-pk').first()
+            if not proj_obj:
+                result = {'status': status.HTTP_200_OK,"message":"Please give Project id!!",'error': True} 
+                return Response(data=result, status=status.HTTP_200_OK) 
+
+            queryset = ProjectDocument.objects.filter(fk_project=project_id).order_by('-pk')
+            if queryset:
+                serializer = ProjectDocumentSerializer(queryset, many=True, context={'request': self.request})
+                result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False,
+                 'data':  serializer.data}
+            else:
+                serializer = self.get_serializer()
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+            return Response(data=result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)             
+
+
 
 class TreatmentPackageInsertAPIView(GenericAPIView):
     authentication_classes = [ExpiringTokenAuthentication]

@@ -7,7 +7,7 @@ CustomerClass, RewardPolicy, RedeemPolicy, Diagnosis, DiagnosisCompare, Security
 DailysalesdataDetail, DailysalesdataSummary,Holditemdetail,PrepaidAccount,CreditNote,TreatmentAccount,
 DepositAccount, CustomerPoint, MrRewardItemType,Smsreceivelog,Systemsetup,TreatmentProtocol,
 CustomerTitle,ItemDiv,Tempcustsign,CustomerDocument,TreatmentPackage,ContactPerson,ItemFlexiservice,
-termsandcondition,Participants)
+termsandcondition,Participants,ProjectDocument)
 from cl_app.models import ItemSitelist, SiteGroup
 from custom.models import EmpLevel,Room,VoucherRecord
 from django.contrib.auth.models import User
@@ -401,7 +401,17 @@ class CustomerdetailSerializer(serializers.ModelSerializer):
         if cus_daudids:
             isfirsttrial = True
         else:
-            isfirsttrial = False  
+            isfirsttrial = False 
+        
+        exist_ids = Customer.objects.none()
+        if obj.cust_phone2 and obj.cust_refer:
+            exist_ids = Customer.objects.filter(Q(cust_phone2=obj.cust_phone2) | Q(cust_refer=obj.cust_refer)).exclude(pk=obj.pk)
+        elif obj.cust_phone2:
+            exist_ids = Customer.objects.filter(Q(cust_phone2=obj.cust_phone2)).exclude(pk=obj.pk)
+        elif obj.cust_refer:
+            exist_ids = Customer.objects.filter(Q(cust_phone2=obj.cust_phone2)).exclude(pk=obj.pk)
+
+        serializer = Custphone2Serializer(exist_ids, many=True)     
        
 
         mapped_object = {'id': obj.pk,'cust_code':obj.cust_code,'cust_name':obj.cust_name,
@@ -431,7 +441,8 @@ class CustomerdetailSerializer(serializers.ModelSerializer):
         'is_allowedit':is_allowedit,
         'cust_point_value' : "{:.2f}".format(float(obj.cust_point_value)) if obj.cust_point_value else 0,
         'isfirsttrial': isfirsttrial,
-        'isfirsttrial_data': cus_daudids
+        'isfirsttrial_data': cus_daudids,
+        'cust_phone2_duplicate': serializer.data
         }
         return mapped_object    
        
@@ -1502,7 +1513,7 @@ class PaytableSerializer(serializers.ModelSerializer):
     class Meta:
         model = Paytable
         fields = ['id','pay_code','pay_description','pay_groupid','pay_group_name',
-        'gt_group','qr_code','paykey']
+        'gt_group','qr_code','paykey','pay_is_rounding']
 
 class PostaudSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source='pk',required=False)
@@ -3048,7 +3059,7 @@ class CustomerDocumentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomerDocument
-        fields = ['id','customer_id','filename','document_name','file','photo']  
+        fields = ['id','customer_id','filename','document_name','file','photo','selected']  
             
     def to_representation(self, obj):
         request = self.context['request']
@@ -3061,6 +3072,24 @@ class CustomerDocumentSerializer(serializers.ModelSerializer):
 
         data['file'] = file
         return data        
+
+class ProjectDocumentSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = ProjectDocument
+        fields = ['id','customer_id','filename','document_name','file','photo','selected','fk_project']  
+            
+    def to_representation(self, obj):
+        request = self.context['request']
+        data = super(ProjectDocumentSerializer, self).to_representation(obj)
+        
+        ip = "http://"+request.META['HTTP_HOST']
+        file = ""
+        if obj.file:
+            file = ip+str(obj.file.url)
+
+        data['file'] = file
+        return data      
 
 
 class TreatmentPackageSerializer(serializers.ModelSerializer): 
@@ -3141,3 +3170,21 @@ class ParticipantsSerializer(serializers.ModelSerializer):
         model = Participants
         fields = ['id','appt_id','cust_id','isactive','cust_name','cust_phone2',
         'cust_code','cust_refer'] 
+
+
+class Custphone2Serializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='pk',required=False)
+
+    class Meta:
+        model = Customer
+        fields = ['id']
+    
+    def to_representation(self, obj):
+        data = super(Custphone2Serializer, self).to_representation(obj)
+        
+        data['cust_code'] = obj.cust_code if obj.cust_code else ''
+        data['cust_name'] = obj.cust_name if obj.cust_name else ''
+        data['cust_refer'] = obj.cust_refer if obj.cust_refer else ''
+        data['site_code'] = obj.site_code if obj.site_code else ''
+        data['cust_phone2'] = obj.cust_phone2 if obj.cust_phone2 else ''
+        return data      

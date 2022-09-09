@@ -350,9 +350,10 @@ class DashboardSerializer(serializers.ModelSerializer):
        
         payids = PosTaud.objects.filter(ItemSIte_Codeid__pk=instance.pk,created_at__date__month=month,pay_amt__gt = 0).only('itemsite_code','created_at').aggregate(Sum('pay_amt'))
         
-        round_val = float(round_calc(payids['pay_amt__sum'])) if payids['pay_amt__sum'] else 0 # round()
+        round_val = float(round_calc(payids['pay_amt__sum'],instance)[0]) if payids['pay_amt__sum'] else 0 # round()
         if payids['pay_amt__sum']:
-            pay_amount = float(payids['pay_amt__sum']) + round_val 
+            # pay_amount = float(payids['pay_amt__sum']) + round_val 
+            pay_amount = round_val 
 
         mapped_object = {'id': instance.pk,'customer_site':sitecust_cnt,'new_customer':sitenewcust_cnt,
         'product':int(float(products_cnt)),'services':int(float(service_cnt)),'repeat_customer':cust_repeat if cust_repeat else 0,
