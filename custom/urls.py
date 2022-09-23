@@ -120,6 +120,7 @@ router.register(r'stockimage', views.StockImageViewset , 'stockimage')
 router.register(r'paygroupimage', views.PaygroupImageViewset , 'paygroupimage')
 router.register(r'itemdeptimage', views.ItemDeptImageViewset , 'itemdeptimage')
 router.register(r'roundsales', views.RoundSalesViewset , 'roundsales')
+router.register(r'quotationcustomer', views.QuotationCustViewset , 'quotationcustomer')
 
 # The API URLs are now determined automatically by the router.
 urlpatterns = [

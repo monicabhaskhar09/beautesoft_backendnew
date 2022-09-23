@@ -1410,3 +1410,9 @@ class RoundSalesSerializer(serializers.ModelSerializer):
         model = RoundSales
         fields = ['id','sales','roundvalue','site_code']  
     
+
+class QuotationCustSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = QuotationModel
+        fields = ['id','quotation_number']  

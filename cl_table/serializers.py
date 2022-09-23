@@ -7,7 +7,7 @@ CustomerClass, RewardPolicy, RedeemPolicy, Diagnosis, DiagnosisCompare, Security
 DailysalesdataDetail, DailysalesdataSummary,Holditemdetail,PrepaidAccount,CreditNote,TreatmentAccount,
 DepositAccount, CustomerPoint, MrRewardItemType,Smsreceivelog,Systemsetup,TreatmentProtocol,
 CustomerTitle,ItemDiv,Tempcustsign,CustomerDocument,TreatmentPackage,ContactPerson,ItemFlexiservice,
-termsandcondition,Participants,ProjectDocument)
+termsandcondition,Participants,ProjectDocument,Dayendconfirmlog,CustomerPointDtl)
 from cl_app.models import ItemSitelist, SiteGroup
 from custom.models import EmpLevel,Room,VoucherRecord
 from django.contrib.auth.models import User
@@ -2548,8 +2548,10 @@ class StaffPlusSerializer(serializers.ModelSerializer):
         return employee
 
     def update(self, instance, validated_data):
+        # print("self update")
         request = self.context['request']
         site_list = request.data.get('site_list',"").split(",")
+        # print(site_list,"site_list")
 
         instance.emp_name = validated_data.get("emp_name", instance.emp_name)
         instance.display_name = validated_data.get("display_name", instance.display_name)
@@ -2592,16 +2594,42 @@ class StaffPlusSerializer(serializers.ModelSerializer):
         instance.save()
 
         # update site list
-        old_sites = EmpSitelist.objects.filter(Emp_Codeid=instance)
-        for o in old_sites:
-            o.delete()
+        # old_sites = EmpSitelist.objects.filter(Emp_Codeid=instance)
+        # for o in old_sites:
+        #     o.delete()
 
-        for s in site_list:
-            try:
-                _obj = EmpSitelist(Emp_Codeid=instance,Site_Codeid_id=int(s))
-                _obj.save()
-            except Exception as e:
-                pass
+        # for s in site_list:
+        #     try:
+        #         _obj = EmpSitelist(Emp_Codeid=instance,Site_Codeid_id=int(s))
+        #         _obj.save()
+        #     except Exception as e:
+        #         pass
+
+        for d in site_list:
+            ex_siteids = EmpSitelist.objects.filter(Emp_Codeid=instance,Site_Codeid__pk=int(d))
+            # print(ex_siteids,"ex_siteids")
+            if not ex_siteids:
+                sitesav = EmpSitelist(Emp_Codeid=instance,Site_Codeid_id=int(d))
+                sitesav.save()
+            else:
+                if ex_siteids:
+                    if len(ex_siteids) > 1:
+                        exsiteids = EmpSitelist.objects.filter(Emp_Codeid=instance,Site_Codeid__pk=int(d))[1:].delete()
+                    
+                    if ex_siteids[0].isactive == False:
+                        ex_siteids[0].isactive = True
+                        ex_siteids[0].save()
+        
+        upsite_ids = EmpSitelist.objects.filter(Emp_Codeid=instance).exclude(Site_Codeid__pk__in=site_list).update(isactive=False)
+        #delete duplicate
+        exids = EmpSitelist.objects.filter(Emp_Codeid=instance).values_list('Site_Codeid__pk', flat=True)
+        # print(exids,"exids")
+        if exids:
+            for j in exids:
+                sids = EmpSitelist.objects.filter(Emp_Codeid=instance,Site_Codeid__pk=j)
+                if sids:
+                    if len(sids) > 1:
+                        sids[1:].delete()
 
         # _Fmspw = Fmspw.objects.filter(Emp_Codeid=instance).first()
         # if _Fmspw:
@@ -3188,3 +3216,52 @@ class Custphone2Serializer(serializers.ModelSerializer):
         data['site_code'] = obj.site_code if obj.site_code else ''
         data['cust_phone2'] = obj.cust_phone2 if obj.cust_phone2 else ''
         return data      
+
+
+class DayendconfirmlogSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='pk',required=False)
+
+    class Meta:
+        model = Dayendconfirmlog
+        fields = '__all__'  
+
+    def to_representation(self, obj):
+        data = super(DayendconfirmlogSerializer, self).to_representation(obj)
+        
+        data['dayend_pdf'] = str(obj.dayend_pdf) if obj.dayend_pdf else ''
+        data['confirm_date'] = datetime.datetime.strptime(str(obj.confirm_date), '%Y-%m-%d %H:%M:%S.%f').strftime("%d-%m-%Y %H:%M:%S") if obj.confirm_date else ""
+        data['dayend_date'] = datetime.datetime.strptime(str(obj.dayend_date), '%Y-%m-%d').strftime("%d-%m-%Y") if obj.dayend_date else ""
+      
+        return data           
+
+
+class CustomerPointAccountSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = CustomerPointDtl
+        fields = ['id','transacno','cust_code','cust_name','type',
+        'point','now_point','total_point','itm_code','itm_desc']  
+
+    def to_representation(self, obj):
+        data = super(CustomerPointAccountSerializer, self).to_representation(obj)
+        data['transactionref'] = ""; data['site_code'] = ""  ;data['date'] = "" 
+        data['ref_source'] = ""
+        custpoint_ids = CustomerPoint.objects.filter(transacno=obj.transacno).first()
+        if custpoint_ids:
+            pos_haud = PosHaud.objects.filter(sa_custno=obj.cust_code,
+                        sa_transacno=custpoint_ids.postransactionno
+                        ).only('sa_custno','sa_transacno').order_by('pk').first()
+
+            data['ref_source'] = custpoint_ids.ref_source
+            splt = str(custpoint_ids.date).split(" ") 
+
+            data['date'] = datetime.datetime.strptime(str(splt[0]), '%Y-%m-%d').strftime("%d-%m-%Y") if custpoint_ids.date else ""
+            
+            if pos_haud:
+                data['transactionref'] = pos_haud.sa_transacno_ref if pos_haud.sa_transacno_ref else ""
+                data['site_code'] = pos_haud.itemsite_code
+            
+        data['total_point'] = "{:.2f}".format(data['total_point'])
+        data['now_point'] = "{:.2f}".format(data['now_point'])
+        data['point'] = "{:.2f}".format(data['point'])
+        return data           

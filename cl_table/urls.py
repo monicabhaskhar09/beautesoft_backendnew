@@ -8,6 +8,8 @@ from . import views
 router = DefaultRouter()
 router.register(r'termsandcondition', views.TermsandconditionViewset, basename='termsandcondition')
 router.register(r'participants', views.ParticipantsViewset, basename='participants')
+router.register(r'dayendconfirmlog', views.DayendconfirmlogViewset, basename='dayendconfirmlog')
+router.register(r'customerpointsaccount', views.CustomerPointsAccountViewset, basename='customerpointsaccount')
 
 
 urlpatterns = [
@@ -114,5 +116,7 @@ urlpatterns = [
     path('api/staffperformance/', views.staffPerformanceAPIView.as_view(), name='staffperformance'),
     path('api/staffcustomerhistory/', views.staffCustomerHistoryAPIView.as_view(), name='staffcustomerhistory'),
     path('api/securitylevellistdupdel/', views.SecuritylevellistDuplicateDelete.as_view(), name='securitylevellistdupdel'),
+    path('api/custsearchclass/', views.CustSearchClassAPI.as_view(), name='custsearchclass'),
+
 
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

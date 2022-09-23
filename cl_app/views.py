@@ -2485,6 +2485,220 @@ class TreatmentDoneNewViewset(viewsets.ModelViewSet):
     queryset = TreatmentPackage.objects.filter().order_by('-pk')
     serializer_class = TreatmentPackageDoneListSerializer
 
+    #old code by monica 
+    # def list(self, request):
+    #     try:
+    #         now = timezone.now()
+    #         print(str(now.hour) + '  ' +  str(now.minute) + '  ' +  str(now.second),"Start hour, minute, second\n")
+           
+    #         fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+    #         site = fmspw[0].loginsite
+
+    #         cust_id = self.request.GET.get('cust_id',None)
+    #         cust_obj = Customer.objects.filter(pk=request.GET.get('cust_id',None),cust_isactive=True).first()
+    #         if not cust_obj:
+    #             result = {'status': status.HTTP_200_OK,"message":"Please give customer id!!",'error': True} 
+    #             return Response(data=result, status=status.HTTP_200_OK) 
+
+    #         system_obj = Systemsetup.objects.filter(title='Other Outlet Customer Listings',
+    #         value_name='Other Outlet Customer Listings',isactive=True).first()
+
+    #         system_setup = Systemsetup.objects.filter(title='Other Outlet Customer Reversal',
+    #         value_name='Other Outlet Customer Reversal',isactive=True).first()
+
+    #         flexi_setup = Systemsetup.objects.filter(title='B21showServiceOnTreatmentForFlexi',
+    #         value_name='B21showServiceOnTreatmentForFlexi',isactive=True).first()
+    #         def_setup = Systemsetup.objects.filter(title='Default TD List Years Ago',
+    #         value_name='Default TD List Years Ago',isactive=True).first()
+
+    #         current_year = date.today().year
+            
+    #         queryset = TreatmentPackage.objects.none()
+
+    #         if not request.GET.get('year',None):
+    #             raise Exception('Please give year!!') 
+
+    #         if request.GET.get('year',None):
+    #             year = request.GET.get('year',None)
+    #             if year == "Default":
+    #                 if def_setup and def_setup.value_data: 
+    #                     ylst = []
+    #                     for i in range(0,int(def_setup.value_data)):
+    #                         yr = current_year - i
+    #                         if yr not in ylst:
+    #                             ylst.append(yr)
+                                
+    #                     if ylst != []: 
+    #                         queryset = TreatmentPackage.objects.filter(cust_code=cust_obj.cust_code,
+    #                         open_session__gt=0, treatment_date__year__in=ylst).order_by('-pk')
+
+    #                 else:
+    #                     raise Exception('Please Give Systemsetup year in Default TD List Years Ago!!')     
+    #             elif year == "Expiry":
+    #                 queryset = TreatmentPackage.objects.filter(cust_code=cust_obj.cust_code,
+    #                 open_session__gt=0,expiry_date__date__lt=date.today()).order_by('-pk')
+
+    #             elif year == "All":
+    #                 queryset = TreatmentPackage.objects.filter(cust_code=cust_obj.cust_code,
+    #                 open_session__gt=0).order_by('-pk')
+
+    #         if queryset:
+    #             full_tot = queryset.count()
+    #             try:
+    #                 limit = int(request.GET.get("limit",12))
+    #             except:
+    #                 limit = 12
+    #             try:
+    #                 page = int(request.GET.get("page",1))
+    #             except:
+    #                 page = 1
+
+    #             paginator = Paginator(queryset, limit)
+    #             total_page = paginator.num_pages
+
+    #             try:
+    #                 queryset = paginator.page(page)
+    #                 # print(queryset,"queryset")
+    #             except (EmptyPage, InvalidPage):
+    #                 queryset = paginator.page(total_page) # last page
+    #             data_list= []
+    #             for row in queryset:
+    #                 trmt_obj = row ;is_allow=False
+    #                 session = 0; balance = "0.00"; ar= "0.00" 
+    #                 done_ids = Treatment.objects.filter(treatment_parentcode=row.treatment_parentcode,status="Done").order_by('pk').count()
+    #                 open_ids = Treatment.objects.filter(treatment_parentcode=trmt_obj.treatment_parentcode,status="Open").only('pk').order_by('pk').count()
+                    
+    #                 last_ids = Treatment.objects.filter(treatment_parentcode=row.treatment_parentcode).order_by('-pk').first()
+
+    #                 expiry = False; query = False;expiry_date = ""
+    #                 if row.expiry_date:
+    #                     splte = str(row.expiry_date).split(' ')
+    #                     expiry = splte[0]
+    #                     expiry_date = datetime.datetime.strptime(str(splte[0]), "%Y-%m-%d").strftime("%d-%b-%y")
+                        
+                    
+    #                 treatment_limit_times = row.treatment_limit_times
+
+    #                 # print(q_val[0],"vv")
+    #                 if row.type == 'N':
+    #                     query = row
+    #                 elif row.type in ['FFd','FFi']:
+    #                     if expiry and treatment_limit_times is not None:
+    #                         if expiry >= str(date.today()):
+    #                             if treatment_limit_times > done_ids or treatment_limit_times == 0:
+    #                                 query = row
+                    
+    #                 if query:
+    #                     search_ids = TmpTreatmentSession.objects.filter(treatment_parentcode=trmt_obj.treatment_parentcode,
+    #                     created_at=date.today()).order_by('-pk').first()
+
+    #                     iscurrentloggedinsalon = True if site.itemsite_code == trmt_obj.site_code else False 
+    #                     trmtAccObj = TreatmentAccount.objects.filter(treatment_parentcode=row.treatment_parentcode).order_by('-sa_date','-sa_time','-id').first()
+    #                     # print(trmtAccObj,"trmtAccObj")
+    #                     if trmtAccObj:
+    #                         balance = "{:.2f}".format(float(trmtAccObj.balance)) if trmtAccObj.balance else "0.00"
+    #                         ar = "{:.2f}".format(float(trmtAccObj.outstanding)) if trmtAccObj.outstanding else "0.00"
+
+    #                     if flexi_setup and flexi_setup.value_data == 'True' and row.type == 'FFi':
+    #                         b21flexitype = True
+    #                     else:
+    #                         b21flexitype = False  
+
+    #                     session =  search_ids.session if search_ids and search_ids.session else 0
+                         
+    #                     session_flag = False if session == 0 else True 
+    #                     exchange_flag = True if session == 1 else False 
+    
+                        
+    #                     if system_setup and system_setup.value_data == 'True' and system_obj and system_obj.value_data == 'True':
+    #                         if trmt_obj.site_code != site.itemsite_code or trmt_obj.site_code == site.itemsite_code:
+    #                             is_allow = True
+    #                     else:
+    #                         if trmt_obj.site_code == site.itemsite_code:
+    #                             is_allow = True  
+
+    #                     flexiservice_ids = ItemFlexiservice.objects.filter(item_code=str(trmt_obj.item_code),
+    #                     itm_isactive=True)
+    #                     if row.type == 'FFi' and flexiservice_ids:
+    #                         itemflexiservice = True
+    #                     else:
+    #                         itemflexiservice = False
+        
+    #                     rev = "0"+"/"+last_ids.treatment_no
+    #                     td = str(open_ids)+"/"+last_ids.treatment_no
+
+    #                     if row.type in ['FFd','FFi'] and done_ids > 0:
+    #                         reversal_check = False
+    #                     else:
+    #                         reversal_check = True
+                        
+                       
+    #                     sel = True if search_ids else None  
+
+    #                     splt = str(trmt_obj.treatment_date).split(' ')
+    #                     treatment_date = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d-%m-%Y")
+    #                     unit_amount =  "{:.2f}".format(float(trmt_obj.unit_amount)) if trmt_obj.unit_amount else "0.00"
+
+    #                     data_list.append({
+    #                         "TreatmentAccountid": row.treatment_accountid.pk if row.treatment_accountid else "",
+    #                         "balance": balance,
+    #                         "ar": ar,
+    #                         "b21flexitype": b21flexitype,
+    #                         "course": row.course,
+    #                         "done_sessioncnt": done_ids,
+    #                         "session_flag": session_flag,
+    #                         "exchange_flag" : exchange_flag,
+    #                         "expiry_date" : expiry_date,
+    #                         "is_allow" : is_allow,
+    #                         "is_reversal" : fmspw[0].is_reversal,
+    #                         "iscurrentloggedinsalon": iscurrentloggedinsalon,
+    #                         "item_code" : str(trmt_obj.item_code),
+    #                         "itemflexiservice" : itemflexiservice,
+    #                         "open" : open_ids,
+    #                         "rev": rev,
+    #                         "td":td,
+    #                         "reversal_check": reversal_check, 
+    #                         "sel": sel,
+    #                         "session" : session,
+    #                         "site_code" :  trmt_obj.site_code,
+    #                         "stockid" :  trmt_obj.Item_Codeid.pk if trmt_obj.Item_Codeid else "",
+    #                         "transacno_ref": trmt_obj.sa_transacno_ref,
+    #                         "treatment_code" : trmt_obj.treatment_parentcode,
+    #                         "treatment_date" : treatment_date,
+    #                         "treatment_limit_times": trmt_obj.treatment_limit_times,
+    #                         "type" : trmt_obj.type,
+    #                         "unit_amount" : unit_amount
+    #                     })        
+                    
+               
+    #             resData = {
+    #                 'dataList': data_list,
+    #                 'meta' : {'pagination': {
+    #                        "per_page":limit,
+    #                        "current_page":page,
+    #                        "total":full_tot,
+    #                        "total_pages":total_page
+    #                 }},
+                    
+    #             }
+    #             now1 = timezone.now()
+    #             print(str(now1.hour) + '  ' +  str(now1.minute) + '  ' +  str(now1.second),"End hour, minute, second\n")
+    #             totalh = now1.second - now.second
+    #             print(totalh,"total")
+    #             result = {'status': status.HTTP_200_OK,"message": "Listed Succesfully",
+    #             'error': False, 'data':  resData ,
+    #             'cust_data': {'cust_name': cust_obj.cust_name if cust_obj.cust_name else "", 
+    #             'cust_refer': cust_obj.cust_refer if cust_obj.cust_refer else ""}}
+    #         else:
+    #             serializer = self.get_serializer()
+    #             result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+    #         return Response(data=result, status=status.HTTP_200_OK) 
+    #     except Exception as e:
+    #         invalid_message = str(e)
+    #         return general_error_response(invalid_message)          
+    
+    
+    #new code given by yoouns
     def list(self, request):
         try:
             now = timezone.now()
@@ -2560,21 +2774,34 @@ class TreatmentDoneNewViewset(viewsets.ModelViewSet):
                     # print(queryset,"queryset")
                 except (EmptyPage, InvalidPage):
                     queryset = paginator.page(total_page) # last page
+                treatmentids = []
                 data_list= []
                 for row in queryset:
                     trmt_obj = row ;is_allow=False
                     session = 0; balance = "0.00"; ar= "0.00" 
-                    done_ids = Treatment.objects.filter(treatment_parentcode=row.treatment_parentcode,status="Done").order_by('pk').count()
-                    open_ids = Treatment.objects.filter(treatment_parentcode=trmt_obj.treatment_parentcode,status="Open").only('pk').order_by('pk').count()
+                    #done_ids = Treatment.objects.filter(treatment_parentcode=row.treatment_parentcode,status="Done").order_by('pk').count()
+                    #open_ids = Treatment.objects.filter(treatment_parentcode=trmt_obj.treatment_parentcode,status="Open").only('pk').order_by('pk').count()
+                    done_ids = row.done_session
+                    open_ids = row.open_session
                     
-                    last_ids = Treatment.objects.filter(treatment_parentcode=row.treatment_parentcode).order_by('-pk').first()
+                    treatmentids = []
+                    trmtparobj = Treatment.objects.filter(cust_code=cust_obj.cust_code,treatment_parentcode=trmt_obj.treatment_parentcode,status="Open").only('pk').order_by('pk')
+                    for oneids in trmtparobj:
+                        treatmentids.append(oneids.pk)
+
+                    #cur = None
+                    #for t1 in Treatment.objects.filter(cust_code=cust_obj.cust_code,treatment_parentcode=trmt_obj.treatment_parentcode,status="Open").only('pk').order_by('pk').iterator():
+                    #    if cur != t1.pk:
+                    #        treatmentids.append(t1.pk)
+                    #        cur = t1.pk
+
+                    last_ids = Treatment.objects.filter(cust_code=cust_obj.cust_code,treatment_parentcode=row.treatment_parentcode).order_by('-pk').first()
 
                     expiry = False; query = False;expiry_date = ""
                     if row.expiry_date:
                         splte = str(row.expiry_date).split(' ')
                         expiry = splte[0]
                         expiry_date = datetime.datetime.strptime(str(splte[0]), "%Y-%m-%d").strftime("%d-%b-%y")
-                        
                     
                     treatment_limit_times = row.treatment_limit_times
 
@@ -2592,7 +2819,7 @@ class TreatmentDoneNewViewset(viewsets.ModelViewSet):
                         created_at=date.today()).order_by('-pk').first()
 
                         iscurrentloggedinsalon = True if site.itemsite_code == trmt_obj.site_code else False 
-                        trmtAccObj = TreatmentAccount.objects.filter(treatment_parentcode=row.treatment_parentcode).order_by('-sa_date','-sa_time','-id').first()
+                        trmtAccObj = TreatmentAccount.objects.filter(cust_code=cust_obj.cust_code,treatment_parentcode=row.treatment_parentcode).order_by('-sa_date','-sa_time','-id').first()
                         # print(trmtAccObj,"trmtAccObj")
                         if trmtAccObj:
                             balance = "{:.2f}".format(float(trmtAccObj.balance)) if trmtAccObj.balance else "0.00"
@@ -2608,7 +2835,6 @@ class TreatmentDoneNewViewset(viewsets.ModelViewSet):
                         session_flag = False if session == 0 else True 
                         exchange_flag = True if session == 1 else False 
     
-                        
                         if system_setup and system_setup.value_data == 'True' and system_obj and system_obj.value_data == 'True':
                             if trmt_obj.site_code != site.itemsite_code or trmt_obj.site_code == site.itemsite_code:
                                 is_allow = True
@@ -2666,6 +2892,7 @@ class TreatmentDoneNewViewset(viewsets.ModelViewSet):
                             "treatment_date" : treatment_date,
                             "treatment_limit_times": trmt_obj.treatment_limit_times,
                             "type" : trmt_obj.type,
+                            "treatmentids" : treatmentids,
                             "unit_amount" : unit_amount
                         })        
                     
@@ -2687,7 +2914,11 @@ class TreatmentDoneNewViewset(viewsets.ModelViewSet):
                 result = {'status': status.HTTP_200_OK,"message": "Listed Succesfully",
                 'error': False, 'data':  resData ,
                 'cust_data': {'cust_name': cust_obj.cust_name if cust_obj.cust_name else "", 
-                'cust_refer': cust_obj.cust_refer if cust_obj.cust_refer else ""}}
+                'cust_refer': cust_obj.cust_refer if cust_obj.cust_refer else "",
+                'cust_phone': cust_obj.cust_phone2 if cust_obj.cust_phone2 else "",
+                'cust_remark': cust_obj.cust_remark if cust_obj.cust_remark else "",
+                },
+                }
             else:
                 serializer = self.get_serializer()
                 result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
@@ -3760,7 +3991,12 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                     s['add_duration'] =  get_in_val(self, s['add_duration'])
                     s['session'] = "{:.2f}".format(float(s['session'])) if s['session'] else ""
                     final.append(s)
-        
+            
+            sear_ids = TmpTreatmentSession.objects.filter(treatment_parentcode=trmt_obj.treatment_parentcode,
+            created_at__lt=date.today()).delete()
+            trmtparobj = Treatment.objects.filter(cust_code=trmt_obj.cust_code,treatment_parentcode=trmt_obj.treatment_parentcode,status="Open").only('pk').order_by('pk').values_list('pk', flat=True).distinct()
+            var = TmpItemHelper.objects.filter(treatment__pk__in=trmtparobj,created_at__date__lt=date.today(),line_no__isnull=True).delete() 
+
             result = {'status': status.HTTP_200_OK,"message": "Listed Succesfully",'error': False, 
             'value': value,'data':  final}
             return Response(data=result, status=status.HTTP_200_OK)  
@@ -3957,7 +4193,9 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
         
                 serializer = self.get_serializer(data=request.data)
                 if serializer.is_valid():
-                    temph = serializer.save(item_name=trmt_obj.Item_Codeid.item_desc,helper_id=helper_obj,
+                    # trmt_obj.Item_Codeid.item_desc
+                    
+                    temph = serializer.save(item_name=trmt_obj.treatment_account.itemcart.itemdesc,helper_id=helper_obj,
                     helper_name=helper_obj.display_name,helper_code=helper_obj.emp_code,Room_Codeid=Room_Codeid,
                     site_code=site.itemsite_code,times=trmt_obj.times,treatment_no=trmt_obj.treatment_no,
                     wp1=wp1,wp2=0.0,wp3=0.0,itemcart=None,treatment=trmt_obj,Source_Codeid=Source_Codeid,
@@ -5463,7 +5701,7 @@ class VoidViewset(viewsets.ModelViewSet):
 
                         cart = ItemCart(cart_date=date.today(),phonenumber=cust_obj.cust_phone2,
                         customercode=cust_obj.cust_code,cust_noid=cust_obj,lineno=lineno,
-                        itemcodeid=stock_obj,itemcode=stock_obj.item_code,itemdesc=stock_obj.item_desc,
+                        itemcodeid=stock_obj,itemcode=stock_obj.item_code,itemdesc=d.itemcart.itemdesc,
                         quantity=d.itemcart.quantity,price="{:.2f}".format(float(d.itemcart.price)),
                         sitecodeid=site,sitecode=site.itemsite_code,
                         cart_status="Inprogress",cart_id=cart_id,item_uom=d.itemcart.item_uom,
@@ -5700,7 +5938,7 @@ class VoidViewset(viewsets.ModelViewSet):
                         if int(i.itemcart.itemcodeid.item_div) == 5:
                             if i.itemcart.type == 'Deposit':
                                 check_ids = PrepaidAccount.objects.filter(pp_no=haudobj.sa_transacno,
-                                cust_code=haudobj.sa_custno,line_no=i.dt_lineno,use_amt__gt=0)
+                                cust_code=haudobj.sa_custno,line_no=i.dt_lineno,use_amt__gt=0,sa_status="SA")
                                 if check_ids:
                                     msg = "Can't do void prepaid product line no {0} has use amount".format(str(i.dt_lineno))
                                     raise Exception(msg)
@@ -5774,7 +6012,12 @@ class VoidViewset(viewsets.ModelViewSet):
                                 if pacc_ids:                                
                                     acc = PrepaidAccountCondition.objects.filter(pk=pacc_ids.pk).update(use_amt=0,remain=remain)
 
-
+                            vtlast_preids = PrepaidAccount.objects.filter(pp_no=ppno,line_no=lineno,
+                            cust_code=haudobj.sa_custno,transac_no=haudobj.sa_transacno).order_by('-pk')
+                            if vtlast_preids:
+                                for v in vtlast_preids:
+                                    v.sa_status = "VT"
+                                    v.save()
 
                             # # pac_ids = PrepaidAccount.objects.filter(transac_no=haudobj.sa_transacno,sa_status='SA',
                             # # cust_code=haudobj.sa_custno,site_code=site.itemsite_code)
@@ -6028,7 +6271,7 @@ class VoidViewset(viewsets.ModelViewSet):
                                     cust_code=haudobj.sa_custno,line_no=d.dt_lineno)
 
                                     check_ids = PrepaidAccount.objects.filter(pp_no=haudobj.sa_transacno,
-                                    cust_code=haudobj.sa_custno,line_no=d.dt_lineno,use_amt__gt=0)
+                                    cust_code=haudobj.sa_custno,line_no=d.dt_lineno,use_amt__gt=0,sa_status="SA")
                                     if not check_ids: 
                                         for pa in pacc_ids:
                                             PrepaidAccount.objects.filter(pk=pa.pk).update(remain=0.0,status=False,sa_status="VT",updated_at=timezone.now(),
@@ -6142,8 +6385,9 @@ class VoidViewset(viewsets.ModelViewSet):
                                 #cust_code=haudobj.sa_custno,site_code=site.itemsite_code)
                                 sacc_ids = TreatmentAccount.objects.filter(sa_transacno=haudobj.sa_transacno,type='Sales',
                                 cust_code=haudobj.sa_custno,treatment_parentcode=d.itemcart.treatment.treatment_parentcode)
-                                description = d.itemcart.itemcodeid.item_name+" "+"(Void Transaction by {0})".format(fmspw[0].pw_userlogin)
-                                
+                                # description = d.itemcart.itemcodeid.item_name+" "+"(Void Transaction by {0})".format(fmspw[0].pw_userlogin)
+                                description = d.itemcart.itemdesc+" "+"(Void Transaction by {0})".format(fmspw[0].pw_userlogin)
+
                                 for i in d.itemcart.multi_treat.all():
                                     if i.type in ['FFi','FFd']:
                                         # Treatment.objects.filter(pk=i.pk).update(course=description,status="Cancel",
@@ -6400,7 +6644,7 @@ class VoidViewset(viewsets.ModelViewSet):
                                 cust_code=haudobj.sa_custno,line_no=d.dt_lineno)
 
                                 check_ids = PrepaidAccount.objects.filter(pp_no=haudobj.sa_transacno,
-                                cust_code=haudobj.sa_custno,line_no=d.dt_lineno,use_amt__gt=0)
+                                cust_code=haudobj.sa_custno,line_no=d.dt_lineno,use_amt__gt=0,sa_status="SA")
                                 if not check_ids: 
                                     for pa in pacc_ids:
                                         PrepaidAccount.objects.filter(pk=pa.pk).update(remain=0.0,status=False,sa_status="VT",updated_at=timezone.now(),
@@ -6715,7 +6959,7 @@ class VoidViewset(viewsets.ModelViewSet):
                                 cust_code=haudobj.sa_custno,treatment_parentcode=da.itemcart.treatment.treatment_parentcode)
                               
                                
-                                description = da.itemcart.itemcodeid.item_name+" "+"(Void Transaction by {0})".format(fmspw[0].pw_userlogin)
+                                description = da.itemcart.itemdesc+" "+"(Void Transaction by {0})".format(fmspw[0].pw_userlogin)
                                 
                                 for i in da.itemcart.multi_treat.all():
                                     if i.type in ['FFi','FFd']:
@@ -7211,228 +7455,418 @@ class TreatmentAccListViewset(viewsets.ModelViewSet):
 
     def list(self, request):
         try:
+            now = timezone.now()
+            print(str(now.hour) + '  ' +  str(now.minute) + '  ' +  str(now.second),"Start hour, minute, second\n")
+        
             fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)[0]
             site = fmspw.loginsite
             cust_id = self.request.GET.get('cust_id',None)
             cust_obj = Customer.objects.filter(pk=request.GET.get('cust_id',None),cust_isactive=True).only('pk','cust_isactive').first()
             if not cust_obj:
                 result = {'status': status.HTTP_200_OK,"message":"Please give customer id!!",'error': True} 
+                return Response(data=result, status=status.HTTP_200_OK) 
+
+            if not self.request.GET.get('show_type',None):
+                result = {'status': status.HTTP_200_OK,"message":"Please give show_type !!",'error': True} 
                 return Response(data=result, status=status.HTTP_200_OK)  
+                
 
             if self.request.GET.get('year',None):
                 year = self.request.GET.get('year',None)
-                if year != "All":
-                    queryset = TreatmentAccount.objects.filter(cust_code=cust_obj.cust_code,sa_date__year=year,type='Deposit').exclude(sa_status="VOID").only('site_code','cust_code','sa_date','type').order_by('-sa_date','-pk')
-                else:
-                    queryset = TreatmentAccount.objects.filter(cust_code=cust_obj.cust_code,type='Deposit').exclude(sa_status="VOID").only('site_code','cust_code','type').order_by('-sa_date','-pk')
+                if self.request.GET.get('show_type',None) == '1':
+                    if year != "All":
+                        queryset = TreatmentPackage.objects.filter(cust_code=cust_obj.cust_code,
+                        open_session__gt=0, treatment_date__year=year).order_by('-pk')
+                    else:
+                        queryset = TreatmentPackage.objects.filter(cust_code=cust_obj.cust_code,open_session__gt=0).order_by('-pk')
+                elif self.request.GET.get('show_type',None) == '0':
+                    if year != "All":
+                        queryset = TreatmentPackage.objects.filter(cust_code=cust_obj.cust_code,
+                        open_session__gte=0, treatment_date__year=year).order_by('-pk')
+                    else:
+                        queryset = TreatmentPackage.objects.filter(cust_code=cust_obj.cust_code,open_session__gte=0).order_by('-pk')
+
             else:
                 result = {'status': status.HTTP_200_OK,"message":"Please give year!!",'error': True} 
                 return Response(data=result, status=status.HTTP_200_OK)  
-            
+
             values = self.request.GET.get('value', None)
             key = self.request.GET.get('key', None)
             if values and key is not None:
                 if values == "asc":
                     if key == 'sa_date':
-                        queryset = queryset.order_by('sa_date')
+                        queryset = queryset.order_by('treatment_date')
                 elif values == "desc":
                     if key == 'sa_date':
-                        queryset = queryset.order_by('-sa_date')   
-
+                        queryset = queryset.order_by('-treatment_date')   
+            
+            # print(queryset,"queryset 77")
             if queryset:
-                serializer = self.get_serializer(queryset, many=True)
+                full_tot = queryset.count()
+                try:
+                    limit = int(request.GET.get("limit",12))
+                except:
+                    limit = 8
+                try:
+                    page = int(request.GET.get("page",1))
+                except:
+                    page = 1
+
+                paginator = Paginator(queryset, limit)
+                total_page = paginator.num_pages
+
+                try:
+                    queryset = paginator.page(page)
+                except (EmptyPage, InvalidPage):
+                    queryset = paginator.page(total_page) # last page
+
                 lst = []; id_lst = []; balance = 0; outstanding = 0
-                for data in serializer.data:
-                    value = False
-                    trobj = TreatmentAccount.objects.filter(pk=data["id"]).first()
+                for data in queryset:
+                    dic = {}
+                    trobj = TreatmentAccount.objects.filter(treatment_parentcode=data.treatment_parentcode,
+                    sa_transacno=data.sa_transacno,type='Deposit').first()
                     #open_trmids = Treatment.objects.filter(cust_code=trobj.cust_code,treatment_parentcode=trobj.treatment_parentcode,
                     #site_code=site.itemsite_code,sa_transacno=trobj.ref_transacno,status='Open').count()
                     open_trmids = Treatment.objects.filter(cust_code=trobj.cust_code,treatment_parentcode=trobj.treatment_parentcode,
                     sa_transacno=trobj.ref_transacno,status='Open').count()
                     # print(open_trmids,"open_trmids")
-                    if self.request.GET.get('show_type',None) == '1':
-                        if open_trmids > 0:
-                            value = True
-                    else:
-                        if self.request.GET.get('show_type',None) == '0':
-                            if open_trmids >= 0:
-                                value = True         
-
-
-                    if value == True:
-                        data['qty'] = trobj.qty
-                        
-                        # trmids = Treatment.objects.filter(treatment_account__pk=trobj.pk,site_code=site.itemsite_code).only('treatment_account').first()
-                        #trmids = Treatment.objects.filter(treatment_parentcode=trobj.treatment_parentcode,
-                        #site_code=site.itemsite_code).only('treatment_parentcode').first()
-                        trmids = Treatment.objects.filter(treatment_parentcode=trobj.treatment_parentcode).only('treatment_parentcode').order_by('-pk').first()
-
-                        
-                        data['balance_qty'] = open_trmids
-
-
-                        # print(data,"data")
-                        if data["id"] not in id_lst:
-                            id_lst.append(data["id"])
-                        
-                        # pos_haud = PosHaud.objects.filter(sa_custno=cust_obj.cust_code,
-                        # sa_transacno=trobj.sa_transacno,sa_transacno_type='Receipt',
-                        # itemsite_code=fmspw.loginsite.itemsite_code).only('sa_custno','sa_transacno','sa_transacno_type').order_by('pk').first()
-                        # sa_transacno_type__in=['Receipt','NON SALES']
-
-                        #pos_haud = PosHaud.objects.filter(sa_custno=cust_obj.cust_code,
-                        #sa_transacno=trobj.sa_transacno,itemsite_code=fmspw.loginsite.itemsite_code
-                        #).only('sa_custno','sa_transacno').order_by('pk').first()
-                        pos_haud = PosHaud.objects.filter(sa_custno=cust_obj.cust_code,
-                        sa_transacno=trobj.sa_transacno
-                        ).only('sa_custno','sa_transacno').order_by('pk').first()
-                        
-                        if pos_haud:
-                            data['transaction'] = pos_haud.sa_transacno_ref if pos_haud.sa_transacno_ref else ""
-                            if pos_haud.sa_date:
-                                splt = str(pos_haud.sa_date).split(" ")
-                                dtime = str(pos_haud.sa_time).split(" ")
-                                time = dtime[1].split(":")
-
-                                time_data = time[0]+":"+time[1]
-                        
-                                data['sa_date'] = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d-%m-%Y")+" "+str(time_data)
-                            
-                            data['description'] = ""
-                            if trmids:
-                                if trmids.course:
-                                    data['description'] = trmids.course 
-                                    
-                            sumacc_ids = TreatmentAccount.objects.filter(ref_transacno=trobj.sa_transacno,
-                            treatment_parentcode=data["treatment_parentcode"],
-                            type__in=('Deposit', 'Top Up')).only('ref_transacno','treatment_parentcode','site_code','type').order_by('pk').aggregate(Sum('deposit'))
-                            if sumacc_ids:
-                                data["payment"] = "{:.2f}".format(float(sumacc_ids['deposit__sum']))
-                            else:
-                                data["payment"] = "0.00"
-
-                            acc_ids = TreatmentAccount.objects.filter(ref_transacno=trobj.sa_transacno,
-                            treatment_parentcode=data["treatment_parentcode"]
-                            ).only('ref_transacno','treatment_parentcode','site_code').order_by('-sa_date','-sa_time','-id').first()
-                            if acc_ids.balance:
-                                data["balance"] = "{:.2f}".format(float(acc_ids.balance))
-                                balance += acc_ids.balance
-                            else:
-                                data["balance"] = "0.00"
-
-                            if acc_ids.outstanding:   
-                                data["outstanding"] = "{:.2f}".format(float(acc_ids.outstanding))
-                                outstanding += acc_ids.outstanding
-                            else:
-                                data["outstanding"] = "0.00"
-
-                            lst.append(data)
                     
-
-                if lst != []:
-
-                    current_date = datetime.datetime.strptime(str(date.today()), "%Y-%m-%d").strftime("%d-%m-%Y")
-                    time = str(datetime.datetime.now().time()).split(":")
-
-                    time_data = time[0]+":"+time[1]
+                    dic['qty'] = trobj.qty
+                    dic['id'] = trobj.pk
+                    dic['treatment_parentcode'] = trobj.treatment_parentcode
                     
-                    title = Title.objects.filter(product_license=site.itemsite_code).first()
+                    # trmids = Treatment.objects.filter(treatment_account__pk=trobj.pk,site_code=site.itemsite_code).only('treatment_account').first()
+                    #trmids = Treatment.objects.filter(treatment_parentcode=trobj.treatment_parentcode,
+                    #site_code=site.itemsite_code).only('treatment_parentcode').first()
+                    trmids = Treatment.objects.filter(treatment_parentcode=trobj.treatment_parentcode).only('treatment_parentcode').order_by('-pk').first()
 
-                    path = None;logo = ""
-                    if title and title.logo_pic:
-                        path = BASE_DIR + title.logo_pic.url
-                        logo = "http://"+request.META['HTTP_HOST']+title.logo_pic.url
-
-
-                    header_data = {"balance" : "{:.2f}".format(float(balance)),
-                    "outstanding" : "{:.2f}".format(float(outstanding)), "treatment_count" : len(id_lst),
-                    'year':self.request.GET.get('year'),'logo':logo,'date':current_date+" "+time_data,
-                    'cust_name': cust_obj.cust_code +" "+ cust_obj.cust_name,'issued': fmspw.pw_userlogin,
-                    'name': title.trans_h1 if title and title.trans_h1 else '', 
-                    'address': title.trans_h2 if title and title.trans_h2 else ''}
-
-                    result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
-                    'header_data':header_data, 'data': lst}
-
-                    if self.request.GET.get('pdf'):
-                       
-                        data = {'name': title.trans_h1 if title and title.trans_h1 else '', 
-                        'address': title.trans_h2 if title and title.trans_h2 else '', 
-                        'footer1':title.trans_footer1 if title and title.trans_footer1 else '',
-                        'footer2':title.trans_footer2 if title and title.trans_footer2 else '',
-                        'footer3':title.trans_footer3 if title and title.trans_footer3 else '',
-                        'footer4':title.trans_footer4 if title and title.trans_footer4 else '',
-                        'path':path if path else '','data': lst,'cust_obj':cust_obj,'date':current_date,
-                        'time':time,'fmspw':fmspw
-                        }
-                        data.update(header_data)
-
-                        template = get_template('treatacc_front.html')
-                        display = Display(visible=0, size=(800, 600))
-                        display.start()
-                        html = template.render(data)
-                        options = {
-                            'margin-top': '.25in',
-                            'margin-right': '.25in',
-                            'margin-bottom': '.25in',
-                            'margin-left': '.25in',
-                            'encoding': "UTF-8",
-                            'no-outline': None,
-                        }
-
-                        dst ="treatacc_front.pdf"
-
-                        response = BytesIO()
-
-                        p=pisa.pisaDocument(BytesIO(html.encode("UTF-8")),response)
-                        # print(p,"pp")
-                        # if not pdfPage.err:
-                        #     return HttpResponse(response.getvalue(),content_type="application/pdf")
-                        # else:
-                        #     return HttpResponse("Error Generating PDF")
+                    
+                    dic['balance_qty'] = open_trmids
 
 
-                        # p=pdfkit.from_string(html,False,options=options)
-                        PREVIEW_PATH = dst
-                        pdf = FPDF() 
+                    if data.id not in id_lst:
+                        id_lst.append(data.id)
+                    
+                    # pos_haud = PosHaud.objects.filter(sa_custno=cust_obj.cust_code,
+                    # sa_transacno=trobj.sa_transacno,sa_transacno_type='Receipt',
+                    # itemsite_code=fmspw.loginsite.itemsite_code).only('sa_custno','sa_transacno','sa_transacno_type').order_by('pk').first()
+                    # sa_transacno_type__in=['Receipt','NON SALES']
 
-                        pdf.add_page() 
+                    #pos_haud = PosHaud.objects.filter(sa_custno=cust_obj.cust_code,
+                    #sa_transacno=trobj.sa_transacno,itemsite_code=fmspw.loginsite.itemsite_code
+                    #).only('sa_custno','sa_transacno').order_by('pk').first()
+                    pos_haud = PosHaud.objects.filter(sa_custno=cust_obj.cust_code,
+                    sa_transacno=trobj.sa_transacno
+                    ).only('sa_custno','sa_transacno').order_by('pk').first()
+                    
+                    if pos_haud:
+                        dic['transaction'] = pos_haud.sa_transacno_ref if pos_haud.sa_transacno_ref else ""
+                        if pos_haud.sa_date:
+                            splt = str(pos_haud.sa_date).split(" ")
+                            dtime = str(pos_haud.sa_time).split(" ")
+                            time = dtime[1].split(":")
+
+                            time_data = time[0]+":"+time[1]
+                    
+                            dic['sa_date'] = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d-%m-%Y")+" "+str(time_data)
                         
-                        pdf.set_font("Arial", size = 15) 
-                        file_path = os.path.join(settings.PDF_ROOT, PREVIEW_PATH)
-                        pdf.output(file_path) 
+                        dic['description'] = ""
+                        if trmids:
+                            if trmids.course:
+                                dic['description'] = trmids.course 
+                                
+                        sumacc_ids = TreatmentAccount.objects.filter(ref_transacno=trobj.sa_transacno,
+                        treatment_parentcode=trobj.treatment_parentcode,
+                        type__in=('Deposit', 'Top Up')).only('ref_transacno','treatment_parentcode','site_code','type').order_by('pk').aggregate(Sum('deposit'))
+                        if sumacc_ids:
+                            dic["payment"] = "{:.2f}".format(float(sumacc_ids['deposit__sum']))
+                        else:
+                            dic["payment"] = "0.00"
 
-                        if p:
-                            # print("iff")
-                            file_path = os.path.join(settings.PDF_ROOT, PREVIEW_PATH)
-                            report = os.path.isfile(file_path)
-                            if report:
-                                file_path = os.path.join(settings.PDF_ROOT, PREVIEW_PATH)
-                                # print(file_path,"file_path")
-                                with open(file_path, 'wb') as fh:
-                                    fh.write(response.getvalue())
-                                    # fh.write(p)
+                        acc_ids = TreatmentAccount.objects.filter(ref_transacno=trobj.sa_transacno,
+                        treatment_parentcode=trobj.treatment_parentcode
+                        ).only('ref_transacno','treatment_parentcode','site_code').order_by('-sa_date','-sa_time','-id').first()
+                        if acc_ids.balance:
+                            dic["balance"] = "{:.2f}".format(float(acc_ids.balance))
+                            balance += acc_ids.balance
+                        else:
+                            dic["balance"] = "0.00"
 
-                                # print(fh,"fh")    
-                                display.stop()
+                        if acc_ids.outstanding:   
+                            dic["outstanding"] = "{:.2f}".format(float(acc_ids.outstanding))
+                            outstanding += acc_ids.outstanding
+                        else:
+                            dic["outstanding"] = "0.00"
 
-                                ip_link = "http://"+request.META['HTTP_HOST']+"/media/pdf/treatacc_front.pdf"
+                        lst.append(dic)
+                
+            
+                current_date = datetime.datetime.strptime(str(date.today()), "%Y-%m-%d").strftime("%d-%m-%Y")
+                time = str(datetime.datetime.now().time()).split(":")
 
-                                result = {'status': status.HTTP_200_OK, "message": "PDF Generated Successfully", 'error': False,
-                                'data': ip_link}
-                                return Response(data=result, status=status.HTTP_200_OK)
+                time_data = time[0]+":"+time[1]
+                
+                title = Title.objects.filter(product_license=site.itemsite_code).first()
 
-                    return Response(data=result, status=status.HTTP_200_OK)
-                else:
-                    result = {'status': status.HTTP_204_NO_CONTENT, 'message': "No Content", 'error': False, 'data': []}
-                    return Response(data=result, status=status.HTTP_200_OK)
-            else:
-                result = {'status': status.HTTP_204_NO_CONTENT, 'message': "No Content", 'error': False, 'data': []}
+                path = None;logo = ""
+                if title and title.logo_pic:
+                    path = BASE_DIR + title.logo_pic.url
+                    logo = "http://"+request.META['HTTP_HOST']+title.logo_pic.url
+
+
+                header_data = {"balance" : "{:.2f}".format(float(balance)),
+                "outstanding" : "{:.2f}".format(float(outstanding)), "treatment_count" : len(id_lst),
+                'year':self.request.GET.get('year'),'logo':logo,'date':current_date+" "+time_data,
+                'cust_name': cust_obj.cust_code +" "+ cust_obj.cust_name,'issued': fmspw.pw_userlogin,
+                'name': title.trans_h1 if title and title.trans_h1 else '', 
+                'address': title.trans_h2 if title and title.trans_h2 else ''}
+
+               
+                now1 = timezone.now()
+                print(str(now1.hour) + '  ' +  str(now1.minute) + '  ' +  str(now1.second),"End hour, minute, second\n")
+                totalh = now1.second - now.second
+                print(totalh,"total")
+
+                result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
+                'header_data':header_data, 
+                'data': {'meta': {'pagination': {"per_page":limit,"current_page":page,
+                "total":full_tot,"total_pages":total_page}}, 'dataList': lst}}
                 return Response(data=result, status=status.HTTP_200_OK)
-
+            else:
+                serializer = self.get_serializer()
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+                return Response(data=result, status=status.HTTP_200_OK)
+    
         except Exception as e:
-           invalid_message = str(e)
-           return general_error_response(invalid_message)     
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+
+
+
+    # def list(self, request):
+    #     try:
+    #         fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)[0]
+    #         site = fmspw.loginsite
+    #         cust_id = self.request.GET.get('cust_id',None)
+    #         cust_obj = Customer.objects.filter(pk=request.GET.get('cust_id',None),cust_isactive=True).only('pk','cust_isactive').first()
+    #         if not cust_obj:
+    #             result = {'status': status.HTTP_200_OK,"message":"Please give customer id!!",'error': True} 
+    #             return Response(data=result, status=status.HTTP_200_OK)  
+
+    #         if self.request.GET.get('year',None):
+    #             year = self.request.GET.get('year',None)
+    #             if year != "All":
+    #                 queryset = TreatmentAccount.objects.filter(cust_code=cust_obj.cust_code,sa_date__year=year,type='Deposit').exclude(sa_status="VOID").only('site_code','cust_code','sa_date','type').order_by('-sa_date','-pk')
+    #             else:
+    #                 queryset = TreatmentAccount.objects.filter(cust_code=cust_obj.cust_code,type='Deposit').exclude(sa_status="VOID").only('site_code','cust_code','type').order_by('-sa_date','-pk')
+    #         else:
+    #             result = {'status': status.HTTP_200_OK,"message":"Please give year!!",'error': True} 
+    #             return Response(data=result, status=status.HTTP_200_OK)  
+            
+    #         values = self.request.GET.get('value', None)
+    #         key = self.request.GET.get('key', None)
+    #         if values and key is not None:
+    #             if values == "asc":
+    #                 if key == 'sa_date':
+    #                     queryset = queryset.order_by('sa_date')
+    #             elif values == "desc":
+    #                 if key == 'sa_date':
+    #                     queryset = queryset.order_by('-sa_date')   
+
+    #         if queryset:
+    #             serializer = self.get_serializer(queryset, many=True)
+    #             lst = []; id_lst = []; balance = 0; outstanding = 0
+    #             for data in serializer.data:
+    #                 value = False
+    #                 trobj = TreatmentAccount.objects.filter(pk=data["id"]).first()
+    #                 #open_trmids = Treatment.objects.filter(cust_code=trobj.cust_code,treatment_parentcode=trobj.treatment_parentcode,
+    #                 #site_code=site.itemsite_code,sa_transacno=trobj.ref_transacno,status='Open').count()
+    #                 open_trmids = Treatment.objects.filter(cust_code=trobj.cust_code,treatment_parentcode=trobj.treatment_parentcode,
+    #                 sa_transacno=trobj.ref_transacno,status='Open').count()
+    #                 # print(open_trmids,"open_trmids")
+    #                 if self.request.GET.get('show_type',None) == '1':
+    #                     if open_trmids > 0:
+    #                         value = True
+    #                 else:
+    #                     if self.request.GET.get('show_type',None) == '0':
+    #                         if open_trmids >= 0:
+    #                             value = True         
+
+
+    #                 if value == True:
+    #                     data['qty'] = trobj.qty
+                        
+    #                     # trmids = Treatment.objects.filter(treatment_account__pk=trobj.pk,site_code=site.itemsite_code).only('treatment_account').first()
+    #                     #trmids = Treatment.objects.filter(treatment_parentcode=trobj.treatment_parentcode,
+    #                     #site_code=site.itemsite_code).only('treatment_parentcode').first()
+    #                     trmids = Treatment.objects.filter(treatment_parentcode=trobj.treatment_parentcode).only('treatment_parentcode').order_by('-pk').first()
+
+                        
+    #                     data['balance_qty'] = open_trmids
+
+
+    #                     # print(data,"data")
+    #                     if data["id"] not in id_lst:
+    #                         id_lst.append(data["id"])
+                        
+    #                     # pos_haud = PosHaud.objects.filter(sa_custno=cust_obj.cust_code,
+    #                     # sa_transacno=trobj.sa_transacno,sa_transacno_type='Receipt',
+    #                     # itemsite_code=fmspw.loginsite.itemsite_code).only('sa_custno','sa_transacno','sa_transacno_type').order_by('pk').first()
+    #                     # sa_transacno_type__in=['Receipt','NON SALES']
+
+    #                     #pos_haud = PosHaud.objects.filter(sa_custno=cust_obj.cust_code,
+    #                     #sa_transacno=trobj.sa_transacno,itemsite_code=fmspw.loginsite.itemsite_code
+    #                     #).only('sa_custno','sa_transacno').order_by('pk').first()
+    #                     pos_haud = PosHaud.objects.filter(sa_custno=cust_obj.cust_code,
+    #                     sa_transacno=trobj.sa_transacno
+    #                     ).only('sa_custno','sa_transacno').order_by('pk').first()
+                        
+    #                     if pos_haud:
+    #                         data['transaction'] = pos_haud.sa_transacno_ref if pos_haud.sa_transacno_ref else ""
+    #                         if pos_haud.sa_date:
+    #                             splt = str(pos_haud.sa_date).split(" ")
+    #                             dtime = str(pos_haud.sa_time).split(" ")
+    #                             time = dtime[1].split(":")
+
+    #                             time_data = time[0]+":"+time[1]
+                        
+    #                             data['sa_date'] = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d-%m-%Y")+" "+str(time_data)
+                            
+    #                         data['description'] = ""
+    #                         if trmids:
+    #                             if trmids.course:
+    #                                 data['description'] = trmids.course 
+                                    
+    #                         sumacc_ids = TreatmentAccount.objects.filter(ref_transacno=trobj.sa_transacno,
+    #                         treatment_parentcode=data["treatment_parentcode"],
+    #                         type__in=('Deposit', 'Top Up')).only('ref_transacno','treatment_parentcode','site_code','type').order_by('pk').aggregate(Sum('deposit'))
+    #                         if sumacc_ids:
+    #                             data["payment"] = "{:.2f}".format(float(sumacc_ids['deposit__sum']))
+    #                         else:
+    #                             data["payment"] = "0.00"
+
+    #                         acc_ids = TreatmentAccount.objects.filter(ref_transacno=trobj.sa_transacno,
+    #                         treatment_parentcode=data["treatment_parentcode"]
+    #                         ).only('ref_transacno','treatment_parentcode','site_code').order_by('-sa_date','-sa_time','-id').first()
+    #                         if acc_ids.balance:
+    #                             data["balance"] = "{:.2f}".format(float(acc_ids.balance))
+    #                             balance += acc_ids.balance
+    #                         else:
+    #                             data["balance"] = "0.00"
+
+    #                         if acc_ids.outstanding:   
+    #                             data["outstanding"] = "{:.2f}".format(float(acc_ids.outstanding))
+    #                             outstanding += acc_ids.outstanding
+    #                         else:
+    #                             data["outstanding"] = "0.00"
+
+    #                         lst.append(data)
+                    
+
+    #             if lst != []:
+
+    #                 current_date = datetime.datetime.strptime(str(date.today()), "%Y-%m-%d").strftime("%d-%m-%Y")
+    #                 time = str(datetime.datetime.now().time()).split(":")
+
+    #                 time_data = time[0]+":"+time[1]
+                    
+    #                 title = Title.objects.filter(product_license=site.itemsite_code).first()
+
+    #                 path = None;logo = ""
+    #                 if title and title.logo_pic:
+    #                     path = BASE_DIR + title.logo_pic.url
+    #                     logo = "http://"+request.META['HTTP_HOST']+title.logo_pic.url
+
+
+    #                 header_data = {"balance" : "{:.2f}".format(float(balance)),
+    #                 "outstanding" : "{:.2f}".format(float(outstanding)), "treatment_count" : len(id_lst),
+    #                 'year':self.request.GET.get('year'),'logo':logo,'date':current_date+" "+time_data,
+    #                 'cust_name': cust_obj.cust_code +" "+ cust_obj.cust_name,'issued': fmspw.pw_userlogin,
+    #                 'name': title.trans_h1 if title and title.trans_h1 else '', 
+    #                 'address': title.trans_h2 if title and title.trans_h2 else ''}
+
+    #                 result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
+    #                 'header_data':header_data, 'data': lst}
+
+    #                 if self.request.GET.get('pdf'):
+                       
+    #                     data = {'name': title.trans_h1 if title and title.trans_h1 else '', 
+    #                     'address': title.trans_h2 if title and title.trans_h2 else '', 
+    #                     'footer1':title.trans_footer1 if title and title.trans_footer1 else '',
+    #                     'footer2':title.trans_footer2 if title and title.trans_footer2 else '',
+    #                     'footer3':title.trans_footer3 if title and title.trans_footer3 else '',
+    #                     'footer4':title.trans_footer4 if title and title.trans_footer4 else '',
+    #                     'path':path if path else '','data': lst,'cust_obj':cust_obj,'date':current_date,
+    #                     'time':time,'fmspw':fmspw
+    #                     }
+    #                     data.update(header_data)
+
+    #                     template = get_template('treatacc_front.html')
+    #                     display = Display(visible=0, size=(800, 600))
+    #                     display.start()
+    #                     html = template.render(data)
+    #                     options = {
+    #                         'margin-top': '.25in',
+    #                         'margin-right': '.25in',
+    #                         'margin-bottom': '.25in',
+    #                         'margin-left': '.25in',
+    #                         'encoding': "UTF-8",
+    #                         'no-outline': None,
+    #                     }
+
+    #                     dst ="treatacc_front.pdf"
+
+    #                     response = BytesIO()
+
+    #                     p=pisa.pisaDocument(BytesIO(html.encode("UTF-8")),response)
+    #                     # print(p,"pp")
+    #                     # if not pdfPage.err:
+    #                     #     return HttpResponse(response.getvalue(),content_type="application/pdf")
+    #                     # else:
+    #                     #     return HttpResponse("Error Generating PDF")
+
+
+    #                     # p=pdfkit.from_string(html,False,options=options)
+    #                     PREVIEW_PATH = dst
+    #                     pdf = FPDF() 
+
+    #                     pdf.add_page() 
+                        
+    #                     pdf.set_font("Arial", size = 15) 
+    #                     file_path = os.path.join(settings.PDF_ROOT, PREVIEW_PATH)
+    #                     pdf.output(file_path) 
+
+    #                     if p:
+    #                         # print("iff")
+    #                         file_path = os.path.join(settings.PDF_ROOT, PREVIEW_PATH)
+    #                         report = os.path.isfile(file_path)
+    #                         if report:
+    #                             file_path = os.path.join(settings.PDF_ROOT, PREVIEW_PATH)
+    #                             # print(file_path,"file_path")
+    #                             with open(file_path, 'wb') as fh:
+    #                                 fh.write(response.getvalue())
+    #                                 # fh.write(p)
+
+    #                             # print(fh,"fh")    
+    #                             display.stop()
+
+    #                             ip_link = "http://"+request.META['HTTP_HOST']+"/media/pdf/treatacc_front.pdf"
+
+    #                             result = {'status': status.HTTP_200_OK, "message": "PDF Generated Successfully", 'error': False,
+    #                             'data': ip_link}
+    #                             return Response(data=result, status=status.HTTP_200_OK)
+
+    #                 return Response(data=result, status=status.HTTP_200_OK)
+    #             else:
+    #                 result = {'status': status.HTTP_204_NO_CONTENT, 'message': "No Content", 'error': False, 'data': []}
+    #                 return Response(data=result, status=status.HTTP_200_OK)
+    #         else:
+    #             result = {'status': status.HTTP_204_NO_CONTENT, 'message': "No Content", 'error': False, 'data': []}
+    #             return Response(data=result, status=status.HTTP_200_OK)
+
+    #     except Exception as e:
+    #        invalid_message = str(e)
+    #        return general_error_response(invalid_message)     
 
 
     # def list(self, request):
@@ -7488,109 +7922,111 @@ class TreatmentAccListViewset(viewsets.ModelViewSet):
     #         # print(per,"PPPPPPPPPPPPPPPPPP")
             
     #         # print(paginator.num_pages,"paginator.num_pages")
-    #         for page_idx in range(1, paginator.num_pages+1):
-    #             # print(page_idx,"KKKKKKKKKKKKKKKKKKKKK")
-    #             if page_idx == page:
-    #                 lst = [] ;id_lst = []; balance = 0; outstanding = 0;
-    #                 for row in paginator.page(page_idx).object_list:
-    #                     # print(row,"row")
-    #                     trobj_ids = TreatmentAccount.objects.filter(pk=row.pk) 
-    #                     # print(trobj_ids,"trobj_ids")
-    #                     serializer = self.get_serializer(trobj_ids, many=True)
-    #                     # print(serializer,"serializer")
+    #         # for page_idx in range(1, paginator.num_pages+1):
+    #         #     # print(page_idx,"KKKKKKKKKKKKKKKKKKKKK")
+    #         #     if page_idx == page:
+    #         lst = [] ;id_lst = []; balance = 0; outstanding = 0;
+    #         for row in paginator.page(page).object_list:
+    #             # print(row,"row")
+    #             trobj_ids = TreatmentAccount.objects.filter(pk=row.pk) 
+    #             # print(trobj_ids,"trobj_ids")
+    #             serializer = self.get_serializer(trobj_ids, many=True)
+    #             # print(serializer,"serializer")
+                
+    #             for data in serializer.data:
+    #                 # print(data,"data")
+    #                 value = False
+    #                 trobj = TreatmentAccount.objects.filter(pk=data["id"]).first()
+    #                 #open_trmids = Treatment.objects.filter(cust_code=trobj.cust_code,treatment_parentcode=trobj.treatment_parentcode,
+    #                 #site_code=site.itemsite_code,sa_transacno=trobj.ref_transacno,status='Open').count()
+    #                 open_trmids = Treatment.objects.filter(cust_code=trobj.cust_code,treatment_parentcode=trobj.treatment_parentcode,
+    #                 sa_transacno=trobj.ref_transacno,status='Open').count()
+    #                 # print(open_trmids,"open_trmids")
+    #                 if self.request.GET.get('show_type',None) == '1':
+    #                     if open_trmids > 0:
+    #                         value = True
+    #                 else:
+    #                     if self.request.GET.get('show_type',None) == '0':
+    #                         if open_trmids >= 0:
+    #                             value = True         
+
+
+    #                 if value == True:
+    #                     data['qty'] = trobj.qty
                         
-    #                     for data in serializer.data:
-    #                         # print(data,"data")
-    #                         value = False
-    #                         trobj = TreatmentAccount.objects.filter(pk=data["id"]).first()
-    #                         #open_trmids = Treatment.objects.filter(cust_code=trobj.cust_code,treatment_parentcode=trobj.treatment_parentcode,
-    #                         #site_code=site.itemsite_code,sa_transacno=trobj.ref_transacno,status='Open').count()
-    #                         open_trmids = Treatment.objects.filter(cust_code=trobj.cust_code,treatment_parentcode=trobj.treatment_parentcode,
-    #                         sa_transacno=trobj.ref_transacno,status='Open').count()
-    #                         # print(open_trmids,"open_trmids")
-    #                         if self.request.GET.get('show_type',None) == '1':
-    #                             if open_trmids > 0:
-    #                                 value = True
-    #                         else:
-    #                             if self.request.GET.get('show_type',None) == '0':
-    #                                 if open_trmids >= 0:
-    #                                     value = True         
+    #                     # trmids = Treatment.objects.filter(treatment_account__pk=trobj.pk,site_code=site.itemsite_code).only('treatment_account').first()
+    #                     #trmids = Treatment.objects.filter(treatment_parentcode=trobj.treatment_parentcode,
+    #                     #site_code=site.itemsite_code).only('treatment_parentcode').first()
+    #                     trmids = Treatment.objects.filter(treatment_parentcode=trobj.treatment_parentcode).only('treatment_parentcode').order_by('-pk').first()
 
-
-    #                         if value == True:
-    #                             data['qty'] = trobj.qty
-                                
-    #                             # trmids = Treatment.objects.filter(treatment_account__pk=trobj.pk,site_code=site.itemsite_code).only('treatment_account').first()
-    #                             #trmids = Treatment.objects.filter(treatment_parentcode=trobj.treatment_parentcode,
-    #                             #site_code=site.itemsite_code).only('treatment_parentcode').first()
-    #                             trmids = Treatment.objects.filter(treatment_parentcode=trobj.treatment_parentcode).only('treatment_parentcode').order_by('-pk').first()
-
-                                
-                                    
-    #                             data['balance_qty'] = open_trmids
-
-
-    #                             # print(data,"data")
-    #                             if data["id"] not in id_lst:
-    #                                 id_lst.append(data["id"])
-                                
-    #                             # pos_haud = PosHaud.objects.filter(sa_custno=cust_obj.cust_code,
-    #                             # sa_transacno=trobj.sa_transacno,sa_transacno_type='Receipt',
-    #                             # itemsite_code=fmspw.loginsite.itemsite_code).only('sa_custno','sa_transacno','sa_transacno_type').order_by('pk').first()
-    #                             # sa_transacno_type__in=['Receipt','NON SALES']
-
-    #                             #pos_haud = PosHaud.objects.filter(sa_custno=cust_obj.cust_code,
-    #                             #sa_transacno=trobj.sa_transacno,itemsite_code=fmspw.loginsite.itemsite_code
-    #                             #).only('sa_custno','sa_transacno').order_by('pk').first()
-    #                             pos_haud = PosHaud.objects.filter(sa_custno=cust_obj.cust_code,
-    #                             sa_transacno=trobj.sa_transacno
-    #                             ).only('sa_custno','sa_transacno').order_by('pk').first()
-                                
-    #                             if pos_haud:
-    #                                 data['transaction'] = pos_haud.sa_transacno_ref if pos_haud.sa_transacno_ref else ""
-    #                                 if pos_haud.sa_date:
-    #                                     splt = str(pos_haud.sa_date).split(" ")
-    #                                     dtime = str(pos_haud.sa_time).split(" ")
-    #                                     time = dtime[1].split(":")
-
-    #                                     time_data = time[0]+":"+time[1]
-                                
-    #                                     data['sa_date'] = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d-%m-%Y")+" "+str(time_data)
-                                    
-    #                                 data['description'] = ""
-    #                                 if trmids:
-    #                                     if trmids.course:
-    #                                         data['description'] = trmids.course 
-                                            
-    #                                 sumacc_ids = TreatmentAccount.objects.filter(ref_transacno=trobj.sa_transacno,
-    #                                 treatment_parentcode=data["treatment_parentcode"],
-    #                                 type__in=('Deposit', 'Top Up')).only('ref_transacno','treatment_parentcode','site_code','type').order_by('pk').aggregate(Sum('balance'))
-    #                                 if sumacc_ids:
-    #                                     data["payment"] = "{:.2f}".format(float(sumacc_ids['balance__sum']))
-    #                                 else:
-    #                                     data["payment"] = "0.00"
-
-    #                                 # acc_ids = TreatmentAccount.objects.filter(ref_transacno=trobj.sa_transacno,
-    #                                 # treatment_parentcode=data["treatment_parentcode"]
-    #                                 # ).only('ref_transacno','treatment_parentcode','site_code').last()
-
-    #                                 acc_ids = TreatmentAccount.objects.filter(ref_transacno=trobj.sa_transacno,
-    #                                 treatment_parentcode=data["treatment_parentcode"]).order_by('-sa_date','-sa_time','-id').first()
-                                
-    #                                 if acc_ids.balance:
-    #                                     data["balance"] = "{:.2f}".format(float(acc_ids.balance))
-    #                                     balance += acc_ids.balance
-    #                                 else:
-    #                                     data["balance"] = "0.00"
-
-    #                                 if acc_ids.outstanding:   
-    #                                     data["outstanding"] = "{:.2f}".format(float(acc_ids.outstanding))
-    #                                     outstanding += acc_ids.outstanding
-    #                                 else:
-    #                                     data["outstanding"] = "0.00"
-
-    #                                 lst.append(data)
+                        
                             
+    #                     data['balance_qty'] = open_trmids
+
+
+    #                     # print(data,"data")
+    #                     if data["id"] not in id_lst:
+    #                         id_lst.append(data["id"])
+                        
+    #                     # pos_haud = PosHaud.objects.filter(sa_custno=cust_obj.cust_code,
+    #                     # sa_transacno=trobj.sa_transacno,sa_transacno_type='Receipt',
+    #                     # itemsite_code=fmspw.loginsite.itemsite_code).only('sa_custno','sa_transacno','sa_transacno_type').order_by('pk').first()
+    #                     # sa_transacno_type__in=['Receipt','NON SALES']
+
+    #                     #pos_haud = PosHaud.objects.filter(sa_custno=cust_obj.cust_code,
+    #                     #sa_transacno=trobj.sa_transacno,itemsite_code=fmspw.loginsite.itemsite_code
+    #                     #).only('sa_custno','sa_transacno').order_by('pk').first()
+    #                     pos_haud = PosHaud.objects.filter(sa_custno=cust_obj.cust_code,
+    #                     sa_transacno=trobj.sa_transacno
+    #                     ).only('sa_custno','sa_transacno').order_by('pk').first()
+                        
+    #                     if pos_haud:
+    #                         data['transaction'] = pos_haud.sa_transacno_ref if pos_haud.sa_transacno_ref else ""
+    #                         if pos_haud.sa_date:
+    #                             splt = str(pos_haud.sa_date).split(" ")
+    #                             dtime = str(pos_haud.sa_time).split(" ")
+    #                             time = dtime[1].split(":")
+
+    #                             time_data = time[0]+":"+time[1]
+                        
+    #                             data['sa_date'] = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d-%m-%Y")+" "+str(time_data)
+                            
+    #                         data['description'] = ""
+    #                         if trmids:
+    #                             if trmids.course:
+    #                                 data['description'] = trmids.course 
+                                    
+                            
+
+    #                         sumacc_ids = TreatmentAccount.objects.filter(ref_transacno=trobj.sa_transacno,
+    #                         treatment_parentcode=data["treatment_parentcode"],
+    #                         type__in=('Deposit', 'Top Up')).only('ref_transacno','treatment_parentcode','site_code','type').order_by('pk').aggregate(Sum('deposit'))
+    #                         if sumacc_ids:
+    #                             data["payment"] = "{:.2f}".format(float(sumacc_ids['deposit__sum']))
+    #                         else:
+    #                             data["payment"] = "0.00"    
+
+    #                         # acc_ids = TreatmentAccount.objects.filter(ref_transacno=trobj.sa_transacno,
+    #                         # treatment_parentcode=data["treatment_parentcode"]
+    #                         # ).only('ref_transacno','treatment_parentcode','site_code').last()
+
+    #                         acc_ids = TreatmentAccount.objects.filter(ref_transacno=trobj.sa_transacno,
+    #                         treatment_parentcode=data["treatment_parentcode"]).order_by('-sa_date','-sa_time','-id').first()
+                        
+    #                         if acc_ids.balance:
+    #                             data["balance"] = "{:.2f}".format(float(acc_ids.balance))
+    #                             balance += acc_ids.balance
+    #                         else:
+    #                             data["balance"] = "0.00"
+
+    #                         if acc_ids.outstanding:   
+    #                             data["outstanding"] = "{:.2f}".format(float(acc_ids.outstanding))
+    #                             outstanding += acc_ids.outstanding
+    #                         else:
+    #                             data["outstanding"] = "0.00"
+
+    #                         lst.append(data)
+                    
 
     #             if lst != []:
 

@@ -547,7 +547,7 @@ class ManualInvoiceModel(models.Model):
     sa_transacno_ref = models.CharField(max_length=255, null=True)
     cust_id = models.ForeignKey('cl_table.Customer', on_delete=models.PROTECT, null=True)
     currency_id =  models.ForeignKey('custom.Currencytable', on_delete=models.PROTECT, null=True)
- 
+    quotation_number = models.CharField(db_column='Quotation_Number', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
    
     class Meta:
         db_table = 'ManualInvoice_List'

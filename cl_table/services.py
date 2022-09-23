@@ -163,11 +163,11 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
             if c.is_foc == True:
                 isfoc = True
                 item_remarks = c.focreason.foc_reason_ldesc if c.focreason and c.focreason.foc_reason_ldesc else None 
-                dt_itemdesc = c.itemcodeid.item_name +" "+"(FOC)"
+                dt_itemdesc = c.itemdesc +" "+"(FOC)"
             else:
                 isfoc = False  
                 item_remarks = None 
-                dt_itemdesc = c.itemcodeid.item_name
+                dt_itemdesc = c.itemdesc
   
             dt_uom = None; dt_discuser = None ; lpackage = False; package_code = None; dt_combocode = None;record_detail_type = None
             
@@ -1402,10 +1402,10 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                 dtl_st_ref_treatmentcode = "";dtl_first_trmt_done = False
                 if c.itemcodeid.Item_Divid.itm_code == '3':
                     if c.is_foc == True:
-                        course_val = c.itemcodeid.item_name +" "+"(FOC)"
+                        course_val = c.itemdesc +" "+"(FOC)"
                         isfoc_val = True
                     else:
-                        course_val = c.itemcodeid.item_name 
+                        course_val = c.itemdesc 
                         isfoc_val = False
                     
                     expiry = None
@@ -1503,7 +1503,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                 wp1=wp1,wp2=0.0,wp3=0.0)
 
                                 # Item helper create
-                                helper = ItemHelper(item_code=treatment_parentcode+"-"+str(times),item_name=c.itemcodeid.item_desc,
+                                helper = ItemHelper(item_code=treatment_parentcode+"-"+str(times),item_name=c.itemdesc,
                                 line_no=dtl.dt_lineno,sa_transacno=sa_transacno,amount="{:.2f}".format(float(treatmentid.unit_amount)),
                                 helper_name=h.helper_name if h.helper_name else None,helper_code=h.helper_code if h.helper_code else None,
                                 site_code=site.itemsite_code,share_amt="{:.2f}".format(float(share_amt)),helper_transacno=sa_transacno,
@@ -1629,7 +1629,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                 acc_ids = TreatmentAccount.objects.filter(ref_transacno=sa_transacno,
                                 treatment_parentcode=treatment_parentcode).order_by('sa_date','sa_time','id').last()
 
-                                td_desc = str(times)+"/"+str(c.quantity)+" "+str(stock_obj.item_name)
+                                td_desc = str(times)+"/"+str(c.quantity)+" "+str(c.itemdesc)
                                 balance = acc_ids.balance - float(treatmentid.unit_amount) if acc_ids.balance else float(treatmentid.unit_amount)
 
                                 treatacc_td = TreatmentAccount(Cust_Codeid=cust_obj,
@@ -2003,7 +2003,7 @@ def invoice_topup(self, request, topup_ids,sa_transacno, cust_obj, outstanding, 
                 # print(outstanding_acc,"outstanding_acc")
                 
                 dtl = PosDaud(sa_transacno=sa_transacno,dt_status="SA",dt_itemnoid=c.itemcodeid,
-                dt_itemno=c.treatment_account.treatment_parentcode,dt_itemdesc=c.itemcodeid.item_name,
+                dt_itemno=c.treatment_account.treatment_parentcode,dt_itemdesc=c.itemdesc,
                 dt_price=c.price,dt_promoprice="{:.2f}".format(float(c.discount_price)),dt_amt="{:.2f}".format(float(c.trans_amt)),dt_qty=c.quantity,
                 dt_discamt="{:.2f}".format(float(totaldisc)),dt_discpercent=dt_discPercent,dt_Staffnoid=sales_staff,
                 dt_staffno=','.join([v.emp_code for v in salesstaff if v.emp_code]),
@@ -2484,7 +2484,7 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
             else:
                 isfoc = False  
                 item_remarks = None 
-                dt_itemdesc = str(time)+"/"+str(c.treatment.treatment_no)+" "+str(c.itemcodeid.item_name)
+                dt_itemdesc = str(time)+"/"+str(c.treatment.treatment_no)+" "+str(c.itemdesc)
             
             sales = "";service = ""
             if c.sales_staff.all():
@@ -2907,12 +2907,12 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
 
 
                         TmpItemHelper.objects.filter(id=h.id).update(item_code=cl.treatment_code,
-                        item_name=c.itemcodeid.item_name,line_no=dtl.dt_lineno,sa_transacno=sa_transacno,
+                        item_name=c.itemdesc,line_no=dtl.dt_lineno,sa_transacno=sa_transacno,
                         amount=cl.unit_amount,sa_date=pay_date,site_code=site.itemsite_code,
                         wp1=wp1,wp2=0.0,wp3=0.0)
 
                         # Item helper create
-                        helper = ItemHelper(item_code=cl.treatment_code,item_name=c.itemcodeid.item_name,
+                        helper = ItemHelper(item_code=cl.treatment_code,item_name=c.itemdesc,
                         line_no=dtl.dt_lineno,sa_transacno=c.treatment.sa_transacno,amount=cl.unit_amount,
                         helper_name=h.helper_name,helper_code=h.helper_code,sa_date=dtl.sa_date,
                         site_code=site.itemsite_code,share_amt="{:.2f}".format(float(share_amt)),helper_transacno=sa_transacno,

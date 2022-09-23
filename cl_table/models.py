@@ -3953,6 +3953,7 @@ class Dayendconfirmlog(models.Model):
     Site_Codeid = models.ForeignKey('cl_app.ItemSitelist', on_delete=models.PROTECT, null=True)
     site_code = models.CharField(db_column='Site_Code', max_length=50, null=True, blank=True)  # Field name made lowercase.
     dayend_pdf = models.ImageField(upload_to='img', null=True)
+    isdayend = models.BooleanField(db_column='isdayend', blank=True, null=True)
 
     class Meta:
         db_table = 'Dayendconfirmlog'

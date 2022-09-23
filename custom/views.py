@@ -25,7 +25,7 @@ EquipmentDropdownSerializer,EquipmentUsageSerializer,EquipmentUsageItemModelSeri
 ItemEquipmentSerializer,ProjectSearchSerializer,CurrencytableSerializer,QuotationPaymentSerializer,
 ManualInvPaymentSerializer,QuotationItemDiscountSerializer,quotationsignSerializer,
 ManualInvoiceItemTableSerializer,TitleImageSerializer,StockImageSerializer,PaygroupImageSerializer,
-ItemDeptImageSerializer,RoundSalesSerializer)
+ItemDeptImageSerializer,RoundSalesSerializer,QuotationCustSerializer)
 from .models import (EmpLevel, Room, Combo_Services, ItemCart,VoucherRecord,RoundPoint, RoundSales,
 PaymentRemarks, HolditemSetup,PosPackagedeposit,SmtpSettings,MultiPricePolicy,salesStaffChangeLog,
 serviceStaffChangeLog,dateChangeLog,  TimeLogModel, ProjectModel, ActivityModel, QuotationModel, POModel, QuotationAddrModel, 
@@ -1676,7 +1676,8 @@ class itemCartViewset(viewsets.ModelViewSet):
                     # dict_v['additional_discountamt'] = "{:.2f}".format(float(dict_v['additional_discountamt']))
                     dict_v['total_disc'] = "{:.2f}".format(float(total_disc))
                     dict_v['treatment_name'] = dict_v['itemdesc']+" "+" "+"("+str(dict_v['quantity'])+")"
-                    dict_v['item_name'] = stock_obj.item_name
+                    # dict_v['item_name'] = stock_obj.item_name
+                    dict_v['item_name'] = cartobj.itemdesc
                     dict_v['item_div'] = int(stockobj.item_div)
                     dict_v['is_tcm'] = False
                     if cartobj.remark:
@@ -2710,6 +2711,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                 item_dept = ItemDept.objects.filter(pk=stock_obj.Item_Deptid.pk,itm_status=True).first()
                 recorddetail=False;itemtype=stock_obj.item_type
                 
+                itemdesc = stock_obj.item_desc
                 # if item_div.itm_code == '3' and item_dept and item_dept.is_service == True:
                 if item_div.itm_code == '3':
                     #acc_obj = TreatmentAccount.objects.filter(pk=req['treatment_account'],site_code=site.itemsite_code).first()
@@ -2717,6 +2719,10 @@ class itemCartViewset(viewsets.ModelViewSet):
                     if not acc_obj:
                         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Treatment Account ID does not exist!!",'error': True} 
                         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
+                    if not acc_obj.package_code:
+                        itemdesc = acc_obj.itemcart.itemdesc
+
                     
                     carttp_ids = ItemCart.objects.filter(isactive=True,cust_noid=cust_obj,cart_date=cartdate,
                     cart_id=cart_id,cart_status="Inprogress",is_payment=False,sitecodeid=site,
@@ -2810,7 +2816,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                         else:    
                             cart = serializer.save(cart_date=cartdate,phonenumber=cust_obj.cust_phone2,
                             customercode=cust_obj.cust_code,cust_noid=cust_obj,lineno=lineno,
-                            itemcodeid=stock_obj,itemcode=stock_obj.item_code,itemdesc=stock_obj.item_desc,
+                            itemcodeid=stock_obj,itemcode=stock_obj.item_code,itemdesc=itemdesc,
                             quantity=1,price="{:.2f}".format(float(req['price'])),
                             sitecodeid=site,sitecode=site.itemsite_code,cart_status="Inprogress",cart_id=cart_id,
                             tax="{:.2f}".format(tax_value),check=check,ratio=100.00,
@@ -3596,9 +3602,10 @@ class itemCartViewset(viewsets.ModelViewSet):
                                 total_price=float(req['price']) * qtyid,trans_amt=0.0,deposit=0.0,type="Sales",
                                 recorddetail=recorddetail,itemtype=itemtype)
                             else:    
+                                # stock_obj.item_desc
                                 cart = serializer.save(cart_date=cartdate,phonenumber=cust_obj.cust_phone2,
                                 customercode=cust_obj.cust_code,cust_noid=cust_obj,lineno=lineno,
-                                itemcodeid=stock_obj,itemcode=stock_obj.item_code,itemdesc=stock_obj.item_desc,
+                                itemcodeid=stock_obj,itemcode=stock_obj.item_code,itemdesc=trmt_obj.treatment_account.itemcart.itemdesc,
                                 quantity=qtyid,price="{:.2f}".format(float(req['price'])),
                                 sitecodeid=site,sitecode=site.itemsite_code,cart_status="Inprogress",cart_id=cart_id,
                                 tax="{:.2f}".format(tax_value),check=check,ratio=100.00,
@@ -7567,10 +7574,7 @@ class CartServiceCourseViewset(viewsets.ModelViewSet):
                 if request.data['treatment_limit_times'] == None:
                    request.data['treatment_limit_times'] = 0
             
-            if 'treat_expiry' in request.data and request.data['treat_expiry']:
-                if request.data['treat_expiry'] <= str(date.today()):
-                    request.data['treat_expiry'] = None
-                    
+              
 
             serializer = self.get_serializer(cart, data=request.data, partial=True)
             if serializer.is_valid():
@@ -7596,7 +7600,8 @@ class CartServiceCourseViewset(viewsets.ModelViewSet):
                         m.salescommpoints = salescommpoints
                         m.save()
 
-
+                l_ids = Tmptreatment.objects.filter(itemcart=cart,isfoc=True).order_by('pk').update(course=cart.itemdesc +" "+"(FOC)")
+                lids = Tmptreatment.objects.filter(itemcart=cart,isfoc=False).order_by('pk').update(course=cart.itemdesc)
 
                 result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",'error': False}
                 return Response(result, status=status.HTTP_200_OK)
@@ -7616,7 +7621,294 @@ class CourseTmpAPIView(generics.ListCreateAPIView):
     queryset = Tmptreatment.objects.filter().order_by('-pk')
     serializer_class = CourseTmpSerializer
 
+    #old code by monica
+    # def create(self, request):
+    #     try:
+    #         fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+    #         site = fmspw.loginsite
+    #         if not request.data['cart_id']:
+    #             result = {'status': status.HTTP_400_BAD_REQUEST,"message":"cart id does not exist!!",'error': True} 
+    #             return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+            
+    #         cartobj = ItemCart.objects.filter(pk=request.data['cart_id']).first()
+    #         if not cartobj:
+    #             result = {'status': status.HTTP_400_BAD_REQUEST,"message":"cart id does not exist!!",'error': True} 
+    #             return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+            
+    #         if cartobj:
+    #             if cartobj.is_foc == True:
+    #                 course_val = cartobj.itemcodeid.item_name +" "+"(FOC)"
+    #                 isfoc_val = True
+    #             else:
+    #                 course_val = cartobj.itemcodeid.item_name 
+    #                 isfoc_val = False
 
+    #             # print(request.data,"request.data")    
+    #             serializer = CourseTmpSerializer(data=request.data)
+    #             if serializer.is_valid():
+                
+    #                 if request.data['treatment_no']:
+    #                     price = request.data['treatment_no'] * cartobj.discount_price
+
+    #                     checkids = Tmptreatment.objects.filter(itemcart=cartobj).order_by('pk').first()
+
+    #                     if checkids:
+    #                         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Already created,Reset & Try!!",'error': True} 
+    #                         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+            
+    #                     check = list(range(1, int(request.data['free_sessions'])+1))
+    #                     treat_val = request.data['treatment_no'] + request.data['free_sessions']
+                        
+
+    #                     date_lst = []
+    #                     cnt = 1
+    #                     while cnt <= treat_val:
+    #                         if date_lst == []:
+    #                             current_date = datetime.datetime.strptime(str(date.today()), "%Y-%m-%d").strftime("%Y-%m-%d")
+    #                             # next_date = current_date + relativedelta(days=7)
+    #                             # nextdate = datetime.datetime.strptime(str(next_date), "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d")
+    #                             date_lst.append(current_date)
+    #                         else:
+    #                             date_1 = datetime.datetime.strptime(str(date_lst[-1]), "%Y-%m-%d")
+    #                             end_date = (date_1 + datetime.timedelta(days=7)).strftime("%Y-%m-%d")
+    #                             date_lst.append(end_date)
+
+    #                         cnt+=1
+                        
+    #                     # print(date_lst,"date_lst") 
+                        
+    #                     tcnt = 0
+    #                     for i in range(treat_val, 0, -1):
+    #                         times = str(i).zfill(2)
+    #                         unit_amount = cartobj.discount_price
+
+    #                         if i in check:
+    #                             unit_amount = 0.0
+    #                             isfoc_val = True
+    #                             course_val = cartobj.itemcodeid.item_name +" "+"(FOC)"
+    #                             price = 0
+
+    #                         treatmentid = Tmptreatment(course=course_val,times=times,
+    #                         treatment_no=str(treat_val).zfill(2),price="{:.2f}".format(float(price)),
+    #                         next_appt=date_lst[tcnt],cust_code=cartobj.cust_noid.cust_code,
+    #                         cust_name=cartobj.cust_noid.cust_name,
+    #                         unit_amount="{:.2f}".format(float(unit_amount)),
+    #                         status="Open",item_code=str(cartobj.itemcodeid.item_code)+"0000",
+    #                         sa_status="SA",type="N",trmt_is_auto_proportion=False,
+    #                         dt_lineno=cartobj.lineno,site_code=site.itemsite_code,isfoc=isfoc_val,
+    #                         itemcart=cartobj)
+    #                         treatmentid.save()
+    #                         tcnt += 1
+
+    #                     tmpids = Tmptreatment.objects.filter(itemcart=cartobj).order_by('pk')
+
+    #                     data = [{'slno': i,'program': c.course,
+    #                     'next_appt': datetime.datetime.strptime(str(c.next_appt), "%Y-%m-%d %H:%M:%S").strftime("%d/%m/%Y") ,
+    #                     'unit_amount': "{:.2f}".format(c.unit_amount)} 
+    #                     for i, c in enumerate(tmpids, start=1)]
+                    
+    #                     result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully",
+    #                     'error': False,'data': data}
+
+    #                     return Response(result, status=status.HTTP_201_CREATED)
+
+    #                 if request.data['total_price']:
+    #                     if request.data['auto'] == False:
+    #                         treatmentno = Tmptreatment.objects.filter(itemcart=cartobj,isfoc=False).order_by('pk').count()
+    #                         unit_amount = float(request.data['total_price']) / int(treatmentno)
+    #                         # print(unit_amount,"unit_amount")
+    #                         unit = str(unit_amount).split('.')
+    #                         # print(unit,"unit")
+    #                         val = float(unit[0]+"."+unit[1][:2])
+    #                         # print(val,"val")
+    #                         # amt = "{:.2f}".format(float(unit_amount)) 
+    #                         # print(amt,"amt")
+                            
+    #                         lasttmp_ids = Tmptreatment.objects.filter(itemcart=cartobj,isfoc=False).order_by('pk').last()
+
+    #                         tmp_treatids = Tmptreatment.objects.filter(itemcart=cartobj,isfoc=False).order_by('pk'
+    #                         ).exclude(pk=lasttmp_ids.pk).update(price="{:.2f}".format(float(request.data['total_price'])),
+    #                         unit_amount=val,trmt_is_auto_proportion=False)
+
+    #                         # print(float(request.data['total_price']),"float(request.data['total_price'])")
+    #                         # print(float(val) * (treatmentno -1),"kkk")
+
+    #                         l_val = float(request.data['total_price']) - (float(val) * (treatmentno -1))
+    #                         # print(l_val,"l_val")
+    #                         v = str(l_val).split('.')
+    #                         c = float(v[0]+"."+v[1][:2])
+    #                         # print(c,"c")
+    #                         lasttmp_ids.price = "{:.2f}".format(float(request.data['total_price']))
+    #                         lasttmp_ids.unit_amount = c
+    #                         lasttmp_ids.trmt_is_auto_proportion = False
+    #                         lasttmp_ids.save()
+                           
+    #                         Tmptreatment.objects.filter(itemcart=cartobj,isfoc=True).order_by('pk'
+    #                         ).update(price=0,unit_amount=0.00,trmt_is_auto_proportion=False)
+
+    #                     elif request.data['auto'] == True:
+    #                         treatmentno = Tmptreatment.objects.filter(itemcart=cartobj).order_by('pk').count()
+    #                         # print(treatmentno,"treatmentno")
+    #                         unit_amount = float(request.data['total_price']) / int(treatmentno)
+    #                         # print(unit_amount,"unit_amount")
+
+    #                         tmp_treatids = Tmptreatment.objects.filter(itemcart=cartobj,isfoc=False).order_by('pk'
+    #                         ).update(price="{:.2f}".format(float(request.data['total_price'])),
+    #                         unit_amount="{:.2f}".format(unit_amount),trmt_is_auto_proportion=True)
+                            
+    #                         l_ids = Tmptreatment.objects.filter(itemcart=cartobj,isfoc=True).order_by('pk').last()
+
+    #                         if l_ids: 
+    #                             Tmptreatment.objects.filter(itemcart=cartobj,isfoc=True).order_by('pk'
+    #                             ).exclude(pk=l_ids.pk).update(price=0,unit_amount="{:.2f}".format(unit_amount),trmt_is_auto_proportion=True)
+                                
+    #                             amt = "{:.2f}".format(float(unit_amount)) 
+    #                             # print(amt,"amt")  
+    #                             # print(request.data['total_price'],"hh")
+    #                             lval = float(request.data['total_price']) - (float(amt) * (treatmentno -1))
+    #                             # print(lval,"lval")
+
+    #                             Tmptreatment.objects.filter(itemcart=cartobj,isfoc=True,pk=l_ids.pk).order_by('pk'
+    #                             ).update(price=0,unit_amount="{:.2f}".format(float(lval)),trmt_is_auto_proportion=True)
+
+
+                            
+    #                     tmp_ids = Tmptreatment.objects.filter(itemcart=cartobj).order_by('pk')
+
+    #                     cartobj.is_total = True
+    #                     cartobj.save()
+
+    #                     data = [{'slno': i,'program': c.course,
+    #                     'next_appt': datetime.datetime.strptime(str(c.next_appt), "%Y-%m-%d %H:%M:%S").strftime("%d/%m/%Y") ,
+    #                     'unit_amount': "{:.2f}".format(c.unit_amount)} 
+    #                     for i, c in enumerate(tmp_ids, start=1)]
+
+    #                     result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",'error': False
+    #                     ,'data': data}
+    #                     return Response(result, status=status.HTTP_200_OK)
+
+    #                 if request.data['disc_amount'] and request.data['unit_price']:
+    #                     tmpobj = Tmptreatment.objects.filter(itemcart=cartobj).order_by('-pk').first()
+    #                     val = float(request.data['unit_price']) * int(tmpobj.treatment_no)
+    #                     price = val - float(request.data['disc_amount'])
+    #                     unit_amount = float(price) / int(tmpobj.treatment_no)
+
+    #                     tmp_treatids = Tmptreatment.objects.filter(itemcart=cartobj,isfoc=False).order_by('pk'
+    #                     ).update(price="{:.2f}".format(float(price)),
+    #                     unit_amount=unit_amount)
+
+    #                     Tmptreatment.objects.filter(itemcart=cartobj,isfoc=True).order_by('pk'
+    #                     ).update(price="{:.2f}".format(float(price)))
+
+
+    #                     tmp_ids = Tmptreatment.objects.filter(itemcart=cartobj).order_by('pk')
+
+    #                     data = [{'slno': i,'program': c.course,
+    #                     'next_appt': datetime.datetime.strptime(str(c.next_appt), "%Y-%m-%d %H:%M:%S").strftime("%d/%m/%Y") ,
+    #                     'unit_amount': "{:.2f}".format(c.unit_amount)} 
+    #                     for i, c in enumerate(tmp_ids, start=1)]
+
+    #                     result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",'error': False
+    #                     ,'data': data}
+    #                     return Response(result, status=status.HTTP_200_OK)
+
+    #                 if request.data['disc_percent'] and request.data['unit_price']:
+    #                     tmpobj = Tmptreatment.objects.filter(itemcart=cartobj).order_by('-pk').first()
+    #                     total_price = float(request.data['unit_price']) * int(tmpobj.treatment_no)
+    #                     value = total_price * (int(request.data['disc_percent']) / 100)
+    #                     price = total_price - float(value)
+    #                     unit_amount = float(price) / int(tmpobj.treatment_no)
+
+    #                     tmp_treatids = Tmptreatment.objects.filter(itemcart=cartobj,isfoc=False).order_by('pk'
+    #                     ).update(price="{:.2f}".format(float(price)),
+    #                     unit_amount=unit_amount)
+
+    #                     Tmptreatment.objects.filter(itemcart=cartobj,isfoc=True).order_by('pk'
+    #                     ).update(price="{:.2f}".format(float(price)))
+
+
+    #                     tmp_ids = Tmptreatment.objects.filter(itemcart=cartobj).order_by('pk')
+
+    #                     data = [{'slno': i,'program': c.course,
+    #                     'next_appt': datetime.datetime.strptime(str(c.next_appt), "%Y-%m-%d %H:%M:%S").strftime("%d/%m/%Y") ,
+    #                     'unit_amount': "{:.2f}".format(c.unit_amount)} 
+    #                     for i, c in enumerate(tmp_ids, start=1)]
+
+    #                     result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",'error': False
+    #                     ,'data': data}
+    #                     return Response(result, status=status.HTTP_200_OK)
+
+    #                 if request.data['auto_propation']:
+    #                     # print(type(request.data['auto_propation']),"jj")
+    #                     if request.data['auto_propation'] == "False":
+    #                         # print("False")
+    #                         number = Tmptreatment.objects.filter(itemcart=cartobj,isfoc=False).order_by('pk').count()
+    #                         tmp_ids = Tmptreatment.objects.filter(itemcart=cartobj,isfoc=False).order_by('pk').last()
+    #                         unit_amount = tmp_ids.price / number
+
+    #                         Tmptreatment.objects.filter(itemcart=cartobj,isfoc=False).order_by('pk'
+    #                         ).update(unit_amount="{:.2f}".format(float(unit_amount)),trmt_is_auto_proportion=False)
+
+    #                         Tmptreatment.objects.filter(itemcart=cartobj,isfoc=True).order_by('pk'
+    #                         ).update(unit_amount=0.0,trmt_is_auto_proportion=False)
+
+    #                         tmp_ids = Tmptreatment.objects.filter(itemcart=cartobj).order_by('pk')
+
+    #                         data = [{'slno': i,'program': c.course,
+    #                         'next_appt': datetime.datetime.strptime(str(c.next_appt), "%Y-%m-%d %H:%M:%S").strftime("%d/%m/%Y") ,
+    #                         'unit_amount': "{:.2f}".format(c.unit_amount)} 
+    #                         for i, c in enumerate(tmp_ids, start=1)]
+
+    #                         result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",'error': False
+    #                         ,'data': data}
+    #                         return Response(result, status=status.HTTP_200_OK)
+
+
+    #                     elif request.data['auto_propation'] == "True": 
+    #                         # print("True")
+    #                         number = Tmptreatment.objects.filter(itemcart=cartobj).order_by('pk').count()
+    #                         tmp_ids = Tmptreatment.objects.filter(itemcart=cartobj,isfoc=False).order_by('pk').last()
+    #                         unit_amount = tmp_ids.price / number
+
+    #                         Tmptreatment.objects.filter(itemcart=cartobj,isfoc=False).order_by('pk'
+    #                         ).update(unit_amount="{:.2f}".format(float(unit_amount)),trmt_is_auto_proportion=True)
+
+                           
+    #                         l_ids = Tmptreatment.objects.filter(itemcart=cartobj,isfoc=True).order_by('pk').last()
+    #                         if l_ids: 
+    #                             Tmptreatment.objects.filter(itemcart=cartobj,isfoc=True).order_by('pk'
+    #                             ).exclude(pk=l_ids.pk).update(price=0,unit_amount="{:.2f}".format(float(unit_amount)),trmt_is_auto_proportion=True)
+
+    #                             amt = "{:.2f}".format(float(unit_amount))  
+    #                             lval = float(tmp_ids.price) - (float(amt) * (number -1))
+
+    #                             Tmptreatment.objects.filter(itemcart=cartobj,isfoc=True,pk=l_ids.pk).order_by('pk'
+    #                             ).update(price=0,unit_amount="{:.2f}".format(float(lval)),trmt_is_auto_proportion=True)
+
+
+    #                         tmp_ids = Tmptreatment.objects.filter(itemcart=cartobj).order_by('pk')
+
+    #                         data = [{'slno': i,'program': c.course,
+    #                         'next_appt': datetime.datetime.strptime(str(c.next_appt), "%Y-%m-%d %H:%M:%S").strftime("%d/%m/%Y") ,
+    #                         'unit_amount': "{:.2f}".format(c.unit_amount)} 
+    #                         for i, c in enumerate(tmp_ids, start=1)]
+
+    #                         result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",'error': False
+    #                         ,'data': data}
+    #                         return Response(result, status=status.HTTP_200_OK)
+
+
+    #             # print(serializer.errors,"serializer.errors")
+    #             result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Invalid Input",
+    #             'error': True, 'data': serializer.errors}
+    #             return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+    #     except Exception as e:
+    #         invalid_message = str(e)
+    #         return general_error_response(invalid_message)   
+
+    
+    # new Given code by Yoouns
     def create(self, request):
         try:
             fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
@@ -7632,10 +7924,10 @@ class CourseTmpAPIView(generics.ListCreateAPIView):
             
             if cartobj:
                 if cartobj.is_foc == True:
-                    course_val = cartobj.itemcodeid.item_name +" "+"(FOC)"
+                    course_val = cartobj.itemdesc +" "+"(FOC)"
                     isfoc_val = True
                 else:
-                    course_val = cartobj.itemcodeid.item_name 
+                    course_val = cartobj.itemdesc
                     isfoc_val = False
 
                 # print(request.data,"request.data")    
@@ -7651,9 +7943,12 @@ class CourseTmpAPIView(generics.ListCreateAPIView):
                             result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Already created,Reset & Try!!",'error': True} 
                             return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
             
+                        #check = list(range(1, int(request.data['free_sessions'])+1))
+                        #check = list(range(int(request.data['treatment_no']) + 1, int(request.data['treatment_no']) + int(request.data['free_sessions'])+1))
                         check = list(range(1, int(request.data['free_sessions'])+1))
                         treat_val = request.data['treatment_no'] + request.data['free_sessions']
-                        
+                        #print(check)
+                        #print(treat_val)
 
                         date_lst = []
                         cnt = 1
@@ -7672,7 +7967,8 @@ class CourseTmpAPIView(generics.ListCreateAPIView):
                         
                         # print(date_lst,"date_lst") 
                         
-                        tcnt = 0
+                        cnt = 0
+                        #for i in range(1, treat_val+1, 1):
                         for i in range(treat_val, 0, -1):
                             times = str(i).zfill(2)
                             unit_amount = cartobj.discount_price
@@ -7680,12 +7976,12 @@ class CourseTmpAPIView(generics.ListCreateAPIView):
                             if i in check:
                                 unit_amount = 0.0
                                 isfoc_val = True
-                                course_val = cartobj.itemcodeid.item_name +" "+"(FOC)"
+                                course_val = cartobj.itemdesc +" "+"(FOC)"
                                 price = 0
 
                             treatmentid = Tmptreatment(course=course_val,times=times,
                             treatment_no=str(treat_val).zfill(2),price="{:.2f}".format(float(price)),
-                            next_appt=date_lst[tcnt],cust_code=cartobj.cust_noid.cust_code,
+                            next_appt=date_lst[cnt],cust_code=cartobj.cust_noid.cust_code,
                             cust_name=cartobj.cust_noid.cust_name,
                             unit_amount="{:.2f}".format(float(unit_amount)),
                             status="Open",item_code=str(cartobj.itemcodeid.item_code)+"0000",
@@ -7693,10 +7989,10 @@ class CourseTmpAPIView(generics.ListCreateAPIView):
                             dt_lineno=cartobj.lineno,site_code=site.itemsite_code,isfoc=isfoc_val,
                             itemcart=cartobj)
                             treatmentid.save()
-                            tcnt += 1
+                            cnt += 1
 
                         tmpids = Tmptreatment.objects.filter(itemcart=cartobj).order_by('pk')
-
+                        # print(tmpids)
                         data = [{'slno': i,'program': c.course,
                         'next_appt': datetime.datetime.strptime(str(c.next_appt), "%Y-%m-%d %H:%M:%S").strftime("%d/%m/%Y") ,
                         'unit_amount': "{:.2f}".format(c.unit_amount)} 
@@ -7710,63 +8006,57 @@ class CourseTmpAPIView(generics.ListCreateAPIView):
                     if request.data['total_price']:
                         if request.data['auto'] == False:
                             treatmentno = Tmptreatment.objects.filter(itemcart=cartobj,isfoc=False).order_by('pk').count()
-                            unit_amount = float(request.data['total_price']) / int(treatmentno)
-                            # print(unit_amount,"unit_amount")
-                            unit = str(unit_amount).split('.')
-                            # print(unit,"unit")
-                            val = float(unit[0]+"."+unit[1][:2])
-                            # print(val,"val")
-                            # amt = "{:.2f}".format(float(unit_amount)) 
-                            # print(amt,"amt")
-                            
-                            lasttmp_ids = Tmptreatment.objects.filter(itemcart=cartobj,isfoc=False).order_by('pk').last()
-
-                            tmp_treatids = Tmptreatment.objects.filter(itemcart=cartobj,isfoc=False).order_by('pk'
-                            ).exclude(pk=lasttmp_ids.pk).update(price="{:.2f}".format(float(request.data['total_price'])),
-                            unit_amount=val,trmt_is_auto_proportion=False)
-
-                            # print(float(request.data['total_price']),"float(request.data['total_price'])")
-                            # print(float(val) * (treatmentno -1),"kkk")
-
-                            l_val = float(request.data['total_price']) - (float(val) * (treatmentno -1))
-                            # print(l_val,"l_val")
-                            v = str(l_val).split('.')
-                            c = float(v[0]+"."+v[1][:2])
-                            # print(c,"c")
-                            lasttmp_ids.price = "{:.2f}".format(float(request.data['total_price']))
-                            lasttmp_ids.unit_amount = c
-                            lasttmp_ids.trmt_is_auto_proportion = False
-                            lasttmp_ids.save()
-                           
+                            unit_amountforless = 0.0
+                            if treatmentno > 1:
+                                unit_amount = round(float(float(request.data['total_price']) / float(treatmentno)),2)
+                                if str(unit_amount - int(unit_amount))[3:]:
+                                    if int(str(unit_amount - int(unit_amount))[3:]) < 5:
+                                        unit_amount = math.floor(unit_amount * 100)/100.00
+                                    else:
+                                        unit_amount = math.ceil(unit_amount * 100)/100.00
+                                unit_amountforless= float(float(request.data['total_price']) - float(unit_amount * float(treatmentno-1)))
+                                unit_amountforless= math.floor(unit_amountforless * 100)/100.00
+                                if round(float(request.data['total_price']),2) < round(float(float(unit_amount * float(treatmentno-1)) + float(unit_amountforless)),2):
+                                    unit_amountforless = unit_amountforless - 0.01
+                                elif round(float(request.data['total_price']),2) > round(float(float(unit_amount * float(treatmentno-1)) + float(unit_amountforless)),2):
+                                    unit_amountforless = unit_amountforless + 0.01
+                                tmp_treatids = Tmptreatment.objects.filter(itemcart=cartobj,isfoc=False).order_by('pk').update(price="{:.2f}".format(float(request.data['total_price'])),
+                                unit_amount="{:.2f}".format(unit_amount),trmt_is_auto_proportion=False)
+                                tmp_pk = Tmptreatment.objects.filter(itemcart=cartobj,isfoc=False).order_by('-times').only('pk').first()
+                                tmp_treatids = Tmptreatment.objects.filter(itemcart=cartobj,pk=tmp_pk.sys_code).update(unit_amount="{:.2f}".format(unit_amountforless),trmt_is_auto_proportion=False)
+                            else:
+                                unit_amount = float(request.data['total_price']) / int(treatmentno)
+                                tmp_treatids = Tmptreatment.objects.filter(itemcart=cartobj,isfoc=False).order_by('pk'
+                                ).update(price="{:.2f}".format(float(request.data['total_price'])),
+                                unit_amount="{:.2f}".format(unit_amount),trmt_is_auto_proportion=False)
                             Tmptreatment.objects.filter(itemcart=cartobj,isfoc=True).order_by('pk'
                             ).update(price=0,unit_amount=0.00,trmt_is_auto_proportion=False)
-
                         elif request.data['auto'] == True:
                             treatmentno = Tmptreatment.objects.filter(itemcart=cartobj).order_by('pk').count()
-                            # print(treatmentno,"treatmentno")
-                            unit_amount = float(request.data['total_price']) / int(treatmentno)
-                            # print(unit_amount,"unit_amount")
-
-                            tmp_treatids = Tmptreatment.objects.filter(itemcart=cartobj,isfoc=False).order_by('pk'
-                            ).update(price="{:.2f}".format(float(request.data['total_price'])),
-                            unit_amount="{:.2f}".format(unit_amount),trmt_is_auto_proportion=True)
-                            
-                            l_ids = Tmptreatment.objects.filter(itemcart=cartobj,isfoc=True).order_by('pk').last()
-
-                            if l_ids: 
-                                Tmptreatment.objects.filter(itemcart=cartobj,isfoc=True).order_by('pk'
-                                ).exclude(pk=l_ids.pk).update(price=0,unit_amount="{:.2f}".format(unit_amount),trmt_is_auto_proportion=True)
-                                
-                                amt = "{:.2f}".format(float(unit_amount)) 
-                                # print(amt,"amt")  
-                                # print(request.data['total_price'],"hh")
-                                lval = float(request.data['total_price']) - (float(amt) * (treatmentno -1))
-                                # print(lval,"lval")
-
-                                Tmptreatment.objects.filter(itemcart=cartobj,isfoc=True,pk=l_ids.pk).order_by('pk'
-                                ).update(price=0,unit_amount="{:.2f}".format(float(lval)),trmt_is_auto_proportion=True)
-
-
+                            unit_amountforless = 0.0
+                            if treatmentno > 1:
+                                unit_amount = round(float(float(request.data['total_price']) / float(treatmentno)),2)
+                                if str(unit_amount - int(unit_amount))[3:]:
+                                    if int(str(unit_amount - int(unit_amount))[3:]) < 5:
+                                        unit_amount = math.floor(unit_amount * 100)/100.00
+                                    else:
+                                        unit_amount = math.ceil(unit_amount * 100)/100.00
+                                unit_amountforless= float(float(request.data['total_price']) - float(unit_amount * float(treatmentno-1)))
+                                unit_amountforless= math.floor(unit_amountforless * 100)/100.00
+                                if round(float(request.data['total_price']),2) < round(float(float(unit_amount * float(treatmentno-1)) + float(unit_amountforless)),2):
+                                    unit_amountforless = unit_amountforless - 0.01
+                                elif round(float(request.data['total_price']),2) > round(float(float(unit_amount * float(treatmentno-1)) + float(unit_amountforless)),2):
+                                    unit_amountforless = unit_amountforless + 0.01
+                                tmp_treatids = Tmptreatment.objects.filter(itemcart=cartobj).order_by('pk'
+                                ).update(price="{:.2f}".format(float(request.data['total_price'])),
+                                unit_amount="{:.2f}".format(unit_amount),trmt_is_auto_proportion=False)
+                                tmp_pk = Tmptreatment.objects.filter(itemcart=cartobj).order_by('-times').only('pk').first()
+                                tmp_treatids = Tmptreatment.objects.filter(itemcart=cartobj,pk=tmp_pk.sys_code).update(unit_amount="{:.2f}".format(unit_amountforless),trmt_is_auto_proportion=False)
+                            else:
+                                unit_amount = float(request.data['total_price']) / int(treatmentno)
+                                tmp_treatids = Tmptreatment.objects.filter(itemcart=cartobj).order_by('pk'
+                                ).update(price="{:.2f}".format(float(request.data['total_price'])),
+                                unit_amount="{:.2f}".format(unit_amount),trmt_is_auto_proportion=False)
                             
                         tmp_ids = Tmptreatment.objects.filter(itemcart=cartobj).order_by('pk')
 
@@ -7787,22 +8077,38 @@ class CourseTmpAPIView(generics.ListCreateAPIView):
                         val = float(request.data['unit_price']) * int(tmpobj.treatment_no)
                         price = val - float(request.data['disc_amount'])
                         unit_amount = float(price) / int(tmpobj.treatment_no)
-
-                        tmp_treatids = Tmptreatment.objects.filter(itemcart=cartobj,isfoc=False).order_by('pk'
-                        ).update(price="{:.2f}".format(float(price)),
-                        unit_amount=unit_amount)
-
+                        unit_amount = math.ceil(unit_amount * 100)/100.00
+                        if 1==1:
+                            unit_amountforless = 0.0
+                            if tmpobj.treatment_no > 1:
+                                unit_amount = round(float(float(price) / float(tmpobj.treatment_no)),2)
+                                if str(unit_amount - int(unit_amount))[3:]:
+                                    if int(str(unit_amount - int(unit_amount))[3:]) < 5:
+                                        unit_amount = math.floor(unit_amount * 100)/100.00
+                                    else:
+                                        unit_amount = math.ceil(unit_amount * 100)/100.00
+                                unit_amountforless= float(float(price) - float(unit_amount * float(tmpobj.treatment_no-1)))
+                                unit_amountforless= math.floor(unit_amountforless * 100)/100.00
+                                if round(float(price),2) < round(float(float(unit_amount * float(tmpobj.treatment_no-1)) + float(unit_amountforless)),2):
+                                    unit_amountforless = unit_amountforless - 0.01
+                                elif round(float(price),2) > round(float(float(unit_amount * float(tmpobj.treatment_no-1)) + float(unit_amountforless)),2):
+                                    unit_amountforless = unit_amountforless + 0.01
+                                tmp_treatids = Tmptreatment.objects.filter(itemcart=cartobj,isfoc=False).order_by('pk'
+                                ).update(price="{:.2f}".format(float(price)),
+                                unit_amount="{:.2f}".format(unit_amount),trmt_is_auto_proportion=False)
+                                tmp_pk = Tmptreatment.objects.filter(itemcart=cartobj,isfoc=False).order_by('-times').only('pk').first()
+                                tmp_treatids = Tmptreatment.objects.filter(itemcart=cartobj,pk=tmp_pk.sys_code).update(unit_amount="{:.2f}".format(unit_amountforless),trmt_is_auto_proportion=False)
+                            else:
+                                tmp_treatids = Tmptreatment.objects.filter(itemcart=cartobj,isfoc=False).order_by('pk'
+                                ).update(price="{:.2f}".format(float(price)),
+                                unit_amount="{:.2f}".format(unit_amount),trmt_is_auto_proportion=False)
                         Tmptreatment.objects.filter(itemcart=cartobj,isfoc=True).order_by('pk'
                         ).update(price="{:.2f}".format(float(price)))
-
-
-                        tmp_ids = Tmptreatment.objects.filter(itemcart=cartobj).order_by('pk')
-
+                        tmp_ids = Tmptreatment.objects.filter(itemcart=cartobj).order_by('-pk')
                         data = [{'slno': i,'program': c.course,
                         'next_appt': datetime.datetime.strptime(str(c.next_appt), "%Y-%m-%d %H:%M:%S").strftime("%d/%m/%Y") ,
                         'unit_amount': "{:.2f}".format(c.unit_amount)} 
                         for i, c in enumerate(tmp_ids, start=1)]
-
                         result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",'error': False
                         ,'data': data}
                         return Response(result, status=status.HTTP_200_OK)
@@ -7813,85 +8119,116 @@ class CourseTmpAPIView(generics.ListCreateAPIView):
                         value = total_price * (int(request.data['disc_percent']) / 100)
                         price = total_price - float(value)
                         unit_amount = float(price) / int(tmpobj.treatment_no)
-
-                        tmp_treatids = Tmptreatment.objects.filter(itemcart=cartobj,isfoc=False).order_by('pk'
-                        ).update(price="{:.2f}".format(float(price)),
-                        unit_amount=unit_amount)
-
+                        unit_amount = math.ceil(unit_amount * 100)/100.00
+                        if 1==1:
+                            unit_amountforless = 0.0
+                            if tmpobj.treatment_no > 1:
+                                unit_amount = round(float(float(price) / float(tmpobj.treatment_no)),2)
+                                if str(unit_amount - int(unit_amount))[3:]:
+                                    if int(str(unit_amount - int(unit_amount))[3:]) < 5:
+                                        unit_amount = math.floor(unit_amount * 100)/100.00
+                                    else:
+                                        unit_amount = math.ceil(unit_amount * 100)/100.00
+                                unit_amountforless= float(float(price) - float(unit_amount * float(tmpobj.treatment_no-1)))
+                                unit_amountforless= math.floor(unit_amountforless * 100)/100.00
+                                if round(float(price),2) < round(float(float(unit_amount * float(tmpobj.treatment_no-1)) + float(unit_amountforless)),2):
+                                    unit_amountforless = unit_amountforless - 0.01
+                                elif round(float(price),2) > round(float(float(unit_amount * float(tmpobj.treatment_no-1)) + float(unit_amountforless)),2):
+                                    unit_amountforless = unit_amountforless + 0.01
+                                tmp_treatids = Tmptreatment.objects.filter(itemcart=cartobj,isfoc=False).order_by('pk'
+                                ).update(price="{:.2f}".format(float(price)),
+                                unit_amount="{:.2f}".format(unit_amount),trmt_is_auto_proportion=False)
+                                tmp_pk = Tmptreatment.objects.filter(itemcart=cartobj,isfoc=False).order_by('-times').only('pk').first()
+                                tmp_treatids = Tmptreatment.objects.filter(itemcart=cartobj,pk=tmp_pk.sys_code).update(unit_amount="{:.2f}".format(unit_amountforless),trmt_is_auto_proportion=False)
+                            else:
+                                tmp_treatids = Tmptreatment.objects.filter(itemcart=cartobj,isfoc=False).order_by('pk'
+                                ).update(price="{:.2f}".format(float(price)),
+                                unit_amount="{:.2f}".format(unit_amount),trmt_is_auto_proportion=False)
                         Tmptreatment.objects.filter(itemcart=cartobj,isfoc=True).order_by('pk'
                         ).update(price="{:.2f}".format(float(price)))
-
-
-                        tmp_ids = Tmptreatment.objects.filter(itemcart=cartobj).order_by('pk')
-
+                        tmp_ids = Tmptreatment.objects.filter(itemcart=cartobj).order_by('-pk')
                         data = [{'slno': i,'program': c.course,
                         'next_appt': datetime.datetime.strptime(str(c.next_appt), "%Y-%m-%d %H:%M:%S").strftime("%d/%m/%Y") ,
                         'unit_amount': "{:.2f}".format(c.unit_amount)} 
                         for i, c in enumerate(tmp_ids, start=1)]
-
                         result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",'error': False
                         ,'data': data}
                         return Response(result, status=status.HTTP_200_OK)
 
                     if request.data['auto_propation']:
-                        # print(type(request.data['auto_propation']),"jj")
                         if request.data['auto_propation'] == "False":
-                            # print("False")
                             number = Tmptreatment.objects.filter(itemcart=cartobj,isfoc=False).order_by('pk').count()
                             tmp_ids = Tmptreatment.objects.filter(itemcart=cartobj,isfoc=False).order_by('pk').last()
                             unit_amount = tmp_ids.price / number
-
-                            Tmptreatment.objects.filter(itemcart=cartobj,isfoc=False).order_by('pk'
-                            ).update(unit_amount="{:.2f}".format(float(unit_amount)),trmt_is_auto_proportion=False)
-
+                            unit_amount = math.ceil(unit_amount * 100)/100.00
+                            unit_amountforless = 0.0
+                            if number > 1:
+                                unit_amount = round(float(float(tmp_ids.price) / float(number)),2)
+                                if str(unit_amount - int(unit_amount))[3:]:
+                                    if int(str(unit_amount - int(unit_amount))[3:]) < 5:
+                                        unit_amount = math.floor(unit_amount * 100)/100.00
+                                    else:
+                                        unit_amount = math.ceil(unit_amount * 100)/100.00
+                                unit_amountforless= float(float(tmp_ids.price) - float(unit_amount * float(number-1)))
+                                unit_amountforless= math.floor(unit_amountforless * 100)/100.00
+                                if round(float(tmp_ids.price),2) < round(float(float(unit_amount * float(number-1)) + float(unit_amountforless)),2):
+                                    unit_amountforless = unit_amountforless - 0.01
+                                elif round(float(tmp_ids.price),2) > round(float(float(unit_amount * float(number-1)) + float(unit_amountforless)),2):
+                                    unit_amountforless = unit_amountforless + 0.01
+                                tmp_treatids = Tmptreatment.objects.filter(itemcart=cartobj,isfoc=False).order_by('pk'
+                                ).update(unit_amount="{:.2f}".format(unit_amount),trmt_is_auto_proportion=False)
+                                tmp_pk = Tmptreatment.objects.filter(itemcart=cartobj,isfoc=False).order_by('-times').only('pk').first()
+                                tmp_treatids = Tmptreatment.objects.filter(itemcart=cartobj,pk=tmp_pk.sys_code).update(unit_amount="{:.2f}".format(unit_amountforless),trmt_is_auto_proportion=False)
+                            else:
+                                tmp_treatids = Tmptreatment.objects.filter(itemcart=cartobj,isfoc=False).order_by('pk'
+                                ).update(unit_amount="{:.2f}".format(unit_amount),trmt_is_auto_proportion=False)
                             Tmptreatment.objects.filter(itemcart=cartobj,isfoc=True).order_by('pk'
                             ).update(unit_amount=0.0,trmt_is_auto_proportion=False)
-
-                            tmp_ids = Tmptreatment.objects.filter(itemcart=cartobj).order_by('pk')
-
+                            tmp_ids = Tmptreatment.objects.filter(itemcart=cartobj).order_by('-pk')
                             data = [{'slno': i,'program': c.course,
                             'next_appt': datetime.datetime.strptime(str(c.next_appt), "%Y-%m-%d %H:%M:%S").strftime("%d/%m/%Y") ,
                             'unit_amount': "{:.2f}".format(c.unit_amount)} 
                             for i, c in enumerate(tmp_ids, start=1)]
-
                             result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",'error': False
                             ,'data': data}
                             return Response(result, status=status.HTTP_200_OK)
-
 
                         elif request.data['auto_propation'] == "True": 
-                            # print("True")
                             number = Tmptreatment.objects.filter(itemcart=cartobj).order_by('pk').count()
-                            tmp_ids = Tmptreatment.objects.filter(itemcart=cartobj,isfoc=False).order_by('pk').last()
+                            tmp_ids = Tmptreatment.objects.filter(itemcart=cartobj,price__gt=0).order_by('pk').last()
                             unit_amount = tmp_ids.price / number
-
-                            Tmptreatment.objects.filter(itemcart=cartobj,isfoc=False).order_by('pk'
-                            ).update(unit_amount="{:.2f}".format(float(unit_amount)),trmt_is_auto_proportion=True)
-
-                           
-                            l_ids = Tmptreatment.objects.filter(itemcart=cartobj,isfoc=True).order_by('pk').last()
-                            if l_ids: 
-                                Tmptreatment.objects.filter(itemcart=cartobj,isfoc=True).order_by('pk'
-                                ).exclude(pk=l_ids.pk).update(price=0,unit_amount="{:.2f}".format(float(unit_amount)),trmt_is_auto_proportion=True)
-
-                                amt = "{:.2f}".format(float(unit_amount))  
-                                lval = float(tmp_ids.price) - (float(amt) * (number -1))
-
-                                Tmptreatment.objects.filter(itemcart=cartobj,isfoc=True,pk=l_ids.pk).order_by('pk'
-                                ).update(price=0,unit_amount="{:.2f}".format(float(lval)),trmt_is_auto_proportion=True)
-
-
-                            tmp_ids = Tmptreatment.objects.filter(itemcart=cartobj).order_by('pk')
-
+                            unit_amount = math.ceil(unit_amount * 100)/100.00
+                            unit_amountforless = 0.0
+                            if number > 1:
+                                unit_amount = round(float(float(tmp_ids.price) / float(number)),2)
+                                if str(unit_amount - int(unit_amount))[3:]:
+                                    if int(str(unit_amount - int(unit_amount))[3:]) < 5:
+                                        unit_amount = math.floor(unit_amount * 100)/100.00
+                                    else:
+                                        unit_amount = math.ceil(unit_amount * 100)/100.00
+                                unit_amountforless= float(float(tmp_ids.price) - float(unit_amount * float(number-1)))
+                                unit_amountforless= math.floor(unit_amountforless * 100)/100.00
+                                if round(float(tmp_ids.price),2) < round(float(float(unit_amount * float(number-1)) + float(unit_amountforless)),2):
+                                    unit_amountforless = unit_amountforless - 0.01
+                                elif round(float(tmp_ids.price),2) > round(float(float(unit_amount * float(number-1)) + float(unit_amountforless)),2):
+                                    unit_amountforless = unit_amountforless + 0.01
+                                tmp_treatids = Tmptreatment.objects.filter(itemcart=cartobj).order_by('pk'
+                                ).update(unit_amount="{:.2f}".format(unit_amount),trmt_is_auto_proportion=True)
+                                tmp_pk = Tmptreatment.objects.filter(itemcart=cartobj).order_by('-times').only('pk').first()
+                                tmp_treatids = Tmptreatment.objects.filter(itemcart=cartobj,pk=tmp_pk.sys_code).update(unit_amount="{:.2f}".format(unit_amountforless),trmt_is_auto_proportion=True)
+                            else:
+                                tmp_treatids = Tmptreatment.objects.filter(itemcart=cartobj).order_by('pk'
+                                ).update(unit_amount="{:.2f}".format(unit_amount),trmt_is_auto_proportion=True)
+                            Tmptreatment.objects.filter(itemcart=cartobj,isfoc=True).order_by('pk'
+                            ).update(price=0.0)
+                            tmp_ids = Tmptreatment.objects.filter(itemcart=cartobj).order_by('-pk')
                             data = [{'slno': i,'program': c.course,
                             'next_appt': datetime.datetime.strptime(str(c.next_appt), "%Y-%m-%d %H:%M:%S").strftime("%d/%m/%Y") ,
                             'unit_amount': "{:.2f}".format(c.unit_amount)} 
                             for i, c in enumerate(tmp_ids, start=1)]
-
                             result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",'error': False
                             ,'data': data}
                             return Response(result, status=status.HTTP_200_OK)
-
 
                 # print(serializer.errors,"serializer.errors")
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Invalid Input",
@@ -9799,10 +10136,10 @@ class AddRemoveSalesStaffViewset(viewsets.ModelViewSet):
 
                                         if not checkids:
                                             if cartobj.is_foc == True:
-                                                course_val = cartobj.itemcodeid.item_name +" "+"(FOC)"
+                                                course_val = cartobj.itemdesc +" "+"(FOC)"
                                                 isfoc_val = True
                                             else:
-                                                course_val = cartobj.itemcodeid.item_name 
+                                                course_val = cartobj.itemdesc 
                                                 isfoc_val = False
 
                                             price = cartobj.quantity * cartobj.discount_price
@@ -10553,7 +10890,7 @@ class QPOItemViewset(viewsets.ModelViewSet):
         queryset = Stock.objects.filter().order_by('-pk')
         item_code = self.request.GET.get('searchitemcode','')
         item_desc = self.request.GET.get('searchitemdesc','')
-        queryset = Stock.objects.filter(item_code__istartswith=item_code,item_desc__istartswith=item_desc,item_isactive=1).order_by('-pk')
+        queryset = Stock.objects.filter(item_code__contains=item_code,item_desc__contains=item_desc,item_isactive=1).order_by('-pk')
                 
 
         return queryset
@@ -10734,9 +11071,9 @@ class ProjectListViewset(viewsets.ModelViewSet):
             return ProjectModel.objects.filter(id=searchid,active='active').order_by('-pk')
         elif "," in status:
             status = status.split(',')
-            return ProjectModel.objects.filter(title__istartswith=title,status__in=status,customer_name__istartswith=name,active='active').order_by('-pk')
+            return ProjectModel.objects.filter(title__contains=title,status__in=status,customer_name__contains=name,active='active').order_by('-pk')
         else:
-            return ProjectModel.objects.filter(title__istartswith=title,status__istartswith=status,customer_name__istartswith=name,active='active').order_by('-pk')
+            return ProjectModel.objects.filter(title__contains=title,status__contains=status,customer_name__contains=name,active='active').order_by('-pk')
                 
 
     def list(self, request):
@@ -11061,9 +11398,9 @@ class DeliveryOrderListViewset(viewsets.ModelViewSet):
             return DeliveryOrderModel.objects.filter(fk_project_id=searchprojectid,active='active').order_by('-pk')
         elif "," in status:
             status = status.split(',')
-            return DeliveryOrderModel.objects.filter(title__istartswith=title,status__in=status,contact_person__istartswith=name,do_number__istartswith=number,created_at__range=[datefrom, dateto],active='active').order_by('-pk')
+            return DeliveryOrderModel.objects.filter(title__contains=title,status__in=status,contact_person__contains=name,do_number__contains=number,created_at__date__range=[datefrom, dateto],active='active').order_by('-pk')
         else:
-            return DeliveryOrderModel.objects.filter(title__istartswith=title,status__istartswith=status,contact_person__istartswith=name,do_number__istartswith=number,created_at__range=[datefrom, dateto],active='active').order_by('-pk')
+            return DeliveryOrderModel.objects.filter(title__contains=title,status__contains=status,contact_person__contains=name,do_number__contains=number,created_at__date__range=[datefrom, dateto],active='active').order_by('-pk')
     
     def list(self, request):
         try:
@@ -11287,9 +11624,9 @@ class WorkOrderInvoiceListViewset(viewsets.ModelViewSet):
             return WorkOrderInvoiceModel.objects.filter(fk_project_id=searchprojectid,active='active').order_by('-pk')
         elif "," in status:
             status = status.split(',')
-            return WorkOrderInvoiceModel.objects.filter(title__istartswith=title,status__in=status,contact_person__istartswith=name,workorderinv_number__istartswith=number,created_at__range=[datefrom, dateto],active='active').order_by('-pk')
+            return WorkOrderInvoiceModel.objects.filter(title__contains=title,status__in=status,contact_person__contains=name,workorderinv_number__contains=number,created_at__date__range=[datefrom, dateto],active='active').order_by('-pk')
         else:
-            return WorkOrderInvoiceModel.objects.filter(title__istartswith=title,status__istartswith=status,contact_person__istartswith=name,workorderinv_number__istartswith=number,created_at__range=[datefrom, dateto],active='active').order_by('-pk')
+            return WorkOrderInvoiceModel.objects.filter(title__contains=title,status__contains=status,contact_person__contains=name,workorderinv_number__contains=number,created_at__date__range=[datefrom, dateto],active='active').order_by('-pk')
     
     def list(self, request):
         try:
@@ -11771,6 +12108,9 @@ class QuotationFormatAPIView(generics.ListCreateAPIView):
                     'quotationdtl': dtl_k,'quotationitem': item_k,
                     'quotationpayment': pay_k,'quotationsign': sign_k,
                     'company_header': company_header}
+                    cust_val = {'cust_address': qo_obj.cust_id.cust_address if qo_obj.cust_id and qo_obj.cust_id.cust_address else '',
+                    'cust_phone2': qo_obj.cust_id.cust_phone2 if qo_obj.cust_id and qo_obj.cust_id.cust_phone2 else ''}
+                    val_lst['quotation'].update(cust_val)
                     datalist.append(val_lst)
                     
 
@@ -11816,9 +12156,9 @@ class ManualInvoiceListViewset(viewsets.ModelViewSet):
             return ManualInvoiceModel.objects.filter(fk_project_id=searchprojectid,active='active').order_by('-pk')
         elif "," in status:
             status = status.split(',')
-            return ManualInvoiceModel.objects.filter(title__istartswith=title,status__in=status,contact_person__istartswith=name,manualinv_number__istartswith=number,created_at__range=[datefrom, dateto],active='active').order_by('-pk')
+            return ManualInvoiceModel.objects.filter(title__contains=title,status__in=status,contact_person__contains=name,manualinv_number__contains=number,created_at__date__range=[datefrom, dateto],active='active').order_by('-pk')
         else:
-            return ManualInvoiceModel.objects.filter(title__istartswith=title,status__istartswith=status,contact_person__istartswith=name,manualinv_number__istartswith=number,created_at__range=[datefrom, dateto],active='active').order_by('-pk')
+            return ManualInvoiceModel.objects.filter(title__contains=title,status__contains=status,contact_person__contains=name,manualinv_number__contains=number,created_at__date__range=[datefrom, dateto],active='active').order_by('-pk')
         
                 
 
@@ -11877,7 +12217,8 @@ class ManualInvoiceListViewset(viewsets.ModelViewSet):
                         "total_amount": "{:.2f}".format(t_amount),
                         "cust_id" : allquery.cust_id.pk if allquery.cust_id else "",
                         "cust_name": allquery.cust_id.cust_name if allquery.cust_id else "",
-                        "currency_id" : allquery.currency_id.pk if allquery.currency_id else ""
+                        "currency_id" : allquery.currency_id.pk if allquery.currency_id else "",
+                        "quotation_number" : allquery.quotation_number
                     })    
                 
 
@@ -12067,9 +12408,9 @@ class EquipmentUsageViewset(viewsets.ModelViewSet):
             return EquipmentUsage.objects.filter(id=searchid,active='active').order_by('-pk')
         elif "," in status:
             status = status.split(',')
-            return EquipmentUsage.objects.filter(title__istartswith=title,status__in=status,contact_person__istartswith=name,eq_number__istartswith=number,created_at__range=[datefrom, dateto],active='active').order_by('-pk')
+            return EquipmentUsage.objects.filter(title__contains=title,status__in=status,contact_person__contains=name,eq_number__contains=number,created_at__date__range=[datefrom, dateto],active='active').order_by('-pk')
         else:
-            return EquipmentUsage.objects.filter(title__istartswith=title,status__istartswith=status,contact_person__istartswith=name,eq_number__istartswith=number,created_at__range=[datefrom, dateto],active='active').order_by('-pk')
+            return EquipmentUsage.objects.filter(title__contains=title,status__contains=status,contact_person__contains=name,eq_number__contains=number,created_at__date__range=[datefrom, dateto],active='active').order_by('-pk')
                 
     
     def list(self, request):
@@ -12306,9 +12647,9 @@ class QuotationListViewset(viewsets.ModelViewSet):
             return QuotationModel.objects.filter(fk_project_id=searchprojectid,active='active').order_by('-pk')
         elif "," in status:
             status = status.split(',')
-            return QuotationModel.objects.filter(title__istartswith=title,status__in=status,contact_person__istartswith=name,quotation_number__istartswith=number,created_at__range=[datefrom, dateto],active='active').order_by('-pk')
+            return QuotationModel.objects.filter(title__contains=title,status__in=status,contact_person__contains=name,quotation_number__contains=number,created_at__date__range=[datefrom, dateto],active='active').order_by('-pk')
         else:
-            return QuotationModel.objects.filter(title__istartswith=title,status__istartswith=status,contact_person__istartswith=name,quotation_number__istartswith=number,created_at__range=[datefrom, dateto],active='active').order_by('-pk')
+            return QuotationModel.objects.filter(title__contains=title,status__contains=status,contact_person__contains=name,quotation_number__contains=number,created_at__date__range=[datefrom, dateto],active='active').order_by('-pk')
                 
                 
 
@@ -12316,6 +12657,7 @@ class QuotationListViewset(viewsets.ModelViewSet):
         try:
             serializer_class = QuotationSerializer
             queryset = self.filter_queryset(self.get_queryset())
+            print(queryset,"queryset")
             if queryset:
                 full_tot = queryset.count()
                 try:
@@ -12547,9 +12889,9 @@ class POListViewset(viewsets.ModelViewSet):
             return POModel.objects.filter(fk_project_id=searchprojectid,active='active').order_by('-pk')
         elif "," in status:
             status = status.split(',')
-            return POModel.objects.filter(title__istartswith=title,status__in=status,contact_person__istartswith=name,po_number__istartswith=number,created_at__range=[datefrom, dateto],active='active').order_by('-pk')
+            return POModel.objects.filter(title__contains=title,status__in=status,contact_person__contains=name,po_number__contains=number,created_at__date__range=[datefrom, dateto],active='active').order_by('-pk')
         else:
-            return POModel.objects.filter(title__istartswith=title,status__istartswith=status,contact_person__istartswith=name,po_number__istartswith=number,created_at__range=[datefrom, dateto],active='active').order_by('-pk')
+            return POModel.objects.filter(title__contains=title,status__contains=status,contact_person__contains=name,po_number__contains=number,created_at__date__range=[datefrom, dateto],active='active').order_by('-pk')
         
 
     def list(self, request):
@@ -26601,3 +26943,43 @@ class RoundSalesViewset(viewsets.ModelViewSet):
             invalid_message = str(e)
             return general_error_response(invalid_message)     
 
+
+class QuotationCustViewset(viewsets.ModelViewSet):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = QuotationModel.objects.filter(active='active').order_by('-pk')
+    serializer_class = QuotationCustSerializer
+
+    def list(self, request):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True).first()
+            site = fmspw.loginsite
+
+            cust_id = self.request.GET.get('cust_id',None)
+            # print(cust_id,"cust_id")
+            # print(not cust_id,"not cust_id")
+            if not cust_id:
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please Give Customer ID",
+                'error': True}
+                return Response(data=result, status=status.HTTP_200_OK)  
+            
+            cust_obj = Customer.objects.filter(pk=cust_id,
+            cust_isactive=True).first()
+           
+            if not cust_obj:
+                result = {'status': status.HTTP_200_OK,"message":"Customer id Does not Exist!!",'error': True} 
+                return Response(data=result, status=status.HTTP_200_OK)  
+            
+
+            queryset = QuotationModel.objects.filter(active='active',cust_id=cust_obj).order_by('-pk')
+            if queryset:
+                serializer = self.get_serializer(queryset, many=True)
+                result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully"
+                ,'error': False, 'data': serializer.data}
+            else:
+                serializer = self.get_serializer()
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+            return Response(data=result, status=status.HTTP_200_OK)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)     
