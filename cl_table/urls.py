@@ -10,6 +10,8 @@ router.register(r'termsandcondition', views.TermsandconditionViewset, basename='
 router.register(r'participants', views.ParticipantsViewset, basename='participants')
 router.register(r'dayendconfirmlog', views.DayendconfirmlogViewset, basename='dayendconfirmlog')
 router.register(r'customerpointsaccount', views.CustomerPointsAccountViewset, basename='customerpointsaccount')
+router.register(r'mgmpolicycloud', views.MGMPolicyCloudViewset, basename='mgmpolicycloud')
+router.register(r'customerreferral', views.CustomerReferralViewset, basename='customerreferral')
 
 
 urlpatterns = [

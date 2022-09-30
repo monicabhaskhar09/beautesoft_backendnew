@@ -1067,6 +1067,7 @@ class Customer(models.Model):
     source_name = models.CharField(max_length=40, blank=True, null=True)
     title_name = models.CharField(max_length=40, blank=True, null=True)
     cust_corporate = models.BooleanField(db_column='cust_corporate',default=False)
+    referredby_id = models.ForeignKey('cl_table.Customer',on_delete=models.PROTECT, null=True) 
 
     def save(self, *args,**kwargs):
         if self.Cust_Classid:
@@ -3982,3 +3983,55 @@ class StudioWork(models.Model):
     def __str__(self):
         return str(self.work) 
     
+
+class MGMPolicyCloud(models.Model):
+    id = models.AutoField(db_column='ID', primary_key=True)
+    level = models.CharField(db_column='level', max_length=200, null=True)  # Field name made lowercase.
+    point_value = models.FloatField(db_column='Point_Value', blank=True, null=True)  # Field name made lowercase.
+    Site_Codeid = models.ForeignKey('cl_app.ItemSitelist', on_delete=models.PROTECT,  null=True)
+    site_code = models.CharField(db_column='Site_Code', max_length=20, null=True)  # Field name made lowercase.
+    isactive = models.BooleanField(db_column='IsActive',default=True)  # Field name made lowercase.
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    minimum_purchase_amt = models.FloatField(blank=True, null=True)  # Field name made lowercase.
+
+    class Meta:
+        db_table = 'MGMPolicyCloud'
+        unique_together = (('level', 'Site_Codeid'),)
+
+    def save(self, *args,**kwargs):
+        
+        if self.Site_Codeid:
+            self.site_code = self.Site_Codeid.itemsite_code
+
+        super(MGMPolicyCloud,self).save(*args,**kwargs)
+
+    def __str__(self):
+        return str(self.level)
+
+
+class CustomerReferral(models.Model):
+    id = models.AutoField(db_column='ID', primary_key=True)
+    referral_id = models.ForeignKey('cl_table.Customer',related_name='referralid', on_delete=models.PROTECT, null=True) 
+    cust_id = models.ForeignKey('cl_table.Customer',related_name='custid', on_delete=models.PROTECT, null=True) 
+    Site_Codeid = models.ForeignKey('cl_app.ItemSitelist', on_delete=models.PROTECT,  null=True)
+    site_code = models.CharField(db_column='Site_Code', max_length=20, null=True)  # Field name made lowercase.
+    isactive = models.BooleanField(db_column='IsActive',default=True)  # Field name made lowercase.
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    ispoints_awarded = models.BooleanField(db_column='ispoints_awarded',default=False)  # Field name made lowercase.
+
+    class Meta:
+        db_table = 'CustomerReferral'
+        unique_together = (('referral_id', 'cust_id','Site_Codeid'),)
+
+    def save(self, *args,**kwargs):
+        
+        if self.Site_Codeid:
+            self.site_code = self.Site_Codeid.itemsite_code
+
+        super(CustomerReferral,self).save(*args,**kwargs)
+
+    def __str__(self):
+        return str(self.referral_id.cust_name)
+

@@ -1368,12 +1368,32 @@ class itemCartViewset(viewsets.ModelViewSet):
 
             savalue = sa_transacno_update(self, site, fmspw) 
 
-            queryset = ItemCart.objects.filter(cust_noid=cust_obj,cart_date=cart_date,
-            cart_status="Inprogress",isactive=True,is_payment=False,sitecode=site.itemsite_code).exclude(type__in=type_ex).order_by('lineno')    
-            lst = list(set([e.cart_id for e in queryset if e.cart_id]))
-            if len(lst) > 1:
-                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"This Customer will have more than one Cart ID in Inprogress status,Please check and delete Unwanted Cart ID!!",'error': True} 
-                return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+            scount = 1
+            while scount > 0:
+                queryset = ItemCart.objects.filter(cust_noid=cust_obj,cart_date=cart_date,
+                cart_status="Inprogress",isactive=True,is_payment=False,sitecode=site.itemsite_code).exclude(type__in=type_ex).order_by('lineno')    
+                lst = list(set([e.cart_id for e in queryset if e.cart_id]))
+                if len(lst) > 1:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"This Customer will have more than one Cart ID in Inprogress status,Please check and delete Unwanted Cart ID!!",'error': True} 
+                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+                
+                if lst != []:
+                    cartc_ids = ItemCart.objects.filter(isactive=True,cart_date=cart_date,
+                    cart_id=lst[0],cart_status="Completed",is_payment=True,sitecodeid=site).exclude(type__in=type_ex)
+                    # print(cartc_ids,"cartc_ids") 
+                    if cartc_ids:
+                        inqueryset = ItemCart.objects.filter(cust_noid=cust_obj,cart_id=lst[0],cart_date=cart_date,
+                        cart_status="Inprogress",isactive=True,is_payment=False,sitecodeid=site).exclude(type__in=type_ex).order_by('lineno')  
+                        for j in inqueryset:
+                            j.cart_status = "Completed" 
+                            j.is_payment = True
+                            j.sa_transacno = cartc_ids[0].sa_transacno
+                            j.save()
+                        scount += 1
+                    else:
+                        scount = 0
+                else:
+                    scount = 0
 
             if queryset:
                 # serializer = self.get_serializer(queryset, many=True)
@@ -15213,6 +15233,12 @@ class QuotationItemViewset(viewsets.ModelViewSet):
             total = None
             request.POST._mutable = True
             serializer = self.get_serializer(data=request.data)
+
+            if 'discount_amt' in request.data and request.data['discount_amt'] and 'quotation_unitprice' in request.data and request.data['quotation_unitprice']:
+                if float(request.data['discount_amt']) > float(request.data['quotation_unitprice']):
+                    raise Exception('discount amt should not be greater than quotation unitprice!') 
+
+
             if serializer.is_valid():
                 self.perform_create(serializer)
                 # serializer.save(discount_price=float(request.data['quotation_unitprice']) * 1, 
@@ -15317,6 +15343,11 @@ class QuotationItemViewset(viewsets.ModelViewSet):
             total = None
             serializer_class = None
             quotationitem = self.get_object(pk)
+            if 'discount_amt' in request.data and request.data['discount_amt'] and 'quotation_unitprice' in request.data and request.data['quotation_unitprice']:
+                if float(request.data['discount_amt']) > float(request.data['quotation_unitprice']):
+                    raise Exception('discount amt should not be greater than quotation unitprice!') 
+
+
             serializer = QuotationItemSerializer(quotationitem, data=request.data)
             if serializer.is_valid():
                 serializer.save()

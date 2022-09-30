@@ -7,7 +7,8 @@ CustomerClass, RewardPolicy, RedeemPolicy, Diagnosis, DiagnosisCompare, Security
 DailysalesdataDetail, DailysalesdataSummary,Holditemdetail,PrepaidAccount,CreditNote,TreatmentAccount,
 DepositAccount, CustomerPoint, MrRewardItemType,Smsreceivelog,Systemsetup,TreatmentProtocol,
 CustomerTitle,ItemDiv,Tempcustsign,CustomerDocument,TreatmentPackage,ContactPerson,ItemFlexiservice,
-termsandcondition,Participants,ProjectDocument,Dayendconfirmlog,CustomerPointDtl)
+termsandcondition,Participants,ProjectDocument,Dayendconfirmlog,CustomerPointDtl,MGMPolicyCloud,
+CustomerReferral)
 from cl_app.models import ItemSitelist, SiteGroup
 from custom.models import EmpLevel,Room,VoucherRecord
 from django.contrib.auth.models import User
@@ -2703,7 +2704,8 @@ class CustomerPlusnewSerializer(serializers.ModelSerializer):
                   'cust_email', 'cardno1','cardno2','cardno3','cardno4','cardno5','phone4','cust_phoneo','cust_therapist_id',
                   'cust_consultant_id','cust_address1','cust_address2','cust_address3',
                   'prepaid_card','cust_occupation', 'creditnote','voucher_available','oustanding_payment','cust_refer',
-                  'custallowsendsms','cust_maillist','cust_title','cust_sexes','cust_class','cust_corporate']
+                  'custallowsendsms','cust_maillist','cust_title','cust_sexes','cust_class','cust_corporate',
+                  'referredby_id','cust_referby_code']
         read_only_fields = ('cust_isactive','created_at', 'updated_at','last_visit','upcoming_appointments',
         'Site_Code','cust_code','ProneToComplain')
         extra_kwargs = {'cust_name': {'required': True},'cust_phone2': {'required': False},}
@@ -2816,7 +2818,8 @@ class CustomerPlusSerializer(serializers.ModelSerializer):
                   'cust_email', 'cardno1','cardno2','cardno3','cardno4','cardno5','phone4','cust_phoneo','cust_therapist_id',
                   'cust_consultant_id','cust_address1','cust_address2','cust_address3',
                   'prepaid_card','cust_occupation', 'creditnote','voucher_available','oustanding_payment','cust_refer',
-                  'custallowsendsms','cust_maillist','cust_title','cust_sexes','cust_class','cust_corporate']
+                  'custallowsendsms','cust_maillist','cust_title','cust_sexes','cust_class','cust_corporate',
+                  'referredby_id','cust_referby_code']
         read_only_fields = ('cust_isactive','created_at', 'updated_at','last_visit','upcoming_appointments',
         'Site_Code','cust_code','ProneToComplain')
         extra_kwargs = {'cust_name': {'required': True},'cust_phone2': {'required': False},}
@@ -3265,3 +3268,42 @@ class CustomerPointAccountSerializer(serializers.ModelSerializer):
         data['now_point'] = "{:.2f}".format(data['now_point'])
         data['point'] = "{:.2f}".format(data['point'])
         return data           
+
+
+class MGMPolicyCloudSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = MGMPolicyCloud
+        fields = '__all__'         
+
+    def to_representation(self, obj):
+        data = super(MGMPolicyCloudSerializer, self).to_representation(obj)
+       
+        data['point_value'] = "{:.2f}".format(data['point_value'])
+        return data           
+
+
+class CustomerReferralSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = CustomerReferral
+        fields = ['id','isactive','Site_Codeid','site_code']         
+
+    def to_representation(self, obj):
+        data = super(CustomerReferralSerializer, self).to_representation(obj)
+        dateofjoin = ""
+        if obj.cust_id and obj.cust_id.cust_joindate:
+            splt = str(obj.cust_id.cust_joindate).split(" ") 
+
+            dateofjoin = datetime.datetime.strptime(str(splt[0]), '%Y-%m-%d').strftime("%d-%m-%Y") 
+                
+        data['referrer_name'] = obj.referral_id.cust_name if obj.referral_id and obj.referral_id.cust_name else ""
+        data['referrer_code'] = obj.referral_id.cust_code if obj.referral_id and obj.referral_id.cust_code else ""
+        data['referrer_referenceno'] = obj.referral_id.cust_refer if obj.referral_id and obj.referral_id.cust_refer else ""
+        data['customer_name'] = obj.cust_id.cust_name if obj.cust_id and obj.cust_id.cust_name else ""
+        data['customer_code'] = obj.cust_id.cust_code if obj.cust_id and obj.cust_id.cust_code else ""
+        data['customer_referenceno'] = obj.cust_id.cust_refer if obj.cust_id and obj.cust_id.cust_refer else ""
+        data['dateofjoin'] = dateofjoin
+        data['cust_totpurchasevalue'] = "{:.2f}".format(data['point_value']) if obj.cust_totpurchasevalue else "0.00"
+        return data           
+    

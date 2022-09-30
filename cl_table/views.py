@@ -24,7 +24,8 @@ from .models import (Gender, Employee, Fmspw, Attendance2, Customer, Images, Tre
                      Religious, Nationality, Races, DailysalestdSummary,
                      MrRewardItemType,CustomerPoint,TreatmentDuration,Smsreceivelog,TreatmentProtocol,CustomerTitle,CustomerPointDtl,
                      ItemDiv,Tempcustsign,CustomerDocument,TreatmentPackage,Tmptreatment,CustLogAudit,ContactPerson,
-                     ItemFlexiservice,termsandcondition,Dayendconfirmlog,Participants,ProjectDocument)
+                     ItemFlexiservice,termsandcondition,Dayendconfirmlog,Participants,ProjectDocument,
+                     MGMPolicyCloud,CustomerReferral)
 from cl_app.models import ItemSitelist, SiteGroup, LoggedInUser
 from custom.models import Room,ItemCart,VoucherRecord,EmpLevel,PosPackagedeposit,payModeChangeLog,ProjectModel
 from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializer, Attendance2Serializer,
@@ -62,7 +63,8 @@ from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializ
                           TreatmentPackageSerializer,ItemSitelistIntialSerializer,StaffInsertSerializer,
                           FmspwSerializernew,GenderSerializer,CustomerPlusnewSerializer,ContactPersonSerializer,
                           ItemFlexiserviceSerializer,termsandconditionSerializer,ParticipantsSerializer,ProjectDocumentSerializer,
-                          Custphone2Serializer,DayendconfirmlogSerializer,CustomerPointAccountSerializer)
+                          Custphone2Serializer,DayendconfirmlogSerializer,CustomerPointAccountSerializer,
+                          MGMPolicyCloudSerializer,CustomerReferralSerializer)
 from datetime import date, timedelta, datetime
 import datetime
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
@@ -7870,6 +7872,44 @@ def postaud_calculation(self, request, queryset, paydate):
     'is_exclusive': is_exclusive, 'gst_percent': gst_percent}
     return value
 
+def customer_point(self, request, point, sa_transacno, cust_obj, itemcode,itemdesc, itemqty, fmspw, sa_date, hdr, fdeposit_amt):
+    now_point = 0;
+    if cust_obj and cust_obj.cust_point_value == None: 
+        now_point = 0
+    else:
+        if cust_obj and cust_obj.cust_point_value and cust_obj.cust_point_value > 0:
+            now_point = cust_obj.cust_point_value
+    
+    now_point  += point
+    ct = CustomerPointDtl(type="Reward",cust_code=cust_obj.cust_code,
+    cust_name=cust_obj.cust_name,parent_code=None,parent_desc=None,
+    parent_display=None,itm_code=itemcode,itm_desc=itemdesc,
+    point="{:.2f}".format(point),now_point="{:.2f}".format(now_point),remark=None,remark_code=None,
+    remark_desc=None,isvoid=False,void_referenceno=None,isopen=True,qty=itemqty,
+    seq=False,sa_status="SA",bal_acc2=None,point_acc1=None,
+    point_acc2=None,locid=False,total_point="{:.2f}".format(point))
+    ct.save()     
+
+    rew_refcontrol_obj = ControlNo.objects.filter(control_description__iexact="Reward Sales",
+    Site_Codeid__pk=fmspw.loginsite.pk).first()
+    rew_transacno = str(rew_refcontrol_obj.control_prefix)+str(rew_refcontrol_obj.Site_Codeid.itemsite_code)+str(rew_refcontrol_obj.control_no)
+    rew_refcontrol_obj.control_no = int(rew_refcontrol_obj.control_no) + 1
+    rew_refcontrol_obj.save()
+
+    CustomerPoint(transacno=rew_transacno,date=hdr.sa_date,username=fmspw.pw_userlogin,
+    time=hdr.sa_time,cust_name=cust_obj.cust_name,cust_code=cust_obj.cust_code,type="Reward",
+    refno=sa_transacno,ref_source="Referral",isvoid=False,sa_status="SA",void_referenceno=None,
+    total_point="{:.2f}".format(point),now_point="{:.2f}".format(now_point),seq=None,remarks=None,
+    bal_point="{:.2f}".format(now_point-point),expired=False,expired_date=None,mac_code=False,logno=False,
+    approval_user=fmspw.pw_userlogin,cardno=False,bdate=None,pdate=None,expired_point=0,
+    postransactionno=sa_transacno,postotalamt="{:.2f}".format(float(fdeposit_amt)),locid=False,mgm_refno=None,tdate=None).save()
+    
+    ct.transacno = rew_transacno 
+    ct.save() 
+
+    return ct   
+
+
 
     
 class postaudViewset(viewsets.ModelViewSet):
@@ -9348,7 +9388,34 @@ class postaudViewset(viewsets.ModelViewSet):
                             cdt.total_point = "{:.2f}".format(total_point)
                             cdt.save()
 
-                           
+
+                taud_gt1ids = PosTaud.objects.filter(sa_transacno=sa_transacno,itemsite_code=site.itemsite_code,
+                pay_type__in=gt1_lst).order_by('pk').aggregate(pay_amt=Coalesce(Sum('pay_amt'), 0))
+                print(taud_gt1ids,"taud_gt1ids")
+                if taud_gt1ids and taud_gt1ids['pay_amt'] > 0.0:
+                    mgm_ids = MGMPolicyCloud.objects.filter(Site_Codeid__pk=site.pk,
+                    isactive=True,minimum_purchase_amt__gt=0,point_value__gt=0).order_by('level') 
+                    if mgm_ids:
+                        custdata = cust_obj
+                        for m in mgm_ids:
+                            refer_ids = CustomerReferral.objects.filter(Site_Codeid__pk=site.pk,isactive=True,cust_id__pk=custdata.pk).first() 
+                            if refer_ids:
+                                if refer_ids.ispoints_awarded == False:
+                                    if taud_gt1ids['pay_amt'] >= m.minimum_purchase_amt:
+                                        point = m.point_value
+                                        itemcode = depotop_ids[0].itemcodeid.item_code
+                                        itemdesc = depotop_ids[0].itemdesc
+                                        itemqty = depotop_ids[0].quantity
+                                        sa_date = hdr.sa_date
+                                        fdeposit_amt = depotop_ids[0].deposit
+                                        value = customer_point(self, request, point, sa_transacno,cust_obj, itemcode,itemdesc, itemqty, fmspw, hdr, fdeposit_amt)
+                                        if value:
+                                            refer_ids.ispoints_awarded = True
+                                            refer_ids.save()
+
+                                custdata = refer_ids.referral_id
+
+
             
                 state = status.HTTP_201_CREATED
                 message = "Created Succesfully"
@@ -9365,12 +9432,15 @@ class postaudViewset(viewsets.ModelViewSet):
                 #     data['pay_amt'] = "{:.2f}".format(float(data['pay_amt']))
                 #     data['billable_amount'] = "{:.2f}".format(float(data['billable_amount']))
                 
-                for i in id_lst:
-                    c = ItemCart.objects.filter(id=i,isactive=True).exclude(type__in=type_ex).first()
+                c_queryset = ItemCart.objects.filter(cust_noid__pk=cust_obj.pk,cart_id=cart_id,cart_date=cart_date,
+                cart_status="Inprogress",isactive=True,is_payment=False).exclude(type__in=type_ex).order_by('id')
+      
+                for c in c_queryset:
+                    # c = ItemCart.objects.filter(id=i,isactive=True).exclude(type__in=type_ex).first()
                     c.is_payment = True
                     c.cart_status = "Completed"
                     c.sa_transacno = sa_transacno
-                    
+                    c.save()
                     if c.Appointment:
                         c.Appointment.appt_status = 'Done' 
                         c.Appointment.save()
@@ -9378,8 +9448,10 @@ class postaudViewset(viewsets.ModelViewSet):
                         link_ids = Appointment.objects.filter(appt_date=date.today(),linkcode=c.Appointment.linkcode,
                         cust_noid__pk=c.Appointment.cust_noid.pk,appt_isactive=True,itemsite_code=site.itemsite_code).order_by('appt_fr_time').update(appt_status='Done')  
                     
-
-                    c.save()   
+                cqt_ids = ItemCart.objects.filter(cust_noid__pk=cust_obj.pk,cart_id=cart_id,cart_date=cart_date,
+                cart_status="Inprogress",isactive=True,is_payment=False).exclude(type__in=type_ex).order_by('id').update(is_payment=True,cart_status="Completed",sa_transacno=sa_transacno)  
+      
+                       
                 
                 member_ids = CustomerClass.objects.filter(class_code='100002').first()
                 nonmember_ids = CustomerClass.objects.filter(class_code='100001').first()
@@ -17152,7 +17224,13 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
                     x_customer =  Customer.objects.filter(cust_phone2=request.data['cust_phone2'],cust_refer=request.data['cust_refer'])
                     if len(x_customer) > 0:
                             raise Exception("Customer Reference,cust_phone2 is already associated with another account")
-        
+                
+                if 'referredbyid' in request.data and request.data['referredbyid']:
+                    custref_obj = Customer.objects.filter(pk=request.data['referredbyid'],cust_isactive=True).first()
+                    if not custref_obj:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer referredby_id ID does not exist!!",'error': True} 
+                        return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
            
 
                 if serializer.is_valid():
@@ -17261,6 +17339,18 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
                                 customer_id=k) 
                                 cp.save()
 
+                    if 'referredbyid' in request.data and request.data['referredbyid']:
+                        ref_ids = CustomerReferral.objects.filter(cust_id__pk=k.pk,Site_Codeid__pk=site.pk)
+                        if not ref_ids:
+                            exref_ids = CustomerReferral.objects.filter(cust_id__pk=k.pk,Site_Codeid__pk=site.pk,
+                            referral_id__pk=custref_obj.pk)
+                            if not exref_ids:
+                                cref = CustomerReferral(referral_id=custref_obj,cust_id=k,Site_Codeid=site,site_code=site.itemsite_code)
+                                cref.save()
+                                k.referredby_id =  custref_obj
+                                k.cust_referby_code = custref_obj.cust_code
+                                k.save()           
+
                     state = status.HTTP_201_CREATED
                     message = "Created Succesfully "
                     error = False
@@ -17325,6 +17415,7 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
     def update(self, request, pk=None):
         try:
             fmspw = Fmspw.objects.filter(user=request.user, pw_isactive=True).first()
+            site = fmspw.loginsite
             queryset = None
             total = None
             serializer_class = None
@@ -17362,6 +17453,12 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
                     if len(x_customer) > 0:
                             raise Exception("Customer Reference,cust_phone2 is already associated with another account")
             
+            if 'referredbyid' in request.data and request.data['referredbyid']:
+                custref_obj = Customer.objects.filter(pk=request.data['referredbyid'],cust_isactive=True).first()
+                if not custref_obj:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer referredby_id ID does not exist!!",'error': True} 
+                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
                         
             requestData = request.data
             if requestData.get('cust_nric',"").startswith("*"):
@@ -17404,6 +17501,18 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
                 CustLogAudit(customer_id=customer,cust_code=customer.cust_code,
                 username=fmspw.pw_userlogin,
                 user_loginid=fmspw,updated_at=timezone.now()).save()
+
+                if 'referredbyid' in request.data and request.data['referredbyid']:
+                    ref_ids = CustomerReferral.objects.filter(cust_id__pk=customer.pk,Site_Codeid__pk=site.pk)
+                    if not ref_ids:
+                        exref_ids = CustomerReferral.objects.filter(cust_id__pk=customer.pk,Site_Codeid__pk=site.pk,
+                        referral_id__pk=custref_obj.pk)
+                        if not exref_ids:
+                            cref = CustomerReferral(referral_id=custref_obj,cust_id=customer,Site_Codeid=site,site_code=site.itemsite_code)
+                            cref.save()
+                            customer.referredby_id =  custref_obj
+                            customer.cust_referby_code = custref_obj.cust_code
+                            customer.save()     
 
                 result = response(self, request, queryset, total, state, message, error, serializer_class, data,
                                   action=self.action)
@@ -22055,4 +22164,360 @@ class CustomerPointsAccountViewset(viewsets.ModelViewSet):
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)         
+    
+
+class MGMPolicyCloudViewset(viewsets.ModelViewSet):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = MGMPolicyCloud.objects.filter().order_by('-pk')
+    serializer_class = MGMPolicyCloudSerializer
+
+    def get_queryset(self):
+        fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+        site = fmspw[0].loginsite
+        queryset = MGMPolicyCloud.objects.filter(Site_Codeid__pk=site.pk).order_by('-pk')
+       
+        return queryset
+
+    def list(self, request):
+        try:
+            serializer_class = MGMPolicyCloudSerializer
+            queryset = self.filter_queryset(self.get_queryset())
+            total = len(queryset)
+            state = status.HTTP_200_OK
+            message = "Listed Succesfully"
+            error = False
+            data = None
+            result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+            return Response(result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+
+    @transaction.atomic
+    def create(self, request):
+        try:
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+                site = fmspw[0].loginsite
+                
+                if not 'Site_Codeid' in request.data or not request.data['Site_Codeid']:
+                    raise Exception('Please give Site_Codeid ID!!.') 
+
+                siteobj = ItemSitelist.objects.filter(pk=request.data['Site_Codeid'],itemsite_isactive=True).first()
+                if not siteobj:
+                    raise Exception('ItemSitelist ID does not exist !!') 
+
+                serializer = MGMPolicyCloudSerializer(data=request.data)
+                if serializer.is_valid():
+                
+                    serializer.save(site_code=siteobj.itemsite_code)
+                    result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully",
+                    'error': False}
+                    return Response(result, status=status.HTTP_201_CREATED)
+                
+
+                data = serializer.errors
+
+                if 'non_field_errors' in data:
+                    message = data['non_field_errors'][0]
+                else:
+                    first_key = list(data.keys())[0]
+                    message = str(first_key)+":  "+str(data[first_key][0])
+
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":message,
+                'error': True, 'data': serializer.errors}
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+    
+    
+    def retrieve(self, request, pk=None):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+            site = fmspw.loginsite
+            mgm = self.get_object(pk)
+            serializer = MGMPolicyCloudSerializer(mgm, context={'request': self.request})
+            result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
+            'data': serializer.data}
+            return Response(data=result, status=status.HTTP_200_OK)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message) 
+
+    @transaction.atomic
+    def partial_update(self, request, pk=None):
+        try:
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+                site = fmspw.loginsite
+                mgm = self.get_object(pk)
+
+                if not 'Site_Codeid' in request.data or not request.data['Site_Codeid']:
+                    raise Exception('Please give Site_Codeid ID!!.') 
+
+                siteobj = ItemSitelist.objects.filter(pk=request.data['Site_Codeid'],itemsite_isactive=True).first()
+                if not siteobj:
+                    raise Exception('ItemSitelist ID does not exist !!')    
+
+                serializer = self.get_serializer(mgm, data=request.data, partial=True)
+                if serializer.is_valid():
+                    
+                    serializer.save(updated_at=timezone.now(),site_code=siteobj.itemsite_code)
+
+                    result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",'error': False}
+                    return Response(result, status=status.HTTP_200_OK)
+
+                
+                data = serializer.errors
+
+                if 'non_field_errors' in data:
+                    message = data['non_field_errors'][0]
+                else:
+                    first_key = list(data.keys())[0]
+                    message = str(first_key)+":  "+str(data[first_key][0])
+
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":message,
+                'error': True, 'data': serializer.errors}
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)   
+    
+
+    
+    def destroy(self, request, pk=None):
+        try:
+            request.data["isactive"] = False
+            mgm = self.get_object(pk)
+            serializer = MGMPolicyCloudSerializer(mgm, data=request.data ,partial=True)
+            state = status.HTTP_204_NO_CONTENT
+            if serializer.is_valid():
+                serializer.save()
+                result = {'status': status.HTTP_200_OK,"message":"Deleted Succesfully",'error': False}
+                return Response(result, status=status.HTTP_200_OK)
+            
+            # print(serializer.errors,"jj")
+            result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",
+            'error': True,'data': serializer.errors }
+            return Response(result, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)          
+
+
+    def get_object(self, pk):
+        try:
+            return MGMPolicyCloud.objects.get(pk=pk)
+        except MGMPolicyCloud.DoesNotExist:
+            raise Exception('MGMPolicyCloud Does not Exist') 
+
+
+class CustomerReferralViewset(viewsets.ModelViewSet):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = CustomerReferral.objects.filter().order_by('-pk')
+    serializer_class = CustomerReferralSerializer
+
+    def get_queryset(self):
+        fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+        site = fmspw[0].loginsite
+        queryset = CustomerReferral.objects.filter(Site_Codeid__pk=site.pk).order_by('-pk')
+       
+        return queryset
+
+    def list(self, request):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+            site = fmspw[0].loginsite
+            serializer_class = CustomerReferralSerializer
+            referral_id = self.request.GET.get('referral_id',None)
+            if referral_id:
+                cust_obj = Customer.objects.filter(pk=referral_id,cust_isactive=True).first()
+                if not cust_obj:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer ID does not exist!!",'error': True} 
+                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
+                queryset = CustomerReferral.objects.filter(Site_Codeid__pk=site.pk,referral_id__pk=cust_obj.pk).order_by('-pk')
+            else:
+                queryset = self.filter_queryset(self.get_queryset())
+
+            total = len(queryset)
+            state = status.HTTP_200_OK
+            message = "Listed Succesfully"
+            error = False
+            data = None
+            result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+            return Response(result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+
+    @transaction.atomic
+    def create(self, request):
+        try:
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+                site = fmspw[0].loginsite
+
+                if not 'referral_id' in request.data or not request.data['referral_id']:
+                    raise Exception('Please give referral ID!!.') 
+
+                if not 'cust_id' in request.data or not request.data['cust_id']:
+                    raise Exception('Please give Customer ID!!.') 
+
+                if not 'Site_Codeid' in request.data or not request.data['Site_Codeid']:
+                    raise Exception('Please give Site_Codeid ID!!.') 
+                    
+                
+                custref_obj = Customer.objects.filter(pk=request.data['referral_id'],cust_isactive=True).first()
+                if not custref_obj:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer referral_id ID does not exist!!",'error': True} 
+                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+                 
+                cust_obj = Customer.objects.filter(pk=request.data['cust_id'],cust_isactive=True).first()
+                if not cust_obj:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer ID does not exist!!",'error': True} 
+                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+        
+                check_ids = CustomerReferral.objects.filter(Site_Codeid__pk=site.pk,
+                cust_id__pk=cust_obj.pk).order_by('-pk')
+                if check_ids:
+                    msg = "Customer {0} already referred by some other customer !!".format(str(cust_obj.cust_name))
+                    raise Exception(msg) 
+                    
+                siteobj = ItemSitelist.objects.filter(pk=request.data['Site_Codeid'],itemsite_isactive=True).first()
+                if not siteobj:
+                    raise Exception('ItemSitelist ID does not exist !!') 
+
+                serializer = CustomerReferralSerializer(data=request.data)
+                if serializer.is_valid():
+                    
+                    serializer.save(site_code=siteobj.itemsite_code,referral_id=custref_obj,
+                    cust_id=cust_obj)
+                    result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully",
+                    'error': False}
+                    return Response(result, status=status.HTTP_201_CREATED)
+                
+
+                data = serializer.errors
+
+                if 'non_field_errors' in data:
+                    message = data['non_field_errors'][0]
+                else:
+                    first_key = list(data.keys())[0]
+                    message = str(first_key)+":  "+str(data[first_key][0])
+
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":message,
+                'error': True, 'data': serializer.errors}
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+    
+    
+    def retrieve(self, request, pk=None):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+            site = fmspw.loginsite
+            ref = self.get_object(pk)
+            serializer = CustomerReferralSerializer(ref, context={'request': self.request})
+            result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
+            'data': serializer.data}
+            return Response(data=result, status=status.HTTP_200_OK)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message) 
+
+    @transaction.atomic
+    def partial_update(self, request, pk=None):
+        try:
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+                site = fmspw.loginsite
+                ref = self.get_object(pk)
+                if not 'referral_id' in request.data or not request.data['referral_id']:
+                    raise Exception('Please give referral ID!!.') 
+
+                if not 'cust_id' in request.data or not request.data['cust_id']:
+                    raise Exception('Please give Customer ID!!.') 
+
+                if not 'Site_Codeid' in request.data or not request.data['Site_Codeid']:
+                    raise Exception('Please give Site_Codeid ID!!.') 
+
+                custref_obj = Customer.objects.filter(pk=request.data['referral_id'],cust_isactive=True).first()
+                if not custref_obj:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer referral_id ID does not exist!!",'error': True} 
+                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
+                cust_obj = Customer.objects.filter(pk=request.data['cust_id'],cust_isactive=True).first()
+                if not cust_obj:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer ID does not exist!!",'error': True} 
+                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+                
+
+                siteobj = ItemSitelist.objects.filter(pk=request.data['Site_Codeid'],itemsite_isactive=True).first()
+                if not siteobj:
+                    raise Exception('ItemSitelist ID does not exist !!') 
+
+                serializer = self.get_serializer(ref, data=request.data, partial=True)
+                if serializer.is_valid():
+                
+                    serializer.save(updated_at=timezone.now(),site_code=siteobj.itemsite_code)
+
+                    result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",'error': False}
+                    return Response(result, status=status.HTTP_200_OK)
+
+                
+                data = serializer.errors
+
+                if 'non_field_errors' in data:
+                    message = data['non_field_errors'][0]
+                else:
+                    first_key = list(data.keys())[0]
+                    message = str(first_key)+":  "+str(data[first_key][0])
+
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":message,
+                'error': True, 'data': serializer.errors}
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)   
+    
+
+   
+    def destroy(self, request, pk=None):
+        try:
+            request.data["isactive"] = False
+            ref = self.get_object(pk)
+            serializer = CustomerReferralSerializer(ref, data=request.data ,partial=True)
+            state = status.HTTP_204_NO_CONTENT
+            if serializer.is_valid():
+                serializer.save()
+                result = {'status': status.HTTP_200_OK,"message":"Deleted Succesfully",'error': False}
+                return Response(result, status=status.HTTP_200_OK)
+            
+            # print(serializer.errors,"jj")
+            result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",
+            'error': True,'data': serializer.errors }
+            return Response(result, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)          
+
+
+    def get_object(self, pk):
+        try:
+            return CustomerReferral.objects.get(pk=pk)
+        except CustomerReferral.DoesNotExist:
+            raise Exception('CustomerReferral Does not Exist') 
+
+   
     

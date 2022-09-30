@@ -1713,7 +1713,7 @@ class TopupCombinedViewset(viewsets.ModelViewSet):
                     if tacc_ids.outstanding > 0.0:
                         multistaff_ids = list(set(Multistaff.objects.filter(sa_transacno=q.sa_transacno,dt_lineno=q.dt_lineno).values_list('emp_code', flat=True).distinct()))
                         # print(multistaff_ids,"multistaff_ids")
-                        emp_ids = Employee.objects.filter(emp_isactive=True,emp_code__in=multistaff_ids).order_by('-pk')
+                        emp_ids = Employee.objects.filter(emp_code__in=multistaff_ids).order_by('-pk')
                         # print(emp_ids,"emp_ids") 
                         daud_l = PosDaud.objects.filter(sa_transacno=q.sa_transacno,dt_lineno=q.dt_lineno).order_by('pk').first()
                         
@@ -1743,7 +1743,8 @@ class TopupCombinedViewset(viewsets.ModelViewSet):
                                 
                                 data['TreatmentAccountid'] = q.pk
                                 data["pay_amount"] = None
-                                data['qty'] = open_trmids
+                                # data['qty'] = open_trmids
+                                data['qty'] = q.qty
                                 # data["total_amount"] = "{:.2f}".format(float(daud_l.dt_amt)) if daud_l and daud_l.dt_amt else "0.00"
                                 data["total_amount"] = ser_splt[1]
                                 if data['sa_transacno']:
@@ -1785,7 +1786,7 @@ class TopupCombinedViewset(viewsets.ModelViewSet):
                         if pacc_ids.outstanding > 0.0:
                             dmultistaff_ids = list(set(Multistaff.objects.filter(sa_transacno=pq.sa_transacno,dt_lineno=pq.dt_lineno).values_list('emp_code', flat=True).distinct()))
                             # print(dmultistaff_ids,"dmultistaff_ids")
-                            demp_ids = Employee.objects.filter(emp_isactive=True,emp_code__in=dmultistaff_ids).order_by('-pk')
+                            demp_ids = Employee.objects.filter(emp_code__in=dmultistaff_ids).order_by('-pk')
                             # print(demp_ids,"demp_ids") 
                             daud_li = PosDaud.objects.filter(sa_transacno=pq.sa_transacno,dt_lineno=pq.dt_lineno).order_by('pk').first()
                             for dat in pserializer.data:
@@ -1809,6 +1810,7 @@ class TopupCombinedViewset(viewsets.ModelViewSet):
                                     
                                     dat['DepositAccountid'] = pq.pk
                                     dat["pay_amount"] = None
+                                    dat['qty'] = pq.qty
                                     dat['sa_transacno'] = ppos_haud.sa_transacno_ref if ppos_haud.sa_transacno_ref else ""     
                                     dat['stock_id'] = pacc_ids.Item_Codeid.pk
                                     # dat["total_amount"] = "{:.2f}".format(float(daud_li.dt_amt)) if daud_li and daud_li.dt_amt else "0.00"
@@ -1857,7 +1859,7 @@ class TopupCombinedViewset(viewsets.ModelViewSet):
                                 serializer = TopupprepaidSerializer(acc, many=True)
                                 pmultistaff_ids = list(set(Multistaff.objects.filter(sa_transacno=d.sa_transacno,dt_lineno=d.dt_lineno).values_list('emp_code', flat=True).distinct()))
                                 # print(pmultistaff_ids,"pmultistaff_ids")
-                                pemp_ids = Employee.objects.filter(emp_isactive=True,emp_code__in=pmultistaff_ids).order_by('-pk')
+                                pemp_ids = Employee.objects.filter(emp_code__in=pmultistaff_ids).order_by('-pk')
                                 # print(pemp_ids,"pemp_ids") 
                         
                                 for pdata in serializer.data:
@@ -5063,8 +5065,12 @@ class ReversalListViewset(viewsets.ModelViewSet):
                         recontrol_obj.control_no = int(recontrol_obj.control_no) + 1
                         recontrol_obj.save()
 
+                    print(total,"total") 
                     if self.request.GET.get('adjustment_value',None) and float(self.request.GET.get('adjustment_value',None)) != 0.0:
                         amount = self.request.GET.get('adjustment_value',None)
+                        # print(amount,"amount")
+                        # print(float(amount),"float(amount)")
+
 
                         reversehdr.has_adjustment = True  
                         reversehdr.adjustment_value = amount 
@@ -5105,6 +5111,10 @@ class ReversalListViewset(viewsets.ModelViewSet):
 
                        
                         reversehdr.save()
+
+                        if creditnote.amount < 0 and float(amount) < 0:
+                            raise Exception("Credit Note value cannot be negative!!")
+                            
                     else:
                         creditnote.amount = total
                         creditnote.balance = total
@@ -8445,7 +8455,27 @@ class ProductPurchaseListViewset(viewsets.ModelViewSet):
                     queryset = paginator.page(total_page) # last page
 
                 serializer = self.get_serializer(queryset, many=True)
+
+                current_date = datetime.datetime.strptime(str(date.today()), "%Y-%m-%d").strftime("%d-%m-%Y")
+                time = str(datetime.datetime.now().time()).split(":")
+
+                time_data = time[0]+":"+time[1]
+                
+                title = Title.objects.filter(product_license=site.itemsite_code).first()
+
+                logo = ""
+                if title and title.logo_pic:
+                    logo = "http://"+request.META['HTTP_HOST']+title.logo_pic.url
+
+                header_data = { 
+                'logo':logo,'date':current_date+" "+time_data,
+                'cust_name': cust_obj.cust_code +" "+ cust_obj.cust_name if cust_obj and cust_obj.cust_code and cust_obj.cust_name else '',
+                'issued': fmspw.pw_userlogin,
+                'name': title.trans_h1 if title and title.trans_h1 else '', 
+                'address': title.trans_h2 if title and title.trans_h2 else ''}
+                
                 resData = {
+                    'header_data':header_data,
                     'dataList': serializer.data,
                     'pagination': {
                            "per_page":limit,

@@ -866,6 +866,15 @@ class QuotationItemSerializer(serializers.ModelSerializer):
        
         data['discount_percent'] = int(float(obj.discount_percent)) if obj.discount_percent else 0
         data['discount_amt'] = "{:.2f}".format(float(obj.discount_amt)) if obj.discount_amt else 0
+        amount = 0  
+        if obj.quotation_quantity and obj.quotation_unitprice and obj.discount_amt:
+            amount =  int(obj.quotation_quantity) * (float(obj.quotation_unitprice) - obj.discount_amt)
+        else:
+            if obj.quotation_quantity and obj.quotation_unitprice:
+                amount = int(obj.quotation_quantity) * float(obj.quotation_unitprice) 
+
+        data['amount'] = "{:.2f}".format(float(amount))
+
         return data     
 
 class QuotationItemDiscountSerializer(serializers.ModelSerializer): 

@@ -330,7 +330,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                         Site_Codeid=site,site_code=site.itemsite_code,treat_code=patreatment_parentcode,itemcart=c,
                                         focreason=item_remarks)
                                         patreatacc.save()
-                                        patreatacc.sa_date = pay_date
+                                        patreatacc.sa_date = pay_time
                                         patreatacc.sa_time = pay_time
                                         patreatacc.save()
 
@@ -547,7 +547,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                                     dt_lineno=c.lineno,Site_Codeid=site,site_code=site.itemsite_code,
                                                     treat_code=patreatmentid.treatment_parentcode,itemcart=c)
                                                     treatacc_td.save()
-                                                    treatacc_td.sa_date = pay_date
+                                                    treatacc_td.sa_date = pay_time
                                                     treatacc_td.sa_time = pay_time
                                                     treatacc_td.save()
                                                     # print(treatacc_td.id,"treatacc_td")
@@ -763,11 +763,14 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                                 cancel_session=tpcancel_ids,expiry_date=patreatmentid.expiry,unit_amount=patreatmentid.unit_amount,
                                                 customerid=cust_obj,cust_name=patreatmentid.cust_name,cust_code=patreatmentid.cust_code,
                                                 treatment_accountid=patreatmentid.treatment_account,totalprice=patreatmentid.price,
-                                                type=patreatmentid.type,treatment_date=patreatmentid.treatment_date,
+                                                type=patreatmentid.type,
                                                 Item_Codeid=patreatmentid.Item_Codeid,treatment_limit_times=patreatmentid.treatment_limit_times,
                                                 Site_Codeid=patreatmentid.Site_Codeid,site_code=patreatmentid.site_code,
                                                 sa_transacno=sa_transacno)
                                                 tr.save()
+                                                tr.treatment_date = pay_time
+                                                tr.save()
+
 
 
 
@@ -1014,7 +1017,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                     Site_Codeid=site,site_code=site.itemsite_code,treat_code=treatment_parentcode,itemcart=c,
                     focreason=item_remarks,package_code=package_code)
                     treatacc.save()
-                    treatacc.sa_date = pay_date
+                    treatacc.sa_date = pay_time
                     treatacc.sa_time = pay_time
                     treatacc.save()
                     
@@ -1645,7 +1648,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                 dt_lineno=c.lineno,Site_Codeid=site,site_code=site.itemsite_code,
                                 treat_code=treatmentid.treatment_parentcode,itemcart=c)
                                 treatacc_td.save()
-                                treatacc_td.sa_date = pay_date
+                                treatacc_td.sa_date = pay_time
                                 treatacc_td.sa_time = pay_time
                                 treatacc_td.save()
                                 # print(treatacc_td.id,"treatacc_td")
@@ -1891,11 +1894,13 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                             cancel_session=tptcancel_ids,expiry_date=treatmentid.expiry,unit_amount=treatmentid.unit_amount,
                             customerid=cust_obj,cust_name=treatmentid.cust_name,cust_code=treatmentid.cust_code,
                             treatment_accountid=treatmentid.treatment_account,totalprice=treatmentid.price,
-                            type=treatmentid.type,treatment_date=treatmentid.treatment_date,
+                            type=treatmentid.type,
                             Item_Codeid=treatmentid.Item_Codeid,treatment_limit_times=treatmentid.treatment_limit_times,
                             Site_Codeid=treatmentid.Site_Codeid,site_code=treatmentid.site_code,
                             sa_transacno=sa_transacno)
                             tr.save()   
+                            tr.treatment_date = pay_time
+                            tr.save()
 
 
             # tmptrd_ids = Tmptreatment.objects.filter(itemcart=c).order_by('pk').delete()
@@ -2142,7 +2147,7 @@ def invoice_topup(self, request, topup_ids,sa_transacno, cust_obj, outstanding, 
                 Site_Codeid=site,site_code=site.itemsite_code,treat_code=c.treatment_account.treatment_parentcode,itemcart=c,
                 focreason=item_remarks,ref_no=sa_transacno)
                 treatacc.save()
-                treatacc.sa_date = pay_date
+                treatacc.sa_date = pay_time
                 treatacc.sa_time = pay_time
                 treatacc.save()
             # print(treatacc.id,"treatacc")
@@ -2583,7 +2588,7 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
             Site_Codeid=site,site_code=site.itemsite_code,treat_code=c.treatment.treatment_parentcode if c.treatment.treatment_parentcode else None,itemcart=c,
             focreason=item_remarks)
             treatacc.save()
-            treatacc.sa_date = pay_date
+            treatacc.sa_date = pay_time
             treatacc.sa_time = pay_time
             treatacc.save()
 
@@ -2631,7 +2636,8 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                                 service_itembarcode=ct.service_itembarcode,isfoc=ct.isfoc,Trmt_Room_Codeid=ct.Trmt_Room_Codeid,
                                 trmt_room_code=ct.trmt_room_code,trmt_is_auto_proportion=ct.trmt_is_auto_proportion,
                                 smsout=ct.smsout,emailout=ct.emailout,treatment_account=ct.treatment_account).save()
-
+            
+            frtstreat_ids = TreatmentPackage.objects.filter(treatment_parentcode=ct.treatment_parentcode).first()
             if c.is_flexinewservice == True and ct.type == "FFi":
                 
                 tmp_treatment_ids = Tmptreatment.objects.filter(treatment_id=ct,status='Open')
@@ -2660,23 +2666,57 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                             if ftreat_ids.flexipoints > tm.newservice_id.redeempoints:
                                 deductpoint = ftreat_ids.flexipoints - tm.newservice_id.redeempoints
 
+                        if idx != 1:  
+                            gtreatids = Treatment(treatment_code=f_treatment_code,course=tm.newservice_id.item_name,times=times_t,
+                            treatment_no=treatment_no_t,price=ct.price,treatment_date=timezone.now(),
+                            next_appt=ct.next_appt,cust_name=ct.cust_name,Cust_Codeid=ct.Cust_Codeid,
+                            cust_code=ct.cust_code,status="Done",unit_amount=0,
+                            Item_Codeid=tm.newservice_id,item_code=tm.newservice_id.item_code+"0000",treatment_parentcode=ct.treatment_parentcode,
+                            prescription=ct.prescription,allergy=ct.allergy,sa_transacno=ct.sa_transacno,
+                            sa_status=ct.sa_status,record_status=ct.record_status,appt_time=ct.appt_time,
+                            remarks=ct.remarks,duration=ct.duration,hold_item=ct.hold_item,transaction_time=ct.transaction_time,
+                            dt_lineno=ct.dt_lineno,expiry=ct.expiry,lpackage=ct.lpackage,package_code=ct.package_code,
+                            Site_Codeid=ct.Site_Codeid,site_code=ct.site_code,type=ct.type,treatment_limit_times=ct.treatment_limit_times,
+                            treatment_count_done=ct.treatment_count_done,treatment_history_last_modify=ct.treatment_history_last_modify,
+                            service_itembarcode=tm.newservice_id.item_code+"0000",isfoc=ct.isfoc,Trmt_Room_Codeid=ct.Trmt_Room_Codeid,
+                            trmt_room_code=ct.trmt_room_code,trmt_is_auto_proportion=ct.trmt_is_auto_proportion,
+                            smsout=ct.smsout,emailout=ct.emailout,treatment_account=ct.treatment_account,
+                            flexipoints=deductpoint,redeempoints=tm.newservice_id.redeempoints if tm.newservice_id.redeempoints else None)
+                            gtreatids.save()
 
-                        gtreatids = Treatment(treatment_code=f_treatment_code,course=tm.newservice_id.item_name,times=times_t,
-                        treatment_no=treatment_no_t,price=ct.price,treatment_date=timezone.now(),
-                        next_appt=ct.next_appt,cust_name=ct.cust_name,Cust_Codeid=ct.Cust_Codeid,
-                        cust_code=ct.cust_code,status="Done",unit_amount=0,
-                        Item_Codeid=tm.newservice_id,item_code=tm.newservice_id.item_code+"0000",treatment_parentcode=ct.treatment_parentcode,
-                        prescription=ct.prescription,allergy=ct.allergy,sa_transacno=ct.sa_transacno,
-                        sa_status=ct.sa_status,record_status=ct.record_status,appt_time=ct.appt_time,
-                        remarks=ct.remarks,duration=ct.duration,hold_item=ct.hold_item,transaction_time=ct.transaction_time,
-                        dt_lineno=ct.dt_lineno,expiry=ct.expiry,lpackage=ct.lpackage,package_code=ct.package_code,
-                        Site_Codeid=ct.Site_Codeid,site_code=ct.site_code,type=ct.type,treatment_limit_times=ct.treatment_limit_times,
-                        treatment_count_done=ct.treatment_count_done,treatment_history_last_modify=ct.treatment_history_last_modify,
-                        service_itembarcode=tm.newservice_id.item_code+"0000",isfoc=ct.isfoc,Trmt_Room_Codeid=ct.Trmt_Room_Codeid,
-                        trmt_room_code=ct.trmt_room_code,trmt_is_auto_proportion=ct.trmt_is_auto_proportion,
-                        smsout=ct.smsout,emailout=ct.emailout,treatment_account=ct.treatment_account,
-                        flexipoints=deductpoint,redeempoints=tm.newservice_id.redeempoints if tm.newservice_id.redeempoints else None)
-                        gtreatids.save()
+                            if ct.helper_ids.exists():
+
+                               
+                                for h in ct.helper_ids.all():
+                                    
+                                    # dtl_st_ref_treatmentcode = treatment_parentcode+"-"+"01"
+                                    
+                                    # treatmentid.status = "Done"
+                                    # wp1 = h.workcommpoints / float(c.treatment.helper_ids.all().count())
+                                    wp1 = h.wp1
+                                    share_amt = float(c.treatment.unit_amount) / float(c.treatment.helper_ids.all().count())
+                                    if h.work_amt and h.work_amt > 0:
+                                        share_amt =  h.work_amt
+
+
+                                  
+                                    # Item helper create
+                                    helper = ItemHelper(item_code=f_treatment_code,item_name=tm.newservice_id.item_name,
+                                    line_no=dtl.dt_lineno,sa_transacno=c.treatment.sa_transacno,amount=ct.unit_amount,
+                                    helper_name=h.helper_name,helper_code=h.helper_code,sa_date=dtl.sa_date,
+                                    site_code=site.itemsite_code,share_amt="{:.2f}".format(float(share_amt)),helper_transacno=sa_transacno,
+                                    wp1=wp1,wp2=0.0,wp3=0.0,percent=h.percent,work_amt="{:.2f}".format(float(h.work_amt)) if h.work_amt else h.work_amt,times=times_t,treatment_no=treatment_no_t)
+                                    helper.save()
+                                    ItemHelper.objects.filter(id=helper.id).update(sa_date=pay_date)
+                                    # print(helper.id,"helper")
+
+                        else:
+                            if idx == 1:
+                                ct.course = tm.newservice_id.item_name
+                                ct.flexipoints = deductpoint
+                                ct.redeempoints = tm.newservice_id.redeempoints if tm.newservice_id.redeempoints else None
+                                ct.save()
+
                         
                         tm.status = "Done"
                         tm.save()
@@ -2704,14 +2744,35 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                                 focreason=item_remarks)
                                 treatacc_id.save()
                     
-                    ct.status="Done"
-                    ct.price = 0
-                    ct.save() 
+                    
 
                     done_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Done").order_by('pk').count()
                     if ct.treatment_limit_times > done_ids or ct.treatment_limit_times == 0:
-                        gtreatids.status="Open" 
-                        gtreatids.save() 
+                        eetreat_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode).order_by('-pk').first()
+                        
+                        timess_t = str(int(eetreat_ids.times) + 1).zfill(2)
+                        treatment_no_tr = str(int(eetreat_ids.times) + 1).zfill(2)
+                        
+                       
+                        ff_treatment_code = ct.treatment_parentcode+"-"+timess_t 
+
+                        
+                        goptreatids = Treatment(treatment_code=ff_treatment_code,course=frtstreat_ids.course,times=timess_t,
+                        treatment_no=treatment_no_tr,price=ct.price,treatment_date=timezone.now(),
+                        next_appt=ct.next_appt,cust_name=ct.cust_name,Cust_Codeid=ct.Cust_Codeid,
+                        cust_code=ct.cust_code,status="Open",unit_amount=0,
+                        Item_Codeid=frtstreat_ids.Item_Codeid,item_code=frtstreat_ids.Item_Codeid.item_code+"0000",treatment_parentcode=ct.treatment_parentcode,
+                        prescription=ct.prescription,allergy=ct.allergy,sa_transacno=ct.sa_transacno,
+                        sa_status=ct.sa_status,record_status=ct.record_status,appt_time=ct.appt_time,
+                        remarks=ct.remarks,duration=ct.duration,hold_item=ct.hold_item,transaction_time=ct.transaction_time,
+                        dt_lineno=ct.dt_lineno,expiry=ct.expiry,lpackage=ct.lpackage,package_code=ct.package_code,
+                        Site_Codeid=ct.Site_Codeid,site_code=ct.site_code,type=ct.type,treatment_limit_times=ct.treatment_limit_times,
+                        treatment_count_done=ct.treatment_count_done,treatment_history_last_modify=ct.treatment_history_last_modify,
+                        service_itembarcode=frtstreat_ids.Item_Codeid.item_code+"0000",isfoc=ct.isfoc,Trmt_Room_Codeid=ct.Trmt_Room_Codeid,
+                        trmt_room_code=ct.trmt_room_code,trmt_is_auto_proportion=ct.trmt_is_auto_proportion,
+                        smsout=ct.smsout,emailout=ct.emailout,treatment_account=ct.treatment_account)
+                        
+                        goptreatids.save() 
                     else:
                         if ct.treatment_limit_times == done_ids:
                             treataccid = TreatmentAccount(Cust_Codeid=cust_obj,cust_code=cust_obj.cust_code,
@@ -2725,12 +2786,16 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                             Site_Codeid=site,site_code=site.itemsite_code,treat_code=c.treatment.treatment_parentcode if c.treatment.treatment_parentcode else None,itemcart=c,
                             focreason=item_remarks)
                             treataccid.save()
-
+                    
+                    ct.status="Done"
+                    ct.price = 0
+                    ct.save() 
  
             else:
                 if ct.type == "FFi":
                     
                     treat_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode).order_by('-pk').first()
+                    
                     # if not treat_ids:
                     #     timest = "01" ; treatment_not = "01"
                     # else:
@@ -2744,7 +2809,7 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                     
                     edone_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Done").order_by('pk').count()
                     if ct.treatment_limit_times > edone_ids or ct.treatment_limit_times == 0:
-                        ftreatids = Treatment(treatment_code=ftreatment_code,course=ct.course,times=timest,
+                        ftreatids = Treatment(treatment_code=ftreatment_code,course=frtstreat_ids.course,times=timest,
                         treatment_no=treatment_not,price=ct.price,treatment_date=timezone.now(),
                         next_appt=ct.next_appt,cust_name=ct.cust_name,Cust_Codeid=ct.Cust_Codeid,
                         cust_code=ct.cust_code,status="Open",unit_amount=0,
