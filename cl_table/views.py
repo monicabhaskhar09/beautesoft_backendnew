@@ -130,6 +130,7 @@ from django.db.models import Case, When, Value, IntegerField,CharField, DateFiel
 from tablib import Dataset, Databook
 import xlrd
 import calendar 
+from cl_app.serializers import StockSerializer
 
 type_ex = ['VT-Deposit','VT-Top Up','VT-Sales']
 
@@ -9389,31 +9390,31 @@ class postaudViewset(viewsets.ModelViewSet):
                             cdt.save()
 
 
-                taud_gt1ids = PosTaud.objects.filter(sa_transacno=sa_transacno,itemsite_code=site.itemsite_code,
-                pay_type__in=gt1_lst).order_by('pk').aggregate(pay_amt=Coalesce(Sum('pay_amt'), 0))
-                print(taud_gt1ids,"taud_gt1ids")
-                if taud_gt1ids and taud_gt1ids['pay_amt'] > 0.0:
-                    mgm_ids = MGMPolicyCloud.objects.filter(Site_Codeid__pk=site.pk,
-                    isactive=True,minimum_purchase_amt__gt=0,point_value__gt=0).order_by('level') 
-                    if mgm_ids:
-                        custdata = cust_obj
-                        for m in mgm_ids:
-                            refer_ids = CustomerReferral.objects.filter(Site_Codeid__pk=site.pk,isactive=True,cust_id__pk=custdata.pk).first() 
-                            if refer_ids:
-                                if refer_ids.ispoints_awarded == False:
-                                    if taud_gt1ids['pay_amt'] >= m.minimum_purchase_amt:
-                                        point = m.point_value
-                                        itemcode = depotop_ids[0].itemcodeid.item_code
-                                        itemdesc = depotop_ids[0].itemdesc
-                                        itemqty = depotop_ids[0].quantity
-                                        sa_date = hdr.sa_date
-                                        fdeposit_amt = depotop_ids[0].deposit
-                                        value = customer_point(self, request, point, sa_transacno,cust_obj, itemcode,itemdesc, itemqty, fmspw, hdr, fdeposit_amt)
-                                        if value:
-                                            refer_ids.ispoints_awarded = True
-                                            refer_ids.save()
+                # taud_gt1ids = PosTaud.objects.filter(sa_transacno=sa_transacno,itemsite_code=site.itemsite_code,
+                # pay_type__in=gt1_lst).order_by('pk').aggregate(pay_amt=Coalesce(Sum('pay_amt'), 0))
+                # print(taud_gt1ids,"taud_gt1ids")
+                # if taud_gt1ids and taud_gt1ids['pay_amt'] > 0.0:
+                #     mgm_ids = MGMPolicyCloud.objects.filter(Site_Codeid__pk=site.pk,
+                #     isactive=True,minimum_purchase_amt__gt=0,point_value__gt=0).order_by('level') 
+                #     if mgm_ids:
+                #         custdata = cust_obj
+                #         for m in mgm_ids:
+                #             refer_ids = CustomerReferral.objects.filter(Site_Codeid__pk=site.pk,isactive=True,cust_id__pk=custdata.pk).first() 
+                #             if refer_ids:
+                #                 if refer_ids.ispoints_awarded == False:
+                #                     if taud_gt1ids['pay_amt'] >= m.minimum_purchase_amt:
+                #                         point = m.point_value
+                #                         itemcode = depotop_ids[0].itemcodeid.item_code
+                #                         itemdesc = depotop_ids[0].itemdesc
+                #                         itemqty = depotop_ids[0].quantity
+                #                         sa_date = hdr.sa_date
+                #                         fdeposit_amt = depotop_ids[0].deposit
+                #                         value = customer_point(self, request, point, sa_transacno,cust_obj, itemcode,itemdesc, itemqty, fmspw, hdr, fdeposit_amt)
+                #                         if value:
+                #                             refer_ids.ispoints_awarded = True
+                #                             refer_ids.save()
 
-                                custdata = refer_ids.referral_id
+                #                 custdata = refer_ids.referral_id
 
 
             
@@ -14228,8 +14229,8 @@ class DayEndListAPIView(generics.ListAPIView,generics.CreateAPIView):
                                     if acc_ids:    
                                         d_val = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
                                         'desc':c.dt_itemdesc,'qty':c.dt_qty,
-                                        'amt': "{:.2f}".format(acc_ids.amount) if acc_ids.amount else "0.00",
-                                        'balance': "{:.2f}".format(acc_ids.balance) if acc_ids.balance else "0.00",
+                                        'amt': "{:.2f}".format(abs(acc_ids.amount)) if acc_ids.amount else "0.00",
+                                        'balance': "{:.2f}".format(abs(acc_ids.balance)) if acc_ids.balance else "0.00",
                                         'satransac_ref' : d.sa_transacno_ref,'amount': "{:.2f}".format(c.dt_transacamt),
                                         'paid': "{:.2f}".format(c.dt_deposit),'outstanding': "{:.2f}".format(c.dt_transacamt - c.dt_deposit)}
                                         sal_det_lst.append(d_val)
@@ -14242,8 +14243,8 @@ class DayEndListAPIView(generics.ListAPIView,generics.CreateAPIView):
                                     if dpacc_ids: 
                                         deval = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
                                         'desc':c.dt_itemdesc,'qty':c.dt_qty,
-                                        'amt': "{:.2f}".format(dpacc_ids.amount) if dpacc_ids.amount else "0.00",
-                                        'balance': "{:.2f}".format(dpacc_ids.balance) if dpacc_ids.balance else "0.00",
+                                        'amt': "{:.2f}".format(abs(dpacc_ids.amount)) if dpacc_ids.amount else "0.00",
+                                        'balance': "{:.2f}".format(abs(dpacc_ids.balance)) if dpacc_ids.balance else "0.00",
                                         'satransac_ref' : d.sa_transacno_ref,'amount': "{:.2f}".format(c.dt_transacamt),
                                         'paid': "{:.2f}".format(c.dt_deposit),'outstanding': "{:.2f}".format(c.dt_transacamt - c.dt_deposit)}
                                         sal_det_lst.append(deval)
@@ -14287,8 +14288,8 @@ class DayEndListAPIView(generics.ListAPIView,generics.CreateAPIView):
                                                         if ptracc_ids:
                                                             s_val = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
                                                             'desc':pad.description,'qty':pad.qty,
-                                                            'amt': "{:.2f}".format(ptracc_ids.amount) if ptracc_ids.amount else "0.00",
-                                                            'balance': "{:.2f}".format(ptracc_ids.balance) if ptracc_ids.balance else "0.00",
+                                                            'amt': "{:.2f}".format(abs(ptracc_ids.amount)) if ptracc_ids.amount else "0.00",
+                                                            'balance': "{:.2f}".format(abs(ptracc_ids.balance)) if ptracc_ids.balance else "0.00",
                                                             'satransac_ref' : d.sa_transacno_ref,'amount': "{:.2f}".format(pa_trasac),
                                                             'paid': "{:.2f}".format(pa_deposit),'outstanding': "{:.2f}".format((pa_trasac) - pa_deposit)}
                                                             sal_det_lst.append(s_val)
@@ -14298,8 +14299,8 @@ class DayEndListAPIView(generics.ListAPIView,generics.CreateAPIView):
                                                         if pdeacc_ids:
                                                             r_val = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
                                                             'desc':pad.description,'qty':pad.qty,
-                                                            'amt': "{:.2f}".format(pdeacc_ids.amount) if pdeacc_ids.amount else "0.00",
-                                                            'balance': "{:.2f}".format(pdeacc_ids.balance) if pdeacc_ids.balance else "0.00",
+                                                            'amt': "{:.2f}".format(abs(pdeacc_ids.amount)) if pdeacc_ids.amount else "0.00",
+                                                            'balance': "{:.2f}".format(abs(pdeacc_ids.balance)) if pdeacc_ids.balance else "0.00",
                                                             'satransac_ref' : d.sa_transacno_ref,'amount': "{:.2f}".format(pa_trasac),
                                                             'paid': "{:.2f}".format(pa_deposit),'outstanding': "{:.2f}".format((pa_trasac) - pa_deposit)}
                                                             sal_det_lst.append(r_val) 
@@ -14957,8 +14958,8 @@ class DayEndListAPIView(generics.ListAPIView,generics.CreateAPIView):
                                         if acc_ids:    
                                             d_val = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
                                             'desc':c.dt_itemdesc,'qty':c.dt_qty,
-                                            'amt': "{:.2f}".format(acc_ids.amount) if acc_ids.amount else "0.00",
-                                            'balance': "{:.2f}".format(acc_ids.balance) if acc_ids.balance else "0.00",
+                                            'amt': "{:.2f}".format(abs(acc_ids.amount)) if acc_ids.amount else "0.00",
+                                            'balance': "{:.2f}".format(abs(acc_ids.balance)) if acc_ids.balance else "0.00",
                                             'satransac_ref' : d.sa_transacno_ref,'amount': "{:.2f}".format(c.dt_transacamt),
                                             'paid': "{:.2f}".format(c.dt_deposit),'outstanding': "{:.2f}".format(c.dt_transacamt - c.dt_deposit)}
                                             sal_det_lst.append(d_val)
@@ -14971,8 +14972,8 @@ class DayEndListAPIView(generics.ListAPIView,generics.CreateAPIView):
                                         if dpacc_ids: 
                                             deval = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
                                             'desc':c.dt_itemdesc,'qty':c.dt_qty,
-                                            'amt': "{:.2f}".format(dpacc_ids.amount) if dpacc_ids.amount else "0.00",
-                                            'balance': "{:.2f}".format(dpacc_ids.balance) if dpacc_ids.balance else "0.00",
+                                            'amt': "{:.2f}".format(abs(dpacc_ids.amount)) if dpacc_ids.amount else "0.00",
+                                            'balance': "{:.2f}".format(abs(dpacc_ids.balance)) if dpacc_ids.balance else "0.00",
                                             'satransac_ref' : d.sa_transacno_ref,'amount': "{:.2f}".format(c.dt_transacamt),
                                             'paid': "{:.2f}".format(c.dt_deposit),'outstanding': "{:.2f}".format(c.dt_transacamt - c.dt_deposit)}
                                             sal_det_lst.append(deval)
@@ -15016,8 +15017,8 @@ class DayEndListAPIView(generics.ListAPIView,generics.CreateAPIView):
                                                             if ptracc_ids:
                                                                 s_val = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
                                                                 'desc':pad.description,'qty':pad.qty,
-                                                                'amt': "{:.2f}".format(ptracc_ids.amount) if ptracc_ids.amount else "0.00",
-                                                                'balance': "{:.2f}".format(ptracc_ids.balance) if ptracc_ids.balance else "0.00",
+                                                                'amt': "{:.2f}".format(abs(ptracc_ids.amount)) if ptracc_ids.amount else "0.00",
+                                                                'balance': "{:.2f}".format(abs(ptracc_ids.balance)) if ptracc_ids.balance else "0.00",
                                                                 'satransac_ref' : d.sa_transacno_ref,'amount': "{:.2f}".format(pa_trasac),
                                                                 'paid': "{:.2f}".format(pa_deposit),'outstanding': "{:.2f}".format((pa_trasac) - pa_deposit)}
                                                                 sal_det_lst.append(s_val)
@@ -15027,8 +15028,8 @@ class DayEndListAPIView(generics.ListAPIView,generics.CreateAPIView):
                                                             if pdeacc_ids:
                                                                 r_val = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
                                                                 'desc':pad.description,'qty':pad.qty,
-                                                                'amt': "{:.2f}".format(pdeacc_ids.amount) if pdeacc_ids.amount else "0.00",
-                                                                'balance': "{:.2f}".format(pdeacc_ids.balance) if pdeacc_ids.balance else "0.00",
+                                                                'amt': "{:.2f}".format(abs(pdeacc_ids.amount)) if pdeacc_ids.amount else "0.00",
+                                                                'balance': "{:.2f}".format(abs(pdeacc_ids.balance)) if pdeacc_ids.balance else "0.00",
                                                                 'satransac_ref' : d.sa_transacno_ref,'amount': "{:.2f}".format(pa_trasac),
                                                                 'paid': "{:.2f}".format(pa_deposit),'outstanding': "{:.2f}".format((pa_trasac) - pa_deposit)}
                                                                 sal_det_lst.append(r_val) 
@@ -21374,9 +21375,9 @@ class TmpTreatmentNewServiceAPIView(GenericAPIView):
 
                     done_ids = Treatment.objects.filter(treatment_parentcode=trmobj.treatment_parentcode,status="Done").order_by('pk').count()    
                     trm_ids = Tmptreatment.objects.filter(treatment_id=trmobj,status='Open').count() 
-                    total =  done_ids + trm_ids + 1
+                    total =  done_ids + trm_ids
                     
-                    if trmobj.treatment_limit_times:
+                    if trmobj.treatment_limit_times and trmobj.treatment_limit_times != 0:
                         if total >= trmobj.treatment_limit_times:
                             result = {'status': status.HTTP_400_BAD_REQUEST,"message":"treatment limit times is excided!!",'error': True} 
                             return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
@@ -21553,18 +21554,32 @@ class ContactPersonViewset(viewsets.ModelViewSet):
 class ItemFlexiserviceListAPIView(generics.ListAPIView):
     authentication_classes = [ExpiringTokenAuthentication]
     permission_classes = [IsAuthenticated & authenticated_only]
-    serializer_class = ItemFlexiserviceSerializer
+    # serializer_class = ItemFlexiserviceSerializer
+    serializer_class = StockSerializer
 
     def list(self, request):
         try:
-            if not self.request.GET.get('item_code',None):
-                raise Exception('Please give Item Code!!')
+            item_code = self.request.GET.get('item_code',None)
+            query_set = Stock.objects.none()
+            if item_code:
+                queryset =  list(set(ItemFlexiservice.objects.filter(item_code=self.request.GET.get('item_code',None),
+                itm_isactive=True).order_by('item_srvdesc').values_list('item_srvid'
+                , flat=True).distinct()))
+                # print(queryset,"queryset")
+                if queryset:
+                    query_set = Stock.objects.filter(item_isactive=True, 
+                    pk__in=queryset).order_by('item_name')
+            else:
+                system_setupids = Systemsetup.objects.filter(title='listDepartmentOnTreatmentForFlexi'
+                ,value_name='listDepartmentOnTreatmentForFlexi').first()
+                if system_setupids and system_setupids.value_data:
+                    depart = system_setupids.value_data.split(',')
+                    item_dept = list(set(ItemDept.objects.filter(pk__in=depart, 
+                    is_service=True, itm_status=True).values_list('itm_code', flat=True).distinct()))
+                    if item_dept:
+                        query_set = Stock.objects.filter(item_isactive=True, 
+                        item_type="SINGLE", item_dept__in=item_dept).order_by('item_name')
               
-            query_set =  ItemFlexiservice.objects.filter(item_code=self.request.GET.get('item_code',None),
-            itm_isactive=True).order_by('item_srvdesc')
-
-           
-                        
             if query_set:
                 full_tot = query_set.count()
                 try:
@@ -22027,48 +22042,82 @@ class ParticipantsViewset(viewsets.ModelViewSet):
             return general_error_response(invalid_message)         
     
 
-
+    @transaction.atomic
     def create(self, request):
         try:
-            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
-            site = fmspw[0].loginsite
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+                site = fmspw[0].loginsite
 
-            if not 'appt_id' in request.data or not request.data['appt_id']:
-                raise Exception("Please Give appointment id")
+                if not 'appt_id' in request.data or not request.data['appt_id']:
+                    raise Exception("Please Give appointment id")
 
-            appt_obj = Appointment.objects.filter(pk=request.data['appt_id']).order_by('pk')    
-            if not appt_obj:
-                raise Exception("Appointment Does Not Exist")
+                appt_obj = Appointment.objects.filter(pk=request.data['appt_id']).order_by('pk')    
+                if not appt_obj:
+                    raise Exception("Appointment Does Not Exist")
 
-            if not 'cust_id' in request.data or not request.data['cust_id']:
-                raise Exception("Please Give customer id")
-    
+                if not 'cust_id' in request.data or not request.data['cust_id']:
+                    raise Exception("Please Give customer id")
+        
 
-            cust_obj = Customer.objects.filter(pk=request.data['cust_id'],
-            cust_isactive=True).first()
-            if not cust_obj:
-                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer id does not exist!!",'error': True} 
-                return Response(data=result, status=status.HTTP_400_BAD_REQUEST) 
-            
-            check_ids = Participants.objects.filter(appt_id=request.data['appt_id'],cust_id=request.data['cust_id']).order_by('-pk')
-            if check_ids:
-                raise Exception("Appointment id and cust id already exist in table")
+                cust_obj = Customer.objects.filter(pk=request.data['cust_id'],
+                cust_isactive=True).first()
+                if not cust_obj:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer id does not exist!!",'error': True} 
+                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST) 
+                
+                check_ids = Participants.objects.filter(appt_id=request.data['appt_id'],cust_id=request.data['cust_id']).order_by('-pk')
+                if check_ids:
+                    raise Exception("Appointment id and cust id already exist in table")
 
-            serializer = ParticipantsSerializer(data=request.data)
-            if serializer.is_valid():
-                serializer.save()
-                result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully",
-                'error': False}
-                return Response(result, status=status.HTTP_201_CREATED)
-            
-            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Invalid Input",
-            'error': True, 'data': serializer.errors}
-            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                serializer = ParticipantsSerializer(data=request.data)
+                if serializer.is_valid():
+                    serializer.save()
+                    result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully",
+                    'error': False}
+                    return Response(result, status=status.HTTP_201_CREATED)
+                
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Invalid Input",
+                'error': True, 'data': serializer.errors}
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)
+    
+    @transaction.atomic
+    def partial_update(self, request, pk=None):
+        try:
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+                site = fmspw.loginsite
+                part = self.get_object(pk)
+               
+                serializer = self.get_serializer(part, data=request.data, partial=True)
+                if serializer.is_valid():
+                
+                    serializer.save()
+                  
+                    result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",'error': False}
+                    return Response(result, status=status.HTTP_200_OK)
 
+                
+                data = serializer.errors
+
+                if 'non_field_errors' in data:
+                    message = data['non_field_errors'][0]
+                else:
+                    first_key = list(data.keys())[0]
+                    message = str(first_key)+":  "+str(data[first_key][0])
+
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":message,
+                'error': True, 'data': serializer.errors}
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)   
+    
 
     def destroy(self, request, pk=None):
         try:
@@ -22175,7 +22224,7 @@ class MGMPolicyCloudViewset(viewsets.ModelViewSet):
     def get_queryset(self):
         fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
         site = fmspw[0].loginsite
-        queryset = MGMPolicyCloud.objects.filter(Site_Codeid__pk=site.pk).order_by('-pk')
+        queryset = MGMPolicyCloud.objects.filter().order_by('-pk')
        
         return queryset
 
@@ -22200,39 +22249,54 @@ class MGMPolicyCloudViewset(viewsets.ModelViewSet):
             with transaction.atomic():
                 fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
                 site = fmspw[0].loginsite
+                requestData = request.data
+                itemsite_ids = requestData.pop('itemsite_ids')
+                res = itemsite_ids.split(',')
+                sitelist = []
+                # print(res,"res") 
+                for i in res:
+                    # print(i,"ii")
+                    ex_ids = MGMPolicyCloud.objects.filter(level=request.data['level'],site_ids__pk=i)
+                    # print(ex_ids,"ex_ids")
+                    if not ex_ids and i not in sitelist:
+                        sitelist.append(i)
                 
-                if not 'Site_Codeid' in request.data or not request.data['Site_Codeid']:
-                    raise Exception('Please give Site_Codeid ID!!.') 
+                # print(sitelist,"sitelist")
+                if sitelist == []:
+                    raise Exception('MGMPolicyCloud duplicate records wont allow') 
 
-                siteobj = ItemSitelist.objects.filter(pk=request.data['Site_Codeid'],itemsite_isactive=True).first()
-                if not siteobj:
-                    raise Exception('ItemSitelist ID does not exist !!') 
 
-                serializer = MGMPolicyCloudSerializer(data=request.data)
-                if serializer.is_valid():
-                
-                    serializer.save(site_code=siteobj.itemsite_code)
-                    result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully",
-                    'error': False}
-                    return Response(result, status=status.HTTP_201_CREATED)
-                
+                if sitelist !=[]:
+                    serializer = MGMPolicyCloudSerializer(data=request.data)
+                    if serializer.is_valid():
+                    
+                        k = serializer.save()
+                        
+                        for div in sitelist:
+                            k.site_ids.add(div)
+            
+                        result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully",
+                        'error': False}
+                        return Response(result, status=status.HTTP_201_CREATED)
+                    
 
-                data = serializer.errors
+                    data = serializer.errors
 
-                if 'non_field_errors' in data:
-                    message = data['non_field_errors'][0]
-                else:
-                    first_key = list(data.keys())[0]
-                    message = str(first_key)+":  "+str(data[first_key][0])
+                    if 'non_field_errors' in data:
+                        message = data['non_field_errors'][0]
+                    else:
+                        first_key = list(data.keys())[0]
+                        message = str(first_key)+":  "+str(data[first_key][0])
 
-                result = {'status': status.HTTP_400_BAD_REQUEST,"message":message,
-                'error': True, 'data': serializer.errors}
-                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":message,
+                    'error': True, 'data': serializer.errors}
+                    return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)
     
+   
     
     def retrieve(self, request, pk=None):
         try:
@@ -22254,41 +22318,55 @@ class MGMPolicyCloudViewset(viewsets.ModelViewSet):
                 fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
                 site = fmspw.loginsite
                 mgm = self.get_object(pk)
+                requestData = request.data
+                itemsite_ids = requestData.pop('itemsite_ids')
+                res = itemsite_ids.split(',')
+                sitelist = []
 
-                if not 'Site_Codeid' in request.data or not request.data['Site_Codeid']:
-                    raise Exception('Please give Site_Codeid ID!!.') 
-
-                siteobj = ItemSitelist.objects.filter(pk=request.data['Site_Codeid'],itemsite_isactive=True).first()
-                if not siteobj:
-                    raise Exception('ItemSitelist ID does not exist !!')    
-
-                serializer = self.get_serializer(mgm, data=request.data, partial=True)
-                if serializer.is_valid():
-                    
-                    serializer.save(updated_at=timezone.now(),site_code=siteobj.itemsite_code)
-
-                    result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",'error': False}
-                    return Response(result, status=status.HTTP_200_OK)
-
+                for i in res:
+                    ex_ids = MGMPolicyCloud.objects.filter(~Q(pk=mgm.pk)).filter(level=request.data['level'],site_ids__pk=i)
+                    if not ex_ids and i not in sitelist:
+                        sitelist.append(i)
                 
-                data = serializer.errors
+                if sitelist == []:
+                    raise Exception('MGMPolicyCloud duplicate records wont allow') 
 
-                if 'non_field_errors' in data:
-                    message = data['non_field_errors'][0]
-                else:
-                    first_key = list(data.keys())[0]
-                    message = str(first_key)+":  "+str(data[first_key][0])
 
-                result = {'status': status.HTTP_400_BAD_REQUEST,"message":message,
-                'error': True, 'data': serializer.errors}
-                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                if sitelist !=[]:
+                
+                    serializer = self.get_serializer(mgm, data=request.data, partial=True)
+                    if serializer.is_valid():
+                        
+                        k = serializer.save(updated_at=timezone.now())
+
+                        for existing in mgm.site_ids.all():
+                            mgm.site_ids.remove(existing)
+
+                        
+                        for div in sitelist:
+                            k.site_ids.add(div)
+
+                        result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",'error': False}
+                        return Response(result, status=status.HTTP_200_OK)
+
+                    
+                    data = serializer.errors
+
+                    if 'non_field_errors' in data:
+                        message = data['non_field_errors'][0]
+                    else:
+                        first_key = list(data.keys())[0]
+                        message = str(first_key)+":  "+str(data[first_key][0])
+
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":message,
+                    'error': True, 'data': serializer.errors}
+                    return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)   
     
 
-    
     def destroy(self, request, pk=None):
         try:
             request.data["isactive"] = False
@@ -22368,12 +22446,9 @@ class CustomerReferralViewset(viewsets.ModelViewSet):
                     raise Exception('Please give referral ID!!.') 
 
                 if not 'cust_id' in request.data or not request.data['cust_id']:
-                    raise Exception('Please give Customer ID!!.') 
+                    raise Exception('Please give Customer ID!!.')
 
-                if not 'Site_Codeid' in request.data or not request.data['Site_Codeid']:
-                    raise Exception('Please give Site_Codeid ID!!.') 
-                    
-                
+               
                 custref_obj = Customer.objects.filter(pk=request.data['referral_id'],cust_isactive=True).first()
                 if not custref_obj:
                     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer referral_id ID does not exist!!",'error': True} 
@@ -22383,22 +22458,27 @@ class CustomerReferralViewset(viewsets.ModelViewSet):
                 if not cust_obj:
                     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer ID does not exist!!",'error': True} 
                     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-        
+                
+                if int(request.data['referral_id']) == int(request.data['cust_id']):
+                    raise Exception('referral_id and cust_id should not be same!!.')
+
+
                 check_ids = CustomerReferral.objects.filter(Site_Codeid__pk=site.pk,
                 cust_id__pk=cust_obj.pk).order_by('-pk')
                 if check_ids:
                     msg = "Customer {0} already referred by some other customer !!".format(str(cust_obj.cust_name))
                     raise Exception(msg) 
                     
-                siteobj = ItemSitelist.objects.filter(pk=request.data['Site_Codeid'],itemsite_isactive=True).first()
-                if not siteobj:
-                    raise Exception('ItemSitelist ID does not exist !!') 
+                siteobj = site
 
                 serializer = CustomerReferralSerializer(data=request.data)
                 if serializer.is_valid():
                     
                     serializer.save(site_code=siteobj.itemsite_code,referral_id=custref_obj,
-                    cust_id=cust_obj)
+                    cust_id=cust_obj,Site_Codeid=siteobj)
+                    cust_obj.referredby_id = custref_obj
+                    cust_obj.cust_referby_code = custref_obj.cust_code
+                    cust_obj.save()
                     result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully",
                     'error': False}
                     return Response(result, status=status.HTTP_201_CREATED)
@@ -22447,9 +22527,7 @@ class CustomerReferralViewset(viewsets.ModelViewSet):
                 if not 'cust_id' in request.data or not request.data['cust_id']:
                     raise Exception('Please give Customer ID!!.') 
 
-                if not 'Site_Codeid' in request.data or not request.data['Site_Codeid']:
-                    raise Exception('Please give Site_Codeid ID!!.') 
-
+               
                 custref_obj = Customer.objects.filter(pk=request.data['referral_id'],cust_isactive=True).first()
                 if not custref_obj:
                     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer referral_id ID does not exist!!",'error': True} 
@@ -22460,15 +22538,22 @@ class CustomerReferralViewset(viewsets.ModelViewSet):
                     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer ID does not exist!!",'error': True} 
                     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
                 
+                if int(request.data['referral_id']) == int(request.data['cust_id']):
+                    raise Exception('referral_id and cust_id should not be same!!.')
 
-                siteobj = ItemSitelist.objects.filter(pk=request.data['Site_Codeid'],itemsite_isactive=True).first()
-                if not siteobj:
-                    raise Exception('ItemSitelist ID does not exist !!') 
-
+                check_ids = CustomerReferral.objects.filter(~Q(pk=ref.pk)).filter(Site_Codeid__pk=site.pk,
+                cust_id__pk=cust_obj.pk).order_by('-pk')
+                if check_ids:
+                    msg = "Customer {0} already referred by some other customer !!".format(str(cust_obj.cust_name))
+                    raise Exception(msg) 
+                    
                 serializer = self.get_serializer(ref, data=request.data, partial=True)
                 if serializer.is_valid():
                 
-                    serializer.save(updated_at=timezone.now(),site_code=siteobj.itemsite_code)
+                    serializer.save(updated_at=timezone.now())
+                    cust_obj.referredby_id = custref_obj
+                    cust_obj.cust_referby_code = custref_obj.cust_code
+                    cust_obj.save()
 
                     result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",'error': False}
                     return Response(result, status=status.HTTP_200_OK)

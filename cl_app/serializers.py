@@ -59,6 +59,9 @@ class StockSerializer(serializers.ModelSerializer):
         data['item_price'] = ""
         if instance.item_price:
             data['item_price'] = "{:.2f}".format(float(instance.item_price)) 
+        data['prepaid_value'] = "{:.2f}".format(float(instance.prepaid_value)) if instance.prepaid_value else "0.00"
+        data['redeempoints'] = int(instance.redeempoints) if instance.redeempoints else ""
+
         return data 
 
 class StockRetailSerializer(serializers.ModelSerializer):

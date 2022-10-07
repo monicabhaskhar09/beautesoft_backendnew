@@ -7,7 +7,7 @@ StktrnModel, SystemLogModel, SupplyContactInfoModel, ControlNoModel,CommissionPr
 ManualInvoiceModel,ManualInvoiceDetailModel,ManualInvoiceAddrModel,ManualInvoiceItemModel,WorkOrderInvoiceModel,
 WorkOrderInvoiceDetailModel,WorkOrderInvoiceAddrModel,WorkOrderInvoiceItemModel,DeliveryOrderModel,DeliveryOrderAddrModel,
 DeliveryOrderDetailModel,DeliveryOrderItemModel,DeliveryOrdersign,EquipmentDropdownModel,EquipmentUsage,
-EquipmentUsageItemModel,Currencytable,QuotationPayment,ManualInvoicePayment,quotationsign,RoundSales)
+EquipmentUsageItemModel,Currencytable,QuotationPayment,ManualInvoicePayment,quotationsign,RoundSales,ManualInvoicesign)
 from cl_table.models import (Treatment, Stock, PackageDtl, ItemClass, ItemRange, Employee, Tmptreatment,
 TmpItemHelper,PosHaud,City, State, Country, Stock,Title,PayGroup,ItemDept )
 from cl_table.serializers import get_client_ip
@@ -925,7 +925,16 @@ class ManualInvoiceItemSerializer(serializers.ModelSerializer):
         data['quotation_unitprice'] = "{:.2f}".format(float(obj.quotation_unitprice)) if obj.quotation_unitprice else 0
         data['discount_percent'] = int(float(obj.discount_percent)) if obj.discount_percent else 0
         data['discount_amt'] = "{:.2f}".format(float(obj.discount_amt)) if obj.discount_amt else 0
-       
+
+        amount = 0  
+        if obj.quotation_quantity and obj.quotation_unitprice and obj.discount_amt:
+            amount =  int(obj.quotation_quantity) * (float(obj.quotation_unitprice) - obj.discount_amt)
+        else:
+            if obj.quotation_quantity and obj.quotation_unitprice:
+                amount = int(obj.quotation_quantity) * float(obj.quotation_unitprice) 
+
+        data['amount'] = "{:.2f}".format(float(amount))
+ 
         return data  
 
 class ManualInvoiceItemTableSerializer(serializers.ModelSerializer):
@@ -1240,6 +1249,23 @@ class quotationsignSerializer(serializers.ModelSerializer):
 
         data['quo_sig'] = quo_sig
         return data
+
+class ManualInvoicesignSerializer(serializers.ModelSerializer):
+    
+    class Meta:
+        model = ManualInvoicesign
+        fields = ['id','fk_manualinvoice','manualinv_number','manualinv_sig']  
+    
+    def to_representation(self, obj):
+        request = self.context['request']
+        data = super(ManualInvoicesignSerializer, self).to_representation(obj)
+        ip = "http://"+request.META['HTTP_HOST']
+        manualinv_sig = ""
+        if obj.manualinv_sig:
+            manualinv_sig = ip+str(obj.manualinv_sig.url)
+
+        data['manualinv_sig'] = manualinv_sig
+        return data        
 
 class InvoiceListingSerializer(serializers.ModelSerializer):
     flag = serializers.BooleanField(default=True)

@@ -7,8 +7,8 @@ CustomerClass, RewardPolicy, RedeemPolicy, Diagnosis, DiagnosisCompare, Security
 DailysalesdataDetail, DailysalesdataSummary,Holditemdetail,PrepaidAccount,CreditNote,TreatmentAccount,
 DepositAccount, CustomerPoint, MrRewardItemType,Smsreceivelog,Systemsetup,TreatmentProtocol,
 CustomerTitle,ItemDiv,Tempcustsign,CustomerDocument,TreatmentPackage,ContactPerson,ItemFlexiservice,
-termsandcondition,Participants,ProjectDocument,Dayendconfirmlog,CustomerPointDtl,MGMPolicyCloud,
-CustomerReferral)
+termsandcondition,Participants,ProjectDocument,Dayendconfirmlog,CustomerPointDtl,
+CustomerReferral,MGMPolicyCloud)
 from cl_app.models import ItemSitelist, SiteGroup
 from custom.models import EmpLevel,Room,VoucherRecord
 from django.contrib.auth.models import User
@@ -3200,7 +3200,14 @@ class ParticipantsSerializer(serializers.ModelSerializer):
     class Meta:
         model = Participants
         fields = ['id','appt_id','cust_id','isactive','cust_name','cust_phone2',
-        'cust_code','cust_refer'] 
+        'cust_code','cust_refer','date_booked','status','remarks'] 
+
+    def to_representation(self, obj):
+        data = super(ParticipantsSerializer, self).to_representation(obj)
+        
+        data['date_booked'] = datetime.datetime.strptime(str(obj.date_booked), "%Y-%m-%d").strftime("%d-%b-%Y") if obj.date_booked else ''
+       
+        return data        
 
 
 class Custphone2Serializer(serializers.ModelSerializer):
@@ -3280,6 +3287,15 @@ class MGMPolicyCloudSerializer(serializers.ModelSerializer):
         data = super(MGMPolicyCloudSerializer, self).to_representation(obj)
        
         data['point_value'] = "{:.2f}".format(data['point_value'])
+
+        data['item_site_desc'] = ""  
+        data['item_site_ids'] = ""
+        if obj.site_ids.filter().exists():
+            site_ids = obj.site_ids.filter()
+ 
+            data['item_site_ids'] =  [{'label': i.itemsite_code ,'value': i.pk} for i in site_ids if i.itemsite_code]
+            data['item_site_desc'] = ','.join([v.itemsite_code for v in site_ids if v.itemsite_code])
+
         return data           
 
 
@@ -3304,6 +3320,6 @@ class CustomerReferralSerializer(serializers.ModelSerializer):
         data['customer_code'] = obj.cust_id.cust_code if obj.cust_id and obj.cust_id.cust_code else ""
         data['customer_referenceno'] = obj.cust_id.cust_refer if obj.cust_id and obj.cust_id.cust_refer else ""
         data['dateofjoin'] = dateofjoin
-        data['cust_totpurchasevalue'] = "{:.2f}".format(data['point_value']) if obj.cust_totpurchasevalue else "0.00"
+        # data['cust_totpurchasevalue'] = "{:.2f}".format(data['point_value']) if obj.cust_totpurchasevalue else "0.00"
         return data           
     

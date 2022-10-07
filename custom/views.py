@@ -25,7 +25,7 @@ EquipmentDropdownSerializer,EquipmentUsageSerializer,EquipmentUsageItemModelSeri
 ItemEquipmentSerializer,ProjectSearchSerializer,CurrencytableSerializer,QuotationPaymentSerializer,
 ManualInvPaymentSerializer,QuotationItemDiscountSerializer,quotationsignSerializer,
 ManualInvoiceItemTableSerializer,TitleImageSerializer,StockImageSerializer,PaygroupImageSerializer,
-ItemDeptImageSerializer,RoundSalesSerializer,QuotationCustSerializer)
+ItemDeptImageSerializer,RoundSalesSerializer,QuotationCustSerializer,ManualInvoicesignSerializer)
 from .models import (EmpLevel, Room, Combo_Services, ItemCart,VoucherRecord,RoundPoint, RoundSales,
 PaymentRemarks, HolditemSetup,PosPackagedeposit,SmtpSettings,MultiPricePolicy,salesStaffChangeLog,
 serviceStaffChangeLog,dateChangeLog,  TimeLogModel, ProjectModel, ActivityModel, QuotationModel, POModel, QuotationAddrModel, 
@@ -38,7 +38,7 @@ ManualInvoiceModel,ManualInvoiceDetailModel,ManualInvoiceAddrModel,ManualInvoice
 WorkOrderInvoiceDetailModel,WorkOrderInvoiceAddrModel,WorkOrderInvoiceItemModel,DeliveryOrderModel,
 DeliveryOrderDetailModel,DeliveryOrderAddrModel,DeliveryOrderItemModel,DeliveryOrdersign,
 EquipmentDropdownModel,EquipmentUsage,EquipmentUsageItemModel,Currencytable,QuotationPayment,
-ManualInvoicePayment,PosDiscQuant,quotationsign,RoundSales)
+ManualInvoicePayment,PosDiscQuant,quotationsign,RoundSales,ManualInvoicesign)
 from cl_table.models import(Treatment, Employee, Fmspw, Stock, ItemClass, ItemRange, Appointment,Customer,Treatment_Master,
 GstSetting,PosTaud,PosDaud,PosHaud,ControlNo,EmpSitelist,ItemStatus, TmpItemHelper, FocReason, PosDisc,
 TreatmentAccount, PosDaud, ItemDept, DepositAccount, PrepaidAccount, ItemDiv, Systemsetup, Title,
@@ -6119,6 +6119,7 @@ class ExchangeProductConfirmAPIView(generics.CreateAPIView):
                                 # print(stktrn_ids,"stktrn_ids")
 
                                 currenttime = timezone.now()
+                                currentdate = timezone.now().date()
 
                                 post_time = str(currenttime.hour)+str(currenttime.minute)+str(currenttime.second)
                                 itemuom_ids = ItemUomprice.objects.filter(item_code=c.itemcodeid.item_code,item_uom=c.item_uom.uom_code,isactive=True).order_by('pk').first()
@@ -6135,7 +6136,8 @@ class ExchangeProductConfirmAPIView(generics.CreateAPIView):
                                     trn_cost=itemuom_ids.item_cost if itemuom_ids and itemuom_ids.item_cost else None,trn_ref=None,
                                     hq_update=0,line_no=c.lineno,item_uom=c.item_uom.uom_code,
                                     item_batch=None,mov_type=None,item_batch_cost=None,
-                                    stock_in=None,trans_package_line_no=None).save()
+                                    stock_in=None,trans_package_line_no=None,trn_post=currentdate,
+                                    trn_date=currentdate).save()
                                 else:
                                     stktrn_id = Stktrn(trn_no=None,post_time=post_time,aperiod=None,
                                     itemcode=str(c.itemcodeid.item_code)+"0000",store_no=site.itemsite_code,
@@ -6146,7 +6148,8 @@ class ExchangeProductConfirmAPIView(generics.CreateAPIView):
                                     trn_cost=itemuom_ids.item_cost if itemuom_ids and itemuom_ids.item_cost else None,trn_ref=None,
                                     hq_update=0,line_no=c.lineno,item_uom=c.item_uom.uom_code,
                                     item_batch=None,mov_type=None,item_batch_cost=None,
-                                    stock_in=None,trans_package_line_no=None).save()
+                                    stock_in=None,trans_package_line_no=None,trn_post=currentdate,
+                                    trn_date=currentdate).save()
             
                                 
 
@@ -6375,6 +6378,7 @@ class ExchangeProductConfirmAPIView(generics.CreateAPIView):
                                 # print(stktrn_ids,"stktrn_ids")
 
                                 currenttime = timezone.now()
+                                currentdate = timezone.now().date()
 
                                 post_time = str(currenttime.hour)+str(currenttime.minute)+str(currenttime.second)
                                 itemuom_ids = ItemUomprice.objects.filter(item_code=c.itemcodeid.item_code,item_uom=c.item_uom.uom_code,isactive=True).order_by('pk').first()
@@ -6391,7 +6395,8 @@ class ExchangeProductConfirmAPIView(generics.CreateAPIView):
                                     trn_cost=itemuom_ids.item_cost if itemuom_ids and itemuom_ids.item_cost else None,trn_ref=None,
                                     hq_update=0,line_no=c.lineno,item_uom=c.item_uom.uom_code,
                                     item_batch=None,mov_type=None,item_batch_cost=None,
-                                    stock_in=None,trans_package_line_no=None).save()
+                                    stock_in=None,trans_package_line_no=None,trn_post=currentdate,
+                                    trn_date=currentdate).save()
                                 else:
                                     stktrn_id = Stktrn(trn_no=None,post_time=post_time,aperiod=None,
                                     itemcode=str(c.itemcodeid.item_code)+"0000",store_no=site.itemsite_code,
@@ -6402,7 +6407,8 @@ class ExchangeProductConfirmAPIView(generics.CreateAPIView):
                                     trn_cost=itemuom_ids.item_cost if itemuom_ids and itemuom_ids.item_cost else None,trn_ref=None,
                                     hq_update=0,line_no=c.lineno,item_uom=c.item_uom.uom_code,
                                     item_batch=None,mov_type=None,item_batch_cost=None,
-                                    stock_in=None,trans_package_line_no=None).save()
+                                    stock_in=None,trans_package_line_no=None,trn_post=currentdate,
+                                    trn_date=currentdate).save()
                 
         
                             #[HoldItemDetail]
@@ -11860,7 +11866,7 @@ class ManualInvoiceFormatAPIView(generics.ListCreateAPIView):
                 datalist = []
                 if manualobj:
                     serializer = ManualInvoiceSerializer(manualobj)
-                    addr_k = {};dtl_k = {};item_k = []
+                    addr_k = {};dtl_k = {};item_k = [];sign_k={}
                     manual_addr = ManualInvoiceAddrModel.objects.filter(fk_manualinvoice=searchid,
                     active='active').order_by('-pk')
                     if manual_addr:
@@ -11878,6 +11884,13 @@ class ManualInvoiceFormatAPIView(generics.ListCreateAPIView):
                     if manual_item:
                         item_ser = ManualInvoiceItemSerializer(manual_item, many=True)
                         item_k = item_ser.data
+
+                    masign_ids = ManualInvoicesign.objects.filter(fk_manualinvoice__pk=searchid,
+                    ).order_by('-pk') 
+                    if masign_ids:
+                        sign_ser = ManualInvoicesignSerializer(masign_ids[0],context={'request': self.request}) 
+                        sign_k =  sign_ser.data
+    
 
                     current_date = datetime.datetime.strptime(str(date.today()), "%Y-%m-%d").strftime("%d-%m-%Y")
                     time = str(datetime.datetime.now().time()).split(":")
@@ -11898,7 +11911,7 @@ class ManualInvoiceFormatAPIView(generics.ListCreateAPIView):
 
 
                     val_lst = {'manualinvoice': serializer.data,'manualinvaddr': addr_k,
-                    'manualinvdtl': dtl_k,'manualinvitem': item_k,
+                    'manualinvdtl': dtl_k,'manualinvitem': item_k,'manualinvsign': sign_k,
                     'company_header': company_header}
                     datalist.append(val_lst)
                     
@@ -12003,7 +12016,7 @@ class DeliveryOrderFormatAPIView(generics.ListCreateAPIView):
                 datalist = []
                 if do_obj:
                     serializer = DeliveryOrderSerializer(do_obj)
-                    addr_k = {};dtl_k = {};item_k = []
+                    addr_k = {};dtl_k = {};item_k = [];sign_k={}
                     doaddr_ids = DeliveryOrderAddrModel.objects.filter(fk_deliveryorder=searchid,active='active').order_by('-pk')
                     if doaddr_ids:
                         addr_ser = DeliveryOrderAddrSerializer(doaddr_ids[0])
@@ -12020,6 +12033,13 @@ class DeliveryOrderFormatAPIView(generics.ListCreateAPIView):
                     if doitem_ids:
                         item_ser = DeliveryOrderItemSerializer(doitem_ids, many=True)
                         item_k = item_ser.data
+
+                    dosign_ids = DeliveryOrdersign.objects.filter(do_id__pk=searchid,
+                    ).order_by('-pk') 
+                    if dosign_ids:
+                        sign_ser = DeliveryOrdersignSerializer(dosign_ids[0],context={'request': self.request}) 
+                        sign_k =  sign_ser.data
+        
 
                     current_date = datetime.datetime.strptime(str(date.today()), "%Y-%m-%d").strftime("%d-%m-%Y")
                     time = str(datetime.datetime.now().time()).split(":")
@@ -12040,7 +12060,7 @@ class DeliveryOrderFormatAPIView(generics.ListCreateAPIView):
 
      
                     val_lst = {'deliveryorder': serializer.data,'deliveryaddr': addr_k,
-                    'deliverydtl': dtl_k,'deliveryitem': item_k,
+                    'deliverydtl': dtl_k,'deliveryitem': item_k,'dosign': sign_k,
                     'company_header': company_header}
                     datalist.append(val_lst)
                     
@@ -26022,7 +26042,66 @@ class quotationsignViewset(viewsets.ModelViewSet):
             return Response(result, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             invalid_message = str(e)
+            return general_error_response(invalid_message) 
+
+
+class ManualInvoicesignViewset(viewsets.ModelViewSet):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = ManualInvoicesign.objects.filter().order_by('pk')
+    serializer_class = ManualInvoicesignSerializer
+
+    def list(self, request):
+        try:
+            manualinv_id = request.GET.get('manualinv_id',None)
+            if not manualinv_id:
+                raise Exception('Please Give ManualInvoice ID!!') 
+
+            ma_obj = ManualInvoiceModel.objects.filter(pk=manualinv_id).order_by("-pk").first()
+            if not ma_obj:
+                raise Exception('ManualInvoiceModel ID does not exist!!') 
+                
+            queryset = ManualInvoicesign.objects.filter(fk_manualinvoice__pk=ma_obj.pk)
+            if queryset:
+                serializer = self.get_serializer(queryset, many=True, context={'request': self.request})
+                result = {'status': status.HTTP_200_OK,"message": "Listed Succesfully",'error': False, 'data':  serializer.data}
+            else:
+                serializer = self.get_serializer()
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+            return Response(data=result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)             
+    
+
+    def create(self, request):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+            site = fmspw[0].loginsite
+           
+            mainv_obj = ManualInvoiceModel.objects.filter(pk=request.data['fk_manualinvoice']).order_by("-pk").first()
+            if not mainv_obj:
+                raise Exception('ManualInvoiceModel ID does not exist!!') 
+            
+            serializer = self.get_serializer(data=request.data)
+            if serializer.is_valid():
+                exist_ids = ManualInvoicesign.objects.filter(fk_manualinvoice__pk=request.data['fk_manualinvoice']).order_by('pk')
+                if not exist_ids:
+                    temph = serializer.save(manualinv_number=mainv_obj.manualinv_number)
+                else:
+                    raise Exception('Already Signature Uploaded for this ManualInvoiceModel!!') 
+
+                result = {'status': status.HTTP_201_CREATED,"message": "Created Succesfully",'error': False,
+                'data': serializer.data}
+                return Response(result, status=status.HTTP_201_CREATED)
+
+            result = {'status': status.HTTP_400_BAD_REQUEST,"message": "Invalid Input",'error': False, 
+            'data':  serializer.errors}
+            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            invalid_message = str(e)
             return general_error_response(invalid_message)     
+
 
 
 class StudioPdfGeneration(APIView):
@@ -26392,6 +26471,7 @@ class EquipmentUsageIssueReturn(APIView):
 
                                     #Stktrn
                                     currenttime = timezone.now()
+                                    currentdate = timezone.now().date()
 
                                     post_time = str(currenttime.hour)+str(currenttime.minute)+str(currenttime.second)
                                     
@@ -26403,7 +26483,8 @@ class EquipmentUsageIssueReturn(APIView):
                                     trn_amt=None,trn_cost=None,trn_ref=None,
                                     hq_update=0,line_no=1,item_uom=j.item_uom,
                                     item_batch=None,mov_type=None,item_batch_cost=None,
-                                    stock_in=None,trans_package_line_no=None).save()
+                                    stock_in=None,trans_package_line_no=None,
+                                    trn_post=currentdate,trn_date=currentdate).save()
                                 
                                 equip_obj.status = "Returned"
                                 equip_obj.save()

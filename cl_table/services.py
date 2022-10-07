@@ -2731,7 +2731,7 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
 
                             dtitemdesc = str(times_t)+"/"+str(treatment_no_t)+" "+str(tm.newservice_id.item_name)
 
-                            if idx != len(tmp_treatment_ids):
+                            if idx != 1:
                                 treatacc_id = TreatmentAccount(Cust_Codeid=cust_obj,cust_code=cust_obj.cust_code,
                                 description=dtitemdesc,ref_no=f_treatment_code,type="Sales",
                                 amount=amount,balance="{:.2f}".format(float(Balance)),User_Nameid=fmspw,
@@ -2744,7 +2744,8 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                                 focreason=item_remarks)
                                 treatacc_id.save()
                     
-                    
+                    ct.status="Done"
+                    ct.save() 
 
                     done_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Done").order_by('pk').count()
                     if ct.treatment_limit_times > done_ids or ct.treatment_limit_times == 0:
@@ -2773,21 +2774,9 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                         smsout=ct.smsout,emailout=ct.emailout,treatment_account=ct.treatment_account)
                         
                         goptreatids.save() 
-                    else:
-                        if ct.treatment_limit_times == done_ids:
-                            treataccid = TreatmentAccount(Cust_Codeid=cust_obj,cust_code=cust_obj.cust_code,
-                            description=dtitemdesc,ref_no=f_treatment_code,type="Sales",
-                            amount=amount,balance="{:.2f}".format(float(Balance)),User_Nameid=fmspw,
-                            user_name=fmspw.pw_userlogin,ref_transacno=c.treatment.sa_transacno if c.treatment.sa_transacno else None,sa_transacno=sa_transacno,
-                            qty=c.quantity if c.quantity else None,outstanding="{:.2f}".format(float(acc_ids.outstanding)) if acc_ids and acc_ids.outstanding is not None and acc_ids.outstanding > 0 else 0.0,deposit=0,
-                            treatment_parentcode=c.treatment.treatment_parentcode if c.treatment.treatment_parentcode else '',treatment_code="",sa_status="SA",
-                            cas_name=fmspw.pw_userlogin,sa_staffno=service_staff.emp_code if service_staff.emp_code else '',
-                            sa_staffname=service_staff.display_name if service_staff.display_name else '',dt_lineno=c.lineno,
-                            Site_Codeid=site,site_code=site.itemsite_code,treat_code=c.treatment.treatment_parentcode if c.treatment.treatment_parentcode else None,itemcart=c,
-                            focreason=item_remarks)
-                            treataccid.save()
                     
-                    ct.status="Done"
+                    
+                   
                     ct.price = 0
                     ct.save() 
  
@@ -2824,9 +2813,9 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                         trmt_room_code=ct.trmt_room_code,trmt_is_auto_proportion=ct.trmt_is_auto_proportion,
                         smsout=ct.smsout,emailout=ct.emailout,treatment_account=ct.treatment_account).save()
 
-                    if c.multi_treat.all()[0].type == 'FFi' and acc_ids.balance == 0:
-                        amount = 0
-                        Balance = 0
+                    # if c.multi_treat.all()[0].type == 'FFi' and acc_ids.balance == 0:
+                    #     amount = 0
+                    #     Balance = 0
 
                     # dtitemdesc_n = str(timest)+"/"+str(treatment_not)+" "+str(c.itemcodeid.item_name)
 
@@ -3481,6 +3470,7 @@ def invoice_exchange(self, request, exchange_ids, sa_transacno, cust_obj, outsta
                 # print(stktrn_ids,"stktrn_ids")
 
                 currenttime = timezone.now()
+                currentdate = timezone.now().date()
 
                 post_time = str(currenttime.hour)+str(currenttime.minute)+str(currenttime.second)
                 itemuom_ids = ItemUomprice.objects.filter(item_code=c.itemcodeid.item_code,item_uom=c.item_uom.uom_code,isactive=True).order_by('pk').first()
@@ -3497,7 +3487,8 @@ def invoice_exchange(self, request, exchange_ids, sa_transacno, cust_obj, outsta
                     trn_cost=itemuom_ids.item_cost if itemuom_ids and itemuom_ids.item_cost else None,trn_ref=None,
                     hq_update=0,line_no=c.lineno,item_uom=c.item_uom.uom_code,
                     item_batch=None,mov_type=None,item_batch_cost=None,
-                    stock_in=None,trans_package_line_no=None)
+                    stock_in=None,trans_package_line_no=None,trn_post=currentdate,
+                    trn_date=currentdate)
                     stktrn_id.save()
                     Stktrn.objects.filter(pk=stktrn_id.pk).update(trn_post=pay_date,trn_date=pay_date)
                    
@@ -3511,7 +3502,8 @@ def invoice_exchange(self, request, exchange_ids, sa_transacno, cust_obj, outsta
                     trn_cost=itemuom_ids.item_cost if itemuom_ids and itemuom_ids.item_cost else None,trn_ref=None,
                     hq_update=0,line_no=c.lineno,item_uom=c.item_uom.uom_code,
                     item_batch=None,mov_type=None,item_batch_cost=None,
-                    stock_in=None,trans_package_line_no=None)
+                    stock_in=None,trans_package_line_no=None,trn_post=currentdate,
+                    trn_date=currentdate)
                     stktrn_id.save()
                     Stktrn.objects.filter(pk=stktrn_id.pk).update(trn_post=pay_date,trn_date=pay_date)
                    

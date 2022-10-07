@@ -1,0 +1,9 @@
+[Unit]
+Description=Beautesoft app
+
+[Service]
+Type=simple
+ExecStart=/bin/bash /var/BE_Dev_DoodleProject/backend_beautysoft_2022/run
+
+[Install]
+WantedBy=multi-user.target

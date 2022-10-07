@@ -2565,9 +2565,9 @@ class ItemBatch(models.Model):
 
 class Stktrn(models.Model):
     id = models.AutoField(db_column='ID', primary_key=True)  # Field name made lowercase.
-    trn_post = models.DateTimeField(db_column='TRN_POST', auto_now=True, null=True)  # Field name made lowercase.
+    trn_post = models.DateTimeField(db_column='TRN_POST',  null=True)  # Field name made lowercase.
     trn_no = models.FloatField(db_column='TRN_NO', blank=True, null=True)  # Field name made lowercase.
-    trn_date = models.DateTimeField(db_column='TRN_DATE', auto_now=True, null=True)  # Field name made lowercase.
+    trn_date = models.DateTimeField(db_column='TRN_DATE',  null=True)  # Field name made lowercase.
     post_time = models.CharField(db_column='POST_TIME', max_length=6, blank=True, null=True)  # Field name made lowercase.
     aperiod = models.FloatField(db_column='APERIOD', blank=True, null=True)  # Field name made lowercase.
     itemcode = models.CharField(db_column='ITEMCODE', max_length=15, blank=True, null=True)  # Field name made lowercase.
@@ -3961,10 +3961,21 @@ class Dayendconfirmlog(models.Model):
 
 
 class Participants(models.Model):
+
+    STATUS = [
+        ('Booked', 'Booked'),
+        ('Cancelled', 'Cancelled'),
+        ('Arrived', 'Arrived'),
+        ('Done','Done')
+    ] 
+
     id = models.AutoField(db_column='ID', primary_key=True)
     appt_id = models.ForeignKey('cl_table.Appointment', on_delete=models.PROTECT,null=True)
     cust_id = models.ForeignKey('cl_table.Customer', on_delete=models.PROTECT, null=True) 
     isactive = models.BooleanField(default=True)
+    date_booked = models.DateField(db_column='date_booked', blank=True, null=True) 
+    status = models.CharField(db_column='status', max_length=200, choices=STATUS,blank=True, null=True)  # Field name made lowercase.
+    remarks = models.CharField(db_column='Remarks', max_length=255, blank=True, null=True)  # Field name made lowercase.
 
     class Meta:
         db_table = 'Participants'
@@ -3988,22 +3999,20 @@ class MGMPolicyCloud(models.Model):
     id = models.AutoField(db_column='ID', primary_key=True)
     level = models.CharField(db_column='level', max_length=200, null=True)  # Field name made lowercase.
     point_value = models.FloatField(db_column='Point_Value', blank=True, null=True)  # Field name made lowercase.
-    Site_Codeid = models.ForeignKey('cl_app.ItemSitelist', on_delete=models.PROTECT,  null=True)
-    site_code = models.CharField(db_column='Site_Code', max_length=20, null=True)  # Field name made lowercase.
     isactive = models.BooleanField(db_column='IsActive',default=True)  # Field name made lowercase.
     updated_at = models.DateTimeField(auto_now=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     minimum_purchase_amt = models.FloatField(blank=True, null=True)  # Field name made lowercase.
+    site_ids = models.ManyToManyField('cl_app.ItemSitelist',blank=True)
+    no_of_reward_times = models.IntegerField(db_column='no_of_reward_times', blank=True, null=True)  # Field name made lowercase.
 
     class Meta:
         db_table = 'MGMPolicyCloud'
-        unique_together = (('level', 'Site_Codeid'),)
+        unique_together = (('level', 'point_value'),)
 
     def save(self, *args,**kwargs):
         
-        if self.Site_Codeid:
-            self.site_code = self.Site_Codeid.itemsite_code
-
+       
         super(MGMPolicyCloud,self).save(*args,**kwargs)
 
     def __str__(self):

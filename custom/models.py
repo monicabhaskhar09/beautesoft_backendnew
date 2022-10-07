@@ -1933,7 +1933,7 @@ class DeliveryOrdersign(models.Model):
 
     id = models.AutoField(db_column='ID', primary_key=True)
     do_id = models.ForeignKey('custom.DeliveryOrderModel', on_delete=models.PROTECT,null=True)   
-    deliveryorder_no = models.CharField(db_column='DeliveryOrder_No', max_length=50, blank=True, null=True)  
+    deliveryorder_no = models.CharField(db_column='DeliveryOrder_No', max_length=255, blank=True, null=True)  
     do_sig = models.ImageField(db_column='DO_Sig', blank=True, null=True,upload_to='img') 
 
     class Meta:
@@ -1949,6 +1949,16 @@ class quotationsign(models.Model):
     class Meta:
         db_table = 'quotationsign'
 
+
+class ManualInvoicesign(models.Model):
+
+    id = models.AutoField(db_column='ID', primary_key=True)
+    fk_manualinvoice = models.ForeignKey('custom.ManualInvoiceModel', on_delete=models.PROTECT, null=True, default=1)
+    manualinv_number = models.CharField(db_column='ManualInvoice_Number', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
+    manualinv_sig = models.ImageField(db_column='manualinv_sig', blank=True, null=True,upload_to='img') 
+
+    class Meta:
+        db_table = 'ManualInvoicesign'
 
 
 class EquipmentUsage(models.Model):

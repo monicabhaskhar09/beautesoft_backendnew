@@ -2815,6 +2815,16 @@ class TreatmentDoneNewViewset(viewsets.ModelViewSet):
                             if expiry >= str(date.today()):
                                 if treatment_limit_times > done_ids or treatment_limit_times == 0:
                                     query = row
+                            else:
+                                flsystem_ids = Systemsetup.objects.filter(title='flexitdexpiredlist',value_name='flexitdexpiredlist',value_data='True',isactive=True).first()
+                                if flsystem_ids: 
+                                    if treatment_limit_times > done_ids or treatment_limit_times == 0:
+                                        query = row        
+                        else:
+                            if treatment_limit_times is not None:
+                                if treatment_limit_times > done_ids or treatment_limit_times == 0:
+                                    query = row
+
                     
                     if query:
                         search_ids = TmpTreatmentSession.objects.filter(treatment_parentcode=trmt_obj.treatment_parentcode,
@@ -6219,6 +6229,7 @@ class VoidViewset(viewsets.ModelViewSet):
                                                     #Stktrn
                                                 
                                                     currenttime = timezone.now()
+                                                    currentdate = timezone.now().date()
 
                                                     post_time = str(currenttime.hour)+str(currenttime.minute)+str(currenttime.second)
                                                     
@@ -6231,7 +6242,8 @@ class VoidViewset(viewsets.ModelViewSet):
                                                     trn_amt=None,trn_cost=None,trn_ref=None,
                                                     hq_update=0,line_no=instance.line_no,item_uom=instance.uom,
                                                     item_batch=None,mov_type=None,item_batch_cost=None,
-                                                    stock_in=None,trans_package_line_no=None).save()
+                                                    stock_in=None,trans_package_line_no=None,trn_post=currentdate,
+                                                    trn_date=currentdate).save()
                                 
 
                                 #acc_ids = TreatmentAccount.objects.filter(sa_transacno=haudobj.sa_transacno,type='Deposit',
@@ -6342,6 +6354,7 @@ class VoidViewset(viewsets.ModelViewSet):
                                                         batch_ids.qty = addamt
                                                         batch_ids.save()
                                                         currenttime = timezone.now()
+                                                        currentdate = timezone.now().date()
                                                         post_time = str(currenttime.hour)+str(currenttime.minute)+str(currenttime.second)
 
                                                         pa_trasac = pa.price * pa.qty
@@ -6353,7 +6366,8 @@ class VoidViewset(viewsets.ModelViewSet):
                                                         trn_cost=0,trn_ref=None,
                                                         hq_update=0,
                                                         line_no=d.dt_lineno,item_uom=pa.uom,item_batch=None,mov_type=None,item_batch_cost=None,
-                                                        stock_in=None,trans_package_line_no=None).save()
+                                                        stock_in=None,trans_package_line_no=None,trn_post=currentdate,
+                                                        trn_date=currentdate).save()
 
                                     #voucher
                                     voucher_ids = VoucherRecord.objects.filter(sa_transacno=haudobj.sa_transacno,
@@ -6403,15 +6417,15 @@ class VoidViewset(viewsets.ModelViewSet):
                                         # Treatment.objects.filter(pk=i.pk).update(course=description,status="Cancel",
                                         # trmt_room_code=None,treatment_count_done=0)
                                         
-                                        i.treatment_code = str(i.treatment_code)+"-"+"VT"
-                                        i.times =  str(i.times)+"-"+"VT"
-                                        i.treatment_no =  str(i.treatment_no)+"-"+"VT"
+                                        # i.treatment_code = str(i.treatment_code)+"-"+"VT"
+                                        # i.times =  str(i.times)+"-"+"VT"
+                                        # i.treatment_no =  str(i.treatment_no)+"-"+"VT"
                                         i.course = description
                                         i.status = "Cancel"
                                         i.trmt_room_code = None
                                         i.treatment_count_done = 0
                                         i.save()
-                                        ex_ids = Treatment.objects.filter(~Q(pk=i.pk)).filter(treatment_parentcode=d.itemcart.treatment.treatment_parentcode).order_by('pk')
+                                        ex_ids = Treatment.objects.filter(~Q(pk=i.pk)).filter(treatment_parentcode=d.itemcart.treatment.treatment_parentcode,times__gt=i.times).order_by('pk')
                                         for e in ex_ids:
                                             tim = str(int(e.times) -1).zfill(2)
                                             tr_no = str(int(e.treatment_no) -1).zfill(2)
@@ -6493,6 +6507,7 @@ class VoidViewset(viewsets.ModelViewSet):
                                                     #Stktrn
                                                 
                                                     currenttime = timezone.now()
+                                                    currentdate = timezone.now().date()
 
                                                     post_time = str(currenttime.hour)+str(currenttime.minute)+str(currenttime.second)
                                                     
@@ -6504,7 +6519,8 @@ class VoidViewset(viewsets.ModelViewSet):
                                                     trn_amt=None,trn_cost=None,trn_ref=None,
                                                     hq_update=0,line_no=instance.line_no,item_uom=instance.uom,
                                                     item_batch=None,mov_type=None,item_batch_cost=None,
-                                                    stock_in=None,trans_package_line_no=None).save()
+                                                    stock_in=None,trans_package_line_no=None,trn_post=currentdate,
+                                                    trn_date=currentdate).save()
 
                                 if d.itemcart.multi_treat.all().exists():        
                                     ct = d.itemcart.multi_treat.all()[0]
@@ -6599,6 +6615,7 @@ class VoidViewset(viewsets.ModelViewSet):
                                     batch_ids.qty = addamt
                                     batch_ids.save()
                                     currenttime = timezone.now()
+                                    currentdate = timezone.now().date()
                                     post_time = str(currenttime.hour)+str(currenttime.minute)+str(currenttime.second)
 
                                     #Stktrn
@@ -6621,7 +6638,8 @@ class VoidViewset(viewsets.ModelViewSet):
                                     trn_cost=0,trn_ref=None,
                                     hq_update=0,
                                     line_no=d.dt_lineno,item_uom=d.dt_uom,item_batch=None,mov_type=None,item_batch_cost=None,
-                                    stock_in=None,trans_package_line_no=None).save()
+                                    stock_in=None,trans_package_line_no=None,
+                                    trn_post=currentdate,trn_date=currentdate).save()
 
                                    
                             elif d.itemcart.type == 'Top Up':
@@ -6976,15 +6994,15 @@ class VoidViewset(viewsets.ModelViewSet):
                                         # Treatment.objects.filter(pk=i.pk).update(course=description,status="Cancel",
                                         # trmt_room_code=None,treatment_count_done=0)
                                         
-                                        i.treatment_code = str(i.treatment_code)+"-"+"VT"
-                                        i.times =  str(i.times)+"-"+"VT"
-                                        i.treatment_no =  str(i.treatment_no)+"-"+"VT"
+                                        # i.treatment_code = str(i.treatment_code)+"-"+"VT"
+                                        # i.times =  str(i.times)+"-"+"VT"
+                                        # i.treatment_no =  str(i.treatment_no)+"-"+"VT"
                                         i.course = description
                                         i.status = "Cancel"
                                         i.trmt_room_code = None
                                         i.treatment_count_done = 0
                                         i.save()
-                                        ex_ids = Treatment.objects.filter(~Q(pk=i.pk)).filter(treatment_parentcode=da.itemcart.treatment.treatment_parentcode).order_by('pk')
+                                        ex_ids = Treatment.objects.filter(~Q(pk=i.pk)).filter(treatment_parentcode=da.itemcart.treatment.treatment_parentcode,times__gt=i.times).order_by('pk')
                                         for e in ex_ids:
                                             tim = str(int(e.times) -1).zfill(2)
                                             tr_no = str(int(e.treatment_no) -1).zfill(2)
@@ -7072,6 +7090,7 @@ class VoidViewset(viewsets.ModelViewSet):
                                                     #Stktrn
                                                 
                                                     currenttime = timezone.now()
+                                                    currentdate = timezone.now().date()
 
                                                     post_time = str(currenttime.hour)+str(currenttime.minute)+str(currenttime.second)
                                                     
@@ -7084,7 +7103,8 @@ class VoidViewset(viewsets.ModelViewSet):
                                                     trn_amt=None,trn_cost=None,trn_ref=None,
                                                     hq_update=0,line_no=instance.line_no,item_uom=instance.uom,
                                                     item_batch=None,mov_type=None,item_batch_cost=None,
-                                                    stock_in=None,trans_package_line_no=None).save()
+                                                    stock_in=None,trans_package_line_no=None,
+                                                    trn_post=currentdate,trn_date=currentdate).save()
 
                                 if da.itemcart.multi_treat.all().exists():        
                                     ct = da.itemcart.multi_treat.all()[0]
@@ -8370,7 +8390,7 @@ class CreditNoteListViewset(viewsets.ModelViewSet):
                     if float(new_balance) == balance:
                         result = {'status': status.HTTP_400_BAD_REQUEST, "message": "New Balance and Refund Amt, Existing credit note Balance should not be same!!", 'error': True}
                         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-
+                  
                 if float(refund_amt) > float(balance):
                     result = {'status': status.HTTP_400_BAD_REQUEST, "message": "Refund Amt Should not be greater than new balance!!", 'error': True}
                     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
@@ -8400,7 +8420,7 @@ class CreditNoteListViewset(viewsets.ModelViewSet):
                     control_obj.save()
 
                 if not new_balance is None and float(new_balance) > 0.00:
-                    serializer.save(balance=new_balance)
+                    serializer.save(balance=new_balance,status="OPEN")
                 elif not new_balance is None and float(new_balance) == 0.00:
                     serializer.save(balance=new_balance,status="CLOSE")
 
@@ -12442,6 +12462,7 @@ class StockUsageViewset(viewsets.ModelViewSet):
                     #Stktrn
                 
                     currenttime = timezone.now()
+                    currentdate = timezone.now().date()
 
                     post_time = str(currenttime.hour)+str(currenttime.minute)+str(currenttime.second)
                     
@@ -12453,7 +12474,8 @@ class StockUsageViewset(viewsets.ModelViewSet):
                     trn_amt=None,trn_cost=None,trn_ref=None,
                     hq_update=0,line_no=instance.line_no,item_uom=instance.uom,
                     item_batch=None,mov_type=None,item_batch_cost=None,
-                    stock_in=None,trans_package_line_no=None).save()
+                    stock_in=None,trans_package_line_no=None,trn_post=currentdate,
+                    trn_date=currentdate).save()
                 
                 
                 result = {'status': status.HTTP_200_OK,"message":"Deleted Succesfully",'error': False}
@@ -12671,7 +12693,8 @@ class StockUsageMemoViewset(viewsets.ModelViewSet):
                             trn_cost=itemuom_ids.item_cost if itemuom_ids and itemuom_ids.item_cost else None,trn_ref=None,
                             hq_update=stktrn_ids.hq_update if stktrn_ids and stktrn_ids.hq_update else 0,
                             line_no=1,item_uom=request.data['uom'],item_batch=None,mov_type=None,item_batch_cost=None,
-                            stock_in=None,trans_package_line_no=None).save()
+                            stock_in=None,trans_package_line_no=None,trn_post=currentdate,
+                            trn_date=currentdate).save()
 
                         else:
                             flag = False
@@ -12818,6 +12841,7 @@ class StockUsageMemoViewset(viewsets.ModelViewSet):
                     #Stktrn
                 
                     currenttime = timezone.now()
+                    currentdate = timezone.now().date()
 
                     post_time = str(currenttime.hour)+str(currenttime.minute)+str(currenttime.second)
                     itemuom_ids = ItemUomprice.objects.filter(item_code=instance.item_code[:-4],item_uom=instance.uom,isactive=True).order_by('pk').first()
@@ -12833,7 +12857,8 @@ class StockUsageMemoViewset(viewsets.ModelViewSet):
                     trn_cost=itemuom_ids.item_cost if itemuom_ids and itemuom_ids.item_cost else None,trn_ref=None,
                     hq_update=0,line_no=1,item_uom=instance.uom,
                     item_batch=None,mov_type=None,item_batch_cost=None,
-                    stock_in=None,trans_package_line_no=None).save()
+                    stock_in=None,trans_package_line_no=None,trn_post=currentdate,
+                    trn_date=currentdate).save()
             
 
                 result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",'error': False}
