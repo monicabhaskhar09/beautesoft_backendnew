@@ -118,19 +118,37 @@ body{
 
   
   <div class="container-fluid">
-		<div>
+    <div class="container">
+      <div class="row  spaDetails" style="float: left;">
+        <div class="col-xs-4 d-flex">
+          <img src="{{path}}" width="55" height="55" alt="">
+        </div>
+        <div class="col-xs-8 pl-3">
+          <h5>{{name}}</h5>
+          <p><b>UEN :</b> {{ company_reg_no }} &nbsp; <b>GST Reg No :</b> {{ gst_reg_no }}</p>
+          <p>{{address}}</p>
+        </div>
+      </div>
+    </div>
+   
+  
+
+		<!-- <div>
 			<div>
 				<img src="{{path}}" width="85" height="85" alt="">
       </div>
-      <div style="font-size: 12px;">
+      <div style="font-size: 12px;line-height: 10px;">
         <h5>{{name}}</h5>
+        <p><b>UEN :</b> {{ company_reg_no }} &nbsp; <b>GST Reg No :</b> {{ gst_reg_no }}</p>
         <p>{{address}}</p>
       </div>
-    </div>
+    </div> -->
 
     <div class="clearfix mt-5">
       <div class="box">
         <div class="split" style="font-size: 15px;line-height: 10px">
+          <br>
+          <br>
           <p><b>Code:</b> {{ hdr.sa_custno }} </p>
           <p><b>Name:</b> {{ hdr.sa_custname }} </p>
           {% if site.is_nric %}
@@ -147,6 +165,8 @@ body{
           </p>
         </div>
         <div class="split right" style="font-size: 15px;line-height: 10px">
+          <br>
+          <br>
           <p><b>Trans #: </b> {{ hdr.sa_transacno_ref }} </p>
           <p><b>Date: </b>   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ date }} </p>
           <p><b>Time: </b> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ time }} </p>

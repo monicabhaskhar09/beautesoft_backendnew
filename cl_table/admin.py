@@ -10,7 +10,7 @@ Workschedule, Securitycontrollist, Securitylevellist, MenuSecurity,DiagnosisComp
 MenuSecuritylevellist, Skillstaff, CustomerFormControl, RewardPolicy, RedeemPolicy,
 Multilanguage, MultiLanguageWord, Language,TreatmentDuration,ItemStocklist,Smsreceivelog,
 TreatmentProtocol,CustomerPointDtl,CustomerPoint,PackageAuditingLog,Tempcustsign,ItemFlexiservice,
-StudioWork,CustomerReferral,MGMPolicyCloud)
+StudioWork,CustomerReferral,MGMPolicyCloud,ExchangeDtl,sitelistip)
 from cl_app.models import ItemSitelist, SiteGroup
 
 # # Register your models here.
@@ -99,3 +99,5 @@ admin.site.register(ItemFlexiservice)
 admin.site.register(StudioWork)
 admin.site.register(MGMPolicyCloud)
 admin.site.register(CustomerReferral)
+admin.site.register(ExchangeDtl)
+admin.site.register(sitelistip)

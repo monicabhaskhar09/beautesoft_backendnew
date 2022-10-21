@@ -12,6 +12,7 @@ router.register(r'dayendconfirmlog', views.DayendconfirmlogViewset, basename='da
 router.register(r'customerpointsaccount', views.CustomerPointsAccountViewset, basename='customerpointsaccount')
 router.register(r'mgmpolicycloud', views.MGMPolicyCloudViewset, basename='mgmpolicycloud')
 router.register(r'customerreferral', views.CustomerReferralViewset, basename='customerreferral')
+router.register(r'sitelistip', views.SitelistipViewset, basename='sitelistip')
 
 
 urlpatterns = [

@@ -266,7 +266,7 @@ class ItemCart(models.Model):
     multistaff_ids = models.ManyToManyField('cl_table.Tmpmultistaff', related_name='multistaff', blank=True)
     treatment_no = models.CharField(db_column='Treatment_No', max_length=10, blank=True, null=True)  # Field name made lowercase.
     free_sessions = models.CharField(db_column='Free_Sessions', max_length=10, blank=True, null=True)  # Field name made lowercase.
-    exchange_id = models.ForeignKey('cl_table.ExchangeDtl', on_delete=models.PROTECT,blank=True, null=True)
+    exchange_id = models.ForeignKey('cl_table.ExchangeDtl', on_delete=models.SET_NULL,blank=True, null=True)
     is_total = models.BooleanField(default=False,null=True)
     prepaid_value = models.FloatField(db_column='Prepaid_Value', blank=True, null=True)  # Field name made lowercase.
     isopen_prepaid = models.BooleanField(db_column='isOpen_Prepaid',default=False)  # Field name made lowercase.
@@ -548,7 +548,8 @@ class ManualInvoiceModel(models.Model):
     cust_id = models.ForeignKey('cl_table.Customer', on_delete=models.PROTECT, null=True)
     currency_id =  models.ForeignKey('custom.Currencytable', on_delete=models.PROTECT, null=True)
     quotation_number = models.CharField(db_column='Quotation_Number', blank=True, max_length = 255, default='', null=True)  # Field name made lowercase.
-   
+    isxeroposted = models.BooleanField(db_column='isxeroposted',default=False)  # Field name made lowercase.
+    
     class Meta:
         db_table = 'ManualInvoice_List'
 

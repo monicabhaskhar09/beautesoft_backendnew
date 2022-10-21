@@ -1,6 +1,6 @@
 import django.utils.timezone
 from pytz import timezone
-from django.http import HttpResponse
+from django.http import HttpResponse,JsonResponse
 from django.contrib.sessions.models import Session
 from cl_app.models import LoggedInUser
 from django.shortcuts import redirect
@@ -10,10 +10,13 @@ from rest_framework.response import Response
 from re import sub
 from rest_framework.authtoken.models import Token
 from django.contrib.auth.models import User
-from .models import Customer
+from .models import Customer,sitelistip
 from django.conf import settings
 from django.contrib.sessions.middleware import SessionMiddleware
 from importlib import import_module
+from django.core.exceptions import PermissionDenied    
+from django.utils.deprecation import MiddlewareMixin
+from rest_framework import status,viewsets,mixins
 
 # class OneSessionPerUserMiddleware(object):
 #     # Called only once when the web server starts
@@ -86,3 +89,31 @@ from importlib import import_module
 #         token_ids = Token.objects.filter(key = token)
 #         print(token_ids,"token_ids")
 #     return True
+
+class allowedipsMiddleware(MiddlewareMixin):
+    def process_request(self, request):
+        try:
+            ip = request.META['REMOTE_ADDR']
+            # print(ip,"ip")
+            sitelistip_ids = sitelistip.objects.filter(isactive=True).values_list('ip', flat=True).distinct()
+            # print(sitelistip_ids,"sitelistip_ids")
+            sitelistiplist = list(set(sitelistip_ids)) 
+            # print(sitelistiplist,"sitelistiplist")
+            if not ip in sitelistiplist: #ip check
+                # print("iff")
+                msg = "{0} This Ip Address not allowed to access".format(ip)
+                result = {'status': status.HTTP_400_BAD_REQUEST,
+                "message":msg,
+                'error': True}
+
+                return JsonResponse(result, status=status.HTTP_400_BAD_REQUEST)
+                # raise PermissionDenied
+            return None
+
+        except Exception as e:
+            invalid_message = str(e)
+            result = {'status': status.HTTP_400_BAD_REQUEST,
+                "message":invalid_message,
+                'error': True}
+            return JsonResponse(result, status=status.HTTP_400_BAD_REQUEST)             
+            

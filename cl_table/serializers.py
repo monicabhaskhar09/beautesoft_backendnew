@@ -8,7 +8,7 @@ DailysalesdataDetail, DailysalesdataSummary,Holditemdetail,PrepaidAccount,Credit
 DepositAccount, CustomerPoint, MrRewardItemType,Smsreceivelog,Systemsetup,TreatmentProtocol,
 CustomerTitle,ItemDiv,Tempcustsign,CustomerDocument,TreatmentPackage,ContactPerson,ItemFlexiservice,
 termsandcondition,Participants,ProjectDocument,Dayendconfirmlog,CustomerPointDtl,
-CustomerReferral,MGMPolicyCloud)
+CustomerReferral,MGMPolicyCloud,sitelistip)
 from cl_app.models import ItemSitelist, SiteGroup
 from custom.models import EmpLevel,Room,VoucherRecord
 from django.contrib.auth.models import User
@@ -3084,7 +3084,7 @@ class TempcustsignSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Tempcustsign
-        fields = ['id','cust_code','transaction_no','cust_sig','site_code']  
+        fields = ['id','cust_code','transaction_no','cust_sig','site_code','cart_id']  
 
 class CustomerDocumentSerializer(serializers.ModelSerializer):
 
@@ -3250,15 +3250,16 @@ class CustomerPointAccountSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomerPointDtl
         fields = ['id','transacno','cust_code','cust_name','type',
-        'point','now_point','total_point','itm_code','itm_desc']  
+        'point','now_point','total_point','itm_code','itm_desc','mgm_level',
+        'reward_time']  
 
     def to_representation(self, obj):
         data = super(CustomerPointAccountSerializer, self).to_representation(obj)
         data['transactionref'] = ""; data['site_code'] = ""  ;data['date'] = "" 
-        data['ref_source'] = ""
+        data['ref_source'] = ""; data['custreward_givenby'] = "" ;data['custreward_givenby_referno'] = ""
         custpoint_ids = CustomerPoint.objects.filter(transacno=obj.transacno).first()
         if custpoint_ids:
-            pos_haud = PosHaud.objects.filter(sa_custno=obj.cust_code,
+            pos_haud = PosHaud.objects.filter(
                         sa_transacno=custpoint_ids.postransactionno
                         ).only('sa_custno','sa_transacno').order_by('pk').first()
 
@@ -3270,10 +3271,13 @@ class CustomerPointAccountSerializer(serializers.ModelSerializer):
             if pos_haud:
                 data['transactionref'] = pos_haud.sa_transacno_ref if pos_haud.sa_transacno_ref else ""
                 data['site_code'] = pos_haud.itemsite_code
+                data['custreward_givenby'] = pos_haud.sa_custnoid.cust_name if pos_haud.sa_custnoid else ""
+                data['custreward_givenby_referno'] = pos_haud.sa_custnoid.cust_refer  if pos_haud.sa_custnoid and pos_haud.sa_custnoid.cust_refer else ""
             
         data['total_point'] = "{:.2f}".format(data['total_point'])
         data['now_point'] = "{:.2f}".format(data['now_point'])
         data['point'] = "{:.2f}".format(data['point'])
+
         return data           
 
 
@@ -3295,6 +3299,17 @@ class MGMPolicyCloudSerializer(serializers.ModelSerializer):
  
             data['item_site_ids'] =  [{'label': i.itemsite_code ,'value': i.pk} for i in site_ids if i.itemsite_code]
             data['item_site_desc'] = ','.join([v.itemsite_code for v in site_ids if v.itemsite_code])
+        
+        data['created_at'] = "";data['updated_at'] = ""
+        if obj.created_at:
+            splt = str(obj.created_at).split(" ") 
+            data['created_at'] = datetime.datetime.strptime(str(splt[0]), '%Y-%m-%d').strftime("%d-%m-%Y") 
+
+        if obj.updated_at:
+            spltu = str(obj.updated_at).split(" ") 
+            data['updated_at'] = datetime.datetime.strptime(str(spltu[0]), '%Y-%m-%d').strftime("%d-%m-%Y") 
+
+
 
         return data           
 
@@ -3306,6 +3321,7 @@ class CustomerReferralSerializer(serializers.ModelSerializer):
         fields = ['id','isactive','Site_Codeid','site_code']         
 
     def to_representation(self, obj):
+        
         data = super(CustomerReferralSerializer, self).to_representation(obj)
         dateofjoin = ""
         if obj.cust_id and obj.cust_id.cust_joindate:
@@ -3321,5 +3337,16 @@ class CustomerReferralSerializer(serializers.ModelSerializer):
         data['customer_referenceno'] = obj.cust_id.cust_refer if obj.cust_id and obj.cust_id.cust_refer else ""
         data['dateofjoin'] = dateofjoin
         # data['cust_totpurchasevalue'] = "{:.2f}".format(data['point_value']) if obj.cust_totpurchasevalue else "0.00"
+        if 'level' in self.context:
+            level = self.context['level']
+            data['level'] = level
+        else:
+            data['level'] = "level 1"
+
         return data           
     
+class SitelistipSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = sitelistip
+        fields = ['id','isactive','siteid','ip']         

@@ -3282,9 +3282,12 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                                     Stktrn.objects.filter(pk=stktrn_id.pk).update(trn_post=pay_date,trn_date=pay_date)
                             
             if c.exchange_id:
-                c.exchange_id.status = True
-                c.exchange_id.fe_transacno = sa_transacno
-                c.exchange_id.save()
+                exc_ids = ExchangeDtl.objects.filter(exchange_no=c.exchange_id.exchange_no,
+                status=False).update(status=True,fe_transacno=sa_transacno)
+
+                # c.exchange_id.status = True
+                # c.exchange_id.fe_transacno = sa_transacno
+                # c.exchange_id.save()
                 # ExchangeDtl.objects.filter(status=False).delete()
                 PackageAuditingLog(treatment_parentcode=c.treatment.treatment_parentcode if c.treatment.treatment_parentcode else '',
                 user_loginid=fmspw,package_type="Exchange",pa_qty=c.quantity if c.quantity else None).save()    

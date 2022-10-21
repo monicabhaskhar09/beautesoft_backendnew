@@ -395,6 +395,7 @@ def GeneratePDF(self,request, sa_transacno):
     'prepaidbal':prepaidbal,'treatmentbal':treatmentbal,'showprepaid': showprepaid,
     'showvoidreason':showvoidreason,'showcredit':showcredit,'creditlst': creditlst,
     'gst_reg_no': title.gst_reg_no if title and title.gst_reg_no else '',
+    'company_reg_no': title.company_reg_no if title and title.company_reg_no else '',
     'gst_lable': gst_lable,'first_sales': daud[0].dt_Staffnoid.display_name if daud[0].dt_Staffnoid else '',
     'gstlable': gstlable}
     data.update(sub_data)

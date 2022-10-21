@@ -14,6 +14,7 @@ import os
 import calendar
 from django.utils import timezone
 
+
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -50,21 +51,6 @@ INSTALLED_APPS = [
     'custom',
     'clpayroll',
 ]
-
-MIDDLEWARE = [
-        'Cl_beautesoft.middleware1.open_access_middleware',
-        'corsheaders.middleware.CorsMiddleware',
-        'django.middleware.security.SecurityMiddleware',
-        'django.contrib.sessions.middleware.SessionMiddleware',
-        'django.middleware.common.CommonMiddleware',
-        'django.middleware.csrf.CsrfViewMiddleware',
-        'django.contrib.auth.middleware.AuthenticationMiddleware',
-        'django.contrib.messages.middleware.MessageMiddleware',
-        'django.middleware.clickjacking.XFrameOptionsMiddleware',
-        'django.middleware.common.CommonMiddleware',
-    ]    
-
-
 
 
 
@@ -132,28 +118,14 @@ DATABASES = {
         'ENGINE': 'sql_server.pyodbc',
         'NAME': 'healspahq_backup9',
         'HOST': 'localhost',
-        'PORT': '1433',
+        'PORT': '3307',
         'USER': 'sa',
-        'PASSWORD': 'Bhass$095',
+        'PASSWORD': 'Doodle@123',
         'OPTIONS': {
             'driver': 'ODBC Driver 17 for SQL Server',
         }
     }
 }
-
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'sql_server.pyodbc',
-#         'NAME': 'citibellatrain',
-#         'HOST': '103.253.15.184',
-#         'PORT': '3307',
-#         'USER': 'sa',
-#         'PASSWORD': 'Doodle@123',
-#         'OPTIONS': {
-#             'driver': 'ODBC Driver 17 for SQL Server',
-#         }
-#     }
-# }
 
 
 #mysql
@@ -330,38 +302,38 @@ else:
 STRIPE_PUBLISHABLE_KEY = 'pk_test_GGEOsV78TJcV1OcvWcaH6lnz'
 STRIPE_SECRET_KEY = 'sk_test_azs5KZapVPkVB7Y9vGRyVKvV'
 
-# from django.db import transaction, connection
-# cursor = connection.cursor()
-# cursor.execute("SELECT Value_data FROM SystemSetup WHERE Title = %s AND isactive = %s;",['RestrictAccessByIP','True'])
-# raw_qs = cursor.fetchone()
+from django.db import transaction, connection
+cursor = connection.cursor()
+cursor.execute("SELECT Value_data FROM SystemSetup WHERE Title = %s AND isactive = %s;",['RestrictAccessByIP','True'])
+raw_qs = cursor.fetchone()
 
-# # print(raw_qs,"raw_qs")
-# if raw_qs and raw_qs[0] == 'True':
-#     # print("iff")
-#     MIDDLEWARE = [
-#         'Cl_beautesoft.middleware1.open_access_middleware',
-#         'corsheaders.middleware.CorsMiddleware',
-#         'django.middleware.security.SecurityMiddleware',
-#         'django.contrib.sessions.middleware.SessionMiddleware',
-#         'django.middleware.common.CommonMiddleware',
-#         'django.middleware.csrf.CsrfViewMiddleware',
-#         'django.contrib.auth.middleware.AuthenticationMiddleware',
-#         'django.contrib.messages.middleware.MessageMiddleware',
-#         'django.middleware.clickjacking.XFrameOptionsMiddleware',
-#         'django.middleware.common.CommonMiddleware',
-#         'cl_table.middleware.allowedipsMiddleware',
-#     ]    
-# else:
-#     # print("else")
-#     MIDDLEWARE = [
-#         'Cl_beautesoft.middleware1.open_access_middleware',
-#         'corsheaders.middleware.CorsMiddleware',
-#         'django.middleware.security.SecurityMiddleware',
-#         'django.contrib.sessions.middleware.SessionMiddleware',
-#         'django.middleware.common.CommonMiddleware',
-#         'django.middleware.csrf.CsrfViewMiddleware',
-#         'django.contrib.auth.middleware.AuthenticationMiddleware',
-#         'django.contrib.messages.middleware.MessageMiddleware',
-#         'django.middleware.clickjacking.XFrameOptionsMiddleware',
-#         'django.middleware.common.CommonMiddleware',
-#     ]    
+print(raw_qs,"raw_qs")
+if raw_qs and raw_qs[0] == 'True':
+    print("iff")
+    MIDDLEWARE = [
+        'Cl_beautesoft.middleware1.open_access_middleware',
+        'corsheaders.middleware.CorsMiddleware',
+        'django.middleware.security.SecurityMiddleware',
+        'django.contrib.sessions.middleware.SessionMiddleware',
+        'django.middleware.common.CommonMiddleware',
+        'django.middleware.csrf.CsrfViewMiddleware',
+        'django.contrib.auth.middleware.AuthenticationMiddleware',
+        'django.contrib.messages.middleware.MessageMiddleware',
+        'django.middleware.clickjacking.XFrameOptionsMiddleware',
+        'django.middleware.common.CommonMiddleware',
+        'cl_table.middleware.allowedipsMiddleware',
+    ]    
+else:
+    print("else")
+    MIDDLEWARE = [
+        'Cl_beautesoft.middleware1.open_access_middleware',
+        'corsheaders.middleware.CorsMiddleware',
+        'django.middleware.security.SecurityMiddleware',
+        'django.contrib.sessions.middleware.SessionMiddleware',
+        'django.middleware.common.CommonMiddleware',
+        'django.middleware.csrf.CsrfViewMiddleware',
+        'django.contrib.auth.middleware.AuthenticationMiddleware',
+        'django.contrib.messages.middleware.MessageMiddleware',
+        'django.middleware.clickjacking.XFrameOptionsMiddleware',
+        'django.middleware.common.CommonMiddleware',
+    ]    

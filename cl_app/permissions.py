@@ -6,7 +6,7 @@ from .models import (Fmspw)
 from django.contrib import messages
 from rest_framework import exceptions
 from django.utils.translation import ugettext as _
-
+from cl_app.models import ItemSitelist
 # Create your Permissions here .
 
 class authenticated_only(BasePermission):

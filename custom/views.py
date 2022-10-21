@@ -45,7 +45,7 @@ TreatmentAccount, PosDaud, ItemDept, DepositAccount, PrepaidAccount, ItemDiv, Sy
 PackageHdr,PackageDtl,Paytable,Multistaff,ItemBatch,Stktrn,ItemUomprice,Holditemdetail,CreditNote,
 CustomerClass,ItemClass,Tmpmultistaff,Tmptreatment,ExchangeDtl,ItemUom,ItemHelper,PrepaidAccountCondition,
 City, State, Country, Stock,PayGroup)
-from cl_app.models import ItemSitelist, SiteGroup
+from cl_app.models import ItemSitelist, SiteGroup, TmpTreatmentSession
 from cl_table.serializers import PostaudSerializer,StaffsAvailableSerializer,PosdaudSerializer,TmpItemHelperSerializer
 from datetime import date, timedelta, datetime
 import datetime
@@ -3359,7 +3359,45 @@ class itemCartViewset(viewsets.ModelViewSet):
                     fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
                 
                     site = fmspw[0].loginsite    
+
+                # tmp_ids = TmpItemHelper.objects.filter(treatment__Cust_Codeid__pk=cust_obj.pk,
+                # site_code=site.itemsite_code,created_at__date=cartdate,line_no__isnull=True)   
+                # print(tmp_ids,"tmp_ids")
+                # if not tmp_ids:
+                #     result = {'status': status.HTTP_400_BAD_REQUEST,
+                #     "message":"TmpItemHelper ID does not exist!!",'error': True} 
+                #     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
+                # parent_ids = list(set(tmp_ids.values_list('treatment__treatment_parentcode', flat=True).distinct()))
+                # print(parent_ids,"parent_ids")
+                
+                # request.data.clear()
+                # print(request.data,"request.data")
+                # for p in parent_ids:
+                #     ttmp_ids = TmpItemHelper.objects.filter(treatment__Cust_Codeid__pk=cust_obj.pk,
+                #     site_code=site.itemsite_code,created_at__date=cartdate,line_no__isnull=True,treatment__treatment_parentcode=p).order_by('-treatment').values_list('treatment', flat=True).distinct()
+                #     print(ttmp_ids,"ttmp_ids gg")
+                #     v = list(ttmp_ids)
+                #     print(v,"v")
+                #     if v != []:
+                #         trmtobj = Treatment.objects.filter(pk=v[0]).first()
                     
+                #         val = {
+                #                 "cust_noid": cust_obj.pk,
+                #                 "cart_date" : cartdate,
+                #                 "itemcodeid": trmtobj.Item_Codeid.pk,
+                #                 "price" : trmtobj.unit_amount,
+                #                 "item_uom" : None,
+                #                 "treatment_account" : trmtobj.treatment_account.pk,
+                #                 "treatment": v,
+                #                 "ori_stockid" : None
+                #             }
+                #         request.data.append(val)    
+                # print(request.data,"request.data")
+               
+                
+               
+                # # print(n)
                     
                 
                 cart_lst = [];subtotal = 0.0; discount=0.0; billable_amount=0.0;trans_amt=0.0;deposit_amt = 0.0
@@ -3568,14 +3606,19 @@ class itemCartViewset(viewsets.ModelViewSet):
                             return Response(result, status=status.HTTP_400_BAD_REQUEST) 
                                 
                         controlno = str(excontrol_obj.Site_Codeid.itemsite_code)+str(excontrol_obj.control_no)
-                        
-                        ex = ExchangeDtl(exchange_no=controlno,staff_code=fmspw[0].Emp_Codeid.emp_code,
-                        staff_name=fmspw[0].Emp_Codeid.display_name,original_item_code=ori_stockobj.item_code+"0000",
-                        original_item_name=ori_stockobj.item_name,exchange_item_code=stock_obj.item_code+"0000",
-                        exchange_item_name=stock_obj.item_name,trmt_code=trmt_obj.treatment_parentcode,
-                        trmt_full_code=trmt_obj.treatment_code,treatment_time=trmt_obj.times,sa_transacno=trmt_obj.sa_transacno,
-                        status=False,site_code=site.itemsite_code,cust_code=cust_obj.cust_code,cust_name=cust_obj.cust_name)
-                        ex.save()
+                        excontrol_obj.control_no = int(excontrol_obj.control_no) + 1
+                        excontrol_obj.save() 
+
+                        for t in req['treatment']:
+                            trmtobj = Treatment.objects.filter(pk=t).first()
+                            if trmtobj:
+                                ex = ExchangeDtl(exchange_no=controlno,staff_code=fmspw[0].Emp_Codeid.emp_code,
+                                staff_name=fmspw[0].Emp_Codeid.display_name,original_item_code=ori_stockobj.item_code+"0000",
+                                original_item_name=ori_stockobj.item_name,exchange_item_code=stock_obj.item_code+"0000",
+                                exchange_item_name=stock_obj.item_name,trmt_code=trmtobj.treatment_parentcode,
+                                trmt_full_code=trmtobj.treatment_code,treatment_time=trmtobj.times,sa_transacno=trmtobj.sa_transacno,
+                                status=False,site_code=site.itemsite_code,cust_code=cust_obj.cust_code,cust_name=cust_obj.cust_name)
+                                ex.save()
 
 
 
@@ -3597,6 +3640,11 @@ class itemCartViewset(viewsets.ModelViewSet):
                         # empids = Employee.objects.filter(emp_code__in=staffsno,emp_isactive=True)
 
                         # is_allow_foc = request.GET.get('is_foc',None)
+                        if req['ori_stockid']:
+                            itemdesc = stock_obj.item_desc
+                        else:
+                            itemdesc = trmt_obj.treatment_account.itemcart.itemdesc
+
 
                         carttr_ids = ItemCart.objects.filter(isactive=True,cust_noid=cust_obj,cart_date=cartdate,
                         cart_id=cart_id,cart_status="Inprogress",is_payment=False,sitecodeid=site,
@@ -3625,7 +3673,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                                 # stock_obj.item_desc
                                 cart = serializer.save(cart_date=cartdate,phonenumber=cust_obj.cust_phone2,
                                 customercode=cust_obj.cust_code,cust_noid=cust_obj,lineno=lineno,
-                                itemcodeid=stock_obj,itemcode=stock_obj.item_code,itemdesc=trmt_obj.treatment_account.itemcart.itemdesc,
+                                itemcodeid=stock_obj,itemcode=stock_obj.item_code,itemdesc=itemdesc,
                                 quantity=qtyid,price="{:.2f}".format(float(req['price'])),
                                 sitecodeid=site,sitecode=site.itemsite_code,cart_status="Inprogress",cart_id=cart_id,
                                 tax="{:.2f}".format(tax_value),check=check,ratio=100.00,
@@ -4505,7 +4553,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                 #if c.auto == True:
                 if c.auto == True and c.recorddetail != 'TD' and c.recorddetail[0:2] != 'TP' and c.is_foc != True:
                     # print("l: ", c.total_price)
-                    total_amount += c.total_price
+                    total_amount += float(c.price) * int(c.treatment_no) if c.treatment_no else float(c.price) * int(c.quantity)
                     other_disc += c.discount_amt * int(c.treatment_no) if c.treatment_no else c.discount_amt * c.quantity
                     tran_disc += float("{:.2f}".format(float(c.additional_discountamt)))
                     net_amount += c.trans_amt
@@ -5078,6 +5126,13 @@ class itemCartViewset(viewsets.ModelViewSet):
 
     def perform_destroy(self, instance):
         instance.isactive = False
+        if instance.treatment:
+            TmpTreatmentSession.objects.filter(treatment_parentcode=instance.treatment.treatment_parentcode,
+            created_at=date.today()).delete() 
+
+        if instance.exchange_id:
+            ExchangeDtl.objects.filter(exchange_no=instance.exchange_id.exchange_no,status=False).delete()    
+                    
         TreatmentAccount.objects.filter(itemcart=instance).update(itemcart=None)
         PosDaud.objects.filter(itemcart=instance).update(itemcart=None)
         TmpItemHelper.objects.filter(itemcart=instance).delete()
@@ -5090,6 +5145,7 @@ class itemCartViewset(viewsets.ModelViewSet):
         
         
         instance.delete() 
+
 
 
 
@@ -5136,6 +5192,12 @@ class VoucherRecordViewset(viewsets.ModelViewSet):
                     dict_d['value'] = "{:.2f}".format(float(dict_d['value']))
                 else:
                     dict_d['value'] = "0.0"
+                
+                if dict_d['issued_expiry_date']:
+                    splt = str(dict_d['issued_expiry_date']).split("T")
+                    dict_d['issued_expiry_date'] = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d-%b-%y")
+                else:
+                    dict_d['issued_expiry_date'] = ""
 
                 lst.append(dict_d)
 
@@ -5143,8 +5205,8 @@ class VoucherRecordViewset(viewsets.ModelViewSet):
             return Response(data=result, status=status.HTTP_200_OK)              
         else:
             state = status.HTTP_204_NO_CONTENT
-            message = "Invaild Voucher Number"
-            error = True
+            message = "No Content"
+            error = False
             result = {'status': state,"message":message,'error': error, 'data': []}
             return Response(data=result, status=status.HTTP_200_OK)              
     
@@ -8320,6 +8382,12 @@ class CartItemDeleteAPIView(APIView):
             if cartids:
                 for instance in cartids:
                     instance.isactive = False
+                    if instance.treatment:
+                        TmpTreatmentSession.objects.filter(treatment_parentcode=instance.treatment.treatment_parentcode,
+                        created_at=date.today()).delete() 
+
+                    if instance.exchange_id:
+                        ExchangeDtl.objects.filter(exchange_no=instance.exchange_id.exchange_no,status=False).delete()    
                     TreatmentAccount.objects.filter(itemcart=instance).update(itemcart=None)
                     PosDaud.objects.filter(itemcart=instance).update(itemcart=None)
                     TmpItemHelper.objects.filter(itemcart=instance).delete()
@@ -12187,6 +12255,7 @@ class ManualInvoiceListViewset(viewsets.ModelViewSet):
         datefrom = self.request.GET.get('searchfrom','2021-01-01')
         dateto = self.request.GET.get('searchto','2022-01-21')
         date_select = datetime.datetime.strptime(dateto, '%Y-%m-%d')
+        isxeroposted = self.request.GET.get('isxeroposted',None)
         delta = timedelta(days=1)
         dateto = date_select + delta
         
@@ -12196,9 +12265,15 @@ class ManualInvoiceListViewset(viewsets.ModelViewSet):
             return ManualInvoiceModel.objects.filter(fk_project_id=searchprojectid,active='active').order_by('-pk')
         elif "," in status:
             status = status.split(',')
-            return ManualInvoiceModel.objects.filter(title__contains=title,status__in=status,contact_person__contains=name,manualinv_number__contains=number,created_at__date__range=[datefrom, dateto],active='active').order_by('-pk')
+            if isxeroposted:
+                return ManualInvoiceModel.objects.filter(title__contains=title,status__in=status,contact_person__contains=name,manualinv_number__contains=number,created_at__date__range=[datefrom, dateto],active='active',isxeroposted=isxeroposted).order_by('-pk')
+            else: 
+                return ManualInvoiceModel.objects.filter(title__contains=title,status__in=status,contact_person__contains=name,manualinv_number__contains=number,created_at__date__range=[datefrom, dateto],active='active').order_by('-pk')
         else:
-            return ManualInvoiceModel.objects.filter(title__contains=title,status__contains=status,contact_person__contains=name,manualinv_number__contains=number,created_at__date__range=[datefrom, dateto],active='active').order_by('-pk')
+            if isxeroposted:
+                return ManualInvoiceModel.objects.filter(title__contains=title,status__contains=status,contact_person__contains=name,manualinv_number__contains=number,created_at__date__range=[datefrom, dateto],active='active',isxeroposted=isxeroposted).order_by('-pk')
+            else: 
+                return ManualInvoiceModel.objects.filter(title__contains=title,status__contains=status,contact_person__contains=name,manualinv_number__contains=number,created_at__date__range=[datefrom, dateto],active='active').order_by('-pk')
         
                 
 
@@ -12258,7 +12333,8 @@ class ManualInvoiceListViewset(viewsets.ModelViewSet):
                         "cust_id" : allquery.cust_id.pk if allquery.cust_id else "",
                         "cust_name": allquery.cust_id.cust_name if allquery.cust_id else "",
                         "currency_id" : allquery.currency_id.pk if allquery.currency_id else "",
-                        "quotation_number" : allquery.quotation_number
+                        "quotation_number" : allquery.quotation_number,
+                        "isxeroposted" : allquery.isxeroposted
                     })    
                 
 

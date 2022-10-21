@@ -3697,6 +3697,8 @@ class CustomerPointDtl(models.Model):
     point_acc1 = models.FloatField(db_column='Point_Acc1', blank=True, null=True)  # Field name made lowercase.
     point_acc2 = models.FloatField(db_column='Point_Acc2', blank=True, null=True)  # Field name made lowercase.
     locid = models.CharField(db_column='LocID', max_length=50)  # Field name made lowercase.
+    mgm_level = models.IntegerField(db_column='mgm_level',  null=True)  # Field name made lowercase.
+    reward_time = models.IntegerField(db_column='reward_time', blank=True, null=True)  # Field name made lowercase.
 
     class Meta:
         # managed = False
@@ -3853,7 +3855,8 @@ class Tempcustsign(models.Model):
     cust_sig = models.ImageField(db_column='Cust_Sig', blank=True, null=True,upload_to='img')  # Field name made lowercase. models.CharField(db_column='Cust_Sig', blank=True, null=True)  
     site_code = models.CharField(db_column='SITE_CODE', max_length=4, blank=True, null=True)  
     mac_code = models.CharField(db_column='MAC_CODE', max_length=3, blank=True, null=True) 
-    mac_uid_ref = models.CharField(db_column='MAC_UID_Ref', max_length=36, blank=True, null=True)   
+    mac_uid_ref = models.CharField(db_column='MAC_UID_Ref', max_length=36, blank=True, null=True) 
+    cart_id = models.CharField(db_column='cart_id', max_length=250, blank=True, null=True)    
 
     class Meta:
         db_table = 'TempCustSign'
@@ -3997,7 +4000,7 @@ class StudioWork(models.Model):
 
 class MGMPolicyCloud(models.Model):
     id = models.AutoField(db_column='ID', primary_key=True)
-    level = models.CharField(db_column='level', max_length=200, null=True)  # Field name made lowercase.
+    level = models.IntegerField(db_column='level',  null=True)  # Field name made lowercase.
     point_value = models.FloatField(db_column='Point_Value', blank=True, null=True)  # Field name made lowercase.
     isactive = models.BooleanField(db_column='IsActive',default=True)  # Field name made lowercase.
     updated_at = models.DateTimeField(auto_now=True, null=True)
@@ -4008,7 +4011,7 @@ class MGMPolicyCloud(models.Model):
 
     class Meta:
         db_table = 'MGMPolicyCloud'
-        unique_together = (('level', 'point_value'),)
+        # unique_together = (('level', 'point_value'),)
 
     def save(self, *args,**kwargs):
         
@@ -4028,8 +4031,8 @@ class CustomerReferral(models.Model):
     isactive = models.BooleanField(db_column='IsActive',default=True)  # Field name made lowercase.
     updated_at = models.DateTimeField(auto_now=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
-    ispoints_awarded = models.BooleanField(db_column='ispoints_awarded',default=False)  # Field name made lowercase.
-
+    rewards_given = models.IntegerField(db_column='rewards_given', default=0)  # Field name made lowercase.
+    
     class Meta:
         db_table = 'CustomerReferral'
         unique_together = (('referral_id', 'cust_id','Site_Codeid'),)
@@ -4044,3 +4047,12 @@ class CustomerReferral(models.Model):
     def __str__(self):
         return str(self.referral_id.cust_name)
 
+class sitelistip(models.Model):
+    id = models.AutoField(db_column='ID', primary_key=True)
+    siteid = models.ForeignKey('cl_app.ItemSitelist', on_delete=models.PROTECT,  null=True)
+    ip = models.CharField(db_column='ip', max_length=500, blank=True, null=True) 
+    isactive = models.BooleanField(db_column='isactive',default=True)  # Field name made lowercase.
+    
+    class Meta:
+        db_table = 'sitelistip'
+        unique_together = (('siteid', 'ip'),)
