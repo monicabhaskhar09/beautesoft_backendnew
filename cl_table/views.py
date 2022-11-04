@@ -3366,7 +3366,7 @@ class AppointmentViewset(viewsets.ModelViewSet):
 
                     if datelst != []:
                         recur_linkcode = "RLC-"+str(obj.appt_code)
-                        obj.recur_linkcode = linkcode
+                        obj.recur_linkcode = recur_linkcode
                         obj.recurring_qty = req['recur_qty']
                         obj.recurring_days = req['recur_days']
                         obj.save()
@@ -6175,7 +6175,16 @@ class TreatmentApptAPI(generics.ListAPIView):
                     open_ids = Treatment.objects.filter(cust_code=cust_obj.cust_code,
                     treatment_parentcode=row.treatment_parentcode,status='Open').order_by('pk').count()
                     last_ids = Treatment.objects.filter(treatment_parentcode=row.treatment_parentcode).order_by('-pk').first()
+                    srvduration = 60
 
+                    # a = row.item_code
+                    # v = a[-4:]
+                    # # print(v,type(v),"v")
+                    # if v == '0000':
+                    #     code = str(row.item_code)[:-4]
+                    # else:
+                    #     code = str(row.item_code)    
+                    
                     stock = row.Item_Codeid
                     if stock:
                         if stock.srv_duration is None or stock.srv_duration == 0.0:
@@ -6215,7 +6224,7 @@ class TreatmentApptAPI(generics.ListAPIView):
                     pre = {'treatment_parentcode': row.treatment_parentcode,'item_name': name ,
                     'tr_open': open_ids, 'tr_done': last_ids.treatment_no, 
                     'price': unit_amount,'expiry': expiry,'add_duration': hrs,
-                    'stock_id': stock.pk,
+                    'stock_id': stock.pk if stock else "",
                     'balance': balance,
                     'outstanding': outstanding,
                     'type':'TD'}
@@ -7591,7 +7600,13 @@ class UsersList(APIView):
             value_name='Rounding at Payment',isactive=True).first()
             thermalprint_ids = Systemsetup.objects.filter(title='thermalprint',
             value_name='thermalprint',isactive=True).first()
-
+            vouchopromo_setup = Systemsetup.objects.filter(title='VoucherPromo',
+            value_name='VoucherPromo',isactive=True).first()
+            surcharge_setup = Systemsetup.objects.filter(title='Surcharge',
+            value_name='Surcharge',isactive=True).first()
+            walkincust_setup = Systemsetup.objects.filter(title='Sales',
+            value_name='Cash Sales Cust No',isactive=True).first()
+            print(walkincust_setup)
 
 
 
@@ -7659,6 +7674,9 @@ class UsersList(APIView):
             'round_subtotal' : True if roundsubtotal_ids and roundsubtotal_ids.value_data == 'True' else False,
             'round_payment' : True if roundpayment_ids and roundpayment_ids.value_data == 'True' else False,
             'thermalprint' : True if thermalprint_ids and thermalprint_ids.value_data == 'True' else False,
+            'voucherpromo' : True if vouchopromo_setup and vouchopromo_setup.value_data == 'True' else False,
+            'surcharge' : True if surcharge_setup and surcharge_setup.value_data == 'True' else False,
+            'walkincust' : walkincust_setup.value_data if walkincust_setup and walkincust_setup.value_data else "",
             }
 
             level_qs = Securitylevellist.objects.filter(level_itemid=fmspw.LEVEL_ItmIDid.level_code).order_by('pk')
@@ -13493,13 +13511,38 @@ class AppointmentBlockViewset(viewsets.ModelViewSet):
             if not request.data['emp_ids'] or request.data['emp_ids'] == [] or request.data['emp_ids'] is None:
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please Select Employee!!",'error': True} 
                 return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-                
+
+            if 'recurring' not in request.data or not request.data['recurring']:
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please Give recurring!!",'error': True} 
+                return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+    
 
             start_date = datetime.datetime.strptime(str(request.data['start_date']), "%Y-%m-%d").date()
             end_date = datetime.datetime.strptime(str(request.data['end_date']), "%Y-%m-%d").date()
             day_count = (end_date - start_date).days + 1
-            dateloop = [d for d in (start_date + timedelta(n) for n in range(day_count)) if d <= end_date]
-            todaydate = timezone.now().date()         
+            # print(day_count,"day_count")
+            
+            todaydate = timezone.now().date() 
+
+            if request.data['recurring'] == True:
+                if 'weekday' not in request.data or not request.data['weekday']:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please Give weekday!!",'error': True} 
+                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
+                weekday = request.data['weekday']    
+    
+                dateloop = [(start_date+timedelta(days=d)).strftime('%Y-%m-%d') for d in range(0, (end_date-start_date).days+1) 
+                            if (start_date+timedelta(days=d)).weekday() in weekday]
+            else:
+                dateloop = [d for d in (start_date + timedelta(n) for n in range(day_count)) if d <= end_date]
+
+
+            # for d in range(0, day_count):
+            #     print(start_date+timedelta(days=d))
+            #     print((start_date+timedelta(days=d)).weekday())
+
+
+
             
             for e in request.data['emp_ids']:
                 empobj = Employee.objects.filter(pk=e,emp_isactive=True).first()
@@ -15740,222 +15783,224 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
         except Exception as e:
           invalid_message = str(e)
           return general_error_response(invalid_message)
-
+    
+    @transaction.atomic
     def create(self, request):
         try:
-            state = status.HTTP_400_BAD_REQUEST
-            result = {}
-            fmspw = Fmspw.objects.filter(user=request.user, pw_isactive=True)
-            Site_Codeid = fmspw[0].loginsite
-            if not self.request.user.is_authenticated:
-                result = {'status': state, "message": "Unauthenticated Users are not allowed!!", 'error': True}
-                return Response(result, status=status.HTTP_400_BAD_REQUEST)
-            if not fmspw:
-                result = {'status': state, "message": "Unauthenticated Users are not Permitted!!", 'error': True}
-                return Response(result, status=status.HTTP_400_BAD_REQUEST)
-            if not Site_Codeid:
-                result = {'status': status.HTTP_400_BAD_REQUEST, "message": "Users Item Site is not mapped!!",
-                          'error': True}
-                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+            with transaction.atomic():
+                state = status.HTTP_400_BAD_REQUEST
+                result = {}
+                fmspw = Fmspw.objects.filter(user=request.user, pw_isactive=True)
+                Site_Codeid = fmspw[0].loginsite
+                if not self.request.user.is_authenticated:
+                    result = {'status': state, "message": "Unauthenticated Users are not allowed!!", 'error': True}
+                    return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                if not fmspw:
+                    result = {'status': state, "message": "Unauthenticated Users are not Permitted!!", 'error': True}
+                    return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                if not Site_Codeid:
+                    result = {'status': status.HTTP_400_BAD_REQUEST, "message": "Users Item Site is not mapped!!",
+                            'error': True}
+                    return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
-            queryset = None
-            serializer_class = None
-            total = None
-            serializer = self.get_serializer(data=request.data, context={'request': self.request})
-            #if int(fmspw[0].level_itmid) not in [24, 31]:
-            #    result = {'status': status.HTTP_400_BAD_REQUEST,
-            #              "message": "Staffs / other login user not allow to create staff!!", 'error': True}
-            #    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+                queryset = None
+                serializer_class = None
+                total = None
+                serializer = self.get_serializer(data=request.data, context={'request': self.request})
+                #if int(fmspw[0].level_itmid) not in [24, 31]:
+                #    result = {'status': status.HTTP_400_BAD_REQUEST,
+                #              "message": "Staffs / other login user not allow to create staff!!", 'error': True}
+                #    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
-            if serializer.is_valid():
-                try:
-                    with transaction.atomic():
- 
-                        control_obj = ControlNo.objects.filter(control_description__iexact="EMP CODE",
-                                                               Site_Codeid__pk=fmspw[0].loginsite.pk).first()
-                        if not control_obj:
-                            result = {'status': status.HTTP_400_BAD_REQUEST, "message": "Employee Control No does not exist!!",
-                                      'error': True}
-                            # return Response(result, status=status.HTTP_400_BAD_REQUEST)
-                            raise ValueError("Employee Control No does not exist!!")
-                       
-                        if control_obj.include_sitecode == True:
-                            emp_code = str(control_obj.Site_Codeid.itemsite_code) + str(control_obj.control_no)
-                        else:
-                            if control_obj.control_prefix:
-                                emp_code = str(control_obj.control_prefix) + str(control_obj.control_no)
-                            else:
-                                emp_code = str(control_obj.control_no)
+                if serializer.is_valid():
+                    try:
+                        with transaction.atomic():
+    
+                            control_obj = ControlNo.objects.filter(control_description__iexact="EMP CODE",
+                                                                Site_Codeid__pk=fmspw[0].loginsite.pk).first()
+                            if not control_obj:
+                                result = {'status': status.HTTP_400_BAD_REQUEST, "message": "Employee Control No does not exist!!",
+                                        'error': True}
+                                # return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                                raise ValueError("Employee Control No does not exist!!")
                         
-                        sa_count = 1 ; control_check = False
-
-                        while sa_count > 0:
-                            emp_v = Employee.objects.filter(emp_code=emp_code)
-                            
-                            if emp_v:    
-                                newcontrol_obj = ControlNo.objects.filter(control_description__iexact="EMP CODE",
-                                                               Site_Codeid__pk=fmspw[0].loginsite.pk).first()
-                                if newcontrol_obj.include_sitecode == True:
-                                    emp_code = str(newcontrol_obj.Site_Codeid.itemsite_code) + str(newcontrol_obj.control_no)
+                            if control_obj.include_sitecode == True:
+                                emp_code = str(control_obj.Site_Codeid.itemsite_code) + str(control_obj.control_no)
+                            else:
+                                if control_obj.control_prefix:
+                                    emp_code = str(control_obj.control_prefix) + str(control_obj.control_no)
                                 else:
-                                    if newcontrol_obj.control_prefix:
-                                        emp_code = str(newcontrol_obj.control_prefix) + str(newcontrol_obj.control_no)
-                                    else:
-                                        emp_code = str(newcontrol_obj.control_no)
-
-                                newcontrol_obj.control_no = int(newcontrol_obj.control_no) + 1
-                                newcontrol_obj.save() 
-                                sa_count += 1
-                                control_check = True
-                            else:
-                                sa_count = 0   
-                        
-
-
-                        defaultobj = ItemSitelist.objects.filter(pk=request.data['Site_Codeid'],
-                                                                 itemsite_isactive=True).first()
-
-                        site_unique = EmpSitelist.objects.filter(emp_code=emp_code, site_code=defaultobj.itemsite_code,
-                                                                 isactive=True)
-             
-                        if site_unique:
-                            result = {'status': state, "message": "Unique Constrain for emp_code and site_code!!",
-                                      'error': True}
-                            # return Response(result, status=status.HTTP_400_BAD_REQUEST)
-                            raise ValueError("Unique Constrain for emp_code and site_code!!")
-                        user_obj = User.objects.filter(username=request.data['display_name'])
-                        if user_obj:
-                            result = {'status': state, "message": "Username already exist!!", 'error': True}
-                            raise ValueError("Username already exist!!")
-                            # return Response(result, status=status.HTTP_400_BAD_REQUEST)
-                        emp_obj = Employee.objects.filter(emp_name=request.data['emp_name'])
-                        if emp_obj:
-                            result = {'status': state, "message": "Employee already exist!!", 'error': True}
-                            raise ValueError("Employee already exist!!")
-                        fmspw_obj = Fmspw.objects.filter(pw_userlogin=request.data['display_name'])
-                        if fmspw_obj:
-                            result = {'status': state, "message": "Fmspw already exist!!", 'error': True}
-                            # return Response(result, status=status.HTTP_400_BAD_REQUEST)
-                            raise ValueError("Fmspw already exist!!")
-
-                        token_obj = Fmspw.objects.filter(user__username=request.data['display_name'])
-                        if token_obj:
-                            result = {'status': state, "message": "Token for this employee user is already exist!!",
-                                    'error': True}
-                            # return Response(result, status=status.HTTP_400_BAD_REQUEST)
-                            raise ValueError("Token for this employee user is already exist!!")
-
-                        jobtitle = EmpLevel.objects.filter(id=request.data['EMP_TYPEid'], level_isactive=True).first()
-                        gender = Gender.objects.filter(pk=request.data.get('Emp_sexesid'), itm_isactive=True).first()
-                        gender_code = gender.itm_code if gender else None
-                        # self.perform_create(serializer) # commented this line to fix sitecode () issue.
-                        s = serializer.save(emp_code=emp_code, emp_sexes=gender_code,
-                                            defaultsitecode=defaultobj.itemsite_code, site_code=Site_Codeid.itemsite_code,
-                                            )
-                        s.emp_code = emp_code
-                        s.type_code = jobtitle.level_code
-                        s.emp_type = jobtitle.level_code
-                        s.save()
-                        token = False
-                        if s.is_login == True:
-                            if request.data.get('pw_password') is None:
-                                result = {'status': status.HTTP_400_BAD_REQUEST,
-                                          "message": "pw_password Field is required.",
-                                          'error': True}
-                                raise ValueError("pw_password Field is required.")
-
-                            if request.data.get('LEVEL_ItmIDid') is None:
-                                result = {'status': status.HTTP_400_BAD_REQUEST,
-                                          "message": "LEVEL_ItmIDid Field is required.",
-                                          'error': True}
-                                raise ValueError("LEVEL_ItmIDid Field is required.")
-
-                            exsite_ids = EmpSitelist.objects.filter(Emp_Codeid=s,
-                            Site_Codeid=s.defaultSiteCodeid)
-                            if not exsite_ids: 
-                                EmpSitelist(Emp_Codeid=s, emp_code=emp_code, Site_Codeid=s.defaultSiteCodeid,
-                                            site_code=s.defaultSiteCodeid.itemsite_code).save()
-                                
-                            user = User.objects.create_user(username=request.data['display_name'], email=s.emp_email,
-                                                            password=request.data['pw_password'])
-                            levelobj = Securities.objects.filter(pk=request.data['LEVEL_ItmIDid'], level_isactive=True).first()
-                            f = Fmspw(pw_userlogin=request.data['display_name'],
-                                  pw_password=request.data['pw_password'],
-                                  LEVEL_ItmIDid=levelobj,
-                                  level_itmid=levelobj.level_code,
-                                  level_desc=levelobj.level_description,
-                                  Emp_Codeid=s,
-                                  emp_code=emp_code,
-                                  user=user,
-                                  loginsite=None,
-                                  flgappt = True,
-                                  flgsales = True,
-                                  flgdisc=True,flgexchange=True,flgrevtrm=True,flgvoid=True,
-                                  flgrefund=True,flgemail=True,flgcustadd=True,flgfoc=True,
-                                  flgrefundpp=True,flgrefundcn=True,flgstockusagememo=True,
-                                  flgchangeunitprice=True,flgallowinsufficent=True,
-                                  flgallowblockappointment=True,flgchangeexpirydate=True,
-                                  flgalldayendsettlement=True,flgtransacdisc=True,flgeditath=True
-                                  )
-                            f.save()
-
-                            s.pw_userlogin = request.data['display_name']
-                            s.pw_password = request.data['pw_password']
-                            s.LEVEL_ItmIDid = levelobj
-                            s.save()
-                            token = Token.objects.create(user=user)
+                                    emp_code = str(control_obj.control_no)
                             
-                        if s.pk:
-                            if control_check == False:
-                                control_obj.control_no = int(control_obj.control_no) + 1
-                                control_obj.save()
+                            sa_count = 1 ; control_check = False
 
-                        site_list = request.data.get('site_list', "").split(",")
-                        for si in site_list:
-                            empsite_ids = EmpSitelist.objects.filter(Emp_Codeid=s,
-                            Site_Codeid_id=int(si)).order_by('pk')
-                            if not empsite_ids:
-                                emp_s = EmpSitelist(Emp_Codeid=s,Site_Codeid_id=int(si)) 
-                                emp_s.save()
+                            while sa_count > 0:
+                                emp_v = Employee.objects.filter(emp_code=emp_code)
+                                
+                                if emp_v:    
+                                    newcontrol_obj = ControlNo.objects.filter(control_description__iexact="EMP CODE",
+                                                                Site_Codeid__pk=fmspw[0].loginsite.pk).first()
+                                    if newcontrol_obj.include_sitecode == True:
+                                        emp_code = str(newcontrol_obj.Site_Codeid.itemsite_code) + str(newcontrol_obj.control_no)
+                                    else:
+                                        if newcontrol_obj.control_prefix:
+                                            emp_code = str(newcontrol_obj.control_prefix) + str(newcontrol_obj.control_no)
+                                        else:
+                                            emp_code = str(newcontrol_obj.control_no)
 
-                except ValueError as e:
-                    result = {'status': state, "message": str(e),
-                              'error': True}
-                    return Response(result, status=status.HTTP_400_BAD_REQUEST)
-                except Exception as e:
-                    result = {'status': status.HTTP_400_BAD_REQUEST, "message": str(e),
-                              'error': True}
-                    return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                                    newcontrol_obj.control_no = int(newcontrol_obj.control_no) + 1
+                                    newcontrol_obj.save() 
+                                    sa_count += 1
+                                    control_check = True
+                                else:
+                                    sa_count = 0   
+                            
 
 
-                state = status.HTTP_201_CREATED
-                message = "Created Succesfully"
-                error = False
-                data = serializer.data
+                            defaultobj = ItemSitelist.objects.filter(pk=request.data['Site_Codeid'],
+                                                                    itemsite_isactive=True).first()
+
+                            site_unique = EmpSitelist.objects.filter(emp_code=emp_code, site_code=defaultobj.itemsite_code,
+                                                                    isactive=True)
+                
+                            if site_unique:
+                                result = {'status': state, "message": "Unique Constrain for emp_code and site_code!!",
+                                        'error': True}
+                                # return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                                raise ValueError("Unique Constrain for emp_code and site_code!!")
+                            user_obj = User.objects.filter(username=request.data['display_name'])
+                            if user_obj:
+                                result = {'status': state, "message": "Username already exist!!", 'error': True}
+                                raise ValueError("Username already exist!!")
+                                # return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                            emp_obj = Employee.objects.filter(emp_name=request.data['emp_name'])
+                            if emp_obj:
+                                result = {'status': state, "message": "Employee already exist!!", 'error': True}
+                                raise ValueError("Employee already exist!!")
+                            fmspw_obj = Fmspw.objects.filter(pw_userlogin=request.data['display_name'])
+                            if fmspw_obj:
+                                result = {'status': state, "message": "Fmspw already exist!!", 'error': True}
+                                # return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                                raise ValueError("Fmspw already exist!!")
+
+                            token_obj = Fmspw.objects.filter(user__username=request.data['display_name'])
+                            if token_obj:
+                                result = {'status': state, "message": "Token for this employee user is already exist!!",
+                                        'error': True}
+                                # return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                                raise ValueError("Token for this employee user is already exist!!")
+
+                            jobtitle = EmpLevel.objects.filter(id=request.data['EMP_TYPEid'], level_isactive=True).first()
+                            gender = Gender.objects.filter(pk=request.data.get('Emp_sexesid'), itm_isactive=True).first()
+                            gender_code = gender.itm_code if gender else None
+                            # self.perform_create(serializer) # commented this line to fix sitecode () issue.
+                            s = serializer.save(emp_code=emp_code, emp_sexes=gender_code,
+                                                defaultsitecode=defaultobj.itemsite_code, site_code=Site_Codeid.itemsite_code,
+                                                )
+                            s.emp_code = emp_code
+                            s.type_code = jobtitle.level_code
+                            s.emp_type = jobtitle.level_code
+                            s.save()
+                            token = False
+                            if s.is_login == True:
+                                if request.data.get('pw_password') is None:
+                                    result = {'status': status.HTTP_400_BAD_REQUEST,
+                                            "message": "pw_password Field is required.",
+                                            'error': True}
+                                    raise ValueError("pw_password Field is required.")
+
+                                if request.data.get('LEVEL_ItmIDid') is None:
+                                    result = {'status': status.HTTP_400_BAD_REQUEST,
+                                            "message": "LEVEL_ItmIDid Field is required.",
+                                            'error': True}
+                                    raise ValueError("LEVEL_ItmIDid Field is required.")
+
+                                exsite_ids = EmpSitelist.objects.filter(Emp_Codeid=s,
+                                Site_Codeid=s.defaultSiteCodeid)
+                                if not exsite_ids: 
+                                    EmpSitelist(Emp_Codeid=s, emp_code=emp_code, Site_Codeid=s.defaultSiteCodeid,
+                                                site_code=s.defaultSiteCodeid.itemsite_code).save()
+                                    
+                                user = User.objects.create_user(username=request.data['display_name'], email=s.emp_email,
+                                                                password=request.data['pw_password'])
+                                levelobj = Securities.objects.filter(pk=request.data['LEVEL_ItmIDid'], level_isactive=True).first()
+                                f = Fmspw(pw_userlogin=request.data['display_name'],
+                                    pw_password=request.data['pw_password'],
+                                    LEVEL_ItmIDid=levelobj,
+                                    level_itmid=levelobj.level_code,
+                                    level_desc=levelobj.level_description,
+                                    Emp_Codeid=s,
+                                    emp_code=emp_code,
+                                    user=user,
+                                    loginsite=None,
+                                    flgappt = True,
+                                    flgsales = True,
+                                    flgdisc=True,flgexchange=True,flgrevtrm=True,flgvoid=True,
+                                    flgrefund=True,flgemail=True,flgcustadd=True,flgfoc=True,
+                                    flgrefundpp=True,flgrefundcn=True,flgstockusagememo=True,
+                                    flgchangeunitprice=True,flgallowinsufficent=True,
+                                    flgallowblockappointment=True,flgchangeexpirydate=True,
+                                    flgalldayendsettlement=True,flgtransacdisc=True,flgeditath=True
+                                    )
+                                f.save()
+
+                                s.pw_userlogin = request.data['display_name']
+                                s.pw_password = request.data['pw_password']
+                                s.LEVEL_ItmIDid = levelobj
+                                s.save()
+                                token = Token.objects.create(user=user)
+                                
+                            if s.pk:
+                                if control_check == False:
+                                    control_obj.control_no = int(control_obj.control_no) + 1
+                                    control_obj.save()
+
+                            site_list = request.data.get('site_list', "").split(",")
+                            for si in site_list:
+                                empsite_ids = EmpSitelist.objects.filter(Emp_Codeid=s,
+                                Site_Codeid_id=int(si)).order_by('pk')
+                                if not empsite_ids:
+                                    emp_s = EmpSitelist(Emp_Codeid=s,Site_Codeid_id=int(si)) 
+                                    emp_s.save()
+
+                    except ValueError as e:
+                        result = {'status': state, "message": str(e),
+                                'error': True}
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                    except Exception as e:
+                        result = {'status': status.HTTP_400_BAD_REQUEST, "message": str(e),
+                                'error': True}
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+
+                    state = status.HTTP_201_CREATED
+                    message = "Created Succesfully"
+                    error = False
+                    data = serializer.data
+                    result = response(self, request, queryset, total, state, message, error, serializer_class, data,
+                                    action=self.action)
+                    v = result.get('data')
+                    if token:
+                        v["token"] = token.key
+
+                    return Response(result, status=status.HTTP_201_CREATED)
+
+            
+                error = True
+                data = serializer.errors
+                # print(data,"data")
+                if 'non_field_errors' in data:
+                    message = data['non_field_errors'][0]
+                else:
+                    # message = "Invalid Input"
+                    first_key = list(data.keys())[0]
+                    # print(first_key,"first_key")
+                    # print(data[first_key][0],"jj")
+                    message = str(first_key)+":  "+str(data[first_key][0])
+
                 result = response(self, request, queryset, total, state, message, error, serializer_class, data,
-                                  action=self.action)
-                v = result.get('data')
-                if token:
-                    v["token"] = token.key
-
-                return Response(result, status=status.HTTP_201_CREATED)
-
-          
-            error = True
-            data = serializer.errors
-            # print(data,"data")
-            if 'non_field_errors' in data:
-                message = data['non_field_errors'][0]
-            else:
-                # message = "Invalid Input"
-                first_key = list(data.keys())[0]
-                # print(first_key,"first_key")
-                # print(data[first_key][0],"jj")
-                message = str(first_key)+":  "+str(data[first_key][0])
-
-            result = response(self, request, queryset, total, state, message, error, serializer_class, data,
-                            action=self.action)
-            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                                action=self.action)
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
         except Exception as e:
           invalid_message = str(e)
@@ -15990,192 +16035,198 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
         except Exception as e:
           invalid_message = str(e)
           return general_error_response(invalid_message)
-
+    
+    @transaction.atomic
     def update(self, request, pk=None):
         try:
-            queryset = None
-            total = None
-            serializer_class = None
-            employee = self.get_object(pk)
-            serializer = StaffPlusSerializer(employee, data=request.data, context={'request': self.request})
-            #print(request.data)
-            if serializer.is_valid():
-                jobtitle = EmpLevel.objects.filter(id=request.data['EMP_TYPEid'], level_isactive=True).first()
-                if jobtitle:
-                    employee.type_code = jobtitle.level_code
-                    employee.emp_type = jobtitle.level_code
-                    employee.save()
-                if 'display_name' in request.data and not request.data['display_name'] is None:
-                    serializer.save()
-                    fmspw_obj = Fmspw.objects.filter(Emp_Codeid=employee, pw_isactive=True).first()
-                    pw = request.data.get('pw_password')
-                    if fmspw_obj:
-                        fmspw_obj.pw_userlogin = request.data['display_name']
-                        fmspw_obj.pw_password = pw if pw else fmspw_obj.pw_password
-                        fmspw_obj.save()
-                        if fmspw_obj.user:
-                            fmspw_obj.user.username = request.data['display_name']
-                            if pw:
-                                fmspw_obj.user.set_password(pw)
-                            fmspw_obj.user.save()
-                        else:
-                            user = User.objects.create_user(username=request.data['display_name'],password=request.data['pw_password'])
-                            #result = {'status': status.HTTP_400_BAD_REQUEST,
-                            #          "message": "FMSPW User is not Present.Please map", 'error': True}
-                            #return Response(result, status=status.HTTP_400_BAD_REQUEST)
-                if 'LEVEL_ItmIDid' in request.data and not request.data['LEVEL_ItmIDid'] is None:
-                    levelobj = Securities.objects.filter(pk=request.data['LEVEL_ItmIDid'], 
-                    level_isactive=True).first()
-                    fmspwobj = Fmspw.objects.filter(Emp_Codeid=employee, pw_isactive=True).first()
-                    if fmspwobj and levelobj:
-                        fmspwobj.LEVEL_ItmIDid=levelobj
-                        fmspwobj.level_itmid=levelobj.level_code
-                        fmspwobj.level_desc=levelobj.level_description
-                        fmspwobj.save()
-                        employee.LEVEL_ItmIDid = levelobj
+            with transaction.atomic():
+                queryset = None
+                total = None
+                serializer_class = None
+                employee = self.get_object(pk)
+                serializer = StaffPlusSerializer(employee, data=request.data, context={'request': self.request})
+                #print(request.data)
+                if serializer.is_valid():
+                    jobtitle = EmpLevel.objects.filter(id=request.data['EMP_TYPEid'], level_isactive=True).first()
+                    if jobtitle:
+                        employee.type_code = jobtitle.level_code
+                        employee.emp_type = jobtitle.level_code
                         employee.save()
+                    if 'display_name' in request.data and not request.data['display_name'] is None:
+                        serializer.save()
+                        fmspw_obj = Fmspw.objects.filter(Emp_Codeid=employee, pw_isactive=True).first()
+                        pw = request.data.get('pw_password')
+                        if fmspw_obj:
+                            fmspw_obj.pw_userlogin = request.data['display_name']
+                            fmspw_obj.pw_password = pw if pw else fmspw_obj.pw_password
+                            fmspw_obj.save()
+                            if fmspw_obj.user:
+                                fmspw_obj.user.username = request.data['display_name']
+                                if pw:
+                                    fmspw_obj.user.set_password(pw)
+                                fmspw_obj.user.save()
+                            else:
+                                user = User.objects.create_user(username=request.data['display_name'],password=request.data['pw_password'])
+                                #result = {'status': status.HTTP_400_BAD_REQUEST,
+                                #          "message": "FMSPW User is not Present.Please map", 'error': True}
+                                #return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                    if 'LEVEL_ItmIDid' in request.data and not request.data['LEVEL_ItmIDid'] is None:
+                        levelobj = Securities.objects.filter(pk=request.data['LEVEL_ItmIDid'], 
+                        level_isactive=True).first()
+                        fmspwobj = Fmspw.objects.filter(Emp_Codeid=employee, pw_isactive=True).first()
+                        if fmspwobj and levelobj:
+                            fmspwobj.LEVEL_ItmIDid=levelobj
+                            fmspwobj.level_itmid=levelobj.level_code
+                            fmspwobj.level_desc=levelobj.level_description
+                            fmspwobj.save()
+                            employee.LEVEL_ItmIDid = levelobj
+                            employee.save()
 
-                   
-                if 'is_login' in request.data and request.data['is_login'] == "True":
-                    site_ids = EmpSitelist.objects.filter(Emp_Codeid=employee,
-                    Site_Codeid=employee.defaultSiteCodeid)
-                    # print(site_ids,"site_ids")
-                    if not site_ids:
-                        EmpSitelist(Emp_Codeid=employee, emp_code=employee.emp_code, 
-                        Site_Codeid=employee.defaultSiteCodeid,
-                        site_code=employee.defaultSiteCodeid.itemsite_code).save()
+                    
+                    if 'is_login' in request.data and request.data['is_login'] == "True":
+                        site_ids = EmpSitelist.objects.filter(Emp_Codeid=employee,
+                        Site_Codeid=employee.defaultSiteCodeid)
+                        # print(site_ids,"site_ids")
+                        if not site_ids:
+                            EmpSitelist(Emp_Codeid=employee, emp_code=employee.emp_code, 
+                            Site_Codeid=employee.defaultSiteCodeid,
+                            site_code=employee.defaultSiteCodeid.itemsite_code).save()
 
-                    fmspw_ids = Fmspw.objects.filter(Emp_Codeid=employee, pw_isactive=True).first()
-                    if not fmspw_ids:
-                        user = User.objects.filter(username=request.data['display_name']).first()
-                        if not user:
-                            user = User.objects.create_user(username=request.data['display_name'], email=employee.emp_email,
-                                                            password=request.data['pw_password'])
-                        level_obj = Securities.objects.filter(pk=request.data['LEVEL_ItmIDid'], level_isactive=True).first()
-                        test = Fmspw(pw_userlogin=request.data['display_name'],
-                                pw_password=request.data['pw_password'],
-                                LEVEL_ItmIDid=level_obj,
-                                level_itmid=level_obj.level_code,
-                                level_desc=level_obj.level_description,
-                                Emp_Codeid=employee,
-                                emp_code=employee.emp_code,
-                                user=user,
-                                loginsite=None,
-                                flgappt = True,
-                                flgsales = True,
-                                flgdisc=True,flgexchange=True,flgrevtrm=True,flgvoid=True,
-                                flgrefund=True,flgemail=True,flgcustadd=True,flgfoc=True,
-                                flgrefundpp=True,flgrefundcn=True,flgstockusagememo=True,
-                                flgchangeunitprice=True,flgallowinsufficent=True,
-                                flgallowblockappointment=True,flgchangeexpirydate=True,
-                                flgalldayendsettlement=True,flgtransacdisc=True,flgeditath=True
-                                ).save()
-                        employee.pw_userlogin = request.data['display_name']
-                        employee.pw_password = request.data['pw_password']
-                        employee.LEVEL_ItmIDid = level_obj
-                        employee.save()
-                        token_ids = Token.objects.filter(user=user)
-                        if not token_ids:
-                            token = Token.objects.create(user=user)
-                
-                if 'emp_isactive' in request.data and request.data['emp_isactive'] == "False":
-                    fmspwids_s = Fmspw.objects.filter(Emp_Codeid=employee, pw_isactive=True).first()
-                    if fmspwids_s:
-                        fmspwids_s.pw_isactive = False
-                        fmspwids_s.save()
+                        fmspw_ids = Fmspw.objects.filter(Emp_Codeid=employee, pw_isactive=True).first()
+                        if not fmspw_ids:
+                            user = User.objects.filter(username=request.data['display_name']).first()
+                            if not user:
+                                user = User.objects.create_user(username=request.data['display_name'], email=employee.emp_email,
+                                                                password=request.data['pw_password'])
+                            level_obj = Securities.objects.filter(pk=request.data['LEVEL_ItmIDid'], level_isactive=True).first()
+                            test = Fmspw(pw_userlogin=request.data['display_name'],
+                                    pw_password=request.data['pw_password'],
+                                    LEVEL_ItmIDid=level_obj,
+                                    level_itmid=level_obj.level_code,
+                                    level_desc=level_obj.level_description,
+                                    Emp_Codeid=employee,
+                                    emp_code=employee.emp_code,
+                                    user=user,
+                                    loginsite=None,
+                                    flgappt = True,
+                                    flgsales = True,
+                                    flgdisc=True,flgexchange=True,flgrevtrm=True,flgvoid=True,
+                                    flgrefund=True,flgemail=True,flgcustadd=True,flgfoc=True,
+                                    flgrefundpp=True,flgrefundcn=True,flgstockusagememo=True,
+                                    flgchangeunitprice=True,flgallowinsufficent=True,
+                                    flgallowblockappointment=True,flgchangeexpirydate=True,
+                                    flgalldayendsettlement=True,flgtransacdisc=True,flgeditath=True
+                                    ).save()
+                            employee.pw_userlogin = request.data['display_name']
+                            employee.pw_password = request.data['pw_password']
+                            employee.LEVEL_ItmIDid = level_obj
+                            employee.save()
+                            token_ids = Token.objects.filter(user=user)
+                            if not token_ids:
+                                token = Token.objects.create(user=user)
+                    
+                    if 'emp_isactive' in request.data and request.data['emp_isactive'] == "False":
+                        fmspwids_s = Fmspw.objects.filter(Emp_Codeid=employee, pw_isactive=True).first()
+                        if fmspwids_s:
+                            fmspwids_s.pw_isactive = False
+                            fmspwids_s.save()
 
 
-                serializer.save(type_code=jobtitle.level_code)
-                state = status.HTTP_200_OK
-                message = "Updated Succesfully"
-                error = False
-                data = serializer.data
+                    serializer.save(type_code=jobtitle.level_code)
+                    state = status.HTTP_200_OK
+                    message = "Updated Succesfully"
+                    error = False
+                    data = serializer.data
+                    result = response(self, request, queryset, total, state, message, error, serializer_class, data,
+                                    action=self.action)
+                    return Response(result, status=status.HTTP_200_OK)
+
+            
+                error = True
+                data = serializer.errors
+                # print(data,"data")
+                state = status.HTTP_400_BAD_REQUEST
+                if 'non_field_errors' in data:
+                    message = data['non_field_errors'][0]
+                else:
+                    # message = "Invalid Input"
+                    first_key = list(data.keys())[0]
+                    message = str(first_key)+": "+str(data[first_key][0])
+
                 result = response(self, request, queryset, total, state, message, error, serializer_class, data,
-                                  action=self.action)
-                return Response(result, status=status.HTTP_200_OK)
-
-           
-            error = True
-            data = serializer.errors
-            # print(data,"data")
-            state = status.HTTP_400_BAD_REQUEST
-            if 'non_field_errors' in data:
-                message = data['non_field_errors'][0]
-            else:
-                # message = "Invalid Input"
-                first_key = list(data.keys())[0]
-                message = str(first_key)+": "+str(data[first_key][0])
-
-            result = response(self, request, queryset, total, state, message, error, serializer_class, data,
-                            action=self.action)
-            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                                action=self.action)
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
         except Exception as e:
           invalid_message = str(e)
           return general_error_response(invalid_message)
-
+    
+    @transaction.atomic
     def partial_update(self, request, pk=None):
         try:
-            queryset = None
-            total = None
-            serializer_class = None
-            employee = self.get_object(pk)
-            # print(request.data)
-            serializer = StaffPlusSerializer(employee, data=request.data, partial=True,
-                                             context={'request': self.request})
-            if serializer.is_valid():
-                serializer.save()
-                state = status.HTTP_200_OK
-                message = "Updated Succesfully"
-                error = False
-                data = serializer.data
+            with transaction.atomic():
+                queryset = None
+                total = None
+                serializer_class = None
+                employee = self.get_object(pk)
+                # print(request.data)
+                serializer = StaffPlusSerializer(employee, data=request.data, partial=True,
+                                                context={'request': self.request})
+                if serializer.is_valid():
+                    serializer.save()
+                    state = status.HTTP_200_OK
+                    message = "Updated Succesfully"
+                    error = False
+                    data = serializer.data
+                    result = response(self, request, queryset, total, state, message, error, serializer_class, data,
+                                    action=self.action)
+                    return Response(result, status=status.HTTP_200_OK)
+
+                error = True
+                data = serializer.errors
+                # print(data,"data")
+                state = status.HTTP_400_BAD_REQUEST
+                if 'non_field_errors' in data:
+                    message = data['non_field_errors'][0]
+                else:
+                    # message = "Invalid Input"
+                    first_key = list(data.keys())[0]
+                    message = str(first_key)+": "+str(data[first_key][0])
+
                 result = response(self, request, queryset, total, state, message, error, serializer_class, data,
-                                  action=self.action)
-                return Response(result, status=status.HTTP_200_OK)
-
-            error = True
-            data = serializer.errors
-            # print(data,"data")
-            state = status.HTTP_400_BAD_REQUEST
-            if 'non_field_errors' in data:
-                message = data['non_field_errors'][0]
-            else:
-                # message = "Invalid Input"
-                first_key = list(data.keys())[0]
-                message = str(first_key)+": "+str(data[first_key][0])
-
-            result = response(self, request, queryset, total, state, message, error, serializer_class, data,
-                            action=self.action)
-            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                                action=self.action)
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
 
         except Exception as e:
           invalid_message = str(e)
           return general_error_response(invalid_message)
-
+    
+    @transaction.atomic
     def destroy(self, request, pk=None):
         try:
-            queryset = None
-            total = None
-            serializer_class = None
-            data = None
-            state = status.HTTP_204_NO_CONTENT
-            try:
-                instance = self.get_object(pk)
-                self.perform_destroy(instance)
-                message = "Deleted Succesfully"
-                error = False
-                result = response(self, request, queryset, total, state, message, error, serializer_class, data,
-                                  action=self.action)
-                return Response(result, status=status.HTTP_200_OK)
-            except Http404:
-                pass
+            with transaction.atomic():
+                queryset = None
+                total = None
+                serializer_class = None
+                data = None
+                state = status.HTTP_204_NO_CONTENT
+                try:
+                    instance = self.get_object(pk)
+                    self.perform_destroy(instance)
+                    message = "Deleted Succesfully"
+                    error = False
+                    result = response(self, request, queryset, total, state, message, error, serializer_class, data,
+                                    action=self.action)
+                    return Response(result, status=status.HTTP_200_OK)
+                except Http404:
+                    pass
 
-            message = "No Content"
-            error = True
-            result = response(self, request, queryset, total, state, message, error, serializer_class, data,
-                              action=self.action)
-            return Response(result, status=status.HTTP_200_OK)
+                message = "No Content"
+                error = True
+                result = response(self, request, queryset, total, state, message, error, serializer_class, data,
+                                action=self.action)
+                return Response(result, status=status.HTTP_200_OK)
         except Exception as e:
            invalid_message = str(e)
            return general_error_response(invalid_message)
@@ -17433,208 +17484,214 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)
-
+    
+    @transaction.atomic
     def update(self, request, pk=None):
         try:
-            fmspw = Fmspw.objects.filter(user=request.user, pw_isactive=True).first()
-            site = fmspw.loginsite
-            queryset = None
-            total = None
-            serializer_class = None
-            customer = self.get_object(pk)
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=request.user, pw_isactive=True).first()
+                site = fmspw.loginsite
+                queryset = None
+                total = None
+                serializer_class = None
+                customer = self.get_object(pk)
 
-            if 'cust_email' in request.data and request.data['cust_email']:
-                customer_mail =  Customer.objects.filter(cust_email=request.data['cust_email']).exclude(pk=customer.pk)
-                if len(customer_mail) > 0:
-                    raise Exception("Email id is already associated with another account")
-            
-           
-            if 'cust_phone1' in request.data and request.data['cust_phone1']:    
-                customerphone =  Customer.objects.filter(cust_phone1=request.data['cust_phone1']).exclude(pk=customer.pk)
-                if len(customerphone) > 0:
-                    raise Exception("Mobile number cust phone1 is already associated with another account")
-            
-            
-            dupphone2_setup = Systemsetup.objects.filter(title='allowDuplicatePhone',
-            value_name='allowDuplicatePhone',isactive=True).first()
-
-            if dupphone2_setup and dupphone2_setup.value_data == 'True':
-                if 'cust_refer' in request.data and request.data['cust_refer']:    
-                    ref_ids =  Customer.objects.filter(cust_refer=request.data['cust_refer']).exclude(pk=customer.pk)
-                    if len(ref_ids) > 0:
-                        raise Exception("Customer Reference is already associated with another account")
-
-            else:   
-                if 'cust_phone2' in request.data and request.data['cust_phone2']:
-                    custphone2 =  Customer.objects.filter(cust_phone2=request.data['cust_phone2']).exclude(pk=customer.pk)
-                    if len(custphone2) > 0:
-                        raise Exception("Mobile number cust phone2 is already associated with another account")
-            
-            if 'cust_refer' in request.data and request.data['cust_refer'] and 'cust_phone2' in request.data and request.data['cust_phone2']:
-                    x_customer =  Customer.objects.filter(cust_phone2=request.data['cust_phone2'],cust_refer=request.data['cust_refer']).exclude(pk=customer.pk)
-                    if len(x_customer) > 0:
-                            raise Exception("Customer Reference,cust_phone2 is already associated with another account")
-            
-            if 'referredbyid' in request.data and request.data['referredbyid']:
-                custref_obj = Customer.objects.filter(pk=request.data['referredbyid'],cust_isactive=True).first()
-                if not custref_obj:
-                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer referredby_id ID does not exist!!",'error': True} 
-                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-
-                        
-            requestData = request.data
-            if 'cust_nric' in request.data and request.data['cust_nric']:
-                if len(request.data['cust_nric']) >= 1:
-                    if requestData.get('cust_nric',"").startswith("*"):
-                        requestData['cust_nric'] = customer.cust_nric
-                        # print(requestData)
-            serializer = CustomerPlusSerializer(customer, data=requestData, context={'request': self.request, "action": self.action})
-            if serializer.is_valid():
-                gender = False;title = False;source = False
-                if 'Cust_sexesid' in request.data and request.data['Cust_sexesid']:
-                    gender_obj = Gender.objects.filter(pk=request.data['Cust_sexesid'], itm_isactive=True).first()
-                    if gender_obj and gender_obj.itm_code:
-                        gender = gender_obj.itm_code
-                else:
-                    gender_obj = Gender.objects.filter(pk=2, itm_isactive=True).first()
-                    if gender_obj and gender_obj.itm_code:
-                        gender = gender_obj.itm_code      
-
-
-                if 'Cust_titleid' in request.data and request.data['Cust_titleid']:
-                    title_obj = CustomerTitle.objects.filter(pk=request.data['Cust_titleid'],isactive=True).first()
-                    if title_obj and title_obj.itm_code:
-                        title = title_obj.itm_code
+                if 'cust_email' in request.data and request.data['cust_email']:
+                    customer_mail =  Customer.objects.filter(cust_email=request.data['cust_email']).exclude(pk=customer.pk)
+                    if len(customer_mail) > 0:
+                        raise Exception("Email id is already associated with another account")
                 
-                if 'Cust_Sourceid' in request.data and request.data['Cust_Sourceid']:
-                    sou_obj = Source.objects.filter(pk=request.data['Cust_Sourceid'],source_isactive=True).first()
-                    if sou_obj and sou_obj.source_code:
-                        source = sou_obj.source_code
+            
+                if 'cust_phone1' in request.data and request.data['cust_phone1']:    
+                    customerphone =  Customer.objects.filter(cust_phone1=request.data['cust_phone1']).exclude(pk=customer.pk)
+                    if len(customerphone) > 0:
+                        raise Exception("Mobile number cust phone1 is already associated with another account")
                 
-                serializer.save(cust_sexes=gender,cust_title=title,cust_source=source,
-                Cust_sexesid=gender_obj)
+                
+                dupphone2_setup = Systemsetup.objects.filter(title='allowDuplicatePhone',
+                value_name='allowDuplicatePhone',isactive=True).first()
 
-                if 'cust_corporate' in requestData and requestData['cust_corporate']:
-                    customer.cust_corporate = requestData['cust_corporate']
-                    customer.save()
-                state = status.HTTP_200_OK
-                message = "Updated Succesfully"
-                error = False
-                data = serializer.data
+                if dupphone2_setup and dupphone2_setup.value_data == 'True':
+                    if 'cust_refer' in request.data and request.data['cust_refer']:    
+                        ref_ids =  Customer.objects.filter(cust_refer=request.data['cust_refer']).exclude(pk=customer.pk)
+                        if len(ref_ids) > 0:
+                            raise Exception("Customer Reference is already associated with another account")
 
-                CustLogAudit(customer_id=customer,cust_code=customer.cust_code,
-                username=fmspw.pw_userlogin,
-                user_loginid=fmspw,updated_at=timezone.now()).save()
-
+                else:   
+                    if 'cust_phone2' in request.data and request.data['cust_phone2']:
+                        custphone2 =  Customer.objects.filter(cust_phone2=request.data['cust_phone2']).exclude(pk=customer.pk)
+                        if len(custphone2) > 0:
+                            raise Exception("Mobile number cust phone2 is already associated with another account")
+                
+                if 'cust_refer' in request.data and request.data['cust_refer'] and 'cust_phone2' in request.data and request.data['cust_phone2']:
+                        x_customer =  Customer.objects.filter(cust_phone2=request.data['cust_phone2'],cust_refer=request.data['cust_refer']).exclude(pk=customer.pk)
+                        if len(x_customer) > 0:
+                                raise Exception("Customer Reference,cust_phone2 is already associated with another account")
+                
                 if 'referredbyid' in request.data and request.data['referredbyid']:
-                    ref_ids = CustomerReferral.objects.filter(cust_id__pk=customer.pk,Site_Codeid__pk=site.pk)
-                    if not ref_ids:
-                        exref_ids = CustomerReferral.objects.filter(cust_id__pk=customer.pk,Site_Codeid__pk=site.pk,
-                        referral_id__pk=custref_obj.pk)
-                        if not exref_ids:
-                            cref = CustomerReferral(referral_id=custref_obj,cust_id=customer,Site_Codeid=site,site_code=site.itemsite_code)
-                            cref.save()
-                            customer.referredby_id =  custref_obj
-                            customer.cust_referby_code = custref_obj.cust_code
-                            customer.save()     
+                    custref_obj = Customer.objects.filter(pk=request.data['referredbyid'],cust_isactive=True).first()
+                    if not custref_obj:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer referredby_id ID does not exist!!",'error': True} 
+                        return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
+                            
+                requestData = request.data
+                if 'cust_nric' in request.data and request.data['cust_nric']:
+                    if len(request.data['cust_nric']) >= 1:
+                        if requestData.get('cust_nric',"").startswith("*"):
+                            requestData['cust_nric'] = customer.cust_nric
+                            # print(requestData)
+                serializer = CustomerPlusSerializer(customer, data=requestData, context={'request': self.request, "action": self.action})
+                if serializer.is_valid():
+                    gender = False;title = False;source = False
+                    if 'Cust_sexesid' in request.data and request.data['Cust_sexesid']:
+                        gender_obj = Gender.objects.filter(pk=request.data['Cust_sexesid'], itm_isactive=True).first()
+                        if gender_obj and gender_obj.itm_code:
+                            gender = gender_obj.itm_code
+                    else:
+                        gender_obj = Gender.objects.filter(pk=2, itm_isactive=True).first()
+                        if gender_obj and gender_obj.itm_code:
+                            gender = gender_obj.itm_code      
+
+
+                    if 'Cust_titleid' in request.data and request.data['Cust_titleid']:
+                        title_obj = CustomerTitle.objects.filter(pk=request.data['Cust_titleid'],isactive=True).first()
+                        if title_obj and title_obj.itm_code:
+                            title = title_obj.itm_code
+                    
+                    if 'Cust_Sourceid' in request.data and request.data['Cust_Sourceid']:
+                        sou_obj = Source.objects.filter(pk=request.data['Cust_Sourceid'],source_isactive=True).first()
+                        if sou_obj and sou_obj.source_code:
+                            source = sou_obj.source_code
+                    
+                    serializer.save(cust_sexes=gender,cust_title=title,cust_source=source,
+                    Cust_sexesid=gender_obj)
+
+                    if 'cust_corporate' in requestData and requestData['cust_corporate']:
+                        customer.cust_corporate = requestData['cust_corporate']
+                        customer.save()
+                    state = status.HTTP_200_OK
+                    message = "Updated Succesfully"
+                    error = False
+                    data = serializer.data
+
+                    CustLogAudit(customer_id=customer,cust_code=customer.cust_code,
+                    username=fmspw.pw_userlogin,
+                    user_loginid=fmspw,updated_at=timezone.now()).save()
+
+                    if 'referredbyid' in request.data and request.data['referredbyid']:
+                        ref_ids = CustomerReferral.objects.filter(cust_id__pk=customer.pk,Site_Codeid__pk=site.pk)
+                        if not ref_ids:
+                            exref_ids = CustomerReferral.objects.filter(cust_id__pk=customer.pk,Site_Codeid__pk=site.pk,
+                            referral_id__pk=custref_obj.pk)
+                            if not exref_ids:
+                                cref = CustomerReferral(referral_id=custref_obj,cust_id=customer,Site_Codeid=site,site_code=site.itemsite_code)
+                                cref.save()
+                                customer.referredby_id =  custref_obj
+                                customer.cust_referby_code = custref_obj.cust_code
+                                customer.save()     
+
+                    result = response(self, request, queryset, total, state, message, error, serializer_class, data,
+                                    action=self.action)
+                    return Response(result, status=status.HTTP_200_OK)
+
+                data = serializer.errors
+                # print(data,"data")
+
+                if 'non_field_errors' in data:
+                    message = data['non_field_errors'][0]
+                else:
+                    # message = "Invalid Input"
+                    # print(data.keys(),"data.keys()")
+                    first_key = list(data.keys())[0]
+                    # print(first_key,"first_key")
+                    # print(data[first_key][0],"jj")
+                    message = str(first_key)+":  "+str(data[first_key][0])
+
+                state = status.HTTP_400_BAD_REQUEST
+                error = True
                 result = response(self, request, queryset, total, state, message, error, serializer_class, data,
-                                  action=self.action)
-                return Response(result, status=status.HTTP_200_OK)
-
-            data = serializer.errors
-            # print(data,"data")
-
-            if 'non_field_errors' in data:
-                message = data['non_field_errors'][0]
-            else:
-                # message = "Invalid Input"
-                # print(data.keys(),"data.keys()")
-                first_key = list(data.keys())[0]
-                # print(first_key,"first_key")
-                # print(data[first_key][0],"jj")
-                message = str(first_key)+":  "+str(data[first_key][0])
-
-            state = status.HTTP_400_BAD_REQUEST
-            error = True
-            result = response(self, request, queryset, total, state, message, error, serializer_class, data,
-                              action=self.action)
-            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                                action=self.action)
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)
-
+    
+    @transaction.atomic
     def partial_update(self, request, pk=None):
         try:
-            fmspw = Fmspw.objects.filter(user=request.user, pw_isactive=True).first()
-            queryset = None
-            total = None
-            serializer_class = None
-            customer = self.get_object(pk)
-            serializer = CustomerPlusSerializer(customer, data=request.data, partial=True,
-                                                  context={'request': self.request,"action": self.action})
-            if serializer.is_valid():
-                serializer.save()
-                state = status.HTTP_200_OK
-                message = "Updated Succesfully"
-                error = False
-                data = serializer.data
-                CustLogAudit(customer_id=customer,cust_code=customer.cust_code,
-                username=fmspw.pw_userlogin,
-                user_loginid=fmspw,updated_at=timezone.now()).save()
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=request.user, pw_isactive=True).first()
+                queryset = None
+                total = None
+                serializer_class = None
+                customer = self.get_object(pk)
+                serializer = CustomerPlusSerializer(customer, data=request.data, partial=True,
+                                                    context={'request': self.request,"action": self.action})
+                if serializer.is_valid():
+                    serializer.save()
+                    state = status.HTTP_200_OK
+                    message = "Updated Succesfully"
+                    error = False
+                    data = serializer.data
+                    CustLogAudit(customer_id=customer,cust_code=customer.cust_code,
+                    username=fmspw.pw_userlogin,
+                    user_loginid=fmspw,updated_at=timezone.now()).save()
 
+                    result = response(self, request, queryset, total, state, message, error, serializer_class, data,
+                                    action=self.action)
+                    return Response(result, status=status.HTTP_200_OK)
+
+            
+                data = serializer.errors
+                # print(data,"data")
+
+                if 'non_field_errors' in data:
+                    message = data['non_field_errors'][0]
+                else:
+                    # message = "Invalid Input"
+                    first_key = list(data.keys())[0]
+                    message = str(first_key)+":  "+str(data[first_key][0])
+
+                state = status.HTTP_400_BAD_REQUEST
+                error = True
                 result = response(self, request, queryset, total, state, message, error, serializer_class, data,
-                                  action=self.action)
-                return Response(result, status=status.HTTP_200_OK)
-
-           
-            data = serializer.errors
-            # print(data,"data")
-
-            if 'non_field_errors' in data:
-                message = data['non_field_errors'][0]
-            else:
-                # message = "Invalid Input"
-                first_key = list(data.keys())[0]
-                message = str(first_key)+":  "+str(data[first_key][0])
-
-            state = status.HTTP_400_BAD_REQUEST
-            error = True
-            result = response(self, request, queryset, total, state, message, error, serializer_class, data,
-                              action=self.action)
-            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                                action=self.action)
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)
-
+    
+    @transaction.atomic
     def destroy(self, request, pk=None):
         try:
-            queryset = None
-            total = None
-            serializer_class = None
-            data = None
-            state = status.HTTP_204_NO_CONTENT
-            instance = self.get_object(pk)
-            if instance:
-                result = {'status': status.HTTP_400_BAD_REQUEST, "message": "You are not allowed to delete customer!!",
-                          'error': True}
-                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+            with transaction.atomic():
+                queryset = None
+                total = None
+                serializer_class = None
+                data = None
+                state = status.HTTP_204_NO_CONTENT
+                instance = self.get_object(pk)
+                if instance:
+                    result = {'status': status.HTTP_400_BAD_REQUEST, "message": "You are not allowed to delete customer!!",
+                            'error': True}
+                    return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
-            try:
-                self.perform_destroy(instance)
-                message = "Deleted Succesfully"
-                error = False
+                try:
+                    self.perform_destroy(instance)
+                    message = "Deleted Succesfully"
+                    error = False
+                    result = response(self, request, queryset, total, state, message, error, serializer_class, data,
+                                    action=self.action)
+                    return Response(result, status=status.HTTP_200_OK)
+                except Exception as e:
+                    pass
+
+                message = "No Content"
+                error = True
                 result = response(self, request, queryset, total, state, message, error, serializer_class, data,
-                                  action=self.action)
+                                action=self.action)
                 return Response(result, status=status.HTTP_200_OK)
-            except Exception as e:
-                pass
-
-            message = "No Content"
-            error = True
-            result = response(self, request, queryset, total, state, message, error, serializer_class, data,
-                              action=self.action)
-            return Response(result, status=status.HTTP_200_OK)
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)
@@ -22141,13 +22198,16 @@ class ParticipantsViewset(viewsets.ModelViewSet):
                 if not 'appt_id' in request.data or not request.data['appt_id']:
                     raise Exception("Please Give appointment id")
 
-                appt_obj = Appointment.objects.filter(pk=request.data['appt_id']).order_by('pk')    
+                appt_obj = Appointment.objects.filter(pk=request.data['appt_id']).order_by('pk').first()    
                 if not appt_obj:
                     raise Exception("Appointment Does Not Exist")
 
                 if not 'cust_id' in request.data or not request.data['cust_id']:
                     raise Exception("Please Give customer id")
-        
+
+                if not 'treatment_parentcode' in request.data or not request.data['treatment_parentcode']:
+                    raise Exception("Please Give treatment parentcode")
+         
 
                 cust_obj = Customer.objects.filter(pk=request.data['cust_id'],
                 cust_isactive=True).first()
@@ -22155,13 +22215,24 @@ class ParticipantsViewset(viewsets.ModelViewSet):
                     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer id does not exist!!",'error': True} 
                     return Response(data=result, status=status.HTTP_400_BAD_REQUEST) 
                 
-                check_ids = Participants.objects.filter(appt_id=request.data['appt_id'],cust_id=request.data['cust_id']).order_by('-pk')
+                check_ids = Participants.objects.filter(appt_id=request.data['appt_id'],cust_id=cust_obj).order_by('-pk')
                 if check_ids:
                     raise Exception("Appointment id and cust id already exist in table")
 
                 serializer = ParticipantsSerializer(data=request.data)
                 if serializer.is_valid():
                     serializer.save()
+
+                    if appt_obj.recur_linkcode:
+                        appt_ids = Appointment.objects.filter(appt_isactive=True,recur_linkcode=appt_obj.recur_linkcode).exclude(pk=appt_obj.pk).order_by('pk')    
+                        if appt_ids:
+                            for p in appt_ids:
+                                che_ids = Participants.objects.filter(appt_id=p,cust_id=cust_obj).order_by('-pk')
+                                if not che_ids:
+                                    Participants(appt_id=p,cust_id=cust_obj,
+                                    date_booked=request.data['date_booked'],status=request.data['status'],
+                                    remarks=request.data['remarks'],treatment_parentcode=request.data['treatment_parentcode']).save()
+
                     result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully",
                     'error': False}
                     return Response(result, status=status.HTTP_201_CREATED)
@@ -22207,6 +22278,19 @@ class ParticipantsViewset(viewsets.ModelViewSet):
             invalid_message = str(e)
             return general_error_response(invalid_message)   
     
+    def retrieve(self, request, pk=None):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+            site = fmspw.loginsite
+            part = self.get_object(pk)
+            serializer = ParticipantsSerializer(part, context={'request': self.request})
+            result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
+            'data': serializer.data}
+            return Response(data=result, status=status.HTTP_200_OK)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message) 
+    
 
     def destroy(self, request, pk=None):
         try:
@@ -22241,7 +22325,48 @@ class ParticipantsViewset(viewsets.ModelViewSet):
             return Participants.objects.get(pk=pk)
         except Participants.DoesNotExist:
             raise Exception('Participants ID Does not Exist') 
+    
+    @transaction.atomic
+    @action(detail=False, methods=['POST'], name='updatestatus')
+    def updatestatus(self, request):
+        try:
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+                site = fmspw[0].loginsite
+                if not 'appt_id' in request.data or not request.data['appt_id']:
+                    raise Exception("Please Give appointment id")
+                
+                if not 'participants_ids' in request.data or not request.data['participants_ids']:
+                    raise Exception("Please Give participants ids")
 
+                if not 'status' in request.data or not request.data['status']:
+                    raise Exception("Please Give Status")
+                
+                appt_obj = Appointment.objects.filter(pk=request.data['appt_id']).order_by('pk')    
+                if not appt_obj:
+                    raise Exception("Appointment Does Not Exist")
+
+                part = request.data['participants_ids'].split(',')    
+                
+                check_ids = Participants.objects.filter(appt_id=request.data['appt_id'],
+                pk__in=part,isactive=True).order_by('-pk')
+                if not check_ids:
+                    raise Exception("Participants Does Not Exist")
+
+                if check_ids:
+                    for c in check_ids:
+                        c.status = request.data['status']
+                        c.save()     
+
+                result = {'status': status.HTTP_200_OK,
+                "message":"Updated Succesfully",'error': False}
+                return Response(result, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)          
+
+        
 
 class CustomerPointsAccountViewset(viewsets.ModelViewSet):
     authentication_classes = [ExpiringTokenAuthentication]
@@ -22589,8 +22714,6 @@ class CustomerReferralViewset(viewsets.ModelViewSet):
     authentication_classes=[TokenAuthentication])
     def hierarchylist(self, request): 
         try:
-            ip = request.META['REMOTE_ADDR']
-            print(ip,"ip")
             referral_id = self.request.GET.get('referral_id',None)
             if not referral_id:
                 raise Exception("Please Give referral id")
@@ -22624,18 +22747,18 @@ class CustomerReferralViewset(viewsets.ModelViewSet):
 
                             for k in level2_ids:
                                 l3_lst = []
-                                val3 = {'name': k.cust_id.cust_name,'level': level3, 
-                                'lst': l3_lst}
+                                val3 = {'label': k.cust_id.cust_name,'isActive': i.isactive, 
+                                'level': level3, 'childeren': l3_lst}
                                 l2_lst.append(val3)
 
 
-                            val2 =  {'name': j.cust_id.cust_name,'level': level2, 
-                            'lst': l2_lst}
+                            val2 =  {'label': j.cust_id.cust_name,'isActive': i.isactive, 
+                            'level': level2, 'childeren': l2_lst}
                             l1_lst.append(val2)
 
 
-                        val1 = {'name': i.cust_id.cust_name,'level': level1, 
-                        'lst': l1_lst}
+                        val1 = {'label': i.cust_id.cust_name,'isActive': i.isactive, 
+                        'level': level1, 'childeren': l1_lst}
                         final.append(val1)
 
                 

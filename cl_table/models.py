@@ -511,7 +511,10 @@ class TreatmentPackage(models.Model):
     site_code = models.CharField(db_column='Site_Code', max_length=50, blank=True, null=True)  # Field name made lowercase.
     sa_transacno = models.CharField(max_length=200, blank=True, null=True)
     sa_transacno_ref = models.CharField(db_column='SA_TransacNo_Ref', max_length=200, blank=True, null=True)  # Field name made lowercase.
-
+    balance = models.FloatField(db_column='Balance', null=True)  # Field name made lowercase.
+    outstanding = models.FloatField(db_column='Outstanding', blank=True, null=True)  # Field name made lowercase.
+    treatmentids = models.TextField(db_column='treatmentids', blank=True, null=True)  # Field name made lowercase.
+   
     class Meta:
         db_table = 'Treatment_Package'
 
@@ -3979,7 +3982,8 @@ class Participants(models.Model):
     date_booked = models.DateField(db_column='date_booked', blank=True, null=True) 
     status = models.CharField(db_column='status', max_length=200, choices=STATUS,blank=True, null=True)  # Field name made lowercase.
     remarks = models.CharField(db_column='Remarks', max_length=255, blank=True, null=True)  # Field name made lowercase.
-
+    treatment_parentcode = models.CharField(db_column='Treatment_ParentCode', max_length=20, blank=True, null=True)  # Field name made lowercase.
+     
     class Meta:
         db_table = 'Participants'
 

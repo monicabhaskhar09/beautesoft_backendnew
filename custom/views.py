@@ -7654,9 +7654,10 @@ class CartServiceCourseViewset(viewsets.ModelViewSet):
                     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
             if 'is_flexi' in request.data and request.data['is_flexi'] == True:
-                if request.data['quantity'] > 1 or request.data['free_sessions'] >= 1:
-                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Flexi Treatment free sessions not allowed,qty must be 1!",'error': False}
-                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+                if 'treat_type' in request.data and request.data['treat_type'] in ['FFi']:
+                    if request.data['quantity'] > 1 or request.data['free_sessions'] >= 1:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Flexi Treatment free sessions not allowed,qty must be 1!",'error': False}
+                        return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
             
             if 'treat_type' in request.data and request.data['treat_type'] in ['FFi','FFd']:
                 if request.data['treatment_limit_times'] == None:
@@ -8028,8 +8029,10 @@ class CourseTmpAPIView(generics.ListCreateAPIView):
                         checkids = Tmptreatment.objects.filter(itemcart=cartobj).order_by('pk').first()
 
                         if checkids:
-                            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Already created,Reset & Try!!",'error': True} 
-                            return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+                            checkids.delete()
+                            # result = {'status': status.HTTP_400_BAD_REQUEST,
+                            # "message":"Already created,Reset & Try!!",'error': True} 
+                            # return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
             
                         #check = list(range(1, int(request.data['free_sessions'])+1))
                         #check = list(range(int(request.data['treatment_no']) + 1, int(request.data['treatment_no']) + int(request.data['free_sessions'])+1))
@@ -8147,8 +8150,16 @@ class CourseTmpAPIView(generics.ListCreateAPIView):
                                 unit_amount="{:.2f}".format(unit_amount),trmt_is_auto_proportion=False)
                             
                         tmp_ids = Tmptreatment.objects.filter(itemcart=cartobj).order_by('pk')
+                        unit_amount = float(request.data['total_price']) / int(treatmentno)
+
+                     
 
                         cartobj.is_total = True
+                        cartobj.price=unit_amount
+                        cartobj.total_price = float(request.data['total_price'])
+                        cartobj.discount_price = unit_amount
+                        cartobj.trans_amt = float(request.data['total_price'])
+                        cartobj.deposit = float(request.data['total_price'])
                         cartobj.save()
 
                         data = [{'slno': i,'program': c.course,

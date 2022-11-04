@@ -16,6 +16,8 @@ from custom.views import get_in_val
 from cl_app.utils import general_error_response
 from dateutil.relativedelta import relativedelta
 from cl_app.models import ItemSitelist,Usagelevel,TreatmentUsage,TmpTreatmentSession
+from django.db.models.functions import Coalesce,Concat
+from django.db.models import Sum
 
 from django.db.models import Q
 
@@ -163,7 +165,8 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
             if c.is_foc == True:
                 isfoc = True
                 item_remarks = c.focreason.foc_reason_ldesc if c.focreason and c.focreason.foc_reason_ldesc else None 
-                dt_itemdesc = c.itemdesc +" "+"(FOC)"
+                # dt_itemdesc = c.itemdesc +" "+"(FOC)"
+                dt_itemdesc = c.itemdesc
             else:
                 isfoc = False  
                 item_remarks = None 
@@ -755,10 +758,16 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                                 tpdone_ids = Treatment.objects.filter(treatment_parentcode=patreatment_parentcode,status="Done").order_by('pk').count()
                                                 tpcancel_ids = Treatment.objects.filter(treatment_parentcode=patreatment_parentcode,status="Cancel").order_by('pk').count()
                                                 tpopen_ids = Treatment.objects.filter(treatment_parentcode=patreatment_parentcode,status="Open").order_by('pk').count()
-                                            
+                                                
+
+                                                trmtAccObj = TreatmentAccount.objects.filter(treatment_parentcode=patreatment_parentcode).order_by('-sa_date','-sa_time','-id').first()
+                                                
+                                                treatmids = list(Treatment.objects.filter(
+                                                treatment_parentcode=patreatment_parentcode,status="Open").only('pk').order_by('pk').values_list('pk', flat=True).distinct())
+                                    
 
                                                 tr = TreatmentPackage(treatment_parentcode=patreatment_parentcode,
-                                                item_code=patreatmentid.Item_Codeid.item_code,course=patreatmentid.course,
+                                                item_code=str(patreatmentid.Item_Codeid.item_code)+"0000",course=patreatmentid.course,
                                                 treatment_no=patreatmentid.treatment_no,open_session=tpopen_ids,done_session=tpdone_ids,
                                                 cancel_session=tpcancel_ids,expiry_date=patreatmentid.expiry,unit_amount=patreatmentid.unit_amount,
                                                 customerid=cust_obj,cust_name=patreatmentid.cust_name,cust_code=patreatmentid.cust_code,
@@ -766,7 +775,9 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                                 type=patreatmentid.type,
                                                 Item_Codeid=patreatmentid.Item_Codeid,treatment_limit_times=patreatmentid.treatment_limit_times,
                                                 Site_Codeid=patreatmentid.Site_Codeid,site_code=patreatmentid.site_code,
-                                                sa_transacno=sa_transacno)
+                                                sa_transacno=sa_transacno,lastsession_unit_amount=patreatmentid.unit_amount,
+                                                balance="{:.2f}".format(float(trmtAccObj.balance)),outstanding="{:.2f}".format(float(trmtAccObj.outstanding)),
+                                                treatmentids=treatmids)
                                                 tr.save()
                                                 tr.treatment_date = pay_time
                                                 tr.save()
@@ -1405,7 +1416,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                 dtl_st_ref_treatmentcode = "";dtl_first_trmt_done = False
                 if c.itemcodeid.Item_Divid.itm_code == '3':
                     if c.is_foc == True:
-                        course_val = c.itemdesc +" "+"(FOC)"
+                        course_val = c.itemdesc
                         isfoc_val = True
                     else:
                         course_val = c.itemdesc 
@@ -1631,13 +1642,15 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                 #treatment_parentcode=treatment_parentcode,Site_Codeid=site).order_by('id').last()
                                 acc_ids = TreatmentAccount.objects.filter(ref_transacno=sa_transacno,
                                 treatment_parentcode=treatment_parentcode).order_by('sa_date','sa_time','id').last()
+                                
+                                tr_ids = Treatment.objects.filter(treatment_parentcode=treatment_parentcode,times=times).first()
 
                                 td_desc = str(times)+"/"+str(c.quantity)+" "+str(c.itemdesc)
-                                balance = acc_ids.balance - float(treatmentid.unit_amount) if acc_ids.balance else float(treatmentid.unit_amount)
+                                balance = acc_ids.balance - float(tr_ids.unit_amount) if acc_ids.balance else 0.0
 
                                 treatacc_td = TreatmentAccount(Cust_Codeid=cust_obj,
                                 cust_code=cust_obj.cust_code,ref_no=treatmentid.treatment_code,
-                                description=td_desc,type='Sales',amount=-float("{:.2f}".format(float(treatmentid.unit_amount))) if treatmentid.unit_amount else 0.0,
+                                description=td_desc,type='Sales',amount=-float("{:.2f}".format(float(tr_ids.unit_amount))) if tr_ids.unit_amount else 0.0,
                                 balance="{:.2f}".format(float(balance)) if balance else 0.0,User_Nameid=fmspw,user_name=fmspw.pw_userlogin,
                                 ref_transacno=treatmentid.sa_transacno,
                                 sa_transacno=sa_transacno,qty=1,outstanding="{:.2f}".format(float(acc_ids.outstanding)) if acc_ids and acc_ids.outstanding is not None and acc_ids.outstanding > 0 else 0,
@@ -1886,18 +1899,27 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                             tptdone_ids = Treatment.objects.filter(treatment_parentcode=treatment_parentcode,status="Done").order_by('pk').count()
                             tptcancel_ids = Treatment.objects.filter(treatment_parentcode=treatment_parentcode,status="Cancel").order_by('pk').count()
                             tptopen_ids = Treatment.objects.filter(treatment_parentcode=treatment_parentcode,status="Open").order_by('pk').count()
-                        
+                            fu_ids =  Treatment.objects.filter(treatment_parentcode=treatment_parentcode,times="01").first()
+                            q = str(c.quantity).zfill(2)
+                            ls_ids = Treatment.objects.filter(treatment_parentcode=treatment_parentcode,times=q).first()
 
+                            trmtAccObj = TreatmentAccount.objects.filter(treatment_parentcode=treatment_parentcode).order_by('-sa_date','-sa_time','-id').first()
+                            
+                            treatmids = list(Treatment.objects.filter(
+                            treatment_parentcode=treatment_parentcode,status="Open").only('pk').order_by('pk').values_list('pk', flat=True).distinct())
+                  
                             tr = TreatmentPackage(treatment_parentcode=treatment_parentcode,
-                            item_code=treatmentid.Item_Codeid.item_code,course=treatmentid.course,
+                            item_code=str(treatmentid.Item_Codeid.item_code)+"0000",course=treatmentid.course,
                             treatment_no=treatmentid.treatment_no,open_session=tptopen_ids,done_session=tptdone_ids,
-                            cancel_session=tptcancel_ids,expiry_date=treatmentid.expiry,unit_amount=treatmentid.unit_amount,
+                            cancel_session=tptcancel_ids,expiry_date=treatmentid.expiry,unit_amount=ls_ids.unit_amount,
                             customerid=cust_obj,cust_name=treatmentid.cust_name,cust_code=treatmentid.cust_code,
                             treatment_accountid=treatmentid.treatment_account,totalprice=treatmentid.price,
                             type=treatmentid.type,
                             Item_Codeid=treatmentid.Item_Codeid,treatment_limit_times=treatmentid.treatment_limit_times,
                             Site_Codeid=treatmentid.Site_Codeid,site_code=treatmentid.site_code,
-                            sa_transacno=sa_transacno)
+                            sa_transacno=sa_transacno,lastsession_unit_amount=fu_ids.unit_amount,
+                            balance="{:.2f}".format(float(trmtAccObj.balance)),outstanding="{:.2f}".format(float(trmtAccObj.outstanding)),
+                            treatmentids=treatmids)
                             tr.save()   
                             tr.treatment_date = pay_time
                             tr.save()
@@ -2150,6 +2172,15 @@ def invoice_topup(self, request, topup_ids,sa_transacno, cust_obj, outstanding, 
                 treatacc.sa_date = pay_time
                 treatacc.sa_time = pay_time
                 treatacc.save()
+
+                searcids = TreatmentPackage.objects.filter(treatment_parentcode=c.treatment_account.treatment_parentcode).first()
+                if searcids:
+                    trmtAccObj = TreatmentAccount.objects.filter(treatment_parentcode=c.treatment_account.treatment_parentcode).order_by('-sa_date','-sa_time','-id').first()
+                    searcids.balance = "{:.2f}".format(float(trmtAccObj.balance)) 
+                    searcids.outstanding = "{:.2f}".format(float(trmtAccObj.outstanding))
+                    searcids.save()
+
+
             # print(treatacc.id,"treatacc")
             elif c.deposit_account is not None:
                 tp_balance = acc_ids.balance + c.deposit if acc_ids.balance else c.deposit
@@ -2555,16 +2586,19 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
             #acc_ids = TreatmentAccount.objects.filter(ref_transacno=c.treatment.sa_transacno,
             #treatment_parentcode=c.treatment.treatment_parentcode).order_by('id').last()
             acc_ids = TreatmentAccount.objects.filter(ref_transacno=c.treatment.sa_transacno,
-            treatment_parentcode=c.treatment.treatment_parentcode).order_by('-sa_time','-id').first()
+            treatment_parentcode=c.treatment.treatment_parentcode).order_by('-sa_date','-sa_time','-id').first()
             # print(acc_ids,acc_ids.pk,"kk")
+            deduct_unitamt = c.multi_treat.filter().aggregate(amount=Coalesce(Sum('unit_amount'), 0)) 
+
             Balance = 0
             if acc_ids:
                 # Balance = acc_ids.balance - c.treatment.unit_amount if acc_ids.balance else c.treatment.unit_amount
-                Balance = acc_ids.balance - (c.treatment.unit_amount * c.quantity) if acc_ids.balance else c.treatment.unit_amount
+                Balance = acc_ids.balance - (float(deduct_unitamt['amount'])) if acc_ids.balance else 0.0
                 if acc_ids.outstanding:
                     outstanding += acc_ids.outstanding
 
-            amount = -float("{:.2f}".format(float(c.treatment.unit_amount * c.quantity ))) if c.treatment.unit_amount else 0.0 
+            
+            amount = -float("{:.2f}".format(float(deduct_unitamt['amount'] ))) if deduct_unitamt['amount'] else 0.0 
             
             if ct.type in ['FFd','FFi']:
                 if acc_ids and acc_ids.balance > 0:
@@ -2619,7 +2653,7 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                     expiry = splte[0]
                     if expiry >= str(date.today()):
                         if not efopen_ids:
-                            if ct.treatment_limit_times > efdone_ids or ct.treatment_limit_times == 0:
+                            if ct.treatment_limit_times > efdone_ids:
                                 times_v = str(int(efdtreat_ids.times) + 1).zfill(2)
                                 treatment_code = ct.treatment_parentcode+"-"+times_v
                                 treatids = Treatment(treatment_code=treatment_code,course=ct.course,times=times_v,
@@ -2694,7 +2728,7 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                                     # treatmentid.status = "Done"
                                     # wp1 = h.workcommpoints / float(c.treatment.helper_ids.all().count())
                                     wp1 = h.wp1
-                                    share_amt = float(c.treatment.unit_amount) / float(c.treatment.helper_ids.all().count())
+                                    share_amt = float(gtreatids.unit_amount) / float(c.treatment.helper_ids.all().count())
                                     if h.work_amt and h.work_amt > 0:
                                         share_amt =  h.work_amt
 
@@ -2702,7 +2736,7 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                                   
                                     # Item helper create
                                     helper = ItemHelper(item_code=f_treatment_code,item_name=tm.newservice_id.item_name,
-                                    line_no=dtl.dt_lineno,sa_transacno=c.treatment.sa_transacno,amount=ct.unit_amount,
+                                    line_no=dtl.dt_lineno,sa_transacno=c.treatment.sa_transacno,amount=gtreatids.unit_amount,
                                     helper_name=h.helper_name,helper_code=h.helper_code,sa_date=dtl.sa_date,
                                     site_code=site.itemsite_code,share_amt="{:.2f}".format(float(share_amt)),helper_transacno=sa_transacno,
                                     wp1=wp1,wp2=0.0,wp3=0.0,percent=h.percent,work_amt="{:.2f}".format(float(h.work_amt)) if h.work_amt else h.work_amt,times=times_t,treatment_no=treatment_no_t)
@@ -2779,6 +2813,9 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                    
                     ct.price = 0
                     ct.save() 
+                    Treatment.objects.filter(pk=ct.pk).update(treatment_date=pay_date,
+                    record_status='PENDING',
+                    transaction_time=timezone.now(),treatment_count_done=1)
  
             else:
                 if ct.type == "FFi":
@@ -2834,6 +2871,9 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                     
                     ct.price = 0
                     ct.save() 
+                    Treatment.objects.filter(pk=ct.pk).update(treatment_date=pay_date,
+                    record_status='PENDING',
+                    transaction_time=timezone.now(),treatment_count_done=1)
 
             totaldisc = c.discount_amt + c.additional_discountamt
             totalpercent = c.discount + c.additional_discount
@@ -2955,7 +2995,7 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                         # treatmentid.status = "Done"
                         # wp1 = h.workcommpoints / float(c.treatment.helper_ids.all().count())
                         wp1 = h.wp1
-                        share_amt = float(c.treatment.unit_amount) / float(c.treatment.helper_ids.all().count())
+                        share_amt = float(cl.unit_amount) / float(cl.helper_ids.all().count())
                         if h.work_amt and h.work_amt > 0:
                             share_amt =  h.work_amt
 
@@ -3308,9 +3348,18 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                 stptdone_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Done").order_by('pk').count()
                 stptcancel_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Cancel").order_by('pk').count()
                 stptopen_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Open").order_by('pk').count()
+                trmtAccObj = TreatmentAccount.objects.filter(treatment_parentcode=ct.treatment_parentcode).order_by('-sa_date','-sa_time','-id').first()
+                treatmids = list(Treatment.objects.filter(
+                treatment_parentcode=ct.treatment_parentcode,status="Open").only('pk').order_by('pk').values_list('pk', flat=True).distinct())
+                  
+                
                 searcids.open_session = stptopen_ids
                 searcids.done_session = stptdone_ids
                 searcids.cancel_session = stptcancel_ids
+                
+                searcids.balance = "{:.2f}".format(float(trmtAccObj.balance)) 
+                searcids.outstanding = "{:.2f}".format(float(trmtAccObj.outstanding))
+                searcids.treatmentids = treatmids
                 searcids.save()
 
             searchhids = TmpTreatmentSession.objects.filter(treatment_parentcode=ct.treatment_parentcode,

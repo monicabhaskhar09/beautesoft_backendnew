@@ -2373,6 +2373,20 @@ class StaffPlusSerializer(serializers.ModelSerializer):
     flgsales =  serializers.SerializerMethodField()
     flgappt =  serializers.SerializerMethodField()
     site_list = serializers.SerializerMethodField()
+    shift_status = serializers.SerializerMethodField()
+
+    def get_shift_status(self, obj):
+        shift_status = False
+        request = self.context['request']
+        fmspw = Fmspw.objects.filter(user=request.user, pw_isactive=True).order_by('-pk')
+        site = fmspw[0].loginsite
+        querys = Attendance2.objects.filter(attn_date__date=date.today(),
+                attn_site_code=site.itemsite_code,attn_emp_code=obj.emp_code).order_by('pk').last()
+        if querys and querys.attn_type == '00':
+            shift_status = True
+        return shift_status
+
+
 
     def get_shift_name(self, obj):
         if obj.shift:
@@ -2417,7 +2431,7 @@ class StaffPlusSerializer(serializers.ModelSerializer):
                   'Site_Codeid','site_code', 'emp_dob','emp_joindate','shift','shift_name','emp_email','emp_pic','emp_salary','EMP_EPFid',
                   'EMP_TYPEid','jobtitle_name', 'is_login','pw_password','LEVEL_ItmIDid','level_desc','emp_isactive','flghourly',
                   "emp_nric","max_disc", 'emp_race', 'Emp_nationalityid', 'Emp_maritalid', 'Emp_religionid', 'emp_emer','emp_epf_employee',
-                  'emp_emerno', 'emp_country', 'emp_remarks','show_in_trmt','show_in_appt','show_in_sales','emp_epf_employer']
+                  'emp_emerno', 'emp_country', 'emp_remarks','show_in_trmt','show_in_appt','show_in_sales','emp_epf_employer','shift_status']
         read_only_fields = ('updated_at','created_at','emp_code','branch')
         extra_kwargs = {
             'emp_email': {'required': False},
@@ -3200,7 +3214,7 @@ class ParticipantsSerializer(serializers.ModelSerializer):
     class Meta:
         model = Participants
         fields = ['id','appt_id','cust_id','isactive','cust_name','cust_phone2',
-        'cust_code','cust_refer','date_booked','status','remarks'] 
+        'cust_code','cust_refer','date_booked','status','remarks','treatment_parentcode'] 
 
     def to_representation(self, obj):
         data = super(ParticipantsSerializer, self).to_representation(obj)

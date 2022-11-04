@@ -275,3 +275,19 @@ class TmpTreatmentSession(models.Model):
 
     class Meta:
         db_table = 'TmpTreatmentSession'
+
+class VoucherPromo(models.Model):
+
+    id = models.AutoField(db_column='ID',primary_key=True)  # Field name made lowercase.
+    voucher_code = models.CharField(db_column='voucher_code', max_length=200, blank=True, null=True)  # Field name made lowercase.
+    voucher_desc =  models.CharField(db_column='voucher_desc', max_length=500, blank=True, null=True)  # Field name made lowercase.
+    sms_text = models.TextField(db_column='sms_text', blank=True, null=True)  # Field name made lowercase.
+    isactive = models.BooleanField(db_column='IsActive',default=True)  # Field name made lowercase.
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    price = models.FloatField(db_column='Price', blank=True, null=True)  # Field name made lowercase.
+
+    class Meta:
+        db_table = 'VoucherPromo'
+
+           

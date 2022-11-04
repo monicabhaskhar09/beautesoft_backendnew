@@ -20,10 +20,10 @@ TreatmentHistorySerializer,StockUsageSerializer,StockUsageProductSerializer,Trea
 StockUsageMemoSerializer,TreatmentfaceSerializer,SiteApptSettingSerializer,HolditemAccListSerializer,
 PodhaudSerializer,CustomerAccountSerializer,TreatmentUsageListSerializer,TreatmentUsageStockSerializer,
 ItemDivSerializer,ProductPurchaseSerializer,TransactionInvoiceSerializer,TransactionManualInvoiceSerializer,
-TreatmentPackageDoneListSerializer)
+TreatmentPackageDoneListSerializer,VoucherPromoSerializer)
 from cl_table.serializers import PostaudSerializer, TmpItemHelperSerializer
 from .models import (SiteGroup, ItemSitelist, ReverseTrmtReason, VoidReason,TreatmentUsage,UsageMemo,
-Treatmentface,Usagelevel,priceChangeLog,TmpTreatmentSession)
+Treatmentface,Usagelevel,priceChangeLog,TmpTreatmentSession,VoucherPromo)
 from cl_table.models import (Employee, Fmspw, ItemClass, ItemDept, ItemRange, Stock, ItemUomprice, 
 PackageDtl, ItemDiv, PosDaud, PosTaud, Customer, GstSetting, ControlNo, TreatmentAccount, DepositAccount, 
 PrepaidAccount, Treatment,PosHaud,TmpItemHelper,Appointment,Source,PosHaud,ReverseDtl,ReverseHdr,
@@ -81,6 +81,7 @@ from dateutil import parser
 from itertools import chain 
 from django.db.models import Case, When, Value, IntegerField,CharField, DateField,BooleanField
 from django.contrib.auth import authenticate, login , logout, get_user_model
+import json
 
 type_ex = ['VT-Deposit','VT-Top Up','VT-Sales']
 type_tx = ['Deposit','Top Up','Sales']
@@ -480,17 +481,27 @@ class ServiceStockViewset(viewsets.ModelViewSet):
 
     def list(self, request):
         try:
+            # now = timezone.now()
+            # print(str(now.hour) + '  ' +  str(now.minute) + '  ' +  str(now.second),"Start hour, minute, second\n")
             fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
             site = fmspw[0].loginsite
 
-            queryset = Stock.objects.filter(item_isactive=True, item_type="SINGLE", item_div="3").order_by('item_name')
+            s_ids  = list(ItemStocklist.objects.filter(itemstocklist_status=True,
+            itemsite_code=site.itemsite_code,item_code__startswith="3").values_list('item_code', flat=True).distinct())
+            # print(s_ids,len(s_ids),"s_ids")
+            queryset = Stock.objects.filter(item_isactive=True, item_type="SINGLE", item_div="3",
+            item_code__in=s_ids).order_by('item_name')
+            # print(queryset,len(queryset),"queryset")
+
+            
             if request.GET.get('Item_Deptid',None):
                 if not request.GET.get('Item_Deptid',None) is None:
                     item_dept = ItemDept.objects.filter(pk=request.GET.get('Item_Deptid',None), is_service=True, itm_status=True).first()
                     if not item_dept:
                         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Dept id does not exist!!",'error': True} 
                         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-                    queryset = Stock.objects.filter(item_isactive=True, item_type="SINGLE", item_dept=item_dept.itm_code).order_by('item_name')
+                    queryset = Stock.objects.filter(item_isactive=True, item_type="SINGLE", 
+                    item_dept=item_dept.itm_code,item_code__in=s_ids).order_by('item_name')
                 # else:
                 #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Dept id does not exist!!",'error': True} 
                 #     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
@@ -502,30 +513,32 @@ class ServiceStockViewset(viewsets.ModelViewSet):
                         if not itemrange:
                             result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Range Id does not exist!!",'error': True} 
                             return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-                        queryset = Stock.objects.filter(item_isactive=True, item_type="SINGLE", item_range=itemrange.itm_code).order_by('item_name')
+                        queryset = Stock.objects.filter(item_isactive=True, item_type="SINGLE",
+                         item_range=itemrange.itm_code,item_code__in=s_ids).order_by('item_name')
                     else:
-                        queryset = Stock.objects.filter(item_isactive=True, item_type="SINGLE", item_dept=item_dept.itm_code).order_by('item_name')
+                        queryset = Stock.objects.filter(item_isactive=True, item_type="SINGLE", 
+                        item_dept=item_dept.itm_code,item_code__in=s_ids).order_by('item_name')
             
             if request.GET.get('search',None):
                 if not request.GET.get('search',None) is None:
                     queryset = queryset.filter(Q(item_name__icontains=request.GET.get('search',None)) | Q(item_desc__icontains=request.GET.get('search',None)))
             
-            stock_lst = [i.pk for i in queryset if ItemStocklist.objects.filter(item_code=i.item_code,
-            itemsite_code=site.itemsite_code,itemstocklist_status=True).exists()]
+            # stock_lst = [i.pk for i in queryset if ItemStocklist.objects.filter(item_code=i.item_code,
+            # itemsite_code=site.itemsite_code,itemstocklist_status=True).exists()]
 
             systemids = Systemsetup.objects.filter(title='stockOrderBy',
             value_name='stockOrderBy',isactive=True).first()
 
             if systemids and systemids.value_data == 'item_name':
-                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_name') 
+                queryset = queryset.order_by('item_name') 
             elif systemids and systemids.value_data == 'item_seq':
-                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_seq')
+                queryset = queryset.order_by('item_seq')
             elif systemids and systemids.value_data == 'item_desc':
-                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_desc')
+                queryset = queryset.order_by('item_desc')
             elif systemids and systemids.value_data == 'item_code':
-                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_code')
+                queryset = queryset.order_by('item_code')
             else:
-                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_name') 
+                queryset = queryset.order_by('item_name') 
 
                 
             serializer_class =  StockSerializer
@@ -535,10 +548,15 @@ class ServiceStockViewset(viewsets.ModelViewSet):
             error = False
             data = None
             result=response(self,request, queryset, total, state, message, error, serializer_class, data, action=self.action)
-            v = result.get('data')
-            d = v.get("dataList")
-            for dat in d:
-                dat["item_price"] = "{:.2f}".format(float(dat['item_price'])) if dat['item_price'] else "0.00"
+            # v = result.get('data')
+            # d = v.get("dataList")
+            # for dat in d:
+            #     dat["item_price"] = "{:.2f}".format(float(dat['item_price'])) if dat['item_price'] else "0.00"
+        
+            # now1 = timezone.now()
+            # print(str(now1.hour) + '  ' +  str(now1.minute) + '  ' +  str(now1.second),"End hour, minute, second\n")
+            # totalh = now1.second - now.second
+            # print(totalh,"total") 
             return Response(result, status=status.HTTP_200_OK)  
         except Exception as e:
             invalid_message = str(e)
@@ -577,12 +595,17 @@ class RetailStockListViewset(viewsets.ModelViewSet):
         try:
             fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
             site = fmspw[0].loginsite
+
+            s_ids  = list(ItemStocklist.objects.filter(itemstocklist_status=True,
+            itemsite_code=site.itemsite_code,item_code__startswith="1").values_list('item_code', flat=True).distinct())
+           
             
             if request.GET.get('stock',None):
-                queryset = Stock.objects.filter(item_isactive=True, item_div__in=["1","2"]).order_by('item_name')
+                queryset = Stock.objects.filter(item_isactive=True, item_div__in=["1","2"],
+                item_code__in=s_ids).order_by('item_name')
             else:
-                queryset = Stock.objects.filter(item_isactive=True, item_div="1").order_by('item_name')
-            # print(queryset,"8888")
+                queryset = Stock.objects.filter(item_isactive=True, item_div="1",
+                item_code__in=s_ids).order_by('item_name')
 
             if request.GET.get('Item_Deptid',None):
                 if not request.GET.get('Item_Deptid',None) is None:
@@ -590,11 +613,11 @@ class RetailStockListViewset(viewsets.ModelViewSet):
                     if not item_brand:
                         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Brand id does not exist!!",'error': True} 
                         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-                    queryset = Stock.objects.filter(item_isactive=True,item_div="1",item_brand=item_brand.itm_code).order_by('item_name')
+                    queryset = Stock.objects.filter(item_isactive=True,item_div="1",item_brand=item_brand.itm_code,
+                    item_code__in=s_ids).order_by('item_name')
                 # else:
                 #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Dept id does not exist!!",'error': True} 
                 #     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-                # print("1111")
 
             if request.GET.get('Item_Rangeid',None):
                 if not request.GET.get('Item_Rangeid',None) is None:
@@ -603,15 +626,15 @@ class RetailStockListViewset(viewsets.ModelViewSet):
                         if not itemrange:
                             result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Range Id does not exist!!",'error': True} 
                             return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-                        queryset = Stock.objects.filter(item_isactive=True,item_div="1", item_range=itemrange.itm_code).order_by('item_name')
+                        queryset = Stock.objects.filter(item_isactive=True,item_div="1", item_range=itemrange.itm_code,
+                        item_code__in=s_ids).order_by('item_name')
                     else:
-                        queryset = Stock.objects.filter(item_isactive=True,item_div="1", item_brand=item_brand.itm_code).order_by('item_name')
-                # print("222")
+                        queryset = Stock.objects.filter(item_isactive=True,item_div="1", item_brand=item_brand.itm_code,
+                        item_code__in=s_ids).order_by('item_name')
 
             if request.GET.get('search',None):
                 if not request.GET.get('search',None) is None:
                     queryset = queryset.filter(Q(item_name__icontains=request.GET.get('search',None)) | Q(item_desc__icontains=request.GET.get('search',None)))
-                # print("3333")
 
             systemids = Systemsetup.objects.filter(title='stockOrderBy',
             value_name='stockOrderBy',isactive=True).first()
@@ -627,24 +650,18 @@ class RetailStockListViewset(viewsets.ModelViewSet):
             else:
                 queryset = queryset.order_by('item_name') 
  
-            limit = int(request.GET.get('limit',10)) if request.GET.get('limit',10) else 10
+            limit = int(request.GET.get('limit',12)) if request.GET.get('limit',12) else 12
             page = int(request.GET.get('page',1)) if request.GET.get('page',1) else 1
             if page <= 0:
                 raise Exception('Page less than one not allowed!!') 
             
-            # print(queryset,len(queryset),"queryset*******")
             length = len(queryset)
-            # queryset = list(set(queryset.values_list('item_code',flat=True).distinct()))[:500]
             paginator = Paginator(queryset, limit) # chunks of 1000
-            # print(paginator,"paginator")
             total_page = 1;total = len(queryset)
-            # print(total_page,"total_page")
             if len(queryset) > int(limit):
                 total_page = math.ceil(len(queryset)/int(limit))
 
-            # per = paginator.page(page)
-            # print(per,"PPPPPPPPPPPPPPPPPP")
-                
+           
 
             if queryset:
                 if int(page) > total_page:
@@ -653,99 +670,48 @@ class RetailStockListViewset(viewsets.ModelViewSet):
                     'dataList': []}}
                     return Response(result, status=status.HTTP_200_OK) 
             
-            # stock_lst = [i.pk for i in queryset if ItemStocklist.objects.filter(item_code=i.item_code,
-            # itemsite_code=site.itemsite_code,itemstocklist_status=True).exists()]
-
-            # print(len(queryset),"kk")  
-
-            # print(paginator.num_pages,"paginator.num_pages")
-            # for page_idx in range(1, paginator.num_pages+1):
-                # print(page_idx,type(page_idx),type(page),"KKKKKKKKKKKKKKKKKKKKK")
-                # print(paginator.page(1).object_list,"hhh")
-                # if page_idx == page:
-                # print("lll")
-                
-                # if page_idx == page:
-                    
+          
             lst = [] 
-            # length = len(paginator.page(page_idx).object_list)
             for row in paginator.page(page).object_list:
-                # print(row,"row")
                 q = row
                 stock = Stock.objects.filter(item_isactive=True, pk=q.pk).first()
-                # print(stock,"stock")
-                
-                item_ids = ItemStocklist.objects.filter(item_code=stock.item_code,itemsite_code=site.itemsite_code,itemstocklist_status=True).exists()
-                # print(item_ids,"item_ids")
-                # print(row,type(row),"row")
-                # print("RRRR")
-                
+              
                 uomlst = []
                 
-                
-                
-                if item_ids:
-                    itemuomprice = ItemUomprice.objects.filter(isactive=True, item_code=stock.item_code).order_by('id')
-                    # print(itemuomprice,"itemuomprice")
-                    for i in itemuomprice:
-                        itemuom = ItemUom.objects.filter(uom_isactive=True,uom_code=i.item_uom).order_by('id').first()
-                        if itemuom:
-                            itemuom_id = int(itemuom.id)
-                            itemuom_desc = itemuom.uom_desc
+                itemuomprice = ItemUomprice.objects.filter(isactive=True, item_code=stock.item_code).order_by('id')
+                for i in itemuomprice:
+                    itemuom = ItemUom.objects.filter(uom_isactive=True,uom_code=i.item_uom).order_by('id').first()
+                    if itemuom:
+                        itemuom_id = int(itemuom.id)
+                        itemuom_desc = itemuom.uom_desc
 
-                            batch = ItemBatch.objects.filter(item_code=stock.item_code,site_code=site.itemsite_code,
-                            uom=itemuom.uom_code).order_by('-pk').last()
-                            # print(batch,"batch")
+                        batch = ItemBatch.objects.filter(item_code=stock.item_code,site_code=site.itemsite_code,
+                        uom=itemuom.uom_code).order_by('-pk').last()
 
-                            uom = {
-                                    "itemuomprice_id": int(i.id),
-                                    "item_uom": i.item_uom,
-                                    "uom_desc": i.uom_desc,
-                                    "item_price": "{:.2f}".format(float(i.item_price)),
-                                    "itemuom_id": itemuom_id, 
-                                    "itemuom_desc" : itemuom_desc,
-                                    "onhand_qty": int(batch.qty) if batch else 0
-                                    }
-                            uomlst.append(uom)
+                        uom = {
+                                "itemuomprice_id": int(i.id),
+                                "item_uom": i.item_uom,
+                                "uom_desc": i.uom_desc,
+                                "item_price": "{:.2f}".format(float(i.item_price)),
+                                "itemuom_id": itemuom_id, 
+                                "itemuom_desc" : itemuom_desc,
+                                "onhand_qty": int(batch.qty) if batch else 0
+                                }
+                        uomlst.append(uom)
+                
+            
+                serializer = StockRetailSerializer(stock)
+                dvl = serializer.data
+                dvl.update({'uomprice': uomlst}) 
+                if uomlst != []:
+                    lst.append(dvl)
                     
-                    # 'Stock_PIC':row.Stock_PIC,
-                
-                    serializer = StockRetailSerializer(stock)
-                    # print(serializer.data,"DDD")
-                    dvl = serializer.data
-                    dvl.update({'uomprice': uomlst}) 
-                    if uomlst != []:
-                        # lst.append(q)
-                        lst.append(dvl)
                         
-                        # print(uomlst,"uomlst")
-
-            # print(lst,"lst")
-
             result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
             'data': {'meta': {'pagination': {"per_page":limit,"current_page":page,"total":total,
             "total_pages":total_page}}, 'dataList': lst}}  
             return Response(result, status=status.HTTP_200_OK)
-                    
-
-           
-            # stock_lst = [i.pk for i in queryset if ItemStocklist.objects.filter(item_code=i.item_code,
-            # itemsite_code=site.itemsite_code,itemstocklist_status=True).exists()]
-           
-            # queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_name') 
-
-            # serializer_class =  StockRetailSerializer
-            # total = len(queryset)
-            # state = status.HTTP_200_OK
-            # message = "Listed Succesfully"
-            # error = False
-            # data = None
-            # result=response(self,request, queryset, total, state, message, error, serializer_class, data, action=self.action)
-            # v = result.get('data')
-            # d = v.get("dataList")
-            # lst = []
-            
-            # for dat in d:
+          
                   
         except Exception as e:
             invalid_message = str(e)
@@ -834,14 +800,20 @@ class PackageStockViewset(viewsets.ModelViewSet):
         try:
             fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
             site = fmspw[0].loginsite
-            queryset = Stock.objects.filter(item_isactive=True, item_type="PACKAGE", item_div="3").order_by('item_name')
+
+            s_ids  = list(ItemStocklist.objects.filter(itemstocklist_status=True,
+            itemsite_code=site.itemsite_code,item_code__startswith="3").values_list('item_code', flat=True).distinct())
+           
+            queryset = Stock.objects.filter(item_isactive=True, item_type="PACKAGE", item_div="3",
+            item_code__in=s_ids).order_by('item_name')
             if request.GET.get('Item_Deptid',None):
                 if not request.GET.get('Item_Deptid',None) is None:
                     item_dept = ItemDept.objects.filter(pk=request.GET.get('Item_Deptid',None), is_service=True, itm_status=True).first()
                     if not item_dept:
                         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Dept id does not exist!!",'error': True} 
                         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-                    queryset = Stock.objects.filter(item_isactive=True, item_type="PACKAGE", item_dept=item_dept.itm_code).order_by('item_name')
+                    queryset = Stock.objects.filter(item_isactive=True, item_type="PACKAGE", item_dept=item_dept.itm_code,
+                    item_code__in=s_ids).order_by('item_name')
                 # else:
                 #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Dept id does not exist!!",'error': True} 
                 #     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
@@ -853,16 +825,18 @@ class PackageStockViewset(viewsets.ModelViewSet):
                         if not itemrange:
                             result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Range Id does not exist!!",'error': True} 
                             return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-                        queryset = Stock.objects.filter(item_isactive=True, item_type="PACKAGE", item_range=itemrange.itm_code).order_by('item_name')
+                        queryset = Stock.objects.filter(item_isactive=True, item_type="PACKAGE", item_range=itemrange.itm_code,
+                        item_code__in=s_ids).order_by('item_name')
                     else:
-                        queryset = Stock.objects.filter(item_isactive=True, item_type="PACKAGE", item_dept=item_dept.itm_code).order_by('item_name')
+                        queryset = Stock.objects.filter(item_isactive=True, item_type="PACKAGE", item_dept=item_dept.itm_code,
+                        item_code__in=s_ids).order_by('item_name')
             
             if request.GET.get('search',None):
                 if not request.GET.get('search',None) is None:
                     queryset = queryset.filter(Q(item_name__icontains=request.GET.get('search',None)) | Q(item_desc__icontains=request.GET.get('search',None)))
             
-            stock_lst = [i.pk for i in queryset if ItemStocklist.objects.filter(item_code=i.item_code,itemsite_code=site.itemsite_code,
-            itemstocklist_status=True).exists()]
+            # stock_lst = [i.pk for i in queryset if ItemStocklist.objects.filter(item_code=i.item_code,itemsite_code=site.itemsite_code,
+            # itemstocklist_status=True).exists()]
            
             
 
@@ -870,15 +844,15 @@ class PackageStockViewset(viewsets.ModelViewSet):
             value_name='stockOrderBy',isactive=True).first()
 
             if systemids and systemids.value_data == 'item_name':
-                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_name') 
+                queryset = queryset.order_by('item_name') 
             elif systemids and systemids.value_data == 'item_seq':
-                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_seq')
+                queryset = queryset.order_by('item_seq')
             elif systemids and systemids.value_data == 'item_desc':
-                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_desc')
+                queryset = queryset.order_by('item_desc')
             elif systemids and systemids.value_data == 'item_code':
-                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_code')
+                queryset = queryset.order_by('item_code')
             else:
-                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_name') 
+                queryset = queryset.order_by('item_name') 
 
 
             serializer_class =  StockSerializer
@@ -888,10 +862,10 @@ class PackageStockViewset(viewsets.ModelViewSet):
             error = False
             data = None
             result=response(self,request, queryset, total, state, message, error, serializer_class, data, action=self.action)
-            v = result.get('data')
-            d = v.get("dataList")
-            for dat in d:
-                dat["item_price"] = "{:.2f}".format(float(dat['item_price']))
+            # v = result.get('data')
+            # d = v.get("dataList")
+            # for dat in d:
+            #     dat["item_price"] = "{:.2f}".format(float(dat['item_price']))
             return Response(result, status=status.HTTP_200_OK)   
         except Exception as e:
             invalid_message = str(e)
@@ -968,14 +942,20 @@ class PrepaidStockViewset(viewsets.ModelViewSet):
         try:
             fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
             site = fmspw[0].loginsite
-            queryset = Stock.objects.filter(item_isactive=True, item_div="5").order_by('item_name')
+
+            s_ids  = list(ItemStocklist.objects.filter(itemstocklist_status=True,
+            itemsite_code=site.itemsite_code,item_code__startswith="5").values_list('item_code', flat=True).distinct())
+           
+            queryset = Stock.objects.filter(item_isactive=True, item_div="5",
+            item_code__in=s_ids).order_by('item_name')
             if request.GET.get('Item_Deptid',None):
                 if not request.GET.get('Item_Deptid',None) is None:
                     item_brand = ItemBrand.objects.filter(pk=request.GET.get('Item_Deptid',None), prepaid_brand=True).first()
                     if not item_brand:
                         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Dept id does not exist!!",'error': True} 
                         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-                    queryset = Stock.objects.filter(item_isactive=True, item_brand=item_brand.itm_code).order_by('item_name')
+                    queryset = Stock.objects.filter(item_isactive=True, item_brand=item_brand.itm_code,
+                    item_code__in=s_ids).order_by('item_name')
                 # else:
                 #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Dept id does not exist!!",'error': True} 
                 #     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
@@ -987,32 +967,34 @@ class PrepaidStockViewset(viewsets.ModelViewSet):
                         if not itemrange:
                             result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Range Id does not exist!!",'error': True} 
                             return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-                        queryset = Stock.objects.filter(item_isactive=True, item_range=itemrange.itm_code).order_by('item_name')
+                        queryset = Stock.objects.filter(item_isactive=True, item_range=itemrange.itm_code,
+                        item_code__in=s_ids).order_by('item_name')
                     else:
-                        queryset = Stock.objects.filter(item_isactive=True, item_brand=item_brand.itm_code).order_by('item_name')
+                        queryset = Stock.objects.filter(item_isactive=True, item_brand=item_brand.itm_code,
+                        item_code__in=s_ids).order_by('item_name')
 
             if request.GET.get('search',None):
                 if not request.GET.get('search',None) is None:
                     queryset = queryset.filter(Q(item_name__icontains=request.GET.get('search',None)) | Q(item_desc__icontains=request.GET.get('search',None)))
             
 
-            stock_lst = [i.pk for i in queryset if ItemStocklist.objects.filter(item_code=i.item_code,itemsite_code=site.itemsite_code,
-            itemstocklist_status=True).exists()]
+            # stock_lst = [i.pk for i in queryset if ItemStocklist.objects.filter(item_code=i.item_code,itemsite_code=site.itemsite_code,
+            # itemstocklist_status=True).exists()]
            
             
             systemids = Systemsetup.objects.filter(title='stockOrderBy',
             value_name='stockOrderBy',isactive=True).first()
 
             if systemids and systemids.value_data == 'item_name':
-                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_name') 
+                queryset = queryset.order_by('item_name') 
             elif systemids and systemids.value_data == 'item_seq':
-                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_seq')
+                queryset = queryset.order_by('item_seq')
             elif systemids and systemids.value_data == 'item_desc':
-                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_desc')
+                queryset = queryset.order_by('item_desc')
             elif systemids and systemids.value_data == 'item_code':
-                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_code')
+                queryset = queryset.order_by('item_code')
             else:
-                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_name')
+                queryset = queryset.order_by('item_name')
  
 
             serializer_class =  StockSerializer
@@ -1022,11 +1004,11 @@ class PrepaidStockViewset(viewsets.ModelViewSet):
             error = False
             data = None
             result=response(self,request, queryset, total, state, message, error, serializer_class, data, action=self.action)
-            v = result.get('data')
-            d = v.get("dataList")
-            for dat in d:
-                dat["item_price"] = "{:.2f}".format(float(dat['item_price'])) if dat['item_price'] else "0.00" 
-                dat["prepaid_value"] = "{:.2f}".format(float(dat['prepaid_value'])) if dat['prepaid_value'] else "0.00"
+            # v = result.get('data')
+            # d = v.get("dataList")
+            # for dat in d:
+            #     dat["item_price"] = "{:.2f}".format(float(dat['item_price'])) if dat['item_price'] else "0.00" 
+            #     dat["prepaid_value"] = "{:.2f}".format(float(dat['prepaid_value'])) if dat['prepaid_value'] else "0.00"
             return Response(result, status=status.HTTP_200_OK)
         except Exception as e:
             invalid_message = str(e)
@@ -1064,7 +1046,12 @@ class VoucherStockViewset(viewsets.ModelViewSet):
         try:
             fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
             site = fmspw[0].loginsite
-            queryset = Stock.objects.filter(item_isactive=True,  item_div="4").order_by('item_name')
+
+            s_ids  = list(ItemStocklist.objects.filter(itemstocklist_status=True,
+            itemsite_code=site.itemsite_code,item_code__startswith="4").values_list('item_code', flat=True).distinct())
+           
+            queryset = Stock.objects.filter(item_isactive=True,  item_div="4",
+            item_code__in=s_ids).order_by('item_name')
 
             if request.GET.get('Item_Deptid',None):
                 if not request.GET.get('Item_Deptid',None) is None:
@@ -1072,7 +1059,8 @@ class VoucherStockViewset(viewsets.ModelViewSet):
                     if not item_brand:
                         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Dept id does not exist!!",'error': True} 
                         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-                    queryset = Stock.objects.filter(item_isactive=True, item_brand=item_brand.itm_code).order_by('item_name')
+                    queryset = Stock.objects.filter(item_isactive=True, item_brand=item_brand.itm_code,
+                    item_code__in=s_ids).order_by('item_name')
 
                 # else:
                 #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Dept id does not exist!!",'error': True} 
@@ -1085,32 +1073,34 @@ class VoucherStockViewset(viewsets.ModelViewSet):
                         if not itemrange:
                             result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Range Id does not exist!!",'error': True} 
                             return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-                        queryset = Stock.objects.filter(item_isactive=True, item_range=itemrange.itm_code).order_by('item_name')
+                        queryset = Stock.objects.filter(item_isactive=True, item_range=itemrange.itm_code,
+                        item_code__in=s_ids).order_by('item_name')
                     else:
-                        queryset = Stock.objects.filter(item_isactive=True, item_brand=item_brand.itm_code).order_by('item_name')
+                        queryset = Stock.objects.filter(item_isactive=True, item_brand=item_brand.itm_code,
+                        item_code__in=s_ids).order_by('item_name')
             
             if request.GET.get('search',None):
                 if not request.GET.get('search',None) is None:
                     queryset = queryset.filter(Q(item_name__icontains=request.GET.get('search',None)) | Q(item_desc__icontains=request.GET.get('search',None)))
 
 
-            stock_lst = [i.pk for i in queryset if ItemStocklist.objects.filter(item_code=i.item_code,itemsite_code=site.itemsite_code,
-            itemstocklist_status=True).exists()]
+            # stock_lst = [i.pk for i in queryset if ItemStocklist.objects.filter(item_code=i.item_code,itemsite_code=site.itemsite_code,
+            # itemstocklist_status=True).exists()]
            
             
             systemids = Systemsetup.objects.filter(title='stockOrderBy',
             value_name='stockOrderBy',isactive=True).first()
 
             if systemids and systemids.value_data == 'item_name':
-                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_name') 
+                queryset = queryset.order_by('item_name') 
             elif systemids and systemids.value_data == 'item_seq':
-                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_seq')
+                queryset = queryset.order_by('item_seq')
             elif systemids and systemids.value_data == 'item_desc':
-                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_desc')
+                queryset = queryset.order_by('item_desc')
             elif systemids and systemids.value_data == 'item_code':
-                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_code')
+                queryset = queryset.order_by('item_code')
             else:
-                queryset = Stock.objects.filter(pk__in=stock_lst).order_by('item_name') 
+                queryset = queryset.order_by('item_name') 
  
 
             serializer_class =  StockSerializer
@@ -1120,10 +1110,10 @@ class VoucherStockViewset(viewsets.ModelViewSet):
             error = False
             data = None
             result=response(self,request, queryset, total, state, message, error, serializer_class, data, action=self.action)
-            v = result.get('data')
-            d = v.get("dataList")
-            for dat in d:
-                dat["item_price"] = "{:.2f}".format(float(dat['item_price'])) if dat['item_price'] else "0.00"
+            # v = result.get('data')
+            # d = v.get("dataList")
+            # for dat in d:
+            #     dat["item_price"] = "{:.2f}".format(float(dat['item_price'])) if dat['item_price'] else "0.00"
             return Response(result, status=status.HTTP_200_OK) 
         except Exception as e:
             invalid_message = str(e)
@@ -2699,7 +2689,33 @@ class TreatmentDoneNewViewset(viewsets.ModelViewSet):
     #         invalid_message = str(e)
     #         return general_error_response(invalid_message)          
     
-    
+    # treatmentids = Treatment.objects.filter(cust_code=cust_obj.cust_code,
+    # treatment_parentcode=trmt_obj.treatment_parentcode,status="Open").only('pk').order_by('pk').values_list('pk', flat=True).distinct()
+    # print(treatmentids,"treatmentids")
+    # if row.type == 'N':
+    #     query = row
+    # elif row.type in ['FFd','FFi']:
+    #     if expiry and treatment_limit_times is not None:
+    #         if expiry >= str(date.today()):
+    #             if treatment_limit_times > done_ids or treatment_limit_times == 0:
+    #                 query = row
+    #         else:
+    #             flsystem_ids = Systemsetup.objects.filter(title='flexitdexpiredlist',value_name='flexitdexpiredlist',value_data='True',isactive=True).first()
+    #             if flsystem_ids: 
+    #                 if treatment_limit_times > done_ids or treatment_limit_times == 0:
+    #                     query = row        
+    #     else:
+    #         if treatment_limit_times is not None:
+    #             if treatment_limit_times > done_ids or treatment_limit_times == 0:
+    #                 query = row
+    # trmtAccObj = TreatmentAccount.objects.filter(cust_code=cust_obj.cust_code,treatment_parentcode=row.treatment_parentcode).order_by('-sa_date','-sa_time','-id').first()
+    # # print(trmtAccObj,"trmtAccObj")
+    # if trmtAccObj:
+    #     balance = "{:.2f}".format(float(trmtAccObj.balance)) if trmtAccObj.balance else "0.00"
+    #     ar = "{:.2f}".format(float(trmtAccObj.outstanding)) if trmtAccObj.outstanding else "0.00"
+
+
+
     #new code given by yoouns
     def list(self, request):
         try:
@@ -2776,142 +2792,75 @@ class TreatmentDoneNewViewset(viewsets.ModelViewSet):
                     # print(queryset,"queryset")
                 except (EmptyPage, InvalidPage):
                     queryset = paginator.page(total_page) # last page
-                treatmentids = []
+                    
                 data_list= []
                 for row in queryset:
                     trmt_obj = row ;is_allow=False
-                    session = 0; balance = "0.00"; ar= "0.00" 
-                    #done_ids = Treatment.objects.filter(treatment_parentcode=row.treatment_parentcode,status="Done").order_by('pk').count()
-                    #open_ids = Treatment.objects.filter(treatment_parentcode=trmt_obj.treatment_parentcode,status="Open").only('pk').order_by('pk').count()
-                    done_ids = row.done_session
-                    open_ids = row.open_session
+                    a = row.item_code
+                    v = a[-4:]
+                    # print(v,type(v),"v")
+                    if v == '0000':
+                        code = str(row.item_code)[:-4]
+                    else:
+                        code = str(row.item_code)    
                     
-                    # treatmentids = []
-                    treatmentids = Treatment.objects.filter(cust_code=cust_obj.cust_code,
-                    treatment_parentcode=trmt_obj.treatment_parentcode,status="Open").only('pk').order_by('pk').values_list('pk', flat=True).distinct()
-                    # print(treatmentids,"treatmentids")
-                    # for oneids in trmtparobj:
-                    #     treatmentids.append(oneids.pk)
-
-                    #cur = None
-                    #for t1 in Treatment.objects.filter(cust_code=cust_obj.cust_code,treatment_parentcode=trmt_obj.treatment_parentcode,status="Open").only('pk').order_by('pk').iterator():
-                    #    if cur != t1.pk:
-                    #        treatmentids.append(t1.pk)
-                    #        cur = t1.pk
-
-                    last_ids = Treatment.objects.filter(cust_code=cust_obj.cust_code,treatment_parentcode=row.treatment_parentcode).order_by('-pk').first()
-
-                    expiry = False; query = False;expiry_date = ""
+                    expiry_date = ""
                     if row.expiry_date:
                         splte = str(row.expiry_date).split(' ')
                         expiry = splte[0]
                         expiry_date = datetime.datetime.strptime(str(splte[0]), "%Y-%m-%d").strftime("%d-%b-%y")
                     
-                    treatment_limit_times = row.treatment_limit_times
+                    flexiservice_ids = ItemFlexiservice.objects.filter(item_code=str(code),
+                    itm_isactive=True)
+                    search_ids = TmpTreatmentSession.objects.filter(treatment_parentcode=trmt_obj.treatment_parentcode,
+                    created_at=date.today()).order_by('-pk').first()
+                    if not search_ids:
+                        TmpItemHelper.objects.filter(treatment__treatment_parentcode=trmt_obj.treatment_parentcode,line_no__isnull=True).delete()
 
-                    # print(q_val[0],"vv")
-                    if row.type == 'N':
-                        query = row
-                    elif row.type in ['FFd','FFi']:
-                        if expiry and treatment_limit_times is not None:
-                            if expiry >= str(date.today()):
-                                if treatment_limit_times > done_ids or treatment_limit_times == 0:
-                                    query = row
-                            else:
-                                flsystem_ids = Systemsetup.objects.filter(title='flexitdexpiredlist',value_name='flexitdexpiredlist',value_data='True',isactive=True).first()
-                                if flsystem_ids: 
-                                    if treatment_limit_times > done_ids or treatment_limit_times == 0:
-                                        query = row        
-                        else:
-                            if treatment_limit_times is not None:
-                                if treatment_limit_times > done_ids or treatment_limit_times == 0:
-                                    query = row
-
-                    
-                    if query:
-                        search_ids = TmpTreatmentSession.objects.filter(treatment_parentcode=trmt_obj.treatment_parentcode,
-                        created_at=date.today()).order_by('-pk').first()
-                        if not search_ids:
-                            TmpItemHelper.objects.filter(treatment__treatment_parentcode=trmt_obj.treatment_parentcode,line_no__isnull=True).delete()
-
-                        iscurrentloggedinsalon = True if site.itemsite_code == trmt_obj.site_code else False 
-                        trmtAccObj = TreatmentAccount.objects.filter(cust_code=cust_obj.cust_code,treatment_parentcode=row.treatment_parentcode).order_by('-sa_date','-sa_time','-id').first()
-                        # print(trmtAccObj,"trmtAccObj")
-                        if trmtAccObj:
-                            balance = "{:.2f}".format(float(trmtAccObj.balance)) if trmtAccObj.balance else "0.00"
-                            ar = "{:.2f}".format(float(trmtAccObj.outstanding)) if trmtAccObj.outstanding else "0.00"
-
-                        if flexi_setup and flexi_setup.value_data == 'True' and row.type == 'FFi':
-                            b21flexitype = True
-                        else:
-                            b21flexitype = False  
-
-                        session =  search_ids.session if search_ids and search_ids.session else 0
-                         
-                        session_flag = False if session == 0 else True 
-                        exchange_flag = True if session > 0 else False 
-    
-                        if system_setup and system_setup.value_data == 'True' and system_obj and system_obj.value_data == 'True':
-                            if trmt_obj.site_code != site.itemsite_code or trmt_obj.site_code == site.itemsite_code:
-                                is_allow = True
-                        else:
-                            if trmt_obj.site_code == site.itemsite_code:
-                                is_allow = True  
-
-                        flexiservice_ids = ItemFlexiservice.objects.filter(item_code=str(trmt_obj.item_code),
-                        itm_isactive=True)
-                        if row.type == 'FFi' and flexiservice_ids:
-                            itemflexiservice = True
-                        else:
-                            itemflexiservice = False
-        
-                        rev = "0"+"/"+last_ids.treatment_no
-                        td = str(open_ids)+"/"+last_ids.treatment_no
-
-                        if row.type in ['FFd','FFi'] and done_ids > 0:
-                            reversal_check = False
-                        else:
-                            reversal_check = True
+                    session =  search_ids.session if search_ids and search_ids.session else 0
                         
-                       
-                        sel = True if search_ids else None  
+                    if system_setup and system_setup.value_data == 'True' and system_obj and system_obj.value_data == 'True':
+                        if trmt_obj.site_code != site.itemsite_code or trmt_obj.site_code == site.itemsite_code:
+                            is_allow = True
+                    else:
+                        if trmt_obj.site_code == site.itemsite_code:
+                            is_allow = True  
 
-                        splt = str(trmt_obj.treatment_date).split(' ')
-                        treatment_date = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d-%m-%Y")
-                        unit_amount =  "{:.2f}".format(float(trmt_obj.unit_amount)) if trmt_obj.unit_amount else "0.00"
+                    splt = str(trmt_obj.treatment_date).split(' ')
+                    treatment_date = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d-%m-%Y")
 
-                        data_list.append({
-                            "TreatmentAccountid": row.treatment_accountid.pk if row.treatment_accountid else "",
-                            "balance": balance,
-                            "ar": ar,
-                            "b21flexitype": b21flexitype,
-                            "course": row.course,
-                            "done_sessioncnt": done_ids,
-                            "session_flag": session_flag,
-                            "exchange_flag" : exchange_flag,
-                            "expiry_date" : expiry_date,
-                            "is_allow" : is_allow,
-                            "is_reversal" : fmspw[0].is_reversal,
-                            "iscurrentloggedinsalon": iscurrentloggedinsalon,
-                            "item_code" : str(trmt_obj.item_code),
-                            "itemflexiservice" : itemflexiservice,
-                            "open" : open_ids,
-                            "rev": rev,
-                            "td":td,
-                            "reversal_check": reversal_check, 
-                            "sel": sel,
-                            "session" : session,
-                            "site_code" :  trmt_obj.site_code,
-                            "stockid" :  trmt_obj.Item_Codeid.pk if trmt_obj.Item_Codeid else "",
-                            "transacno_ref": trmt_obj.sa_transacno_ref,
-                            "treatment_code" : trmt_obj.treatment_parentcode,
-                            "treatment_date" : treatment_date,
-                            "treatment_limit_times": trmt_obj.treatment_limit_times,
-                            "type" : trmt_obj.type,
-                            "treatmentids" : treatmentids,
-                            "unit_amount" : unit_amount
-                        })        
-                    
+                    data_list.append({
+                        "TreatmentAccountid": row.treatment_accountid.pk if row.treatment_accountid else "",
+                        "balance": "{:.2f}".format(float(row.balance)) if row.balance else "0.00",
+                        "ar": "{:.2f}".format(float(row.outstanding)) if row.outstanding else "0.00",
+                        "b21flexitype":True if flexi_setup and flexi_setup.value_data == 'True' and row.type == 'FFi' else False,
+                        "course": row.course,
+                        "done_sessioncnt": row.done_session,
+                        "session_flag": False if session == 0 else True,
+                        "exchange_flag" : True if session > 0 else False ,
+                        "expiry_date" : expiry_date,
+                        "is_allow" : is_allow,
+                        "is_reversal" : fmspw[0].is_reversal,
+                        "iscurrentloggedinsalon": True if site.itemsite_code == row.site_code else False ,
+                        "item_code" : code,
+                        "itemflexiservice" : True if row.type == 'FFi' and flexiservice_ids else False,
+                        "open" : row.open_session,
+                        "rev": "0"+"/"+row.treatment_no,
+                        "td":str(row.open_session)+"/"+row.treatment_no,
+                        "reversal_check": False if row.type in ['FFd','FFi'] and row.done_session > 0 else True, 
+                        "sel": True if search_ids else None ,
+                        "session" : session,
+                        "site_code" :  trmt_obj.site_code,
+                        "stockid" :  trmt_obj.Item_Codeid.pk if trmt_obj.Item_Codeid  else '' ,
+                        "transacno_ref": trmt_obj.sa_transacno_ref,
+                        "treatment_code" : trmt_obj.treatment_parentcode,
+                        "treatment_date" : treatment_date,
+                        "treatment_limit_times": row.treatment_limit_times,
+                        "type" : row.type,
+                        "treatmentids" : json.loads(row.treatmentids) if row.treatmentids else [],
+                        "unit_amount" : "{:.2f}".format(float(row.unit_amount))
+                    })        
+                
                
                 resData = {
                     'dataList': data_list,
@@ -5151,9 +5100,18 @@ class ReversalListViewset(viewsets.ModelViewSet):
                         stptdone_ids = Treatment.objects.filter(treatment_parentcode=treat_obj.treatment_parentcode,status="Done").order_by('pk').count()
                         stptcancel_ids = Treatment.objects.filter(treatment_parentcode=treat_obj.treatment_parentcode,status="Cancel").order_by('pk').count()
                         stptopen_ids = Treatment.objects.filter(treatment_parentcode=treat_obj.treatment_parentcode,status="Open").order_by('pk').count()
+                        
+                        trmtAccObj = TreatmentAccount.objects.filter(treatment_parentcode=treat_obj.treatment_parentcode).order_by('-sa_date','-sa_time','-id').first()
+                        treatmids = list(Treatment.objects.filter(
+                        treatment_parentcode=treat_obj.treatment_parentcode,status="Open").only('pk').order_by('pk').values_list('pk', flat=True).distinct())
+                        
                         searcids.open_session = stptopen_ids
                         searcids.done_session = stptdone_ids
                         searcids.cancel_session = stptcancel_ids
+
+                        searcids.balance = "{:.2f}".format(float(trmtAccObj.balance)) 
+                        searcids.outstanding = "{:.2f}".format(float(trmtAccObj.outstanding))
+                        searcids.treatmentids = treatmids
                         searcids.save()
             
                 if lst != [] and trm_lst != []:
@@ -6274,20 +6232,7 @@ class VoidViewset(viewsets.ModelViewSet):
                                 for trt in treat_ids:
                                     Treatment.objects.filter(pk=trt.pk).update(status="Cancel",sa_status="VOID")
 
-                                if treat_ids:
-                                    p_ids = list(set(treat_ids.values_list('treatment_parentcode', flat=True).distinct()))
-                                    if p_ids:
-                                        for p in p_ids:
-                                            searc_ids = TreatmentPackage.objects.filter(treatment_parentcode=p).first()
-                                            if searc_ids:
-                                                stptdone_ids = Treatment.objects.filter(treatment_parentcode=p,status="Done").order_by('pk').count()
-                                                stptcancel_ids = Treatment.objects.filter(treatment_parentcode=p,status="Cancel").order_by('pk').count()
-                                                stptopen_ids = Treatment.objects.filter(treatment_parentcode=p,status="Open").order_by('pk').count()
-                                                searc_ids.open_session = stptopen_ids
-                                                searc_ids.done_session = stptdone_ids
-                                                searc_ids.cancel_session = stptcancel_ids
-                                                searc_ids.save()
-    
+                                
                                 
                                 #sal_acc_ids = TreatmentAccount.objects.filter(sa_transacno=haudobj.sa_transacno,type='Sales',
                                 #cust_code=haudobj.sa_custno,site_code=site.itemsite_code)
@@ -6299,6 +6244,31 @@ class VoidViewset(viewsets.ModelViewSet):
                                     treatmentcode=sal.ref_no,itemsite_code=site.itemsite_code).update(appt_status="Cancelled")
                                     master_ids = Treatment_Master.objects.filter(sa_transacno=sal.ref_transacno,
                                     treatment_code=sal.ref_no,site_code=site.itemsite_code).update(status="Cancel")
+                                
+                                if treat_ids:
+                                    p_ids = list(set(treat_ids.values_list('treatment_parentcode', flat=True).distinct()))
+                                    if p_ids:
+                                        for p in p_ids:
+                                            searc_ids = TreatmentPackage.objects.filter(treatment_parentcode=p).first()
+                                            if searc_ids:
+                                                stptdone_ids = Treatment.objects.filter(treatment_parentcode=p,status="Done").order_by('pk').count()
+                                                stptcancel_ids = Treatment.objects.filter(treatment_parentcode=p,status="Cancel").order_by('pk').count()
+                                                stptopen_ids = Treatment.objects.filter(treatment_parentcode=p,status="Open").order_by('pk').count()
+                                                
+                                                trmtAccObj = TreatmentAccount.objects.filter(treatment_parentcode=p).order_by('-sa_date','-sa_time','-id').first()
+                                                treatmids = list(Treatment.objects.filter(
+                                                treatment_parentcode=p,status="Open").only('pk').order_by('pk').values_list('pk', flat=True).distinct())
+                                                
+                                                
+                                                searc_ids.open_session = stptopen_ids
+                                                searc_ids.done_session = stptdone_ids
+                                                searc_ids.cancel_session = stptcancel_ids
+                                                
+                                                searc_ids.balance = "{:.2f}".format(float(trmtAccObj.balance)) 
+                                                searc_ids.outstanding = "{:.2f}".format(float(trmtAccObj.outstanding))
+                                                searc_ids.treatmentids = treatmids
+                                                searc_ids.save()
+     
 
                                 if d.dt_itemnoid.item_type == 'PACKAGE':
                                     #prepaid
@@ -6417,6 +6387,13 @@ class VoidViewset(viewsets.ModelViewSet):
                                     sa_staffname=ac.sa_staffname,next_paydate=ac.next_paydate,hasduedate=ac.hasduedate,
                                     dt_lineno=ac.dt_lineno,lpackage=ac.lpackage,package_code=ac.package_code,Site_Codeid=ac.Site_Codeid,
                                     site_code=ac.site_code,treat_code=ac.treat_code,focreason=ac.focreason,itemcart=cart_obj).save()
+
+                                    searcids = TreatmentPackage.objects.filter(treatment_parentcode=ac.treatment_parentcode).first()
+                                    if searcids:
+                                        trmtAccObj = TreatmentAccount.objects.filter(treatment_parentcode=ac.treatment_parentcode).order_by('-sa_date','-sa_time','-id').first()
+                                        searcids.balance = "{:.2f}".format(float(trmtAccObj.balance)) 
+                                        searcids.outstanding = "{:.2f}".format(float(trmtAccObj.outstanding))
+                                        searcids.save()
                                 
                             elif d.itemcart.type == 'Sales':
                                 #sacc_ids = TreatmentAccount.objects.filter(sa_transacno=haudobj.sa_transacno,type='Sales',
@@ -6536,45 +6513,6 @@ class VoidViewset(viewsets.ModelViewSet):
                                                     stock_in=None,trans_package_line_no=None,trn_post=currentdate,
                                                     trn_date=currentdate).save()
 
-                                if d.itemcart.multi_treat.all().exists():        
-                                    ct = d.itemcart.multi_treat.all()[0]
-                                    searcids = TreatmentPackage.objects.filter(treatment_parentcode=ct.treatment_parentcode).first()
-                                    if ct.type in ['FFi','FFd']:
-                                        ef_done_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Done").order_by('pk').count()
-                                        ef_open_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Open").order_by('pk')
-                                        if not ef_open_ids:
-                                            if ct.treatment_limit_times > ef_done_ids or ct.treatment_limit_times == 0:
-                                                efd_treat_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Done").order_by('-pk').first()
-                                                times_ve = str(int(efd_treat_ids.times) + 1).zfill(2)
-                                                treatment_coder = ct.treatment_parentcode+"-"+times_ve
-                                               
-                                                treatids = Treatment(treatment_code=treatment_coder,course=searcids.course,times=times_ve,
-                                                treatment_no=times_ve,price=searcids.totalprice,treatment_date=date.today(),
-                                                next_appt=ct.next_appt,cust_name=ct.cust_name,Cust_Codeid=ct.Cust_Codeid,
-                                                cust_code=ct.cust_code,status="Open",unit_amount=0,
-                                                Item_Codeid=searcids.Item_Codeid,item_code=str(searcids.Item_Codeid.item_code)+"0000",treatment_parentcode=ct.treatment_parentcode,
-                                                prescription=ct.prescription,allergy=ct.allergy,sa_transacno=ct.sa_transacno,
-                                                sa_status=ct.sa_status,record_status=ct.record_status,appt_time=ct.appt_time,
-                                                remarks=ct.remarks,duration=ct.duration,hold_item=ct.hold_item,transaction_time=ct.transaction_time,
-                                                dt_lineno=ct.dt_lineno,expiry=ct.expiry,lpackage=ct.lpackage,package_code=ct.package_code,
-                                                Site_Codeid=ct.Site_Codeid,site_code=ct.site_code,type=ct.type,treatment_limit_times=ct.treatment_limit_times,
-                                                treatment_count_done=ct.treatment_count_done,treatment_history_last_modify=ct.treatment_history_last_modify,
-                                                service_itembarcode=ct.service_itembarcode,isfoc=ct.isfoc,Trmt_Room_Codeid=ct.Trmt_Room_Codeid,
-                                                trmt_room_code=ct.trmt_room_code,trmt_is_auto_proportion=ct.trmt_is_auto_proportion,
-                                                smsout=ct.smsout,emailout=ct.emailout,treatment_account=ct.treatment_account).save()
-
-                                       
-                                    
-                                    if searcids:
-                                        stptdone_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Done").order_by('pk').count()
-                                        stptcancel_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Cancel").order_by('pk').count()
-                                        stptopen_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Open").order_by('pk').count()
-                                        searcids.open_session = stptopen_ids
-                                        searcids.done_session = stptdone_ids
-                                        searcids.cancel_session = stptcancel_ids
-                                        searcids.save()
-  
-
                                 
                                 for sa in sacc_ids:
                                     # print(sa,"SAAAAAAAAAAAAAAAAAAAAA")
@@ -6608,7 +6546,57 @@ class VoidViewset(viewsets.ModelViewSet):
                                     sa_staffname=sa.sa_staffname,next_paydate=sa.next_paydate,hasduedate=sa.hasduedate,
                                     dt_lineno=sa.dt_lineno,lpackage=sa.lpackage,package_code=sa.package_code,Site_Codeid=sa.Site_Codeid,
                                     site_code=sa.site_code,treat_code=sa.treat_code,focreason=sa.focreason,itemcart=cart_obj).save()
+                                
+                                if d.itemcart.multi_treat.all().exists():        
+                                    ct = d.itemcart.multi_treat.all()[0]
+                                    searcids = TreatmentPackage.objects.filter(treatment_parentcode=ct.treatment_parentcode).first()
+                                    if ct.type in ['FFi','FFd']:
+                                        ef_done_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Done").order_by('pk').count()
+                                        ef_open_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Open").order_by('pk')
+                                        if not ef_open_ids:
+                                            if ct.treatment_limit_times > ef_done_ids or ct.treatment_limit_times == 0:
+                                                efd_treat_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Done").order_by('-pk').first()
+                                                times_ve = str(int(efd_treat_ids.times) + 1).zfill(2)
+                                                treatment_coder = ct.treatment_parentcode+"-"+times_ve
+                                               
+                                                treatids = Treatment(treatment_code=treatment_coder,course=searcids.course,times=times_ve,
+                                                treatment_no=times_ve,price=searcids.totalprice,treatment_date=date.today(),
+                                                next_appt=ct.next_appt,cust_name=ct.cust_name,Cust_Codeid=ct.Cust_Codeid,
+                                                cust_code=ct.cust_code,status="Open",unit_amount=0,
+                                                Item_Codeid=searcids.Item_Codeid,item_code=str(searcids.Item_Codeid.item_code)+"0000",treatment_parentcode=ct.treatment_parentcode,
+                                                prescription=ct.prescription,allergy=ct.allergy,sa_transacno=ct.sa_transacno,
+                                                sa_status=ct.sa_status,record_status=ct.record_status,appt_time=ct.appt_time,
+                                                remarks=ct.remarks,duration=ct.duration,hold_item=ct.hold_item,transaction_time=ct.transaction_time,
+                                                dt_lineno=ct.dt_lineno,expiry=ct.expiry,lpackage=ct.lpackage,package_code=ct.package_code,
+                                                Site_Codeid=ct.Site_Codeid,site_code=ct.site_code,type=ct.type,treatment_limit_times=ct.treatment_limit_times,
+                                                treatment_count_done=ct.treatment_count_done,treatment_history_last_modify=ct.treatment_history_last_modify,
+                                                service_itembarcode=ct.service_itembarcode,isfoc=ct.isfoc,Trmt_Room_Codeid=ct.Trmt_Room_Codeid,
+                                                trmt_room_code=ct.trmt_room_code,trmt_is_auto_proportion=ct.trmt_is_auto_proportion,
+                                                smsout=ct.smsout,emailout=ct.emailout,treatment_account=ct.treatment_account).save()
 
+                                       
+                                    
+                                    if searcids:
+                                        stptdone_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Done").order_by('pk').count()
+                                        stptcancel_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Cancel").order_by('pk').count()
+                                        stptopen_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Open").order_by('pk').count()
+                                        
+                                        trmtAccObj = TreatmentAccount.objects.filter(treatment_parentcode=ct.treatment_parentcode).order_by('-sa_date','-sa_time','-id').first()
+                                        treatmids = list(Treatment.objects.filter(
+                                        treatment_parentcode=ct.treatment_parentcode,status="Open").only('pk').order_by('pk').values_list('pk', flat=True).distinct())
+                                        
+                                        
+                                        searcids.open_session = stptopen_ids
+                                        searcids.done_session = stptdone_ids
+                                        searcids.cancel_session = stptcancel_ids
+
+                                        searcids.balance = "{:.2f}".format(float(trmtAccObj.balance)) 
+                                        searcids.outstanding = "{:.2f}".format(float(trmtAccObj.outstanding))
+                                        searcids.treatmentids = treatmids
+                                        searcids.save()
+  
+
+                                
                                 
                            
                         elif int(d.itemcart.itemcodeid.item_div) == 1:
@@ -7146,6 +7134,32 @@ class VoidViewset(viewsets.ModelViewSet):
                                                     stock_in=None,trans_package_line_no=None,
                                                     trn_post=currentdate,trn_date=currentdate).save()
 
+                                
+                                for sa in sacc_ids:
+                                    master_ids = Treatment_Master.objects.filter(sa_transacno=sa.ref_transacno,
+                                    treatment_code=sa.ref_no,site_code=site.itemsite_code).update(status="Cancel")
+                                    appt_ids = Appointment.objects.filter(sa_transacno=sa.ref_transacno,
+                                    treatmentcode=sa.ref_no,itemsite_code=site.itemsite_code).update(appt_status="Cancelled")
+        
+                                    TreatmentAccount.objects.filter(pk=sa.pk).update(sa_status='VOID')
+                                    # type__in=('Deposit', 'Top Up')
+                                    olacc_ids = TreatmentAccount.objects.filter(ref_transacno=sa.ref_transacno,
+                                    treatment_parentcode=sa.treatment_parentcode,cust_code=haudobj.sa_custno).order_by('id').last()
+
+                                    PackageAuditingLog(treatment_parentcode=sa.treatment_parentcode,
+                                    user_loginid=fmspw[0],package_type="Void",pa_qty=sa.qty if sa.qty else None).save()    
+ 
+                                    TreatmentAccount(Cust_Codeid=sa.Cust_Codeid,cust_code=sa.cust_code,
+                                    description=description,ref_no=sa.ref_no,type=sa.type,amount="{:.2f}".format(float(abs(sa.amount))),
+                                    balance="{:.2f}".format(float(olacc_ids.balance + abs(sa.amount))),user_name=sa.user_name,User_Nameid=sa.User_Nameid,
+                                    ref_transacno=sa.ref_transacno,sa_transacno=sa_transacno,qty=sa.qty,
+                                    outstanding="{:.2f}".format(float(olacc_ids.outstanding)) if olacc_ids and olacc_ids.outstanding is not None and olacc_ids.outstanding > 0 else 0,deposit=-float("{:.2f}".format(float(sa.deposit))) if sa.deposit else 0,treatment_parentcode=sa.treatment_parentcode,
+                                    treatment_code=sa.treatment_code,sa_status="SA",cas_name=fmspw[0].pw_userlogin,sa_staffno=sa.sa_staffno,
+                                    sa_staffname=sa.sa_staffname,next_paydate=sa.next_paydate,hasduedate=sa.hasduedate,
+                                    dt_lineno=sa.dt_lineno,lpackage=sa.lpackage,package_code=sa.package_code,Site_Codeid=sa.Site_Codeid,
+                                    site_code=sa.site_code,treat_code=sa.treat_code,focreason=sa.focreason,itemcart=cart_obj).save()
+
+                                
                                 if da.itemcart.multi_treat.all().exists():        
                                     ct = da.itemcart.multi_treat.all()[0]
                                     searcids = TreatmentPackage.objects.filter(treatment_parentcode=ct.treatment_parentcode).first()
@@ -7177,37 +7191,20 @@ class VoidViewset(viewsets.ModelViewSet):
                                         stptdone_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Done").order_by('pk').count()
                                         stptcancel_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Cancel").order_by('pk').count()
                                         stptopen_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Open").order_by('pk').count()
+                                        
+                                        trmtAccObj = TreatmentAccount.objects.filter(treatment_parentcode=ct.treatment_parentcode).order_by('-sa_date','-sa_time','-id').first()
+                                        treatmids = list(Treatment.objects.filter(
+                                        treatment_parentcode=ct.treatment_parentcode,status="Open").only('pk').order_by('pk').values_list('pk', flat=True).distinct())
+                  
+                                        
                                         searcids.open_session = stptopen_ids
                                         searcids.done_session = stptdone_ids
                                         searcids.cancel_session = stptcancel_ids
+                                        searcids.balance = "{:.2f}".format(float(trmtAccObj.balance)) 
+                                        searcids.outstanding = "{:.2f}".format(float(trmtAccObj.outstanding))
+                                        searcids.treatmentids = treatmids
                                         searcids.save()
                                 
-                                for sa in sacc_ids:
-                                    master_ids = Treatment_Master.objects.filter(sa_transacno=sa.ref_transacno,
-                                    treatment_code=sa.ref_no,site_code=site.itemsite_code).update(status="Cancel")
-                                    appt_ids = Appointment.objects.filter(sa_transacno=sa.ref_transacno,
-                                    treatmentcode=sa.ref_no,itemsite_code=site.itemsite_code).update(appt_status="Cancelled")
-        
-                                    TreatmentAccount.objects.filter(pk=sa.pk).update(sa_status='VOID')
-                                    # type__in=('Deposit', 'Top Up')
-                                    olacc_ids = TreatmentAccount.objects.filter(ref_transacno=sa.ref_transacno,
-                                    treatment_parentcode=sa.treatment_parentcode,cust_code=haudobj.sa_custno).order_by('id').last()
-
-                                    PackageAuditingLog(treatment_parentcode=sa.treatment_parentcode,
-                                    user_loginid=fmspw[0],package_type="Void",pa_qty=sa.qty if sa.qty else None).save()    
- 
-                                    TreatmentAccount(Cust_Codeid=sa.Cust_Codeid,cust_code=sa.cust_code,
-                                    description=description,ref_no=sa.ref_no,type=sa.type,amount="{:.2f}".format(float(abs(sa.amount))),
-                                    balance="{:.2f}".format(float(olacc_ids.balance + abs(sa.amount))),user_name=sa.user_name,User_Nameid=sa.User_Nameid,
-                                    ref_transacno=sa.ref_transacno,sa_transacno=sa_transacno,qty=sa.qty,
-                                    outstanding="{:.2f}".format(float(olacc_ids.outstanding)) if olacc_ids and olacc_ids.outstanding is not None and olacc_ids.outstanding > 0 else 0,deposit=-float("{:.2f}".format(float(sa.deposit))) if sa.deposit else 0,treatment_parentcode=sa.treatment_parentcode,
-                                    treatment_code=sa.treatment_code,sa_status="SA",cas_name=fmspw[0].pw_userlogin,sa_staffno=sa.sa_staffno,
-                                    sa_staffname=sa.sa_staffname,next_paydate=sa.next_paydate,hasduedate=sa.hasduedate,
-                                    dt_lineno=sa.dt_lineno,lpackage=sa.lpackage,package_code=sa.package_code,Site_Codeid=sa.Site_Codeid,
-                                    site_code=sa.site_code,treat_code=sa.treat_code,focreason=sa.focreason,itemcart=cart_obj).save()
-
-                                
-
                                
                     
                     v_refcontrol_obj = ControlNo.objects.filter(control_description__iexact="Reference VOID No",Site_Codeid__pk=fmspw[0].loginsite.pk).first()
@@ -15215,7 +15212,246 @@ class CreditNoteListAPIView(generics.ListAPIView):
             return general_error_response(invalid_message)    
 
 
-        
+class VoucherPromoViewset(viewsets.ModelViewSet):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = VoucherPromo.objects.filter(isactive=True).order_by('-pk')
+    serializer_class = VoucherPromoSerializer
+
+    def get_queryset(self):
+        fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+        site = fmspw[0].loginsite
+        queryset = VoucherPromo.objects.filter(isactive=True).order_by('-pk')
+       
+        return queryset
+
+    def list(self, request):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+            site = fmspw[0].loginsite
+            serializer_class = VoucherPromoSerializer
+            
+            queryset = self.filter_queryset(self.get_queryset())
+
+            total = len(queryset)
+            state = status.HTTP_200_OK
+            message = "Listed Succesfully"
+            error = False
+            data = None
+            result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+            return Response(result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+
+    @transaction.atomic
+    def create(self, request):
+        try:
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+                site = fmspw[0].loginsite
+
+                if not 'voucher_desc' in request.data or not request.data['voucher_desc']:
+                    raise Exception('Please give voucher desc!!.') 
+                
+                if not 'sms_text' in request.data or not request.data['sms_text']:
+                    raise Exception('Please give sms text!!.')
+
+                if not 'price' in request.data or not request.data['price']:
+                    raise Exception('Please give price!!.') 
+     
+                # check_ids = CustomerReferral.objects.filter(Site_Codeid__pk=site.pk,
+                # cust_id__pk=cust_obj.pk).order_by('-pk')
+                # if check_ids:
+                #     msg = "Customer {0} already referred by some other customer !!".format(str(cust_obj.cust_name))
+                #     raise Exception(msg) 
+                    
+               
+                serializer = VoucherPromoSerializer(data=request.data)
+                if serializer.is_valid():
+                    control_obj = ControlNo.objects.filter(control_description__iexact="VoucherPromo").first()
+                    if not control_obj:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"VoucherPromo Control No does not exist!!",'error': True} 
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                    vo_code = str(control_obj.control_no)
+                    
+                    k = serializer.save(voucher_code=vo_code)
+                    if k:
+                        control_obj.control_no = int(control_obj.control_no) + 1
+                        control_obj.save()
+                    
+                    result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully",
+                    'error': False}
+                    return Response(result, status=status.HTTP_201_CREATED)
+                
+
+                data = serializer.errors
+
+                if 'non_field_errors' in data:
+                    message = data['non_field_errors'][0]
+                else:
+                    first_key = list(data.keys())[0]
+                    message = str(first_key)+":  "+str(data[first_key][0])
+
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":message,
+                'error': True, 'data': serializer.errors}
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+         
+
+    @transaction.atomic
+    def partial_update(self, request, pk=None):
+        try:
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+                site = fmspw.loginsite
+                ref = self.get_object(pk)
+                if not 'voucher_desc' in request.data or not request.data['voucher_desc']:
+                    raise Exception('Please give voucher desc!!.') 
+                
+                if not 'sms_text' in request.data or not request.data['sms_text']:
+                    raise Exception('Please give sms text!!.') 
+
+                if not 'price' in request.data or not request.data['price']:
+                    raise Exception('Please give price!!.') 
+         
+                # check_ids = CustomerReferral.objects.filter(~Q(pk=ref.pk)).filter(Site_Codeid__pk=site.pk,
+                # cust_id__pk=cust_obj.pk).order_by('-pk')
+                # if check_ids:
+                #     msg = "Customer {0} already referred by some other customer !!".format(str(cust_obj.cust_name))
+                #     raise Exception(msg) 
+                    
+                serializer = self.get_serializer(ref, data=request.data, partial=True)
+                if serializer.is_valid():
+                
+                    serializer.save()
+                    
+                    result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",'error': False}
+                    return Response(result, status=status.HTTP_200_OK)
+
+                
+                data = serializer.errors
+
+                if 'non_field_errors' in data:
+                    message = data['non_field_errors'][0]
+                else:
+                    first_key = list(data.keys())[0]
+                    message = str(first_key)+":  "+str(data[first_key][0])
+
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":message,
+                'error': True, 'data': serializer.errors}
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)   
+    
+    def retrieve(self, request, pk=None):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+            site = fmspw.loginsite
+            pro = self.get_object(pk)
+            serializer = VoucherPromoSerializer(pro, context={'request': self.request})
+            result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
+            'data': serializer.data}
+            return Response(data=result, status=status.HTTP_200_OK)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message) 
+
+
+   
+    def destroy(self, request, pk=None):
+        try:
+            request.data["isactive"] = False
+            ref = self.get_object(pk)
+            serializer = VoucherPromoSerializer(ref, data=request.data ,partial=True)
+            state = status.HTTP_204_NO_CONTENT
+            if serializer.is_valid():
+                serializer.save()
+                result = {'status': status.HTTP_200_OK,"message":"Deleted Succesfully",'error': False}
+                return Response(result, status=status.HTTP_200_OK)
+            
+            # print(serializer.errors,"jj")
+            result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",
+            'error': True,'data': serializer.errors }
+            return Response(result, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)          
+
+
+    def get_object(self, pk):
+        try:
+            return VoucherPromo.objects.get(pk=pk)
+        except VoucherPromo.DoesNotExist:
+            raise Exception('VoucherPromo Does not Exist') 
+    
+
+    @transaction.atomic
+    @action(methods=['post'], detail=False, permission_classes=[IsAuthenticated & authenticated_only],
+    authentication_classes=[ExpiringTokenAuthentication])
+    def addvoucher(self, request): 
+        try:  
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+                site = fmspw.loginsite
+                if 'sa_transacno' not in request.data or not request.data['sa_transacno']:
+                    raise Exception('Please give sa transacno!!.') 
+                
+                if 'voucherpromo_id' not in request.data or not request.data['voucherpromo_id']:
+                    raise Exception('Please give voucherpromo id!!.') 
+                satransacno = request.data['sa_transacno']
+                hdr = PosHaud.objects.filter(sa_transacno=satransacno).only('sa_transacno').order_by("-pk").first()
+                if not hdr:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"PosHaud ID does not exist!!",'error': True} 
+                    return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
+                vopr_obj = VoucherPromo.objects.filter(isactive=True,pk=request.data['voucherpromo_id']).order_by('-pk').first()
+                if not vopr_obj:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Voucherpromo id does not exist!!",'error': True} 
+                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)  
+                
+                vorecontrolobj = ControlNo.objects.filter(control_description__iexact="Public Voucher",Site_Codeid__pk=fmspw.loginsite.pk).first()
+                if not vorecontrolobj:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Voucher Record Control No does not exist!!",'error': True} 
+                    return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
+                voucher_code = str(vorecontrolobj.control_prefix)+str(vorecontrolobj.Site_Codeid.itemsite_code)+str(vorecontrolobj.control_no)
+                cust_obj = hdr.sa_custnoid  
+
+                ex_ids = VoucherRecord.objects.filter(sa_transacno=satransacno,voucher_name=vopr_obj.voucher_desc)  
+                if ex_ids:
+                    raise Exception('This Voucher Promo already given for this customer account invoice !!')
+                
+                vo_rec = VoucherRecord(sa_transacno=satransacno,voucher_name=vopr_obj.voucher_desc,
+                voucher_no=voucher_code,value="{:.2f}".format(float(vopr_obj.price)) if vopr_obj.price else 0,
+                cust_codeid=cust_obj,cust_code=cust_obj.cust_code,
+                cust_name=cust_obj.cust_name,percent=0,site_codeid=site,site_code=site.itemsite_code,
+                issued_expiry_date=None,issued_staff=fmspw.Emp_Codeid.emp_code,
+                onhold=0,paymenttype=None,remark=None,type_code=vorecontrolobj.control_prefix,used=0,
+                ref_fullvoucherno=None,ref_rangefrom=None,ref_rangeto=None,site_allocate=None,dt_lineno=1,)
+                vo_rec.save()
+                vo_rec.sa_date = hdr.sa_date
+                vo_rec.save()
+
+                if vo_rec.pk:
+                    vorecontrolobj.control_no = int(vorecontrolobj.control_no) + 1
+                    vorecontrolobj.save()
+
+                    
+                result = {'status': status.HTTP_200_OK,"message":"Voucher Added Succesfully",
+                'error': False}
+                return Response(result, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)                
+ 
 
 
 

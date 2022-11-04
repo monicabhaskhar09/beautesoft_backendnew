@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import (SiteGroup,ItemSitelist,ReverseTrmtReason,VoidReason,TreatmentUsage,UsageMemo,
-Treatmentface)
+Treatmentface,VoucherPromo)
 from cl_table.models import (ItemDept, ItemRange, Stktrn, Stock, TreatmentAccount, Treatment,DepositAccount,
 PrepaidAccount,PosHaud,PosDaud, Customer, PosTaud,CreditNote,PrepaidAccountCondition,Fmspw,Holditemdetail,
 ItemLink,Systemsetup,Employee,Multistaff,ItemDiv,TreatmentPackage)
@@ -846,3 +846,16 @@ class TreatmentPackageDoneListSerializer(serializers.ModelSerializer):
     class Meta:
         model = TreatmentPackage
         fields = ['id']
+
+class VoucherPromoSerializer(serializers.ModelSerializer): 
+
+    class Meta:
+        model = VoucherPromo
+        fields = ['id','voucher_code','voucher_desc','sms_text','isactive','price']
+
+    def to_representation(self, instance):
+       
+        data = super(VoucherPromoSerializer, self).to_representation(instance)
+        data['price'] = "{:.2f}".format(float(data['price'])) if instance.price else "0.00"
+
+        return data     
