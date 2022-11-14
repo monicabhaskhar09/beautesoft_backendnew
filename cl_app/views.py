@@ -23,7 +23,7 @@ ItemDivSerializer,ProductPurchaseSerializer,TransactionInvoiceSerializer,Transac
 TreatmentPackageDoneListSerializer,VoucherPromoSerializer)
 from cl_table.serializers import PostaudSerializer, TmpItemHelperSerializer
 from .models import (SiteGroup, ItemSitelist, ReverseTrmtReason, VoidReason,TreatmentUsage,UsageMemo,
-Treatmentface,Usagelevel,priceChangeLog,TmpTreatmentSession,VoucherPromo)
+Treatmentface,Usagelevel,priceChangeLog,TmpTreatmentSession,VoucherPromo,SmsProcessLog)
 from cl_table.models import (Employee, Fmspw, ItemClass, ItemDept, ItemRange, Stock, ItemUomprice, 
 PackageDtl, ItemDiv, PosDaud, PosTaud, Customer, GstSetting, ControlNo, TreatmentAccount, DepositAccount, 
 PrepaidAccount, Treatment,PosHaud,TmpItemHelper,Appointment,Source,PosHaud,ReverseDtl,ReverseHdr,
@@ -59,7 +59,7 @@ from custom.serializers import ComboServicesSerializer
 from .utils import general_error_response
 from cl_table.authentication import TokenAuthentication,ExpiringTokenAuthentication
 from django.template.loader import get_template
-from Cl_beautesoft.settings import BASE_DIR
+from Cl_beautesoft.settings import BASE_DIR, SITE_ROOT
 from fpdf import FPDF 
 from pyvirtualdisplay import Display
 import pdfkit
@@ -576,7 +576,8 @@ class ServiceStockViewset(viewsets.ModelViewSet):
             result = {'status': status.HTTP_200_OK , "message": "Listed Succesfully", 'error': False, 'data': serializer.data}
             v = result.get('data')
             if v['Stock_PIC']:
-                v['Stock_PIC'] = str("http://"+request.META['HTTP_HOST']) + str(v['Stock_PIC'])
+                # v['Stock_PIC'] = str("http://"+request.META['HTTP_HOST']) + str(v['Stock_PIC'])
+                v['Stock_PIC'] = str(SITE_ROOT) + str(v['Stock_PIC']).replace("/media/","")
             if v['item_price']:
                 v['item_price'] = "{:.2f}".format(float(v['item_price']))
             return Response(result, status=status.HTTP_200_OK)
@@ -745,8 +746,9 @@ class RetailStockListViewset(viewsets.ModelViewSet):
             result = {'status': status.HTTP_200_OK , "message": "Listed Succesfully", 'error': False, 'data': serializer.data, 'Item_Price': uomlst}
             v = result.get('data')
             q = dict(v)
-            if v['Stock_PIC']:
-                v['Stock_PIC'] = str("http://"+request.META['HTTP_HOST']) + str(v['Stock_PIC'])
+            if q['Stock_PIC']:
+                # q['Stock_PIC'] = str("http://"+request.META['HTTP_HOST']) + str(v['Stock_PIC'])
+                q['Stock_PIC'] = str(SITE_ROOT) + str(v['Stock_PIC']).replace("/media/","")
             val = {'uomprice': uomlst}  
             q.update(val) 
             result['data'] = q if uomlst != [] else []       
@@ -885,7 +887,8 @@ class PackageStockViewset(viewsets.ModelViewSet):
             result = {'status': status.HTTP_200_OK , "message": "Listed Succesfully", 'error': False, 'data': serializer.data}
             v = result.get('data')
             if v['Stock_PIC']:
-                v['Stock_PIC'] = str("http://"+request.META['HTTP_HOST']) + str(v['Stock_PIC'])
+                # v['Stock_PIC'] = str("http://"+request.META['HTTP_HOST']) + str(v['Stock_PIC'])
+                v['Stock_PIC'] = str(SITE_ROOT) + str(v['Stock_PIC']).replace("/media/","")
             if v['item_price']:
                 v['item_price'] = "{:.2f}".format(float(v['item_price']))
             return Response(result, status=status.HTTP_200_OK)
@@ -907,8 +910,11 @@ class PackageDtlViewset(viewsets.ModelViewSet):
                 return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
             for s in stock:     
-                if s.Stock_PIC:   
-                    image = {"STOCK_PIC" : str("http://"+request.META['HTTP_HOST'])+str(s.Stock_PIC.url)}
+                if s.Stock_PIC: 
+                    print(s.Stock_PIC) 
+                    print(s.Stock_PIC.url) 
+                    # image = {"STOCK_PIC" : str("http://"+request.META['HTTP_HOST'])+str(s.Stock_PIC.url)}
+                    image = {"STOCK_PIC" : str(SITE_ROOT)+str(s.Stock_PIC)}
                 else:
                     image = None
                 detail = []; package = {}
@@ -1028,7 +1034,8 @@ class PrepaidStockViewset(viewsets.ModelViewSet):
             result = {'status': status.HTTP_200_OK , "message": "Listed Succesfully", 'error': False, 'data': serializer.data}
             v = result.get('data')
             if v['Stock_PIC']:
-                v['Stock_PIC'] = str("http://"+request.META['HTTP_HOST']) + str(v['Stock_PIC'])
+                # v['Stock_PIC'] = str("http://"+request.META['HTTP_HOST']) + str(v['Stock_PIC'])
+                v['Stock_PIC'] = str(SITE_ROOT) + str(v['Stock_PIC']).replace("/media/","")
             if v['item_price']:
                 v['item_price'] = "{:.2f}".format(float(v['item_price']))
             return Response(result, status=status.HTTP_200_OK)
@@ -1133,7 +1140,8 @@ class VoucherStockViewset(viewsets.ModelViewSet):
             result = {'status': status.HTTP_200_OK , "message": "Listed Succesfully", 'error': False, 'data': serializer.data}
             v = result.get('data')
             if v['Stock_PIC']:
-                v['Stock_PIC'] = str("http://"+request.META['HTTP_HOST']) + str(v['Stock_PIC'])
+                # v['Stock_PIC'] = str("http://"+request.META['HTTP_HOST']) + str(v['Stock_PIC'])
+                v['Stock_PIC'] = str(SITE_ROOT) + str(v['Stock_PIC']).replace("/media/","")
             if v['item_price']:
                 v['item_price'] = "{:.2f}".format(float(v['item_price']))
             return Response(result, status=status.HTTP_200_OK)
@@ -1265,7 +1273,8 @@ class CatalogSearchViewset(viewsets.ModelViewSet):
             result = {'status': status.HTTP_200_OK , "message": "Listed Succesfully", 'error': False, 'data': serializer.data}
             v = result.get('data')
             if v['Stock_PIC']:
-                v['Stock_PIC'] = str("http://"+request.META['HTTP_HOST']) + str(v['Stock_PIC'])
+                # v['Stock_PIC'] = str("http://"+request.META['HTTP_HOST']) + str(v['Stock_PIC'])
+                v['Stock_PIC'] = str(SITE_ROOT) + str(v['Stock_PIC']).replace("/media/","")
             if v['item_price']:
                 v['item_price'] = "{:.2f}".format(float(v['item_price']))
             return Response(result, status=status.HTTP_200_OK)
@@ -1401,7 +1410,8 @@ class CatalogFavoritesViewset(viewsets.ModelViewSet):
             result = {'status': status.HTTP_200_OK , "message": "Listed Succesfully", 'error': False, 'data': serializer.data}
             v = result.get('data')
             if v['Stock_PIC']:
-                v['Stock_PIC'] = str("http://"+request.META['HTTP_HOST']) + str(v['Stock_PIC'])
+                # v['Stock_PIC'] = str("http://"+request.META['HTTP_HOST']) + str(v['Stock_PIC'])
+                v['Stock_PIC'] = str(SITE_ROOT) + str(v['Stock_PIC']).replace("/media/","")
             if v['item_price']:
                 v['item_price'] = "{:.2f}".format(float(v['item_price']))
             return Response(result, status=status.HTTP_200_OK)
@@ -2761,7 +2771,7 @@ class TreatmentDoneNewViewset(viewsets.ModelViewSet):
                                 
                         if ylst != []: 
                             queryset = TreatmentPackage.objects.filter(cust_code=cust_obj.cust_code,
-                            open_session__gt=0, treatment_date__year__in=ylst).order_by('-pk')
+                            open_session__gt=0, treatment_date__year__in=ylst).filter(Q(expiry_date__date__gte=date.today()) | Q(expiry_date__isnull=True)).order_by('-pk')
 
                     else:
                         raise Exception('Please Give Systemsetup year in Default TD List Years Ago!!')     
@@ -2771,7 +2781,7 @@ class TreatmentDoneNewViewset(viewsets.ModelViewSet):
 
                 elif year == "All":
                     queryset = TreatmentPackage.objects.filter(cust_code=cust_obj.cust_code,
-                    open_session__gt=0).order_by('-pk')
+                    open_session__gt=0).filter(Q(expiry_date__date__gte=date.today()) | Q(expiry_date__isnull=True)).order_by('-pk')
 
             if queryset:
                 full_tot = queryset.count()
@@ -2828,6 +2838,18 @@ class TreatmentDoneNewViewset(viewsets.ModelViewSet):
 
                     splt = str(trmt_obj.treatment_date).split(' ')
                     treatment_date = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d-%m-%Y")
+                    
+                    td_setup = Systemsetup.objects.filter(title='TDSessionSelect',
+                    value_name='TDSessionSelect',isactive=True).first()
+                    
+                    treatmentids = json.loads(row.treatmentids) if row.treatmentids else []
+
+                    if td_setup and td_setup.value_data == 'asc':
+                        c = treatmentids.sort()
+                    elif td_setup and td_setup.value_data == 'desc':
+                        c = treatmentids.sort(reverse=True)
+                    # print(treatmentids,"treatmentids")
+
 
                     data_list.append({
                         "TreatmentAccountid": row.treatment_accountid.pk if row.treatment_accountid else "",
@@ -2857,7 +2879,7 @@ class TreatmentDoneNewViewset(viewsets.ModelViewSet):
                         "treatment_date" : treatment_date,
                         "treatment_limit_times": row.treatment_limit_times,
                         "type" : row.type,
-                        "treatmentids" : json.loads(row.treatmentids) if row.treatmentids else [],
+                        "treatmentids" : treatmentids,
                         "unit_amount" : "{:.2f}".format(float(row.unit_amount))
                     })        
                 
@@ -3870,7 +3892,7 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                 treatment_parentcode=t_ids[0].treatment_parentcode).order_by('-sa_date','-sa_time','-id').first()
                 trids = t_ids.aggregate(amount=Coalesce(Sum('unit_amount'), 0))
                 if acc_ids and acc_ids.balance:
-                    acc_balance = acc_ids.balance
+                    acc_balance = float("{:.2f}".format(acc_ids.balance))
                 else:
                     acc_balance = 0
 
@@ -4003,7 +4025,7 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                 # print(acc_ids.balance,"acc_ids") 
                 trids = t_ids.aggregate(amount=Coalesce(Sum('unit_amount'), 0))
                 if acc_ids and acc_ids.balance:
-                    acc_balance = acc_ids.balance
+                    acc_balance = float("{:.2f}".format(acc_ids.balance))
                 else:
                     acc_balance = 0
                     
@@ -4161,10 +4183,10 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                 if serializer.is_valid():
                     # trmt_obj.Item_Codeid.item_desc
                     
-                    if trmt_obj.treatment_account.itemcart.itemcodeid.item_type == 'PACKAGE':
+                    if trmt_obj.treatment_account and trmt_obj.treatment_account.itemcart and trmt_obj.treatment_account.itemcart.itemcodeid and trmt_obj.treatment_account.itemcart.itemcodeid.item_type and trmt_obj.treatment_account.itemcart.itemcodeid.item_type == 'PACKAGE':
                         item_name = trmt_obj.course
                     else:
-                        item_name = trmt_obj.treatment_account.itemcart.itemdesc
+                        item_name = trmt_obj.treatment_account.itemcart.itemdesc if trmt_obj.treatment_account and trmt_obj.treatment_account.itemcart and trmt_obj.treatment_account.itemcart.itemdesc else trmt_obj.course
 
                     
                     temph = serializer.save(item_name=item_name,helper_id=helper_obj,
@@ -4872,7 +4894,7 @@ class ReversalListViewset(viewsets.ModelViewSet):
                 if not self.request.user.is_authenticated:
                     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Unauthenticated Users are not allowed!!",'error': True} 
                     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-
+                today_date = timezone.now().date()
                 fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
                 if not fmspw:
                     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Unauthenticated Users are not Permitted!!",'error': True} 
@@ -5006,6 +5028,8 @@ class ReversalListViewset(viewsets.ModelViewSet):
                         next_paydate=None,hasduedate=0,dt_lineno=j.dt_lineno,Site_Codeid=site,
                         site_code=j.site_code,treat_code=j.treatment_parentcode)
                         treatacc.save()
+                        treatacc.sa_date = today_date
+                        treatacc.save()
                                 
                     #creditnote creation  
                     creditnote = CreditNote(treatment_code=j.treatment_parentcode,treatment_name=j.course,
@@ -5013,6 +5037,8 @@ class ReversalListViewset(viewsets.ModelViewSet):
                     cust_name=j.cust_name,sa_transacno=j.sa_transacno,status="OPEN",
                     credit_code=credit_code,deposit_type="TREATMENT",site_code=j.site_code,
                     treat_code=j.treatment_parentcode)
+                    creditnote.save()
+                    creditnote.sa_date = today_date
                     creditnote.save()
                     if creditnote.pk:
                         control_obj.control_no = int(control_obj.control_no) + 1
@@ -5030,6 +5056,8 @@ class ReversalListViewset(viewsets.ModelViewSet):
                     cust_code=j.cust_code,cust_name=j.cust_name,site_code=j.site_code,
                     ref_creditnote=creditnote.credit_code,total_balance=total)
 
+                    reversehdr.save()
+                    reversehdr.reverse_date = today_date
                     reversehdr.save()
                     if reversehdr.pk:
                         recontrol_obj.control_no = int(recontrol_obj.control_no) + 1
@@ -5181,7 +5209,8 @@ class ReversalListViewset(viewsets.ModelViewSet):
                                 fh.write(p)
                             display.stop()
 
-                            ip_link = "http://"+request.META['HTTP_HOST']+"/media/pdf/creditnote_"+str(credit_ids[0].credit_code)+".pdf"
+                            # ip_link = "http://"+request.META['HTTP_HOST']+"/media/pdf/creditnote_"+str(credit_ids[0].credit_code)+".pdf"
+                            ip_link = str(SITE_ROOT) + "pdf/creditnote_"+str(credit_ids[0].credit_code)+".pdf"
 
                             result = {'status': status.HTTP_200_OK, "message": "Created Successfully", 'error': False,
                             'data': ip_link}
@@ -5297,7 +5326,8 @@ class ReversalListViewset(viewsets.ModelViewSet):
                             fh.write(p)
                         display.stop()
 
-                        ip_link = "http://"+request.META['HTTP_HOST']+"/media/pdf/creditnote_"+str(credit_obj.credit_code)+".pdf"
+                        # ip_link = "http://"+request.META['HTTP_HOST']+"/media/pdf/creditnote_"+str(credit_obj.credit_code)+".pdf"
+                        ip_link = str(SITE_ROOT)+"pdf/creditnote_"+str(credit_obj.credit_code)+".pdf"
 
                         result = {'status': status.HTTP_200_OK, "message": "Printed Successfully", 'error': False,
                         'data': ip_link}
@@ -5966,6 +5996,8 @@ class VoidViewset(viewsets.ModelViewSet):
                         points=t.points,prepaid=t.prepaid,pay_premise=t.pay_premise,is_voucher=t.is_voucher,
                         voucher_no=t.voucher_no,voucher_amt=t.voucher_amt)
                         taud.save()
+                        taud.sa_date = cart_date
+                        taud.save()
 
                         #prepaid   
                         if t.pay_type == 'PP':
@@ -5995,6 +6027,9 @@ class VoidViewset(viewsets.ModelViewSet):
                                 pp_type2=last_preids.pp_type2,condition_type1=last_preids.condition_type1,pos_daud_lineno=last_preids.line_no,Cust_Codeid=last_preids.Cust_Codeid,Site_Codeid=last_preids.Site_Codeid,
                                 Item_Codeid=depoprepaid_ids.Item_Codeid if depoprepaid_ids and depoprepaid_ids.Item_Codeid else None,
                                 item_code=depoprepaid_ids.item_code if depoprepaid_ids and depoprepaid_ids.item_code else None)
+                                prepacc.save()
+                                prepacc.sa_date = cart_date
+                                prepacc.start_date = cart_date
                                 prepacc.save()
 
                                 pacc_ids = PrepaidAccountCondition.objects.filter(pp_no=ppno,
@@ -6137,6 +6172,8 @@ class VoidViewset(viewsets.ModelViewSet):
                         earnedtype=d.earnedtype,redeempoints=d.redeempoints,redeemtype=d.redeemtype,itemcart=cart_obj,
                         staffs=daud_staffs)
                         
+                        daud.save()
+                        daud.sa_date = cart_date
                         daud.save()
 
 
@@ -6301,7 +6338,7 @@ class VoidViewset(viewsets.ModelViewSet):
                                     
                                         balance = depo.balance - depo.amount
                                         desc = "Cancel"+" "+"Product Amount : "+str("{:.2f}".format(float(depo.amount)))
-                                        DepositAccount(cust_code=depo.cust_code,type="CANCEL",amount=-float("{:.2f}".format(float(depo.amount))) if depo.amount else 0,balance="{:.2f}".format(float(balance)),
+                                        deps =DepositAccount(cust_code=depo.cust_code,type="CANCEL",amount=-float("{:.2f}".format(float(depo.amount))) if depo.amount else 0,balance="{:.2f}".format(float(balance)),
                                         user_name=depo.user_name,qty=depo.qty,outstanding=0.0,deposit="{:.2f}".format(float(depo.deposit)),
                                         cas_name=fmspw[0].pw_userlogin,sa_staffno=depo.sa_staffno,sa_staffname=depo.sa_staffname,
                                         deposit_type=depo.deposit_type,sa_transacno=depo.sa_transacno,description=desc,
@@ -6310,7 +6347,10 @@ class VoidViewset(viewsets.ModelViewSet):
                                         package_code=depo.package_code,dt_lineno=depo.dt_lineno,Cust_Codeid=depo.Cust_Codeid,
                                         Site_Codeid=depo.Site_Codeid,site_code=depo.site_code,Item_Codeid=depo.Item_Codeid,
                                         item_code=depo.item_code,ref_transacno=depo.ref_transacno,ref_productcode=depo.ref_productcode,
-                                        ref_code=tp_code).save()
+                                        ref_code=tp_code)
+                                        deps.save()
+                                        deps.sa_date = cart_date
+                                        deps.save()
 
                                         tpcontrolobj.control_no = int(tpcontrolobj.control_no) + 1
                                         tpcontrolobj.save()
@@ -6378,7 +6418,7 @@ class VoidViewset(viewsets.ModelViewSet):
                                 
                                     balance = olaccids.balance - ac.amount
                                     outstanding = olaccids.outstanding + ac.amount
-                                    TreatmentAccount(Cust_Codeid=ac.Cust_Codeid,cust_code=ac.cust_code,
+                                    trt = TreatmentAccount(Cust_Codeid=ac.Cust_Codeid,cust_code=ac.cust_code,
                                     description=ac.description,ref_no=sa_transacno,type=ac.type,amount=-float("{:.2f}".format(float(ac.amount))) if ac.amount else 0,
                                     balance="{:.2f}".format(float(balance)),user_name=ac.user_name,User_Nameid=ac.User_Nameid,
                                     ref_transacno=ac.ref_transacno,sa_transacno=sa_transacno,qty=-ac.qty,
@@ -6386,7 +6426,10 @@ class VoidViewset(viewsets.ModelViewSet):
                                     treatment_code=ac.treatment_code,sa_status="VT",cas_name=ac.cas_name,sa_staffno=ac.sa_staffno,
                                     sa_staffname=ac.sa_staffname,next_paydate=ac.next_paydate,hasduedate=ac.hasduedate,
                                     dt_lineno=ac.dt_lineno,lpackage=ac.lpackage,package_code=ac.package_code,Site_Codeid=ac.Site_Codeid,
-                                    site_code=ac.site_code,treat_code=ac.treat_code,focreason=ac.focreason,itemcart=cart_obj).save()
+                                    site_code=ac.site_code,treat_code=ac.treat_code,focreason=ac.focreason,itemcart=cart_obj)
+                                    trt.save()
+                                    trt.sa_date = cart_date
+                                    trt.save()
 
                                     searcids = TreatmentPackage.objects.filter(treatment_parentcode=ac.treatment_parentcode).first()
                                     if searcids:
@@ -6435,13 +6478,16 @@ class VoidViewset(viewsets.ModelViewSet):
                                     ihelper_ids = ItemHelper.objects.filter(helper_transacno=haudobj.sa_transacno,
                                     item_code=i.treatment_code)
                                     for hlp in ihelper_ids:
-                                        ItemHelper(item_code=hlp.item_code,item_name=hlp.item_name,line_no=hlp.line_no,
+                                        itmp = ItemHelper(item_code=hlp.item_code,item_name=hlp.item_name,line_no=hlp.line_no,
                                         sa_transacno=hlp.sa_transacno,amount=-hlp.amount,helper_name=hlp.helper_name,
                                         helper_code=hlp.helper_code,site_code=hlp.site_code,share_amt=-hlp.share_amt,
                                         helper_transacno=sa_transacno,system_remark=hlp.system_remark,
                                         wp1=hlp.wp1,wp2=hlp.wp2,wp3=hlp.wp3,td_type_code=hlp.td_type_code,
                                         td_type_short_desc=hlp.td_type_short_desc,times=hlp.times,
-                                        treatment_no=hlp.treatment_no).save()
+                                        treatment_no=hlp.treatment_no)
+                                        itmp.save()
+                                        ItemHelper.objects.filter(id=itmp.id).update(sa_date= date.today())
+                                      
 
                                     treat_obj = i
                                     accids = TreatmentAccount.objects.filter(ref_transacno=treat_obj.sa_transacno,
@@ -6537,7 +6583,7 @@ class VoidViewset(viewsets.ModelViewSet):
                                     PackageAuditingLog(treatment_parentcode=sa.treatment_parentcode,
                                     user_loginid=fmspw[0],package_type="Void",pa_qty=sa.qty if sa.qty else None).save()    
 
-                                    TreatmentAccount(Cust_Codeid=sa.Cust_Codeid,cust_code=sa.cust_code,
+                                    tretac = TreatmentAccount(Cust_Codeid=sa.Cust_Codeid,cust_code=sa.cust_code,
                                     description=description,ref_no=sa.ref_no,type=sa.type,amount="{:.2f}".format(float(abs(sa.amount))),
                                     balance="{:.2f}".format(float(olacc_ids.balance + abs(sa.amount))),user_name=sa.user_name,User_Nameid=sa.User_Nameid,
                                     ref_transacno=sa.ref_transacno,sa_transacno=sa_transacno,qty=sa.qty,
@@ -6545,7 +6591,10 @@ class VoidViewset(viewsets.ModelViewSet):
                                     treatment_code=sa.treatment_code,sa_status="SA",cas_name=fmspw[0].pw_userlogin,sa_staffno=sa.sa_staffno,
                                     sa_staffname=sa.sa_staffname,next_paydate=sa.next_paydate,hasduedate=sa.hasduedate,
                                     dt_lineno=sa.dt_lineno,lpackage=sa.lpackage,package_code=sa.package_code,Site_Codeid=sa.Site_Codeid,
-                                    site_code=sa.site_code,treat_code=sa.treat_code,focreason=sa.focreason,itemcart=cart_obj).save()
+                                    site_code=sa.site_code,treat_code=sa.treat_code,focreason=sa.focreason,itemcart=cart_obj)
+                                    tretac.save()
+                                    tretac.sa_date = cart_date
+                                    tretac.save()
                                 
                                 if d.itemcart.multi_treat.all().exists():        
                                     ct = d.itemcart.multi_treat.all()[0]
@@ -6572,7 +6621,10 @@ class VoidViewset(viewsets.ModelViewSet):
                                                 treatment_count_done=ct.treatment_count_done,treatment_history_last_modify=ct.treatment_history_last_modify,
                                                 service_itembarcode=ct.service_itembarcode,isfoc=ct.isfoc,Trmt_Room_Codeid=ct.Trmt_Room_Codeid,
                                                 trmt_room_code=ct.trmt_room_code,trmt_is_auto_proportion=ct.trmt_is_auto_proportion,
-                                                smsout=ct.smsout,emailout=ct.emailout,treatment_account=ct.treatment_account).save()
+                                                smsout=ct.smsout,emailout=ct.emailout,treatment_account=ct.treatment_account)
+                                                treatids.save()
+                                                treatids.treatment_date = date.today()
+                                                treatids.save()
 
                                        
                                     
@@ -6612,7 +6664,7 @@ class VoidViewset(viewsets.ModelViewSet):
                                 
                                     balance = depo.balance - depo.amount
                                     desc = "Cancel"+" "+"Product Amount : "+str("{:.2f}".format(float(depo.amount)))
-                                    DepositAccount(cust_code=depo.cust_code,type="CANCEL",amount=-float("{:.2f}".format(float(depo.amount))) if depo.amount else 0,balance="{:.2f}".format(float(balance)),
+                                    dact = DepositAccount(cust_code=depo.cust_code,type="CANCEL",amount=-float("{:.2f}".format(float(depo.amount))) if depo.amount else 0,balance="{:.2f}".format(float(balance)),
                                     user_name=depo.user_name,qty=depo.qty,outstanding=0.0,deposit="{:.2f}".format(float(depo.deposit)),
                                     cas_name=fmspw[0].pw_userlogin,sa_staffno=depo.sa_staffno,sa_staffname=depo.sa_staffname,
                                     deposit_type=depo.deposit_type,sa_transacno=depo.sa_transacno,description=desc,
@@ -6621,7 +6673,10 @@ class VoidViewset(viewsets.ModelViewSet):
                                     package_code=depo.package_code,dt_lineno=depo.dt_lineno,Cust_Codeid=depo.Cust_Codeid,
                                     Site_Codeid=depo.Site_Codeid,site_code=depo.site_code,Item_Codeid=depo.Item_Codeid,
                                     item_code=depo.item_code,ref_transacno=depo.ref_transacno,ref_productcode=depo.ref_productcode,
-                                    ref_code=tp_code).save()
+                                    ref_code=tp_code)
+                                    dact.save()
+                                    dact.sa_date = cart_date
+                                    dact.save()
 
                                     tpcontrolobj.control_no = int(tpcontrolobj.control_no) + 1
                                     tpcontrolobj.save()
@@ -6683,7 +6738,7 @@ class VoidViewset(viewsets.ModelViewSet):
                                     balance = depacc_ids.balance - dt.amount
                                     outstanding = depacc_ids.outstanding + dt.amount
 
-                                    DepositAccount(cust_code=dt.cust_code,type=dt.type,amount=-float("{:.2f}".format(float(dt.amount))) if dt.amount else 0,
+                                    dpt = DepositAccount(cust_code=dt.cust_code,type=dt.type,amount=-float("{:.2f}".format(float(dt.amount))) if dt.amount else 0,
                                     balance="{:.2f}".format(float(balance)),user_name=dt.user_name,qty=-dt.qty,outstanding="{:.2f}".format(float(outstanding)) if outstanding is not None and outstanding > 0 else 0,
                                     deposit="{:.2f}".format(float(dt.deposit)),cas_name=dt.cas_name,sa_staffno=dt.sa_staffno,
                                     sa_staffname=dt.sa_staffname,deposit_type=dt.deposit_type,sa_transacno=dt.sa_transacno,
@@ -6691,7 +6746,11 @@ class VoidViewset(viewsets.ModelViewSet):
                                     item_description=dt.item_description,treat_code=dt.treat_code,void_link=dt.void_link,
                                     lpackage=dt.lpackage,package_code=dt.package_code,dt_lineno=dt.dt_lineno,Cust_Codeid=dt.Cust_Codeid,
                                     Site_Codeid=dt.Site_Codeid,site_code=dt.site_code,Item_Codeid=dt.Item_Codeid,item_code=dt.item_code,
-                                    ref_transacno=dt.ref_transacno,ref_productcode=dt.ref_productcode).save()
+                                    ref_transacno=dt.ref_transacno,ref_productcode=dt.ref_productcode)
+                                    dpt.save()
+                                    dpt.sa_date = cart_date
+                                    dpt.save()
+
 
 
                         elif int(d.itemcart.itemcodeid.item_div) == 5:
@@ -6733,7 +6792,7 @@ class VoidViewset(viewsets.ModelViewSet):
                                     outstanding = pre_acc_ids.outstanding + pt.topup_amt
                                     remain = or_remain - pt.topup_amt
 
-                                    PrepaidAccount(pp_no=pt.pp_no,pp_type=pt.pp_type,pp_desc=pt.pp_desc,exp_date=pt.exp_date,
+                                    pcts = PrepaidAccount(pp_no=pt.pp_no,pp_type=pt.pp_type,pp_desc=pt.pp_desc,exp_date=pt.exp_date,
                                     cust_code=pt.cust_code,cust_name=pt.cust_name,pp_amt=pt.pp_amt,pp_bonus=pt.pp_bonus,
                                     pp_total=pt.pp_total,transac_no=pt.transac_no,item_no=pt.item_no,use_amt=pt.use_amt,
                                     remain=remain,ref1=pt.ref1,ref2=pt.ref2,status=True,site_code=pt.site_code,
@@ -6745,7 +6804,12 @@ class VoidViewset(viewsets.ModelViewSet):
                                     lpackage=pt.lpackage,package_code=pt.package_code,package_code_lineno=pt.package_code_lineno,
                                     prepaid_disc_type=pt.prepaid_disc_type,prepaid_disc_percent=pt.prepaid_disc_percent,
                                     Cust_Codeid=pt.Cust_Codeid,Site_Codeid=pt.Site_Codeid,Item_Codeid=pt.Item_Codeid,
-                                    item_code=pt.item_code).save()
+                                    item_code=pt.item_code)
+                                    pcts.save()
+                                    pcts.sa_date = cart_date 
+                                    pcts.start_date = cart_date
+                                    pcts.save()
+
 
                         elif int(d.itemcart.itemcodeid.item_div) == 4:
                             if d.itemcart.type == 'Deposit':
@@ -6785,6 +6849,8 @@ class VoidViewset(viewsets.ModelViewSet):
                     trans_user_loginid=h.trans_user_loginid,sa_transacno_ref=sa_transacno_ref,
                     sa_transacno_type='Void Transaction',cust_sig_path=h.cust_sig_path,sa_transacno_title="VOID",
                     issuestrans_user_login=h.trans_user_login,trans_remark=void_obj[0].reason_desc if void_obj and void_obj[0].reason_desc else None)
+                    haud.save()
+                    haud.sa_date = cart_date 
                     haud.save()
 
                     if haud.pk:
@@ -6948,6 +7014,8 @@ class VoidViewset(viewsets.ModelViewSet):
                         pay_premise=ta.pay_premise,is_voucher=ta.is_voucher,voucher_no=ta.voucher_no,voucher_amt=ta.voucher_amt)
                     
                         taud.save()
+                        taud.sa_date = cart_date 
+                        taud.save()
                     
                     for m in multi_ids:
                         multi =  Multistaff(sa_transacno=sa_transacno,item_code=m.item_code,emp_code=m.emp_code,
@@ -7005,6 +7073,8 @@ class VoidViewset(viewsets.ModelViewSet):
                         earnedtype=da.earnedtype,redeempoints=da.redeempoints,redeemtype=da.redeemtype,itemcart=cart_obj,
                         staffs="/"+" "+ service)
                         daud.save()
+                        daud.sa_date = cart_date 
+                        daud.save()
 
                         if int(da.itemcart.itemcodeid.item_div) == 3:
                             if da.itemcart.type == 'Sales':
@@ -7051,14 +7121,16 @@ class VoidViewset(viewsets.ModelViewSet):
                                     item_code=i.treatment_code)
                                     
                                     for hlp in ihelper_ids:
-                                        ItemHelper(item_code=hlp.item_code,item_name=hlp.item_name,line_no=hlp.line_no,
+                                        tmphlp = ItemHelper(item_code=hlp.item_code,item_name=hlp.item_name,line_no=hlp.line_no,
                                         sa_transacno=hlp.sa_transacno,amount=-float("{:.2f}".format(float(hlp.amount))) if hlp.amount else 0,helper_name=hlp.helper_name,
                                         helper_code=hlp.helper_code,site_code=hlp.site_code,share_amt=-hlp.share_amt,
                                         helper_transacno=sa_transacno,system_remark=hlp.system_remark,
                                         wp1=hlp.wp1,wp2=hlp.wp2,wp3=hlp.wp3,td_type_code=hlp.td_type_code,
                                         td_type_short_desc=hlp.td_type_short_desc,times=hlp.times,
-                                        treatment_no=hlp.treatment_no).save()
-                        
+                                        treatment_no=hlp.treatment_no)
+                                        tmphlp.save()
+                                        ItemHelper.objects.filter(id=tmphlp.id).update(sa_date= date.today())
+                                       
 
                                     treat_obj = i
                                     # accids = TreatmentAccount.objects.filter(ref_transacno=treat_obj.sa_transacno,
@@ -7149,7 +7221,7 @@ class VoidViewset(viewsets.ModelViewSet):
                                     PackageAuditingLog(treatment_parentcode=sa.treatment_parentcode,
                                     user_loginid=fmspw[0],package_type="Void",pa_qty=sa.qty if sa.qty else None).save()    
  
-                                    TreatmentAccount(Cust_Codeid=sa.Cust_Codeid,cust_code=sa.cust_code,
+                                    acttr = TreatmentAccount(Cust_Codeid=sa.Cust_Codeid,cust_code=sa.cust_code,
                                     description=description,ref_no=sa.ref_no,type=sa.type,amount="{:.2f}".format(float(abs(sa.amount))),
                                     balance="{:.2f}".format(float(olacc_ids.balance + abs(sa.amount))),user_name=sa.user_name,User_Nameid=sa.User_Nameid,
                                     ref_transacno=sa.ref_transacno,sa_transacno=sa_transacno,qty=sa.qty,
@@ -7157,7 +7229,10 @@ class VoidViewset(viewsets.ModelViewSet):
                                     treatment_code=sa.treatment_code,sa_status="SA",cas_name=fmspw[0].pw_userlogin,sa_staffno=sa.sa_staffno,
                                     sa_staffname=sa.sa_staffname,next_paydate=sa.next_paydate,hasduedate=sa.hasduedate,
                                     dt_lineno=sa.dt_lineno,lpackage=sa.lpackage,package_code=sa.package_code,Site_Codeid=sa.Site_Codeid,
-                                    site_code=sa.site_code,treat_code=sa.treat_code,focreason=sa.focreason,itemcart=cart_obj).save()
+                                    site_code=sa.site_code,treat_code=sa.treat_code,focreason=sa.focreason,itemcart=cart_obj)
+                                    acttr.save()
+                                    acttr.sa_date = cart_date
+                                    acttr.save()
 
                                 
                                 if da.itemcart.multi_treat.all().exists():        
@@ -7185,7 +7260,11 @@ class VoidViewset(viewsets.ModelViewSet):
                                                 treatment_count_done=ct.treatment_count_done,treatment_history_last_modify=ct.treatment_history_last_modify,
                                                 service_itembarcode=ct.service_itembarcode,isfoc=ct.isfoc,Trmt_Room_Codeid=ct.Trmt_Room_Codeid,
                                                 trmt_room_code=ct.trmt_room_code,trmt_is_auto_proportion=ct.trmt_is_auto_proportion,
-                                                smsout=ct.smsout,emailout=ct.emailout,treatment_account=ct.treatment_account).save()
+                                                smsout=ct.smsout,emailout=ct.emailout,treatment_account=ct.treatment_account)
+                                                treatids.save()
+                                                treatids.treatment_date = date.today()
+                                                treatids.save()
+                                                
 
                                     if searcids:
                                         stptdone_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Done").order_by('pk').count()
@@ -7231,6 +7310,8 @@ class VoidViewset(viewsets.ModelViewSet):
                     trans_user_loginid=h.trans_user_loginid,sa_transacno_ref=sa_transacno_ref,
                     sa_transacno_type='Void Transaction',cust_sig_path=h.cust_sig_path,sa_transacno_title="VOID",
                     issuestrans_user_login=fmspw[0].pw_userlogin,trans_remark=void_obj[0].reason_desc if void_obj and void_obj[0].reason_desc else None)
+                    haud.save()
+                    haud.sa_date = cart_date
                     haud.save()
 
                     if haud.pk:
@@ -7702,7 +7783,8 @@ class TreatmentAccListViewset(viewsets.ModelViewSet):
                 path = None;logo = ""
                 if title and title.logo_pic:
                     path = BASE_DIR + title.logo_pic.url
-                    logo = "http://"+request.META['HTTP_HOST']+title.logo_pic.url
+                    # logo = "http://"+request.META['HTTP_HOST']+title.logo_pic.url
+                    logo = str(SITE_ROOT) + str(title.logo_pic)
 
 
                 header_data = {"balance" : "{:.2f}".format(float(balance)),
@@ -8289,8 +8371,15 @@ class TreatmentAccListViewset(viewsets.ModelViewSet):
 
                 logo = ""
                 if title and title.logo_pic:
-                    logo = "http://"+request.META['HTTP_HOST']+title.logo_pic.url
-        
+                    # logo = "http://"+request.META['HTTP_HOST']+title.logo_pic.url
+                    logo = str(SITE_ROOT) + str(title.logo_pic)
+                
+                expiry_date = ""
+                treat_ids = Treatment.objects.filter(treatment_parentcode=account.treatment_parentcode).order_by('pk').first()       
+                if treat_ids and treat_ids.expiry:
+                    splte = str(treat_ids.expiry).split(' ')
+                    expiry_date = datetime.datetime.strptime(str(splte[0]), "%Y-%m-%d").strftime("%d-%b-%y")
+                    
 
                 result = {'status': status.HTTP_200_OK , "message": "Listed Succesfully", 'error': False,
                 'header_data':{'credit_balance':"{:.2f}".format(float(last.balance)) if last.balance else "0.00",
@@ -8300,7 +8389,8 @@ class TreatmentAccListViewset(viewsets.ModelViewSet):
                 'cust_name': cust_obj.cust_code +" "+ cust_obj.cust_name if cust_obj and cust_obj.cust_code and cust_obj.cust_name else '',
                 'issued': fmspw.pw_userlogin,
                 'name': title.trans_h1 if title and title.trans_h1 else '', 
-                'address': title.trans_h2 if title and title.trans_h2 else ''}, 
+                'address': title.trans_h2 if title and title.trans_h2 else '',
+                'expiry_date' : expiry_date}, 
                 'data': serializer.data}
                 return Response(result, status=status.HTTP_200_OK)
             else:
@@ -8308,7 +8398,46 @@ class TreatmentAccListViewset(viewsets.ModelViewSet):
                 return Response(data=result, status=status.HTTP_200_OK)
         except Exception as e:
            invalid_message = str(e)
-           return general_error_response(invalid_message)         
+           return general_error_response(invalid_message)      
+
+
+    @transaction.atomic
+    @action(methods=['post'], detail=False, permission_classes=[IsAuthenticated & authenticated_only],
+    authentication_classes=[ExpiringTokenAuthentication])
+    def service_expirydatechange(self, request): 
+        try:  
+            with transaction.atomic():
+                if not request.data['treatment_parentcode']:
+                    raise Exception('Please give treatment parentcode!!.') 
+                
+                if not request.data['expiry_date']:
+                    raise Exception('Please give Expiry Date!!.') 
+
+                if str(request.data['expiry_date']) < str(date.today()):
+                    raise Exception('Expiry Date should not be past days!!.') 
+    
+                treat_ids = Treatment.objects.filter(treatment_parentcode=request.data['treatment_parentcode']).order_by('pk')   
+                if not treat_ids:
+                    raise Exception('Treatment parentcode IDs does not exist!!.') 
+
+                if treat_ids:
+                    for i in treat_ids:
+                        i.expiry = request.data['expiry_date']
+                        i.save()
+
+                package_ids = TreatmentPackage.objects.filter(treatment_parentcode=request.data['treatment_parentcode']).first()
+                if package_ids:
+                    package_ids.expiry_date =  request.data['expiry_date']
+                    package_ids.save()
+
+                result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",
+                'error': False}
+                return Response(result, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)         
+          
 
 
 class CreditNoteListViewset(viewsets.ModelViewSet):
@@ -8380,7 +8509,8 @@ class CreditNoteListViewset(viewsets.ModelViewSet):
 
                 logo = ""
                 if title and title.logo_pic:
-                    logo = "http://"+request.META['HTTP_HOST']+title.logo_pic.url
+                    # logo = "http://"+request.META['HTTP_HOST']+title.logo_pic.url
+                    logo = str(SITE_ROOT) + str(title.logo_pic)
 
                 header_data = {'logo':logo,'date':current_date+" "+time_data,
                 'cust_name': cust_obj.cust_code +" "+ cust_obj.cust_name if cust_obj and cust_obj.cust_code and cust_obj.cust_name else '',
@@ -8546,7 +8676,8 @@ class ProductPurchaseListViewset(viewsets.ModelViewSet):
 
                 logo = ""
                 if title and title.logo_pic:
-                    logo = "http://"+request.META['HTTP_HOST']+title.logo_pic.url
+                    # logo = "http://"+request.META['HTTP_HOST']+title.logo_pic.url
+                    logo = str(SITE_ROOT) + str(title.logo_pic)
 
                 header_data = { 
                 'logo':logo,'date':current_date+" "+time_data,
@@ -8663,7 +8794,8 @@ class ProductAccListViewset(viewsets.ModelViewSet):
 
                     logo = ""
                     if title and title.logo_pic:
-                        logo = "http://"+request.META['HTTP_HOST']+title.logo_pic.url
+                        # logo = "http://"+request.META['HTTP_HOST']+title.logo_pic.url
+                        logo = str(SITE_ROOT) + str(title.logo_pic)
 
                     header_data = {"balance" : "{:.2f}".format(float(balance)), "totalholdqty" : hold_qty,
                     "outstanding" : "{:.2f}".format(float(outstanding)), "totalproduct_count" : len(id_lst),
@@ -8758,7 +8890,8 @@ class ProductAccListViewset(viewsets.ModelViewSet):
 
                 logo = ""
                 if title and title.logo_pic:
-                    logo = "http://"+request.META['HTTP_HOST']+title.logo_pic.url
+                    # logo = "http://"+request.META['HTTP_HOST']+title.logo_pic.url
+                    logo = str(SITE_ROOT) + str(title.logo_pic)
     
 
                 result = {'status': status.HTTP_200_OK , "message": "Listed Succesfully", 'error': False,
@@ -8972,7 +9105,8 @@ class PrepaidAccListViewset(viewsets.ModelViewSet):
 
                 logo = ""
                 if title and title.logo_pic:
-                    logo = "http://"+request.META['HTTP_HOST']+title.logo_pic.url
+                    # logo = "http://"+request.META['HTTP_HOST']+title.logo_pic.url
+                    logo = str(SITE_ROOT) + str(title.logo_pic)
             
 
                 if lst != []:
@@ -9125,7 +9259,8 @@ class PrepaidAccListViewset(viewsets.ModelViewSet):
 
                 logo = ""
                 if title and title.logo_pic:
-                    logo = "http://"+request.META['HTTP_HOST']+title.logo_pic.url
+                    # logo = "http://"+request.META['HTTP_HOST']+title.logo_pic.url
+                    logo = str(SITE_ROOT) + str(title.logo_pic)
                     
                 result = {'status': status.HTTP_200_OK , "message": "Listed Succesfully", 'error': False,
                 'header_data':{'prepaid_amount':"{:.2f}".format(float(last.pp_amt)) if last.pp_amt else "0.00",
@@ -9163,6 +9298,9 @@ class PrepaidAccListViewset(viewsets.ModelViewSet):
                 
                 if not request.data['expiry_date']:
                     raise Exception('Please give Expiry Date!!.') 
+                    
+                if str(request.data['expiry_date']) < str(date.today()):
+                    raise Exception('Expiry Date should not be past days!!.') 
 
                 if request.data['prepaid_id']:
                     pp_obj = PrepaidAccount.objects.filter(pk=request.data['prepaid_id']).first()
@@ -11977,7 +12115,7 @@ class HolditemdetailViewset(viewsets.ModelViewSet):
                             hi_lineno=holdobj.hi_lineno,hi_uom=holdobj.hi_uom,hold_item=True,hi_deposit=holdobj.hi_deposit,
                             holditemqty=remainqty,sa_custno=holdobj.sa_custno,
                             sa_custname=holdobj.sa_custname,history_line=length,hold_type=holdobj.hold_type,
-                            product_issues_no=product_issues_no) 
+                            product_issues_no=product_issues_no,sa_date=timezone.now().date()) 
 
                             if remainqty == 0:
                                 oldqueryids = Holditemdetail.objects.filter(itemsite_code=site.itemsite_code,sa_custno=holdobj.sa_custno,
@@ -12077,7 +12215,8 @@ class HolditemdetailViewset(viewsets.ModelViewSet):
                                     fh.write(p)
                                 display.stop()
 
-                                ip_link = "http://"+request.META['HTTP_HOST']+"/media/pdf/holditem_"+str(hold_ids.sa_transacno)+".pdf"
+                                # ip_link = "http://"+request.META['HTTP_HOST']+"/media/pdf/holditem_"+str(hold_ids.sa_transacno)+".pdf"
+                                ip_link = str(SITE_ROOT)+"pdf/holditem_"+str(hold_ids.sa_transacno)+".pdf"
 
 
                                 result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",
@@ -15442,6 +15581,27 @@ class VoucherPromoViewset(viewsets.ModelViewSet):
                 if vo_rec.pk:
                     vorecontrolobj.control_no = int(vorecontrolobj.control_no) + 1
                     vorecontrolobj.save()
+
+              
+                # client = Client(SMS_ACCOUNT_SID, SMS_AUTH_TOKEN)
+                # # receiver = cust_obj.cust_phone2
+                # receiver = "8124042939"
+                # message = client.messages.create(
+                #         body=vopr_obj.sms_text,
+                #         from_=SMS_SENDER,
+                #         to=receiver
+                #     )   
+
+                sms_process = SmsProcessLog(sms_username=fmspw.pw_userlogin,
+                sms_phone=cust_obj.cust_phone2,sms_msg=vopr_obj.sms_text,
+                sms_datetime=datetime.datetime.now(),send_datetime=datetime.datetime.now(),
+                site_code=site.itemsite_code,vendor_type=4,isactive=1,sms_task_number=1,
+                sms_portno=0,sms_sendername=fmspw.pw_userlogin,sms_campaignname="webfe voucher sms",
+                sms_scheduleid=0,sms_type='Immediately'  )
+
+               
+                sms_process.save() 
+                                            
 
                     
                 result = {'status': status.HTTP_200_OK,"message":"Voucher Added Succesfully",

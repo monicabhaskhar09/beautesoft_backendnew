@@ -290,4 +290,26 @@ class VoucherPromo(models.Model):
     class Meta:
         db_table = 'VoucherPromo'
 
+class SmsProcessLog(models.Model):
+    id = models.AutoField(db_column='ID',primary_key=True)  # Field name made lowercase.
+    sms_username = models.CharField(db_column='SMS_UserName', max_length=100, blank=True, null=True)  # Field name made lowercase.
+    sms_password = models.CharField(db_column='SMS_Password', max_length=100, blank=True, null=True)  # Field name made lowercase.
+    sms_phone = models.CharField(db_column='SMS_Phone', max_length=300, blank=True, null=True)  # Field name made lowercase.
+    sms_msg = models.CharField(db_column='SMS_Msg', max_length=1000, blank=True, null=True)  # Field name made lowercase.
+    sms_datetime = models.DateTimeField(db_column='SMS_DateTime', blank=True, null=True)  # Field name made lowercase.
+    send_status = models.CharField(db_column='Send_Status', max_length=100, blank=True, null=True)  # Field name made lowercase.
+    send_datetime = models.DateTimeField(db_column='Send_DateTime', blank=True, null=True)  # Field name made lowercase.
+    site_code = models.CharField(db_column='Site_Code', max_length=20, blank=True, null=True)  # Field name made lowercase.
+    vendor_type = models.CharField(db_column='Vendor_Type', max_length=20, blank=True, null=True)  # Field name made lowercase.
+    smsapireply = models.CharField(db_column='SMSApiReply', max_length=800, blank=True, null=True)  # Field name made lowercase.
+    isactive = models.BooleanField(db_column='IsActive', blank=True, null=True)  # Field name made lowercase.
+    sms_task_number = models.CharField(db_column='SMS_Task_Number', max_length=10, blank=True, null=True)  # Field name made lowercase.
+    sms_portno = models.CharField(db_column='SMS_PortNo', max_length=10, blank=True, null=True)  # Field name made lowercase.
+    sms_sendername = models.CharField(db_column='SMS_SenderName', max_length=100, blank=True, null=True)  # Field name made lowercase.
+    sms_campaignname = models.CharField(db_column='SMS_CampaignName', max_length=100, blank=True, null=True)  # Field name made lowercase.
+    sms_scheduleid = models.IntegerField(db_column='SMS_ScheduleID', blank=True, null=True)  # Field name made lowercase.
+    sms_type = models.CharField(db_column='SMS_Type', max_length=100, blank=True, null=True)  # Field name made lowercase.
+
+    class Meta:
+        db_table = 'SMS_Process_Log'
            

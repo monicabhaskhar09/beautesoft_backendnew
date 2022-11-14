@@ -18,7 +18,7 @@ from cl_table.models import (GstSetting,PosTaud,PosDaud,PosHaud,Fmspw,Title,Pack
 TreatmentAccount,DepositAccount,PrepaidAccount,TemplateSettings,CreditNote,Tempcustsign,Systemsetup)
 from custom.models import ItemCart, RoundSales
 from cl_table.serializers import PosdaudSerializer
-from Cl_beautesoft.settings import BASE_DIR
+from Cl_beautesoft.settings import BASE_DIR , SITE_ROOT
 from django.utils import timezone
 from fpdf import FPDF 
 from django.db.models import Count
@@ -444,7 +444,9 @@ def GeneratePDF(self,request, sa_transacno):
                 fh.write(p)
             display.stop()
 
-            ip_link = "http://"+request.META['HTTP_HOST']+"/media/pdf/customer_receipt_"+str(hdr[0].sa_transacno_ref)+".pdf"
+            # ip_link = "http://"+request.META['HTTP_HOST']+"/media/pdf/customer_receipt_"+str(hdr[0].sa_transacno_ref)+".pdf"
+            ip_link = str(SITE_ROOT) + "pdf/customer_receipt_"+str(hdr[0].sa_transacno_ref)+".pdf"
+
     return ip_link
 
 

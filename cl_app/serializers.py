@@ -741,7 +741,7 @@ class SiteApptSettingSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ItemSitelist
-        fields = ['id','startday_hour','endday_hour','cell_duration','resource_count']        
+        fields = ['id','startday_hour','endday_hour','cell_duration','resource_count','is_dragappt']        
 
 class HolditemAccListSerializer(serializers.ModelSerializer): 
     id = serializers.IntegerField(source='pk',required=False)

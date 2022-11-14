@@ -333,7 +333,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                         Site_Codeid=site,site_code=site.itemsite_code,treat_code=patreatment_parentcode,itemcart=c,
                                         focreason=item_remarks)
                                         patreatacc.save()
-                                        patreatacc.sa_date = pay_time
+                                        patreatacc.sa_date = pay_date
                                         patreatacc.sa_time = pay_time
                                         patreatacc.save()
 
@@ -550,7 +550,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                                     dt_lineno=c.lineno,Site_Codeid=site,site_code=site.itemsite_code,
                                                     treat_code=patreatmentid.treatment_parentcode,itemcart=c)
                                                     treatacc_td.save()
-                                                    treatacc_td.sa_date = pay_time
+                                                    treatacc_td.sa_date = pay_date
                                                     treatacc_td.sa_time = pay_time
                                                     treatacc_td.save()
                                                     # print(treatacc_td.id,"treatacc_td")
@@ -779,7 +779,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                                 balance="{:.2f}".format(float(trmtAccObj.balance)),outstanding="{:.2f}".format(float(trmtAccObj.outstanding)),
                                                 treatmentids=treatmids)
                                                 tr.save()
-                                                tr.treatment_date = pay_time
+                                                tr.treatment_date = pay_date
                                                 tr.save()
 
 
@@ -1028,7 +1028,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                     Site_Codeid=site,site_code=site.itemsite_code,treat_code=treatment_parentcode,itemcart=c,
                     focreason=item_remarks,package_code=package_code)
                     treatacc.save()
-                    treatacc.sa_date = pay_time
+                    treatacc.sa_date = pay_date
                     treatacc.sa_time = pay_time
                     treatacc.save()
                     
@@ -1661,7 +1661,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                 dt_lineno=c.lineno,Site_Codeid=site,site_code=site.itemsite_code,
                                 treat_code=treatmentid.treatment_parentcode,itemcart=c)
                                 treatacc_td.save()
-                                treatacc_td.sa_date = pay_time
+                                treatacc_td.sa_date = pay_date
                                 treatacc_td.sa_time = pay_time
                                 treatacc_td.save()
                                 # print(treatacc_td.id,"treatacc_td")
@@ -1879,7 +1879,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                             times_ve = str(int(efd_treat_ids.times) + 1).zfill(2)
                                             treatment_coder = ct.treatment_parentcode+"-"+times_ve
                                             treatids = Treatment(treatment_code=treatment_coder,course=ct.course,times=times_ve,
-                                            treatment_no=times_ve,price=ct.price,treatment_date=ct.treatment_date,
+                                            treatment_no=times_ve,price=ct.price,treatment_date=pay_date,
                                             next_appt=ct.next_appt,cust_name=ct.cust_name,Cust_Codeid=ct.Cust_Codeid,
                                             cust_code=ct.cust_code,status="Open",unit_amount=0,
                                             Item_Codeid=ct.Item_Codeid,item_code=ct.item_code,treatment_parentcode=ct.treatment_parentcode,
@@ -1921,7 +1921,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                             balance="{:.2f}".format(float(trmtAccObj.balance)),outstanding="{:.2f}".format(float(trmtAccObj.outstanding)),
                             treatmentids=treatmids)
                             tr.save()   
-                            tr.treatment_date = pay_time
+                            tr.treatment_date = pay_date
                             tr.save()
 
 
@@ -2169,7 +2169,7 @@ def invoice_topup(self, request, topup_ids,sa_transacno, cust_obj, outstanding, 
                 Site_Codeid=site,site_code=site.itemsite_code,treat_code=c.treatment_account.treatment_parentcode,itemcart=c,
                 focreason=item_remarks,ref_no=sa_transacno)
                 treatacc.save()
-                treatacc.sa_date = pay_time
+                treatacc.sa_date = pay_date
                 treatacc.sa_time = pay_time
                 treatacc.save()
 
@@ -2622,7 +2622,7 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
             Site_Codeid=site,site_code=site.itemsite_code,treat_code=c.treatment.treatment_parentcode if c.treatment.treatment_parentcode else None,itemcart=c,
             focreason=item_remarks)
             treatacc.save()
-            treatacc.sa_date = pay_time
+            treatacc.sa_date = pay_date
             treatacc.sa_time = pay_time
             treatacc.save()
 
@@ -2657,7 +2657,7 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                                 times_v = str(int(efdtreat_ids.times) + 1).zfill(2)
                                 treatment_code = ct.treatment_parentcode+"-"+times_v
                                 treatids = Treatment(treatment_code=treatment_code,course=ct.course,times=times_v,
-                                treatment_no=times_v,price=ct.price,treatment_date=ct.treatment_date,
+                                treatment_no=times_v,price=ct.price,treatment_date=pay_date,
                                 next_appt=ct.next_appt,cust_name=ct.cust_name,Cust_Codeid=ct.Cust_Codeid,
                                 cust_code=ct.cust_code,status="Open",unit_amount=ct.unit_amount,
                                 Item_Codeid=ct.Item_Codeid,item_code=ct.item_code,treatment_parentcode=ct.treatment_parentcode,
@@ -2702,7 +2702,7 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
 
                         if idx != 1:  
                             gtreatids = Treatment(treatment_code=f_treatment_code,course=tm.newservice_id.item_name,times=times_t,
-                            treatment_no=treatment_no_t,price=ct.price,treatment_date=timezone.now(),
+                            treatment_no=treatment_no_t,price=ct.price,treatment_date=pay_date,
                             next_appt=ct.next_appt,cust_name=ct.cust_name,Cust_Codeid=ct.Cust_Codeid,
                             cust_code=ct.cust_code,status="Done",unit_amount=0,
                             Item_Codeid=tm.newservice_id,item_code=tm.newservice_id.item_code+"0000",treatment_parentcode=ct.treatment_parentcode,
@@ -2777,6 +2777,9 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                                 Site_Codeid=site,site_code=site.itemsite_code,treat_code=c.treatment.treatment_parentcode if c.treatment.treatment_parentcode else None,itemcart=c,
                                 focreason=item_remarks)
                                 treatacc_id.save()
+                                treatacc_id.sa_date = pay_date
+                                treatacc_id.sa_time = pay_time
+                                treatacc_id.save()
                     
                     ct.status="Done"
                     ct.save() 
@@ -2793,7 +2796,7 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
 
                         
                         goptreatids = Treatment(treatment_code=ff_treatment_code,course=frtstreat_ids.course,times=timess_t,
-                        treatment_no=treatment_no_tr,price=ct.price,treatment_date=timezone.now(),
+                        treatment_no=treatment_no_tr,price=ct.price,treatment_date=pay_date,
                         next_appt=ct.next_appt,cust_name=ct.cust_name,Cust_Codeid=ct.Cust_Codeid,
                         cust_code=ct.cust_code,status="Open",unit_amount=0,
                         Item_Codeid=frtstreat_ids.Item_Codeid,item_code=frtstreat_ids.Item_Codeid.item_code+"0000",treatment_parentcode=ct.treatment_parentcode,
@@ -2836,7 +2839,7 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                     edone_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Done").order_by('pk').count()
                     if ct.treatment_limit_times > edone_ids or ct.treatment_limit_times == 0:
                         ftreatids = Treatment(treatment_code=ftreatment_code,course=frtstreat_ids.course,times=timest,
-                        treatment_no=treatment_not,price=ct.price,treatment_date=timezone.now(),
+                        treatment_no=treatment_not,price=ct.price,treatment_date=pay_date,
                         next_appt=ct.next_appt,cust_name=ct.cust_name,Cust_Codeid=ct.Cust_Codeid,
                         cust_code=ct.cust_code,status="Open",unit_amount=0,
                         Item_Codeid=ct.Item_Codeid,item_code=ct.item_code,treatment_parentcode=ct.treatment_parentcode,

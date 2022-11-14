@@ -60,7 +60,7 @@ from rest_framework.views import APIView
 from django.template.loader import render_to_string
 from xhtml2pdf import pisa
 from django.http import HttpResponse
-from Cl_beautesoft.settings import EMAIL_HOST_USER, PDF_ROOT
+from Cl_beautesoft.settings import EMAIL_HOST_USER, PDF_ROOT, SITE_ROOT
 from django.core.mail import EmailMessage, send_mail, EmailMultiAlternatives, get_connection
 from io import BytesIO
 from rest_framework.decorators import action
@@ -120,7 +120,8 @@ def get_client_ip(request):
     # for idx, val in enumerate(ip[0]):
     #     if idx != 21:
     #         string += val
-    ip_str = str("http://"+request.META['HTTP_HOST'])
+    # ip_str = str("http://"+request.META['HTTP_HOST'])
+    ip_str = str(SITE_ROOT)
     return ip_str
 
 
@@ -172,7 +173,8 @@ def response(self,request, queryset,total,  state, message, error, serializer_cl
                                     Category = None
 
                                 if img:
-                                    images = str(ip)+str(img[0].image.url)
+                                    # images = str(ip)+str(img[0].image.url)
+                                    images = str(SITE_ROOT) + str(img[0].image)
                                 else:
                                     images = None        
 
@@ -200,7 +202,8 @@ def response(self,request, queryset,total,  state, message, error, serializer_cl
                             obj = Stock.objects.get(pk=value)
                             imagee = obj.images_set.all().order_by('-id')
                             if imagee:
-                                image = str(ip)+str(imagee[0].image.url)
+                                # image = str(ip)+str(imagee[0].image.url)
+                                image = str(SITE_ROOT) + str(imagee[0].image)
                             else:
                                 image = None
                             dictt['images'] = image    
@@ -237,7 +240,8 @@ def response(self,request, queryset,total,  state, message, error, serializer_cl
                         Category = None
 
                     if img:
-                        images = str(ip)+str(img[0].image.url)
+                        # images = str(ip)+str(img[0].image.url)
+                        images = str(SITE_ROOT) + str(img[0].image)
                     else:
                         images = None        
 
@@ -1469,7 +1473,8 @@ class itemCartViewset(viewsets.ModelViewSet):
             
             ip = get_client_ip(request)
 
-            var = [{'id': e.pk, 'emp_name': e.display_name, 'emp_pic': str(ip)+str(e.emp_pic.url)} for e in emp_query]
+            # var = [{'id': e.pk, 'emp_name': e.display_name, 'emp_pic': str(ip)+str(e.emp_pic.url)} for e in emp_query]
+            var = [{'id': e.pk, 'emp_name': e.display_name, 'emp_pic': str(SITE_ROOT) + str(e.emp_pic)} for e in emp_query]
             
             if emplst != []: 
                 limit = request.GET.get('limit',12)
@@ -1857,8 +1862,8 @@ class itemCartViewset(viewsets.ModelViewSet):
                 if not enterdeposit:
                     raise Exception('Please Enter Deposit !!') 
 
-                enter_deposit = float(enterdeposit)  
-                total_transac = sum([i.trans_amt for i in queryset]) 
+                enter_deposit = float("{:.2f}".format(float(enterdeposit)))
+                total_transac = float("{:.2f}".format(sum([i.trans_amt for i in queryset]) ))
                 if enter_deposit >= total_transac:
                     raise Exception('Please Enter Valid Deposit, Entered Deposit Should not be greater than Total Transac Amount !!') 
 
@@ -2412,11 +2417,14 @@ class itemCartViewset(viewsets.ModelViewSet):
                             if packdtl_ids:
                                 for padtl in packdtl_ids:
                                     padtl_deposit = padtl.price * padtl.qty
-                                    PosPackagedeposit(code=padtl.code,description=padtl.description,price=padtl.price,
+                                    pos = PosPackagedeposit(code=padtl.code,description=padtl.description,price=padtl.price,
                                     discount=padtl.discount,package_code=padtl.package_code,package_description=packhdr_ids.description,
                                     qty=padtl.qty,unit_price=padtl.unit_price,ttl_uprice=padtl.ttl_uprice,site_code=site.itemsite_code,
                                     dt_lineno=cart.lineno,status="PENDING",deposit_amt=padtl_deposit,deposit_lineno=padtl.line_no,
-                                    itemcart=cart).save()
+                                    itemcart=cart)
+                                    pos.save()
+                                    pos.sa_date = date.today()
+                                    pos.save()
 
     
                     # if str(req['type']) == 'Top Up':
@@ -3592,9 +3600,9 @@ class itemCartViewset(viewsets.ModelViewSet):
                         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please Select Service Staffs Treatment Done!!",'error': True} 
                         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
                     
-                    if float(req['price']) < float(trmt_obj.unit_amount):
-                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Insufficent Amount in Treatment Account. Please Top Up!!",'error': True} 
-                        return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+                    # if float(req['price']) < float(trmt_obj.unit_amount):
+                    #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Insufficent Amount in Treatment Account. Please Top Up!!",'error': True} 
+                    #     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
                     if req['ori_stockid']:
 
@@ -3608,7 +3616,8 @@ class itemCartViewset(viewsets.ModelViewSet):
                         controlno = str(excontrol_obj.Site_Codeid.itemsite_code)+str(excontrol_obj.control_no)
                         excontrol_obj.control_no = int(excontrol_obj.control_no) + 1
                         excontrol_obj.save() 
-
+                        
+                        currentdate = date.today()
                         for t in req['treatment']:
                             trmtobj = Treatment.objects.filter(pk=t).first()
                             if trmtobj:
@@ -3618,6 +3627,8 @@ class itemCartViewset(viewsets.ModelViewSet):
                                 exchange_item_name=stock_obj.item_name,trmt_code=trmtobj.treatment_parentcode,
                                 trmt_full_code=trmtobj.treatment_code,treatment_time=trmtobj.times,sa_transacno=trmtobj.sa_transacno,
                                 status=False,site_code=site.itemsite_code,cust_code=cust_obj.cust_code,cust_name=cust_obj.cust_name)
+                                ex.save()
+                                ex.sa_date = currentdate
                                 ex.save()
 
 
@@ -3832,7 +3843,8 @@ class itemCartViewset(viewsets.ModelViewSet):
             serializer = itemCartListSerializer(cart)
             data = serializer.data
             if cart.itemcodeid.Stock_PIC:
-                data['stock_pic'] = "http://"+request.META['HTTP_HOST']+cart.itemcodeid.Stock_PIC.url
+                # data['stock_pic'] = "http://"+request.META['HTTP_HOST']+cart.itemcodeid.Stock_PIC.url
+                data['stock_pic'] = str(SITE_ROOT)+str(cart.itemcodeid.Stock_PIC)
             else:
                 data['stock_pic'] = None   
             # data['products_used'] = ""
@@ -6016,18 +6028,23 @@ class ExchangeProductConfirmAPIView(generics.CreateAPIView):
                 if not con_obj:
                     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Product Issues Control No does not exist!!",'error': True} 
                     return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                
+                pay_date = date.today()
+                pay_time = timezone.now()        
+                
 
-                    
-
-
-            
                 if balance == 0.0:
                   
                     taud = PosTaud(sa_transacno=sa_transacno,billed_by=fmspw,ItemSIte_Codeid=site,itemsite_code=site.itemsite_code,
                     pay_groupid=paytable.pay_groupid,pay_group=paytable.pay_groupid.pay_group_code,pay_typeid=paytable,pay_type=paytable.pay_code,
                     pay_desc=paytable.pay_description,pay_tendamt=0,pay_tendrate=1,pay_amt=0,pay_amtrate=1.0,pay_rem1="Refund",pay_status=1,dt_lineno=1,
                     pay_actamt=0,subtotal=0,paychange=0,tax=0, discount_amt=0,billable_amount=0,
-                    pay_gst_amt_collect=0,pay_gst=0,pay_premise=True).save()
+                    pay_gst_amt_collect=0,pay_gst=0,pay_premise=True)
+                    taud.save()
+                    taud.sa_date = pay_date
+                    taud.sa_time = pay_time
+                    taud.save()
+
                     #print(taud,"taud")
 
                     for idx, c in enumerate(queryset, start=1):
@@ -6071,6 +6088,9 @@ class ExchangeProductConfirmAPIView(generics.CreateAPIView):
                         dt_uom=c.item_uom.uom_code if c.item_uom else None,first_trmt_done=False,item_status_code=c.itemstatus.status_code if c.itemstatus and c.itemstatus.status_code else None,
                         staffs=sales +" "+"/"+" "+ service)
 
+                        dtl.save()
+                        dtl.sa_date = pay_date
+                        dtl.sa_time = pay_time
                         dtl.save()
                         # print(dtl.id,"dtl")
 
@@ -6117,6 +6137,10 @@ class ExchangeProductConfirmAPIView(generics.CreateAPIView):
                             ref_transacno=sa_transacno,ref_productcode=treat_code,Item_Codeid=c.itemcodeid,
                             item_code=c.itemcodeid.item_code)
                             depoacc.save()
+                            depoacc.sa_date = pay_date
+                            depoacc.sa_time = pay_time
+                            depoacc.save()
+
                             # print(depoacc.pk,"depoacc")
                             if depoacc.pk:
                                 decontrolobj.control_no = int(decontrolobj.control_no) + 1
@@ -6230,6 +6254,9 @@ class ExchangeProductConfirmAPIView(generics.CreateAPIView):
                             sa_custname=cust_obj.cust_name,history_line=1,hold_type=c.holdreason.hold_desc if c.holdreason and c.holdreason.hold_desc else None,
                             product_issues_no=product_issues_no)
                             hold.save()
+                            hold.sa_date = pay_date
+                            hold.sa_time = pay_time
+                            hold.save()
                             # print(hold.pk,"hold")
                             if hold.pk:
                                 con_obj.control_no = int(con_obj.control_no) + 1
@@ -6265,6 +6292,9 @@ class ExchangeProductConfirmAPIView(generics.CreateAPIView):
                     
                     # appt_time=app_obj.appt_fr_time,
                     hdr.save()
+                    hdr.sa_date = pay_date
+                    hdr.sa_time = pay_time
+                    hdr.save()
                     if hdr.pk:
                         nscontrol_obj.control_no = int(nscontrol_obj.control_no) + 1
                         nscontrol_obj.save() 
@@ -6286,7 +6316,12 @@ class ExchangeProductConfirmAPIView(generics.CreateAPIView):
                     pay_rem3=request.data['remarks'],pay_status=1,dt_lineno=1,
                     pay_actamt=0 if request.data['return_type'] == 'Forfeit' else "{:.2f}".format(float(balance)),subtotal=0,paychange=0,tax=0, discount_amt=0,billable_amount=0,
                     pay_gst_amt_collect=0 if request.data['return_type'] == 'Forfeit' else "{:.2f}".format(float(pay_gst)),pay_gst=0 if request.data['return_type'] == 'Forfeit' else "{:.2f}".format(float(pay_gst)),
-                    pay_premise=True if request.data['return_type'] == 'Cash' else False).save()
+                    pay_premise=True if request.data['return_type'] == 'Cash' else False)
+                    taud.save()
+                    taud.sa_date = pay_date
+                    taud.sa_time = pay_time
+                    taud.save()
+
                     #print(taud,"taud")
 
                     for idx, c in enumerate(queryset, start=1):
@@ -6330,6 +6365,9 @@ class ExchangeProductConfirmAPIView(generics.CreateAPIView):
                         dt_uom=c.item_uom.uom_code if c.item_uom else None,first_trmt_done=False,item_status_code=c.itemstatus.status_code if c.itemstatus and c.itemstatus.status_code else None,
                         staffs=sales +" "+"/"+" "+ service)
 
+                        dtl.save()
+                        dtl.sa_date = pay_date
+                        dtl.sa_time = pay_time
                         dtl.save()
                         # print(dtl.id,"dtl")
 
@@ -6377,6 +6415,11 @@ class ExchangeProductConfirmAPIView(generics.CreateAPIView):
                             ref_transacno=sa_transacno,ref_productcode=treat_code,Item_Codeid=c.itemcodeid,
                             item_code=c.itemcodeid.item_code)
                             depoacc.save()
+                            depoacc.sa_date = pay_date
+                            depoacc.sa_time = pay_time
+                            depoacc.save()
+
+
                             # print(depoacc.pk,"depoacc")
                             if depoacc.pk:
                                 decontrolobj.control_no = int(decontrolobj.control_no) + 1
@@ -6488,6 +6531,9 @@ class ExchangeProductConfirmAPIView(generics.CreateAPIView):
                             sa_custname=cust_obj.cust_name,history_line=1,hold_type=c.holdreason.hold_desc if c.holdreason and c.holdreason.hold_desc else None,
                             product_issues_no=product_issues_no)
                             hold.save()
+                            hold.sa_date = pay_date
+                            hold.sa_time = pay_time
+                            hold.save()
                             # print(hold.pk,"hold")
                             if hold.pk:
                                 con_obj.control_no = int(con_obj.control_no) + 1
@@ -6527,6 +6573,8 @@ class ExchangeProductConfirmAPIView(generics.CreateAPIView):
                         sa_transacno=sa_transacno,status="OPEN",credit_code=sa_transacno_refval,balance="{:.2f}".format(abs(balance)),
                         deposit_type=None,site_code=site.itemsite_code,treat_code=None)
                         creditnote.save()
+                        creditnote.sa_date = pay_date
+                        creditnote.save()
 
                     elif request.data['return_type'] == 'Forfeit':
                         nscontrol_obj = ControlNo.objects.filter(control_description__iexact="Reference Non Sales No",Site_Codeid__pk=fmspw.loginsite.pk).first()
@@ -6545,6 +6593,9 @@ class ExchangeProductConfirmAPIView(generics.CreateAPIView):
                     issuestrans_user_login=fmspw.pw_userlogin)
                     
                     # appt_time=app_obj.appt_fr_time,
+                    hdr.save()
+                    hdr.sa_date = pay_date
+                    hdr.sa_time = pay_time
                     hdr.save()
                     if hdr.pk:
                         if request.data['return_type'] == 'Cash':   
@@ -6819,7 +6870,7 @@ class ChangeStaffViewset(viewsets.ModelViewSet):
                                     helper_obj = Employee.objects.filter(emp_isactive=True,pk=s['emp_id']).first()
                                     if s['tmp_workid']:
                                         TmpItemHelper.objects.filter(id=s['tmp_workid']).update(
-                                        percent=s['work_percentage'],work_amt=s['work_amount'],wp1=s['wp'])
+                                        percent=s['work_percentage'],work_amt=s['work_amount'],wp1=s['wp'],sa_date=date.today())
                                     elif s['tmp_workid'] == None:
                                         
                                         if helper_obj: 
@@ -6830,7 +6881,7 @@ class ChangeStaffViewset(viewsets.ModelViewSet):
                                                 helper_name=helper_obj.display_name,helper_code=helper_obj.emp_code,
                                                 site_code=site.itemsite_code,times=str(itemcart.quantity).zfill(2),
                                                 treatment_no=str(itemcart.quantity).zfill(2),wp1=s['wp'],wp2=0.0,wp3=0.0,itemcart=itemcart,
-                                                percent=s['work_percentage'],work_amt=s['work_amount']) 
+                                                percent=s['work_percentage'],work_amt=s['work_amount'],sa_date=date.today()) 
                                                 temph.save() 
 
                                     serviceStaffChangeLog(sa_transacno=sa_transacno,item_code=s['item_code'] if 'item_code' in s and s['item_code'] else None,
@@ -6931,6 +6982,8 @@ class ChangeStaffViewset(viewsets.ModelViewSet):
                                     wp1=wp1,wp2=0.0,wp3=0.0,percent=h.percent,work_amt="{:.2f}".format(float(h.work_amt)) if h.work_amt else h.work_amt,session=h.session,
                                     times=h.times,treatment_no=h.treatment_no)
                                     helper.save()
+                                    helper.sa_date = date.today()
+                                    helper.save()
                                 
 
                             tmpids = TmpItemHelper.objects.filter(itemcart=itemcart).order_by('pk').aggregate(Sum('wp1'))
@@ -6986,6 +7039,8 @@ class ChangeStaffViewset(viewsets.ModelViewSet):
                                         helper_name=h.helper_name,helper_code=h.helper_code,sa_date=poshaud_v.sa_date,
                                         site_code=site.itemsite_code,share_amt="{:.2f}".format(float(share_amt)),helper_transacno=sa_transacno,
                                         wp1=wp1,wp2=0.0,wp3=0.0,percent=h.percent,work_amt="{:.2f}".format(float(h.work_amt)) if h.work_amt else h.work_amt,times=h.times,treatment_no=h.treatment_no)
+                                        helper.save()
+                                        helper.sa_date = date.today()
                                         helper.save()
                                         # print(helper.id,"helper")
 
@@ -8495,7 +8550,7 @@ class CourseTmpItemHelperViewset(viewsets.ModelViewSet):
             if not cart_obj:
                 raise Exception("Please Give Valid Cart ID")
 
-            deposit = request.GET.get('deposit',None)
+            deposit = float("{:.2f}".format(float(request.GET.get('deposit',None)))) if request.GET.get('deposit',None) else None
             if not deposit:
                 raise Exception("Please Give Cart Deposit")
 
@@ -8519,7 +8574,7 @@ class CourseTmpItemHelperViewset(viewsets.ModelViewSet):
                 return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
             
 
-            amount = sum([i.unit_amount for i in tmp_treatids])
+            amount = float("{:.2f}".format(sum([i.unit_amount for i in tmp_treatids])))
               
             if amount > float(deposit):
                 system_setup = Systemsetup.objects.filter(title='Treatment',value_name='Allow layaway',value_data='FALSE',isactive=True).first()
@@ -8613,7 +8668,7 @@ class CourseTmpItemHelperViewset(viewsets.ModelViewSet):
             if not cart_obj:
                 raise Exception("Please Give Valid Cart ID")
 
-            deposit = request.GET.get('deposit',None)
+            deposit = float("{:.2f}".format(float(request.GET.get('deposit',None)))) if request.GET.get('deposit',None) else None
             if not deposit:
                 raise Exception("Please Give Cart Deposit")
 
@@ -8629,7 +8684,7 @@ class CourseTmpItemHelperViewset(viewsets.ModelViewSet):
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Course Tmp Treatment Does not exist!!",'error': True} 
                 return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
             
-            amount = sum([i.unit_amount for i in tmp_treatids])
+            amount = float("{:.2f}".format(sum([i.unit_amount for i in tmp_treatids])))
 
             if amount > float(deposit):
                 system_setup = Systemsetup.objects.filter(title='Treatment',value_name='Allow layaway',value_data='FALSE',isactive=True).first()
@@ -8980,7 +9035,7 @@ class CourseTmpItemHelperViewset(viewsets.ModelViewSet):
             if not cart_obj:
                 raise Exception("Please Give Valid Cart ID")
 
-            deposit = request.GET.get('deposit',None)
+            deposit = float("{:.2f}".format(float(request.GET.get('deposit',None)))) if request.GET.get('deposit',None) else None
             if not deposit:
                 raise Exception("Please Give Valid Deposit")
 
@@ -8997,7 +9052,7 @@ class CourseTmpItemHelperViewset(viewsets.ModelViewSet):
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Course Tmp Treatment Does not exist!!",'error': True} 
                 return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
             
-            amount = sum([i.unit_amount for i in tmp_treatids])
+            amount = float("{:.2f}".format(sum([i.unit_amount for i in tmp_treatids])))
 
             if amount > float(deposit):
                 system_setup = Systemsetup.objects.filter(title='Treatment',value_name='Allow layaway',value_data='FALSE',isactive=True).first()
@@ -9284,7 +9339,7 @@ class PackageServiceTmpItemHelperViewset(viewsets.ModelViewSet):
             
 
             trasac = posobj.price * posobj.qty
-            deposit = posobj.deposit_amt
+            deposit = float("{:.2f}".format(posobj.deposit_amt))
 
             qty = posobj.qty
             if qty:
@@ -9292,7 +9347,7 @@ class PackageServiceTmpItemHelperViewset(viewsets.ModelViewSet):
                     raise Exception("Done Session Should not be greater than Package Details quantity!!")
 
 
-            amount = trasac / qty
+            amount = float("{:.2f}".format(trasac / qty))
               
             if amount > float(deposit):
                 system_setup = Systemsetup.objects.filter(title='Treatment',value_name='Allow layaway',value_data='FALSE',isactive=True).first()
@@ -9378,11 +9433,11 @@ class PackageServiceTmpItemHelperViewset(viewsets.ModelViewSet):
                 raise Exception("Item Cart ID does not exist")
 
             trasac = posobj.price * posobj.qty
-            deposit = posobj.deposit_amt
+            deposit = float("{:.2f}".format(posobj.deposit_amt))
 
             qty = posobj.qty
 
-            amount = trasac / qty
+            amount = float("{:.2f}".format(trasac / qty))
 
             if amount > float(deposit):
                 system_setup = Systemsetup.objects.filter(title='Treatment',value_name='Allow layaway',value_data='FALSE',isactive=True).first()
@@ -9719,11 +9774,12 @@ class PackageServiceTmpItemHelperViewset(viewsets.ModelViewSet):
                 raise Exception("Item Cart ID does not exist")
 
             trasac = posobj.price * posobj.qty
-            deposit = posobj.deposit_amt
+            deposit =  float("{:.2f}".format(posobj.deposit_amt))
+
 
             qty = posobj.qty
 
-            amount = trasac / qty
+            amount = float("{:.2f}".format(trasac / qty))
 
             if amount > float(deposit):
                 system_setup = Systemsetup.objects.filter(title='Treatment',value_name='Allow layaway',value_data='FALSE',isactive=True).first()
@@ -9957,7 +10013,7 @@ class ChangePaymentDateViewset(viewsets.ModelViewSet):
                 transremark = "Invoice Date Changed using Change Date Flow"
                
                 if not pay_date:
-                    pay_date = timezone.now() 
+                    pay_date = date.today()
                     pay_time = timezone.now()  
 
                 time = datetime.datetime.now()
@@ -10288,8 +10344,8 @@ class AddRemoveSalesStaffViewset(viewsets.ModelViewSet):
 
                                         tmpp_treatids = Tmptreatment.objects.filter(itemcart=cartobj).order_by('pk')[0]
                                         if tmpp_treatids:
-                                            amount = tmpp_treatids.unit_amount
-                                            deposit = cartobj.deposit
+                                            amount = float("{:.2f}".format(tmpp_treatids.unit_amount))
+                                            deposit = float("{:.2f}".format(cartobj.deposit))
 
                                             if amount > float(deposit):
                                                 system_setup = Systemsetup.objects.filter(title='Treatment',value_name='Allow layaway',value_data='FALSE',isactive=True).first()
@@ -10489,7 +10545,7 @@ class AddRemoveSalesStaffViewset(viewsets.ModelViewSet):
                                     trids = t_ids.aggregate(amount=Coalesce(Sum('unit_amount'), 0))
 
                                     if acc_ids and acc_ids.balance:
-                                        acc_balance = acc_ids.balance
+                                        acc_balance = float("{:.2f}".format(acc_ids.balance))
                                     else:
                                         acc_balance = 0
                     
@@ -11980,7 +12036,8 @@ class ManualInvoiceFormatAPIView(generics.ListCreateAPIView):
 
                     logo = ""
                     if title and title.logo_pic:
-                        logo = "http://"+request.META['HTTP_HOST']+title.logo_pic.url
+                        # logo = "http://"+request.META['HTTP_HOST']+title.logo_pic.url
+                        logo = str(SITE_ROOT)+str(title.logo_pic)
      
 
                     company_header = {'logo': logo,'date':current_date+" "+time_data,
@@ -12051,7 +12108,8 @@ class WorkOrderInvoiceFormatAPIView(generics.ListCreateAPIView):
 
                     logo = ""
                     if title and title.logo_pic:
-                        logo = "http://"+request.META['HTTP_HOST']+title.logo_pic.url
+                        # logo = "http://"+request.META['HTTP_HOST']+title.logo_pic.url
+                        logo = str(SITE_ROOT)+str(title.logo_pic)
      
 
                     company_header = {'logo': logo,'date':current_date+" "+time_data,
@@ -12129,7 +12187,9 @@ class DeliveryOrderFormatAPIView(generics.ListCreateAPIView):
 
                     logo = ""
                     if title and title.logo_pic:
-                        logo = "http://"+request.META['HTTP_HOST']+title.logo_pic.url
+                        # logo = "http://"+request.META['HTTP_HOST']+title.logo_pic.url
+                        logo = str(SITE_ROOT)+str(title.logo_pic)
+
      
 
                     company_header = {'logo': logo,'date':current_date+" "+time_data,
@@ -12214,7 +12274,8 @@ class QuotationFormatAPIView(generics.ListCreateAPIView):
 
                     logo = ""
                     if title and title.logo_pic:
-                        logo = "http://"+request.META['HTTP_HOST']+title.logo_pic.url
+                        # logo = "http://"+request.META['HTTP_HOST']+title.logo_pic.url
+                        logo = str(SITE_ROOT)+str(title.logo_pic)
      
 
                     company_header = {'logo': logo,'date':current_date+" "+time_data,
@@ -26436,7 +26497,8 @@ class StudioPdfGeneration(APIView):
                         fh.write(p)
                     display.stop()
 
-                    ip_link = "http://"+request.META['HTTP_HOST']+"/media/pdf/studio_receipt_"+str(hdr.sa_transacno_ref)+".pdf"
+                    # ip_link = "http://"+request.META['HTTP_HOST']+"/media/pdf/studio_receipt_"+str(hdr.sa_transacno_ref)+".pdf"
+                    ip_link = str(SITE_ROOT)+"pdf/studio_receipt_"+str(hdr.sa_transacno_ref)+".pdf"
                     if ip_link:
                         result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 'data': ip_link}
                         return Response(data=result, status=status.HTTP_200_OK) 

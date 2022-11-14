@@ -92,7 +92,7 @@ from dateutil import parser, rrule, relativedelta
 from .authentication import token_expire_handler, expires_in, multiple_expire_handler
 from django.conf import settings
 from rest_framework.decorators import api_view
-from Cl_beautesoft.settings import SMS_ACCOUNT_SID, SMS_AUTH_TOKEN, SMS_SENDER
+from Cl_beautesoft.settings import SMS_ACCOUNT_SID, SMS_AUTH_TOKEN, SMS_SENDER, SITE_ROOT
 from django.core.mail import EmailMessage
 from Cl_beautesoft.settings import EMAIL_HOST_USER
 from django.template.loader import get_template
@@ -7400,7 +7400,8 @@ class StockDetail(APIView):
 
     def get(self, request, pk, format=None):
         try:
-            ip = "http://"+request.META['HTTP_HOST']
+            # ip = "http://"+request.META['HTTP_HOST']
+            ip = str(SITE_ROOT)
             Stock = self.get_object(pk)
             serializer = StockListTreatmentSerializer(Stock)
 
@@ -7424,18 +7425,18 @@ class StockDetail(APIView):
                 sel = list(set([e.pk for e in emp if e.pk not in staffs]))
                 if sel != []:
                     empobj = Employee.objects.filter(pk=sel[0]).first()
-                    emppic = empobj.emp_pic.url
+                    emppic = empobj.emp_pic
                 else:
-                    emppic = emp[0].emp_pic.url
+                    emppic = emp[0].emp_pic
 
             rooms = Room.objects.filter(Site_Codeid=app_obj.ItemSite_Codeid)
             if rooms:
                 sel_room = list(set([r.id for r in rooms if r.id not in rooms]))
                 if sel_room != []:
                     roomobj = Room.objects.filter(id=sel_room[0]).first()
-                    roompic = roomobj.Room_PIC.url
+                    roompic = roomobj.Room_PIC
                 else:
-                    roompic = rooms[0].Room_PIC.url
+                    roompic = rooms[0].Room_PIC
 
             data = serializer.data
             if emppic:
@@ -7606,11 +7607,19 @@ class UsersList(APIView):
             value_name='Surcharge',isactive=True).first()
             walkincust_setup = Systemsetup.objects.filter(title='Sales',
             value_name='Cash Sales Cust No',isactive=True).first()
-            print(walkincust_setup)
 
+            service_expiry_setup = Systemsetup.objects.filter(title='allowServiceChangeExpiryDate',
+            value_name='allowServiceChangeExpiryDate',isactive=True).first()
+            
+            
+            walkinobj = ""
+            if walkincust_setup and walkincust_setup.value_data:
+                cust_obj = Customer.objects.filter(pk=walkincust_setup.value_data,cust_isactive=True).first()
+                if cust_obj:
 
-
-
+                    serializer = CustApptSerializer(cust_obj, context={'request': self.request})
+                    walkinobj = serializer.data
+               
 
             cosystem_setup = Systemsetup.objects.filter(title='controlsite',value_name='controlsite').first()
             if cosystem_setup and cosystem_setup.value_data:
@@ -7676,7 +7685,8 @@ class UsersList(APIView):
             'thermalprint' : True if thermalprint_ids and thermalprint_ids.value_data == 'True' else False,
             'voucherpromo' : True if vouchopromo_setup and vouchopromo_setup.value_data == 'True' else False,
             'surcharge' : True if surcharge_setup and surcharge_setup.value_data == 'True' else False,
-            'walkincust' : walkincust_setup.value_data if walkincust_setup and walkincust_setup.value_data else "",
+            'walkincust' : walkinobj,
+            'service_expirydate' : True if service_expiry_setup and service_expiry_setup.value_data == 'True' else False,
             }
 
             level_qs = Securitylevellist.objects.filter(level_itemid=fmspw.LEVEL_ItmIDid.level_code).order_by('pk')
@@ -10805,11 +10815,13 @@ class CustomerReceiptPrintList(generics.ListAPIView):
             if title:
                 pic = False
                 if title.logo_pic:
-                    pic = str(ip)+str(title.logo_pic.url)
+                    # pic = str(ip)+str(title.logo_pic.url)
+                    pic = str(SITE_ROOT)+str(title.logo_pic)
                 
                 cust_sig = ""
                 if custsign_ids:
-                    cust_sig = str(ip)+str(custsign_ids.cust_sig.url)
+                    # cust_sig = str(ip)+str(custsign_ids.cust_sig.url)
+                    cust_sig = str(SITE_ROOT)+str(custsign_ids.cust_sig)
 
 
                 company_hdr = {'logo':pic if pic else '','name':title.trans_h1 if title.trans_h1 else '','address': title.trans_h2 if title.trans_h2 else '',
@@ -11773,8 +11785,10 @@ class EmployeeAppointmentViewNew(viewsets.ModelViewSet):
             final = [];event = []; f = [];emp_l = [];last_l = [];t =[]
             ser = StaffsAppointmentSerializer(queryset, many=True,  context={'request': self.request})
             # print(ser.data,"kk")
-            icon_cancel = "http://"+request.META['HTTP_HOST']+"/media/img/"+"cancel.png" 
-            icon_waiting = "http://"+request.META['HTTP_HOST']+"/media/img/"+"waitingyellow.png"
+            # icon_cancel = "http://"+request.META['HTTP_HOST']+"/media/img/"+"cancel.png" 
+            icon_cancel = str(SITE_ROOT)+"img/"+"cancel.png" 
+            # icon_waiting = "http://"+request.META['HTTP_HOST']+"/media/img/"+"waitingyellow.png"
+            icon_waiting = str(SITE_ROOT)+"img/"+"waitingyellow.png"
 
             if e_system_obj and e_system_obj.value_data == 'True':
                 for i in list(ser.data):
@@ -13512,10 +13526,7 @@ class AppointmentBlockViewset(viewsets.ModelViewSet):
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please Select Employee!!",'error': True} 
                 return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
-            if 'recurring' not in request.data or not request.data['recurring']:
-                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please Give recurring!!",'error': True} 
-                return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-    
+            
 
             start_date = datetime.datetime.strptime(str(request.data['start_date']), "%Y-%m-%d").date()
             end_date = datetime.datetime.strptime(str(request.data['end_date']), "%Y-%m-%d").date()
@@ -13536,6 +13547,8 @@ class AppointmentBlockViewset(viewsets.ModelViewSet):
             else:
                 dateloop = [d for d in (start_date + timedelta(n) for n in range(day_count)) if d <= end_date]
 
+            if dateloop == []:
+                raise Exception('Selected start date ,end date and week days returned empty date!!') 
 
             # for d in range(0, day_count):
             #     print(start_date+timedelta(days=d))
@@ -13582,43 +13595,43 @@ class AppointmentBlockViewset(viewsets.ModelViewSet):
                         factors = (60, 1, 1/60)
                         minutes = sum(i*j for i, j in zip(map(int, duration.split(':')), factors))
                         
-                        preapp_ids = Appointment.objects.filter(appt_date=adate,
-                        emp_no=emp_obj.emp_code,appt_remark=request.data['appt_remark'],
-                        appt_status="Block").order_by('pk') 
+                        # preapp_ids = Appointment.objects.filter(appt_date=adate,
+                        # emp_no=emp_obj.emp_code,appt_remark=request.data['appt_remark'],
+                        # appt_status="Block").order_by('pk') 
 
-                        if not preapp_ids:     
+                        # if not preapp_ids:     
 
-                            starttime = datetime.datetime.strptime(request.data['appt_fr_time'], "%H:%M")
-                            addduration = datetime.datetime.strptime(request.data['duration'], "%H:%M")
+                        starttime = datetime.datetime.strptime(request.data['appt_fr_time'], "%H:%M")
+                        addduration = datetime.datetime.strptime(request.data['duration'], "%H:%M")
 
-                            end_time = starttime + datetime.timedelta(minutes = minutes)
-                            endtime = datetime.datetime.strptime(str(end_time), "%Y-%m-%d %H:%M:%S").strftime("%H:%M")
-                
-                            appt = serializer.save(appt_date=adate,emp_noid=emp_obj,emp_no=emp_obj.emp_code,
-                            emp_name=emp_obj.display_name,appt_code=appt_code,appt_status="Block",
-                            appt_created_by=fmspw.pw_userlogin,Appt_Created_Byid=fmspw,ItemSite_Codeid=site,
-                            itemsite_code=site.itemsite_code,duration=minutes,reason=reason_obj.b_reason,add_duration=addduration)
-                            
-                            if appt.pk:
-                                control_obj.control_no = int(control_obj.control_no) + 1
-                                control_obj.save()
+                        end_time = starttime + datetime.timedelta(minutes = minutes)
+                        endtime = datetime.datetime.strptime(str(end_time), "%Y-%m-%d %H:%M:%S").strftime("%H:%M")
+            
+                        appt = serializer.save(appt_date=adate,emp_noid=emp_obj,emp_no=emp_obj.emp_code,
+                        emp_name=emp_obj.display_name,appt_code=appt_code,appt_status="Block",
+                        appt_created_by=fmspw.pw_userlogin,Appt_Created_Byid=fmspw,ItemSite_Codeid=site,
+                        itemsite_code=site.itemsite_code,duration=minutes,reason=reason_obj.b_reason,add_duration=addduration)
+                        
+                        if appt.pk:
+                            control_obj.control_no = int(control_obj.control_no) + 1
+                            control_obj.save()
 
-                            # master = Treatment_Master(course=reason_obj.b_reason,status="Block",appt_time=adate,duration=minutes,
-                            # Site_Codeid=site,site_code=site.itemsite_code,start_time=starttime,end_time=endtime,
-                            # add_duration=addduration,Appointment=appt)
-                            # master.save()
-                            # master.emp_no.add(emp_obj.pk)
+                        # master = Treatment_Master(course=reason_obj.b_reason,status="Block",appt_time=adate,duration=minutes,
+                        # Site_Codeid=site,site_code=site.itemsite_code,start_time=starttime,end_time=endtime,
+                        # add_duration=addduration,Appointment=appt)
+                        # master.save()
+                        # master.emp_no.add(emp_obj.pk)
 
-                            apptlog = AppointmentLog(appt_id=appt,userid=fmspw.Emp_Codeid,
-                            username=fmspw.Emp_Codeid.display_name,appt_date=adate,
-                            appt_fr_time=starttime,appt_to_time=endtime,emp_code=emp_obj.emp_code,
-                            newempcode=None,
-                            appt_status="Block",appt_remark=request.data['appt_remark'],
-                            add_duration=request.data['duration']).save()
+                        apptlog = AppointmentLog(appt_id=appt,userid=fmspw.Emp_Codeid,
+                        username=fmspw.Emp_Codeid.display_name,appt_date=adate,
+                        appt_fr_time=starttime,appt_to_time=endtime,emp_code=emp_obj.emp_code,
+                        newempcode=None,
+                        appt_status="Block",appt_remark=request.data['appt_remark'],
+                        add_duration=request.data['duration']).save()
 
-                            dr_type = "Create"
-                            sc_value = True
-                            sc_time =  schedulemonth_time(self, adate, emp_obj, site, request.data['appt_fr_time'],request.data['appt_to_time'], dr_type, None, sc_value)
+                        dr_type = "Create"
+                        sc_value = True
+                        sc_time =  schedulemonth_time(self, adate, emp_obj, site, request.data['appt_fr_time'],request.data['appt_to_time'], dr_type, None, sc_value)
 
                     else:
                         data = serializer.errors
@@ -13808,8 +13821,8 @@ class AppointmentLogAPIView(generics.ListAPIView):
                     final.append(s)
 
                 v['dataList'] =  final 
-                result['cust'] = {'cust_name': appt_q.cust_noid.cust_name if appt_q.cust_noid.cust_name else "",
-                'cust_refer' : appt_q.cust_noid.cust_refer if appt_q.cust_noid.cust_refer else ""} 
+                result['cust'] = {'cust_name': appt_q.cust_noid.cust_name if appt_q.cust_noid and appt_q.cust_noid.cust_name else "",
+                'cust_refer' : appt_q.cust_noid.cust_refer if appt_q.cust_noid and appt_q.cust_noid.cust_refer else ""} 
                 return Response(result, status=status.HTTP_200_OK)  
 
             else:
@@ -13953,7 +13966,8 @@ class AppointmentListPdf(APIView):
             title = Title.objects.filter(product_license=site.itemsite_code).first()
             path = None
             if title and title.logo_pic:
-                path = BASE_DIR + title.logo_pic.url
+                # path = BASE_DIR + title.logo_pic.url
+                path = str(SITE_ROOT) + str(title.logo_pic)
             
             data = {'name': title.trans_h1 if title and title.trans_h1 else '', 
             'address': title.trans_h2 if title and title.trans_h2 else '', 
@@ -14002,7 +14016,8 @@ class AppointmentListPdf(APIView):
                             fh.write(p)
                         display.stop()
 
-                        ip_link = "http://"+request.META['HTTP_HOST']+"/media/pdf/AppointmentReport"+".pdf"
+                        # ip_link = "http://"+request.META['HTTP_HOST']+"/media/pdf/AppointmentReport"+".pdf"
+                        ip_link = str(SITE_ROOT) + "pdf/AppointmentReport"+".pdf"
 
                         result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",
                         'error': False, 'data': ip_link}
@@ -14076,7 +14091,8 @@ class AppointmentListPdf(APIView):
 
                 workbook.close()
 
-                ip_link = "http://"+request.META['HTTP_HOST']+"/media/pdf/"+dst
+                # ip_link = "http://"+request.META['HTTP_HOST']+"/media/pdf/"+dst
+                ip_link = str(SITE_ROOT) + "pdf/"+dst
 
                 result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",
                 'error': False, 'data': ip_link}
@@ -14741,7 +14757,8 @@ class DayEndListAPIView(generics.ListAPIView,generics.CreateAPIView):
                         display.stop()
 
                         
-                        ip_link = "http://"+request.META['HTTP_HOST']+"/media/pdf/"+dst
+                        # ip_link = "http://"+request.META['HTTP_HOST']+"/media/pdf/"+dst
+                        ip_link = str(SITE_ROOT)+"pdf/"+dst
                                 
                         daylogt = Dayendconfirmlog(user_loginid=fmspw,username=fmspw.pw_userlogin,
                         dayend_date=givendate,Site_Codeid=site,site_code=site.itemsite_code,
@@ -15450,7 +15467,8 @@ class DayEndListAPIView(generics.ListAPIView,generics.CreateAPIView):
                                 with open(file_path, 'wb') as fh:
                                     fh.write(p)
                                 display.stop()
-                                ip_link = "http://"+request.META['HTTP_HOST']+"/media/pdf/"+dst
+                                # ip_link = "http://"+request.META['HTTP_HOST']+"/media/pdf/"+dst
+                                ip_link = str(SITE_ROOT)+"pdf/"+dst
                                 
                                 day.dayend_pdf = ip_link
                                 day.save()
@@ -16029,7 +16047,8 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
                               action=self.action)
             v = result.get('data')
             if v['emp_pic']:
-                images = str(ip) + str(v['emp_pic'])
+                # images = str(ip) + str(v['emp_pic'])
+                images = str(SITE_ROOT) + str(v['emp_pic']).replace("media/","")
                 v['emp_pic'] = images
             return Response(result, status=status.HTTP_200_OK)
         except Exception as e:
@@ -17217,7 +17236,8 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
 
                 workbook.close()
 
-                ip_link = "http://"+request.META['HTTP_HOST']+"/media/pdf/"+dst
+                # ip_link = "http://"+request.META['HTTP_HOST']+"/media/pdf/"+dst
+                ip_link = str(SITE_ROOT)+"pdf/"+dst
 
                
                 result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",

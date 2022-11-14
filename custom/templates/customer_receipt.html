@@ -129,6 +129,19 @@ body{
           <p>{{address}}</p>
         </div>
       </div>
+      <div class="row  spaDetails" style="float: right;">
+        {% if hdr.sa_transacno_type == "Receipt" %}
+          <h5>TAX INVOICE</h5>
+        {% elif hdr.sa_transacno_type == "Redeem Service" %}  
+          <h5>Service Redeem</h5>
+        {% elif hdr.sa_transacno_type == "Non Sales" %}  
+          <h5>Non Sales</h5> 
+        {% elif hdr.sa_transacno_type == "Void Transaction" %}  
+          <h5>Void Transaction</h5>  
+        {% else %}
+          <h5></h5> 
+        {% endif %}    
+      </div>  
     </div>
    
   

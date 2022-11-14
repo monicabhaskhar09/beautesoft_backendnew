@@ -232,6 +232,8 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 PDF_ROOT = MEDIA_ROOT + '/pdf/'
 IMG_ROOT = MEDIA_ROOT + '/img/'
+SITE_ROOT = 'http://127.0.0.1:8000/media/' 
+# SITE_ROOT = 'http://103.253.15.184:8000/media/'
 
 # CORS Settings
 CORS_ALLOW_METHODS =['DELETE','GET','OPTIONS','PATCH','POST','PUT',]

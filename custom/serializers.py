@@ -16,6 +16,7 @@ from datetime import date, timedelta, datetime
 import datetime
 from cl_app.models import ItemSitelist
 from dateutil.relativedelta import relativedelta
+from Cl_beautesoft.settings import SITE_ROOT
 
 
 
@@ -1225,10 +1226,12 @@ class DeliveryOrdersignSerializer(serializers.ModelSerializer):
     def to_representation(self, obj):
         request = self.context['request']
         data = super(DeliveryOrdersignSerializer, self).to_representation(obj)
-        ip = "http://"+request.META['HTTP_HOST']
+        # ip = "http://"+request.META['HTTP_HOST']
+        ip = str(SITE_ROOT)
         do_sig = ""
         if obj.do_sig:
-            do_sig = ip+str(obj.do_sig.url)
+            # do_sig = ip+str(obj.do_sig.url)
+            do_sig = ip+str(obj.do_sig)
 
         data['do_sig'] = do_sig
         return data
@@ -1242,10 +1245,12 @@ class quotationsignSerializer(serializers.ModelSerializer):
     def to_representation(self, obj):
         request = self.context['request']
         data = super(quotationsignSerializer, self).to_representation(obj)
-        ip = "http://"+request.META['HTTP_HOST']
+        # ip = "http://"+request.META['HTTP_HOST']
+        ip = str(SITE_ROOT)
         quo_sig = ""
         if obj.quo_sig:
-            quo_sig = ip+str(obj.quo_sig.url)
+            # quo_sig = ip+str(obj.quo_sig.url)
+            quo_sig = ip+str(obj.quo_sig)
 
         data['quo_sig'] = quo_sig
         return data
@@ -1259,10 +1264,12 @@ class ManualInvoicesignSerializer(serializers.ModelSerializer):
     def to_representation(self, obj):
         request = self.context['request']
         data = super(ManualInvoicesignSerializer, self).to_representation(obj)
-        ip = "http://"+request.META['HTTP_HOST']
+        # ip = "http://"+request.META['HTTP_HOST']
+        ip = str(SITE_ROOT)
         manualinv_sig = ""
         if obj.manualinv_sig:
-            manualinv_sig = ip+str(obj.manualinv_sig.url)
+            # manualinv_sig = ip+str(obj.manualinv_sig.url)
+            manualinv_sig = ip+str(obj.manualinv_sig)
 
         data['manualinv_sig'] = manualinv_sig
         return data        
@@ -1378,10 +1385,12 @@ class TitleImageSerializer(serializers.ModelSerializer):
     def to_representation(self, obj):
         request = self.context['request']
         data = super(TitleImageSerializer, self).to_representation(obj)
-        ip = "http://"+request.META['HTTP_HOST']
+        # ip = "http://"+request.META['HTTP_HOST']
+        ip = str(SITE_ROOT)
         logo_pic = ""
         if obj.logo_pic:
-            logo_pic = ip+str(obj.logo_pic.url)
+            # logo_pic = ip+str(obj.logo_pic.url)
+            logo_pic = str(SITE_ROOT)+str(obj.logo_pic)
 
         data['logo_pic'] = logo_pic
         return data
@@ -1396,10 +1405,12 @@ class StockImageSerializer(serializers.ModelSerializer):
     def to_representation(self, obj):
         request = self.context['request']
         data = super(StockImageSerializer, self).to_representation(obj)
-        ip = "http://"+request.META['HTTP_HOST']
+        # ip = "http://"+request.META['HTTP_HOST']
+        ip = str(SITE_ROOT)
         stock_pic = ""
         if obj.Stock_PIC:
-            stock_pic = ip+str(obj.Stock_PIC.url)
+            # stock_pic = ip+str(obj.Stock_PIC.url)
+            stock_pic = str(SITE_ROOT)+str(obj.Stock_PIC)
 
         data['Stock_PIC'] = stock_pic
         return data
@@ -1413,10 +1424,12 @@ class PaygroupImageSerializer(serializers.ModelSerializer):
     def to_representation(self, obj):
         request = self.context['request']
         data = super(PaygroupImageSerializer, self).to_representation(obj)
-        ip = "http://"+request.META['HTTP_HOST']
+        # ip = "http://"+request.META['HTTP_HOST']
+        ip = str(SITE_ROOT)
         picturelocation = ""
         if obj.picturelocation:
-            picturelocation = ip+"/media/"+str(obj.picturelocation)
+            # picturelocation = ip+"/media/"+str(obj.picturelocation)
+            picturelocation = str(SITE_ROOT)+""+str(obj.picturelocation)
 
         data['picturelocation'] = picturelocation
         return data    
@@ -1431,10 +1444,12 @@ class ItemDeptImageSerializer(serializers.ModelSerializer):
     def to_representation(self, obj):
         request = self.context['request']
         data = super(ItemDeptImageSerializer, self).to_representation(obj)
-        ip = "http://"+request.META['HTTP_HOST']
+        # ip = "http://"+request.META['HTTP_HOST']
+        ip = str(SITE_ROOT)
         deptpic = ""
         if obj.deptpic:
-            deptpic = ip+str(obj.deptpic.url)
+            # deptpic = ip+str(obj.deptpic.url)
+            deptpic = str(SITE_ROOT)+str(obj.deptpic)
 
         data['deptpic'] = deptpic
         return data

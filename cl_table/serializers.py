@@ -22,6 +22,8 @@ from django.db.models import Count
 from django.db.models import Sum
 from datetime import date
 from django.db.models.functions import Coalesce
+from Cl_beautesoft.settings import SITE_ROOT
+
 
 from .utils import code_generator
 
@@ -32,7 +34,8 @@ def get_client_ip(request):
     # for idx, val in enumerate(ip[0]):
     #     if idx != 21:
     #         string += val
-    ip_str = str("http://"+request.META['HTTP_HOST'])
+    # ip_str = str("http://"+request.META['HTTP_HOST'])
+    ip_str = str(SITE_ROOT)
     return ip_str
   
 # class GenderSerializer(serializers.ModelSerializer):
@@ -237,12 +240,14 @@ class CustomerdetailSerializer(serializers.ModelSerializer):
     def to_representation(self, obj):
         request = self.context['request']
         cust_dob = ''; cust_joindate = ''; cust_img = ''
-        ip = "http://"+request.META['HTTP_HOST']
+        # ip = "http://"+request.META['HTTP_HOST']
+        ip = str(SITE_ROOT)
         fmspw = Fmspw.objects.filter(user=request.user, pw_isactive=True)
         site = fmspw[0].loginsite
        
         if obj.cust_img:
-            cust_img = ip+str(obj.cust_img.url)
+            # cust_img = ip+str(obj.cust_img.url)
+            cust_img = ip+str(obj.cust_img)
 
         if obj.cust_dob:
             cust_dob = datetime.datetime.strptime(str(obj.cust_dob), "%Y-%m-%d").strftime("%d-%m-%Y")
@@ -1063,7 +1068,8 @@ class AppointmentCalendarSerializer(serializers.ModelSerializer):
         pic = None
 
         if obj.emp_noid.emp_pic:
-            pic = str(ip)+str(obj.emp_noid.emp_pic.url)
+            # pic = str(ip)+str(obj.emp_noid.emp_pic.url)
+            pic = str(SITE_ROOT)+str(obj.emp_noid.emp_pic)
         return pic
 
     def get_start(self, obj):
@@ -1456,7 +1462,8 @@ class StaffsAvailableSerializer(serializers.ModelSerializer):
     def get_emp_img(self, obj):
         ip = get_client_ip(self.context['request'])
         if obj.emp_pic:
-            pic = str(ip)+str(obj.emp_pic.url)
+            # pic = str(ip)+str(obj.emp_pic.url)
+            pic = str(SITE_ROOT)+str(obj.emp_pic)
         else:
             pic = None    
         return pic
@@ -1490,7 +1497,8 @@ class StaffsAppointmentSerializer(serializers.ModelSerializer):
         ip = get_client_ip(self.context['request'])
         pic = ""
         if obj.emp_pic:
-            pic = str(ip)+str(obj.emp_pic.url)
+            # pic = str(ip)+str(obj.emp_pic.url)
+            pic = str(SITE_ROOT)+str(obj.emp_pic)
         
         emp_siteids = EmpSitelist.objects.filter(Site_Codeid__pk=site.pk,isactive=True,
         Emp_Codeid__pk=obj.pk).first() 
@@ -2092,7 +2100,8 @@ class AttendanceStaffsSerializer(serializers.ModelSerializer):
             ip = get_client_ip(self.context['request'])
             pic = ""
             if emp_obj.emp_pic:
-                pic = str(ip)+str(emp_obj.emp_pic.url) 
+                # pic = str(ip)+str(emp_obj.emp_pic.url)
+                pic = str(SITE_ROOT)+str(emp_obj.emp_pic) 
 
             if instance.attn_type == '00':
                 enable = True
@@ -3110,10 +3119,12 @@ class CustomerDocumentSerializer(serializers.ModelSerializer):
         request = self.context['request']
         data = super(CustomerDocumentSerializer, self).to_representation(obj)
         
-        ip = "http://"+request.META['HTTP_HOST']
+        # ip = "http://"+request.META['HTTP_HOST']
+        ip = str(SITE_ROOT)
         file = ""
         if obj.file:
-            file = ip+str(obj.file.url)
+            # file = ip+str(obj.file.url)
+            file = ip+str(obj.file)
 
         data['file'] = file
         return data        
@@ -3128,10 +3139,12 @@ class ProjectDocumentSerializer(serializers.ModelSerializer):
         request = self.context['request']
         data = super(ProjectDocumentSerializer, self).to_representation(obj)
         
-        ip = "http://"+request.META['HTTP_HOST']
+        # ip = "http://"+request.META['HTTP_HOST']
+        ip = str(SITE_ROOT)
         file = ""
         if obj.file:
-            file = ip+str(obj.file.url)
+            # file = ip+str(obj.file.url)
+            file = ip+str(obj.file)
 
         data['file'] = file
         return data      

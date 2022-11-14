@@ -1456,7 +1456,7 @@ class Holditemdetail(models.Model):
     ]
     
     hi_no = models.AutoField(db_column='HI_no',primary_key=True)  # Field name made lowercase.
-    sa_date = models.DateTimeField(blank=True, null=True, auto_now_add=True)
+    sa_date = models.DateTimeField(blank=True, null=True)
     sa_time = models.DateTimeField(blank=True, null=True, auto_now_add=True)
     cas_logno = models.CharField(db_column='Cas_LogNo', max_length=50, blank=True, null=True)  # Field name made lowercase.
     itemsite_code = models.CharField(db_column='ItemSite_Code',  max_length=50, null=True)  # Field name made lowercase.
