@@ -5553,7 +5553,7 @@ class ReceiptPdfSend(APIView):
                 
             }
             p=pdfkit.from_string(html,False,options=options)
-            smpt_ids = SmtpSettings.objects.filter(site_code=site.itemsite_code).order_by('pk').first()
+            smpt_ids = SmtpSettings.objects.filter(email_subject='Customer Invoice').order_by('pk').first()
             subject = smpt_ids.email_subject
         
             # html_message = '''Dear {0},\nKindly Find your receipt bill no {1}.\nThank You,'''.format(cust_name,sa_transacno)
@@ -10148,6 +10148,7 @@ class AddRemoveSalesStaffViewset(viewsets.ModelViewSet):
             with transaction.atomic():
                 fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
                 site = fmspw.loginsite
+                log_emp =  fmspw.Emp_Codeid
                
                 cart_id = request.data.get('cart_id',None)
                 if not cart_id:
@@ -10163,6 +10164,35 @@ class AddRemoveSalesStaffViewset(viewsets.ModelViewSet):
                 if is_sales == False and is_work == False:
                     raise Exception("Please Give Sales/Work Staff ID!!")
                 
+                changestaff_setup = Systemsetup.objects.filter(title='editStaffatCartUsernamePopup',
+                value_name='editStaffatCartUsernamePopup',isactive=True).first()
+
+                if changestaff_setup and changestaff_setup.value_data == 'True':
+                    if not 'username' in request.data or not 'password' in request.data or not request.data['username'] or not request.data['password']:
+                        raise Exception('Please Enter Valid Username and Password!!.') 
+
+                    if User.objects.filter(username=request.data['username']):
+                        self.user = authenticate(username=request.data['username'], password=request.data['password'])
+                        # print(self.user,"self.user")
+                        if self.user:
+                            
+                            fmspw_c = Fmspw.objects.filter(user=self.user.id,pw_isactive=True)
+                            if not fmspw_c:
+                                raise Exception('User is inactive.') 
+
+                            if fmspw_c and fmspw_c.flgstaff == False:
+                                raise Exception('Logined User not allowed to Change Staffs!!')
+                            
+
+                            log_emp = fmspw_c[0].Emp_Codeid
+                        else:
+                            raise Exception('Password Wrong !') 
+
+                    else:
+                        raise Exception('Invalid Username.') 
+
+                if not log_emp:
+                    raise Exception('Employee does not exist.') 
                 
                 cart = cart_id.split(',')
                 final = False;tmp = [];wtmp = [] 

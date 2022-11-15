@@ -4953,6 +4953,9 @@ class AppointmentEditViewset(viewsets.ModelViewSet):
                                 raise Exception('User is inactive.') 
 
                             log_emp = fmspw_c[0].Emp_Codeid
+                            if fmspw_c[0] and fmspw_c[0].flgappt == False:
+                                raise Exception('Logined User not allowed to Edit Appointmnent !!')
+                        
                         else:
                             raise Exception('Password Wrong !') 
 
@@ -7610,7 +7613,13 @@ class UsersList(APIView):
 
             service_expiry_setup = Systemsetup.objects.filter(title='allowServiceChangeExpiryDate',
             value_name='allowServiceChangeExpiryDate',isactive=True).first()
-            
+            changestaffcart_setup = Systemsetup.objects.filter(title='editStaffatCartUsernamePopup',
+            value_name='editStaffatCartUsernamePopup',isactive=True).first()
+
+            servicelimit_setup = Systemsetup.objects.filter(title='CourseServiceLimitChangeUsernamePopup',
+                value_name='CourseServiceLimitChangeUsernamePopup',isactive=True).first()
+
+
             
             walkinobj = ""
             if walkincust_setup and walkincust_setup.value_data:
@@ -7687,6 +7696,8 @@ class UsersList(APIView):
             'surcharge' : True if surcharge_setup and surcharge_setup.value_data == 'True' else False,
             'walkincust' : walkinobj,
             'service_expirydate' : True if service_expiry_setup and service_expiry_setup.value_data == 'True' else False,
+            'change_staffcart' : True if changestaffcart_setup and changestaffcart_setup.value_data == 'True' else False,
+            'course_servicelimitchange' : True if servicelimit_setup and servicelimit_setup.value_data == 'True' else False,
             }
 
             level_qs = Securitylevellist.objects.filter(level_itemid=fmspw.LEVEL_ItmIDid.level_code).order_by('pk')
@@ -9158,7 +9169,7 @@ class postaudViewset(viewsets.ModelViewSet):
                             id_lst.append(ex) 
                 
                 
-                alsales_staff = cart_ids.first().sales_staff.all().first()
+                alsales_staff = cart_ids.filter(type='Deposit').order_by('lineno').first().sales_staff.all().first()
 
 
                                 
