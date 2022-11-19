@@ -466,7 +466,7 @@ class BillingSerializer(serializers.ModelSerializer):
                     
         mapped_object = {'id': instance.pk,'sa_custno': instance.sa_custno,'sa_custname': instance.sa_custname, 
         'sa_date': sa_date if sa_date else '','sa_totamt': str("{:.2f}".format(float(instance.sa_totamt))) if instance.sa_totamt else "0.00",
-        'void_refno': void_refno if void_refno else "",'sa_staffname': instance.sa_staffname,'sa_status': instance.sa_status,
+        'void_refno': void_refno if void_refno else "",'sa_staffname': instance.sa_staffname,'cas_name': instance.cas_name,'sa_status': instance.sa_status,
         'sa_transacno': instance.sa_transacno,'sa_transacno_ref': instance.sa_transacno_ref,'sa_transacno_type':instance.sa_transacno_type,
         'isvoid': instance.isvoid,'payment_remarks':payment_remarks,
         'total_amount': str("{:.2f}".format(float(instance.sa_transacamt))) if instance.sa_transacamt else "0.00",

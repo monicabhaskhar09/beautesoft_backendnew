@@ -30,7 +30,7 @@ PrepaidAccount, Treatment,PosHaud,TmpItemHelper,Appointment,Source,PosHaud,Rever
 CreditNote,Multistaff,ItemHelper,ItemUom,Treatment_Master,Holditemdetail,PrepaidAccountCondition,
 CnRefund,ItemBrand,Title,ItemBatch,Stktrn,Paytable,ItemLink,Appointment,ItemStocklist,Systemsetup,
 Tmpmultistaff,PosDisc,CustomerPoint,CustomerPointDtl,RewardPolicy,PackageAuditingLog,AuditLog,
-ItemFlexiservice,TreatmentPackage)
+ItemFlexiservice,TreatmentPackage,ItemBatchSno)
 from custom.models import (ItemCart, Room, Combo_Services,VoucherRecord,PosPackagedeposit,SmtpSettings,
 ManualInvoiceModel)
 from datetime import date, timedelta
@@ -1176,10 +1176,11 @@ class CatalogSearchViewset(viewsets.ModelViewSet):
                         
     def list(self, request, *args, **kwargs):
         try:
+            qs = self.request.GET.get('search',None)
+           
             fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
             site = fmspw[0].loginsite
-            fmspw = Fmspw.objects.filter(user=request.user,pw_isactive=True)
-            site = fmspw[0].loginsite
+            
             serializer_class = StockSerializer
             queryset = self.filter_queryset(self.get_queryset())
 
@@ -1252,8 +1253,85 @@ class CatalogSearchViewset(viewsets.ModelViewSet):
                 else:
                     lst.append(q)
 
-            v['dataList'] = lst    
-                
+            v['dataList'] = lst
+            # print(lst,"lst")
+            n_lst = []
+            if lst == []:
+                batchso_ids = ItemBatchSno.objects.filter(batch_sno__icontains=qs,
+                availability=True)
+                if batchso_ids:
+                    for b in batchso_ids:
+                        a = b.item_code
+                        v = a[-4:]
+                        # print(v,type(v),"v")
+                        if v == '0000':
+                            code = str(b.item_code)[:-4]
+                        else:
+                            code = str(b.item_code)    
+                        
+                        stockobj = Stock.objects.filter(item_isactive=True, item_code=code).first()
+                        if stockobj:
+                            serializer = StockSerializer(stockobj, context={'request': self.request})
+                            # print(serializer.data,"serializer.data")
+                            itemuomprice_obj = ItemUomprice.objects.filter(isactive=True, 
+                            item_code=code,item_uom=b.uom).order_by('id').first()
+                            if itemuomprice_obj:
+                                itemuom = ItemUom.objects.filter(uom_isactive=True,uom_code=b.uom).order_by('id').first()
+                                if itemuom:
+                                    itemuom_id = int(itemuom.id)
+                                    itemuom_desc = itemuom.uom_desc
+
+                                    batch = ItemBatch.objects.filter(item_code=code,site_code=site.itemsite_code,
+                                    uom=itemuom.uom_code).order_by('-pk').last()
+                                    # print(batch,"batch")
+                                    da = serializer.data 
+                                    uom = {
+                                        "itemuomprice_id": int(itemuomprice_obj.id),
+                                        "item_uom": itemuomprice_obj.item_uom,
+                                        "uom_desc": itemuomprice_obj.uom_desc,
+                                        "item_price": "{:.2f}".format(float(itemuomprice_obj.item_price)),
+                                        "itemuom_id": itemuom_id, 
+                                        "itemuom_desc" : itemuom_desc,
+                                        "onhand_qty": int(batch.qty) if batch else 0,
+                                        "serial_no": b.batch_sno
+                                        }
+                                    da.update({'uomprice': [uom]}) 
+                                    n_lst.append(da)
+            
+            if n_lst != []:
+                limit = request.GET.get('limit',12)
+                page= request.GET.get('page',1)
+                paginator = Paginator(n_lst, limit)
+                total = len(n_lst)
+
+                total_page = 1
+
+                if len(n_lst) > int(limit):
+                    total_page = math.ceil(len(n_lst)/int(limit))
+
+                if int(page) > total_page:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"No Content",'error': False, 
+                    'data': {'meta': {'pagination': {"per_page":limit,"current_page":page,"total":total,
+                    "total_pages":total_page}}, 
+                    'dataList': []}}
+
+
+                try:
+                    queryset_data = paginator.page(page)
+                except PageNotAnInteger:
+                    queryset_data = paginator.page(1)
+                    page= 1 
+                except EmptyPage:
+                    queryset_data = paginator.page(paginator.num_pages)    
+
+                data_final = queryset_data.object_list
+
+               
+                result = {"status": status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
+                "data": {'meta': {'pagination': {"per_page":limit,"current_page":page,"total":total,
+                "total_pages":total_page}}, "dataList": data_final}}
+            
+
             return Response(result, status=status.HTTP_200_OK) 
         except Exception as e:
             invalid_message = str(e)
@@ -4081,7 +4159,7 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                 if trmt_obj.Item_Codeid.srv_duration is None or float(trmt_obj.Item_Codeid.srv_duration) == 0.0:
                     stk_duration = 60
                 else:
-                    stk_duration = stockobj.srv_duration
+                    stk_duration = stockobj.srv_duration if stockobj and stockobj.srv_duration else 60
 
                 stkduration = int(stk_duration) + 30
                 hrs = '{:02d}:{:02d}'.format(*divmod(stkduration, 60))

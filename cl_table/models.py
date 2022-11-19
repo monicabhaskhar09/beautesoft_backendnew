@@ -882,6 +882,7 @@ class Fmspw(models.Model):
     flgpo = models.BooleanField(db_column='flgpo',default=False)  # Field name made lowercase.
     flgquantum = models.BooleanField(db_column='flgquantum',default=False)  # Field name made lowercase.
     flgbilling = models.BooleanField(db_column='flgbilling',default=False)  # Field name made lowercase.
+    flgservicelimit = models.BooleanField(db_column='flgservicelimit',default=False)  # Field name made lowercase.
 
     class Meta:
         db_table = 'FMSPW'
@@ -2568,23 +2569,26 @@ class ItemBatch(models.Model):
 
 class ItemBatchSno(models.Model):
     id = models.AutoField(db_column='ID',primary_key=True)  # Field name made lowercase.
-    doc_no = models.CharField(db_column='doc_no', max_length=30, blank=True, null=True)  # Field name made lowercase.
-    doc_outno = models.CharField(db_column='doc_outno', max_length=30, blank=True, null=True)  # Field name made lowercase.
+    doc_no = models.CharField(db_column='DOC_NO', max_length=30, blank=True, null=True)  # Field name made lowercase.
+    doc_outno = models.CharField(db_column='DOC_OUTNO', max_length=30, blank=True, null=True)  # Field name made lowercase.
     item_code = models.CharField(db_column='ITEM_CODE', max_length=20, blank=True, null=True)  # Field name made lowercase.
     site_code = models.CharField(db_column='SITE_CODE', max_length=20, blank=True, null=True)  # Field name made lowercase.
-    batch_sno = models.CharField(db_column='batch_sno', max_length=8, blank=True, null=True)  # Field name made lowercase.
+    batch_sno = models.CharField(db_column='BATCH_SNO', max_length=300, blank=True, null=True)  # Field name made lowercase.
     uom = models.CharField(db_column='UOM', max_length=20, blank=True, null=True)  # Field name made lowercase.
-    availability = models.BooleanField(db_column='availability', blank=True, null=True)  # Field name made lowercase.
+    availability = models.BooleanField(db_column='Avaliability', blank=True, null=True)  # Field name made lowercase.
     exp_date = models.DateTimeField(db_column='EXP_DATE', blank=True, null=True)  # Field name made lowercase.
     batch_cost = models.FloatField(db_column='BATCH_COST', blank=True, null=True)  # Field name made lowercase.
     updated_at = models.DateTimeField(auto_now=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
 
     class Meta:
-        db_table = 'ITEM_BATCH_SNO'
+        db_table = 'ITEM_BATCHSNO'
+        unique_together = (('batch_sno'),)
 
     def __str__(self):
-        return str(self.item_code)        
+        return str(self.item_code) 
+
+
 
 class Stktrn(models.Model):
     id = models.AutoField(db_column='ID', primary_key=True)  # Field name made lowercase.

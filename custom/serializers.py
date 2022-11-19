@@ -161,7 +161,7 @@ class itemCartSerializer(serializers.ModelSerializer):
         'sitecode','discount','discount_amt','discount_price','additional_discount','additional_discountamt',
         'deposit','trans_amt','tax','itemstatus','itemstatus_name','ratio','helper_name','done_sessions',
         'type','treatment_account','treatment','deposit_account','prepaid_account','item_uom','recorddetail',
-        'itemtype','ori_stockid','treatment_no','is_service']
+        'itemtype','ori_stockid','treatment_no','is_service','batch_sno']
         read_only_fields = ('sitecode',)
 
     # def get_validation_exclusions(self):

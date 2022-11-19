@@ -3654,7 +3654,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                         if req['ori_stockid']:
                             itemdesc = stock_obj.item_desc
                         else:
-                            itemdesc = trmt_obj.treatment_account.itemcart.itemdesc
+                            itemdesc = trmt_obj.treatment_account.itemcart.itemdesc if trmt_obj.treatment_account and trmt_obj.treatment_account.itemcart and trmt_obj.treatment_account.itemcart.itemdesc else stock_obj.item_desc
 
 
                         carttr_ids = ItemCart.objects.filter(isactive=True,cust_noid=cust_obj,cart_date=cartdate,
@@ -3705,8 +3705,13 @@ class itemCartViewset(viewsets.ModelViewSet):
                             for s in trmt_obj.helper_ids.all(): 
                                 cart.service_staff.add(s.helper_id)
                             
+                            dmultistaff_ids = list(set(Multistaff.objects.filter(sa_transacno=trmt_obj.sa_transacno,dt_lineno=trmt_obj.dt_lineno).values_list('emp_code', flat=True).distinct()))
+                            # print(dmultistaff_ids,"dmultistaff_ids")
+                            demp_ids = Employee.objects.filter(emp_code__in=dmultistaff_ids).order_by('-pk')
+                            # print(demp_ids,"demp_ids") 
                             # sa = trmt_obj.helper_ids.all().first()
-                            # cart.sales_staff.add(sa.helper_id)
+                            for mu in demp_ids:
+                                cart.sales_staff.add(mu.pk)
 
                             if isinstance(treat, list):
                                 for tt in treat:
@@ -7695,12 +7700,12 @@ class CartServiceCourseViewset(viewsets.ModelViewSet):
         try:
             fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
             site = fmspw.loginsite
-            empl = fmspw.Emp_Codeid
+            log_emp = fmspw.Emp_Codeid
             cart = self.get_object(pk)
 
-            if int(request.data['free_sessions']) > int(request.data['quantity']) or int(request.data['free_sessions']) > request.data['treatment_no']:
-                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Free Sessions should not greater than quantity/treatment_no ",'error': False}
-                return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+            # if int(request.data['free_sessions']) > int(request.data['quantity']) or int(request.data['free_sessions']) > request.data['treatment_no']:
+            #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Free Sessions should not greater than quantity/treatment_no ",'error': False}
+            #     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
             
             if 'sessiondone' in request.data and request.data['sessiondone'] > 0:
                 help_ids = TmpItemHelper.objects.filter(itemcart=cart).exclude(tmptreatment__isnull=True).order_by('pk')
@@ -7715,7 +7720,37 @@ class CartServiceCourseViewset(viewsets.ModelViewSet):
                         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
             
             if 'treat_type' in request.data and request.data['treat_type'] in ['FFi','FFd']:
-                if request.data['treatment_limit_times'] == None:
+                if 'treatment_limit_times' in request.data and request.data['treatment_limit_times'] is not None:
+                    servicelimit_setup = Systemsetup.objects.filter(title='CourseServiceLimitChangeUsernamePopup',
+                    value_name='CourseServiceLimitChangeUsernamePopup',isactive=True).first()
+
+
+                    if servicelimit_setup and servicelimit_setup.value_data == 'True':
+                        if not 'username' in request.data or not 'password' in request.data or not request.data['username'] or not request.data['password']:
+                            raise Exception('Please Enter Valid Username and Password!!.') 
+
+                        if User.objects.filter(username=request.data['username']):
+                            self.user = authenticate(username=request.data['username'], password=request.data['password'])
+                            # print(self.user,"self.user")
+                            if self.user:
+                                
+                                fmspw_c = Fmspw.objects.filter(user=self.user.id,pw_isactive=True)
+                                if not fmspw_c:
+                                    raise Exception('User is inactive.') 
+
+                                log_emp = fmspw_c[0].Emp_Codeid
+                                if fmspw_c[0] and fmspw_c[0].flgservicelimit == False:
+                                    raise Exception('Logined User not allowed to Edit Course Service Max Treat Qty Limit !!')
+                            
+                            else:
+                                raise Exception('Password Wrong !') 
+
+                        else:
+                            raise Exception('Invalid Username.') 
+
+                   
+                
+                if 'treatment_limit_times' in request.data and request.data['treatment_limit_times'] == None:
                    request.data['treatment_limit_times'] = 0
             
               
@@ -10141,6 +10176,46 @@ class AddRemoveSalesStaffViewset(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated & authenticated_only]
     queryset = ItemCart.objects.filter().order_by('-id')
     serializer_class = AddRemoveSalesStaffSerializer
+    
+    def list(self, request):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+            site = fmspw[0].loginsite
+            cart_ids = self.request.GET.get('cart_ids', '')
+           
+            if not cart_ids:
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"Please select cart lines before click apply",'error': True}
+                return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
+            changestaffcart_setup = Systemsetup.objects.filter(title='editStaffatCartUsernamePopup',
+            value_name='editStaffatCartUsernamePopup',isactive=True).first()
+            if cart_ids:
+                cart_idsv = cart_ids.split(',')
+                isvalidatepw = False
+
+                if changestaffcart_setup and changestaffcart_setup.value_data == 'True':
+                    cartids = ItemCart.objects.filter(pk__in=cart_idsv)
+                    if cartids:
+                        cart_ids = ItemCart.objects.filter(pk__in=cart_idsv,addstaff_time__gte=1)
+                        if cart_ids:
+                            isvalidatepw = True
+                    else:
+                        raise Exception('Given Cart Ids does not exist!!') 
+
+
+                result = {'status': status.HTTP_200_OK,"message":"Listed Sucessfully",
+                'error': False,'isvalidatepw':isvalidatepw}
+                return Response(result, status=status.HTTP_200_OK)
+            else:
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"Please give cart ids",'error': True}
+                return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)     
+            
+    
+
 
     @transaction.atomic
     def create(self, request):
@@ -10164,36 +10239,35 @@ class AddRemoveSalesStaffViewset(viewsets.ModelViewSet):
                 if is_sales == False and is_work == False:
                     raise Exception("Please Give Sales/Work Staff ID!!")
                 
-                changestaff_setup = Systemsetup.objects.filter(title='editStaffatCartUsernamePopup',
-                value_name='editStaffatCartUsernamePopup',isactive=True).first()
+                if 'username' in request.data and 'password' in request.data and request.data['username'] and request.data['password']:
+                    changestaff_setup = Systemsetup.objects.filter(title='editStaffatCartUsernamePopup',
+                    value_name='editStaffatCartUsernamePopup',isactive=True).first()
 
-                if changestaff_setup and changestaff_setup.value_data == 'True':
-                    if not 'username' in request.data or not 'password' in request.data or not request.data['username'] or not request.data['password']:
-                        raise Exception('Please Enter Valid Username and Password!!.') 
+                    if changestaff_setup and changestaff_setup.value_data == 'True':
+                        # if not 'username' in request.data or not 'password' in request.data or not request.data['username'] or not request.data['password']:
+                        #     raise Exception('Please Enter Valid Username and Password!!.') 
 
-                    if User.objects.filter(username=request.data['username']):
-                        self.user = authenticate(username=request.data['username'], password=request.data['password'])
-                        # print(self.user,"self.user")
-                        if self.user:
-                            
-                            fmspw_c = Fmspw.objects.filter(user=self.user.id,pw_isactive=True)
-                            if not fmspw_c:
-                                raise Exception('User is inactive.') 
+                        if User.objects.filter(username=request.data['username']):
+                            self.user = authenticate(username=request.data['username'], password=request.data['password'])
+                            # print(self.user,"self.user")
+                            if self.user:
+                                
+                                fmspw_c = Fmspw.objects.filter(user=self.user.id,pw_isactive=True)
+                                if not fmspw_c:
+                                    raise Exception('User is inactive.') 
 
-                            if fmspw_c and fmspw_c.flgstaff == False:
-                                raise Exception('Logined User not allowed to Change Staffs!!')
-                            
+                                if fmspw_c[0] and fmspw_c[0].flgstaff == False:
+                                    raise Exception('Logined User not allowed to Change Staffs!!')
+                                
 
-                            log_emp = fmspw_c[0].Emp_Codeid
+                                log_emp = fmspw_c[0].Emp_Codeid
+                            else:
+                                raise Exception('Password Wrong !') 
+
                         else:
-                            raise Exception('Password Wrong !') 
+                            raise Exception('Invalid Username.') 
 
-                    else:
-                        raise Exception('Invalid Username.') 
-
-                if not log_emp:
-                    raise Exception('Employee does not exist.') 
-                
+                    
                 cart = cart_id.split(',')
                 final = False;tmp = [];wtmp = [] 
                 for idx, i in enumerate(cart, start=1):
@@ -10737,7 +10811,13 @@ class AddRemoveSalesStaffViewset(viewsets.ModelViewSet):
                                             TmpItemHelper.objects.filter(id=j.id).update(wp1=c)
                                         last_rec.wp1 = x   
                                         last_rec.save()    
-                        
+
+                    if final == True or tmp != [] or wtmp != []:  
+                        if not cartobj.addstaff_time:
+                            cartobj.addstaff_time = 1
+                        else:
+                            cartobj.addstaff_time = cartobj.addstaff_time + 1
+                        cartobj.save()    
 
 
                 if final == True or tmp != [] or wtmp != []:

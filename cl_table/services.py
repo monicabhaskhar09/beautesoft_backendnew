@@ -8,7 +8,7 @@ Treatment_Master,ItemClass,Paytable,PosTaud,PayGroup,PosDaud,PosHaud,GstSetting,
 ItemStatus,Source,ApptType, ItemHelper, Multistaff, DepositType, TmpItemHelper, PosDisc, FocReason, Holditemdetail,
 DepositAccount,PrepaidAccount,PrepaidAccountCondition,VoucherCondition,ItemUom,Title,PackageHdr,PackageDtl,
 ItemBatch,Stktrn,ItemUomprice,Tmptreatment,ExchangeDtl,Systemsetup,PackageAuditingLog,
-TreatmentPackage,StudioWork,AppointmentLog)
+TreatmentPackage,StudioWork,AppointmentLog,ItemBatchSno)
 from datetime import date, timedelta, datetime
 import datetime
 from django.utils import timezone
@@ -1071,6 +1071,17 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                     if depoacc.pk:
                         decontrolobj.control_no = int(decontrolobj.control_no) + 1
                         decontrolobj.save()
+
+                    if c.batch_sno:
+                        dtl.dt_itemdesc = dtl.dt_itemdesc+" "+"SN-"+str(c.batch_sno)
+                        batchso_ids = ItemBatchSno.objects.filter(batch_sno__icontains=c.batch_sno,
+                        availability=True).first()
+                        if batchso_ids and batchso_ids.exp_date:
+                            dx_split = str(batchso_ids.exp_date).split(" ")
+                            exp_rdate = datetime.datetime.strptime(str(dx_split[0]), '%Y-%m-%d').strftime("%d/%m/%Y")
+                            dtl.dt_itemdesc = dtl.dt_itemdesc+" "+", Expiry Date : "+str(exp_rdate)
+
+                        dtl.save()    
                     
                     currenttime = timezone.now()
                     currentdate = timezone.now().date()
@@ -1853,7 +1864,12 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                     # dtl.first_trmt_done_staff_name = ','.join([v.helper_id.display_name for v in c.helper_ids.all() if v.helper_id.display_name])
                     dtl.first_trmt_done_staff_code = ','.join([v.emp_code for v in c.service_staff.all() if v.emp_code])
                     dtl.first_trmt_done_staff_name = ','.join([v.display_name for v in c.service_staff.all() if v.display_name])
-                   
+                    
+                    if treatmentid.expiry:
+                        dxsplit = str(treatmentid.expiry).split(" ")
+                        expdate = datetime.datetime.strptime(str(dxsplit[0]), '%Y-%m-%d').strftime("%d/%m/%Y")
+                        dtl.dt_itemdesc = dtl.dt_itemdesc+" "+"Expiry Date : "+str(expdate)
+
                     dtl.save()
 
                     if c.helper_ids.exists():
@@ -3364,7 +3380,9 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                 searcids.outstanding = "{:.2f}".format(float(trmtAccObj.outstanding))
                 searcids.treatmentids = treatmids
                 searcids.save()
-
+                dtl.dt_itemdesc = dtl.dt_itemdesc+" "+"Bal : "+str(stptopen_ids)
+                dtl.save()
+            
             searchhids = TmpTreatmentSession.objects.filter(treatment_parentcode=ct.treatment_parentcode,
             created_at=date.today()) 
             if searchhids:

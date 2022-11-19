@@ -7613,9 +7613,7 @@ class UsersList(APIView):
 
             service_expiry_setup = Systemsetup.objects.filter(title='allowServiceChangeExpiryDate',
             value_name='allowServiceChangeExpiryDate',isactive=True).first()
-            changestaffcart_setup = Systemsetup.objects.filter(title='editStaffatCartUsernamePopup',
-            value_name='editStaffatCartUsernamePopup',isactive=True).first()
-
+          
             servicelimit_setup = Systemsetup.objects.filter(title='CourseServiceLimitChangeUsernamePopup',
                 value_name='CourseServiceLimitChangeUsernamePopup',isactive=True).first()
 
@@ -7696,7 +7694,6 @@ class UsersList(APIView):
             'surcharge' : True if surcharge_setup and surcharge_setup.value_data == 'True' else False,
             'walkincust' : walkinobj,
             'service_expirydate' : True if service_expiry_setup and service_expiry_setup.value_data == 'True' else False,
-            'change_staffcart' : True if changestaffcart_setup and changestaffcart_setup.value_data == 'True' else False,
             'course_servicelimitchange' : True if servicelimit_setup and servicelimit_setup.value_data == 'True' else False,
             }
 
@@ -9168,11 +9165,13 @@ class postaudViewset(viewsets.ModelViewSet):
                         if ex not in id_lst:
                             id_lst.append(ex) 
                 
-                
-                alsales_staff = cart_ids.filter(type='Deposit').order_by('lineno').first().sales_staff.all().first()
+                # if cart_ids.filter(type='Deposit').order_by('lineno').first():
+                #     alsales_staff = cart_ids.filter(type='Deposit').order_by('lineno').first().sales_staff.all().first()
+                # else:
+                #     alsales_staff = fmspw.Emp_Codeid if fmspw.Emp_Codeid else False 
 
+                alsales_staff = cart_ids.first().sales_staff.all().first()
 
-                                
                 sumqty = cart_ids.exclude(type='Exchange').aggregate(Sum('quantity'))
                 totQty = int(sumqty['quantity__sum'])
                 ex_cart_ids = cart_ids.exclude(type='Exchange')

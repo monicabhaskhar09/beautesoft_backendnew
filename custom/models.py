@@ -279,6 +279,8 @@ class ItemCart(models.Model):
     is_flexi = models.BooleanField(default=False, blank=True, null=True)
     quotationitem_id = models.ForeignKey('custom.QuotationItemModel', on_delete=models.PROTECT,blank=True, null=True)
     is_flexinewservice = models.BooleanField(default=False, blank=True, null=True)
+    addstaff_time = models.IntegerField(blank=True, null=True)
+    batch_sno = models.CharField(db_column='BATCH_SNO', max_length=300, blank=True, null=True)  # Field name made lowercase.
     
     class Meta:
         db_table = 'item_Cart'
