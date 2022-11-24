@@ -2729,7 +2729,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer ID does not exist!!",'error': True} 
                     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
-                stock_obj = Stock.objects.filter(pk=req['itemcodeid'],item_isactive=True).first()
+                stock_obj = Stock.objects.filter(pk=req['itemcodeid']).first()
 
                 if not stock_obj:
                     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Stock ID does not exist!!",'error': True} 
@@ -2749,7 +2749,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
                     if not acc_obj.package_code:
-                        itemdesc = acc_obj.itemcart.itemdesc
+                        itemdesc = acc_obj.itemcart.itemdesc if acc_obj.itemcart and acc_obj.itemcart.itemdesc else stock_obj.item_desc
 
                     
                     carttp_ids = ItemCart.objects.filter(isactive=True,cust_noid=cust_obj,cart_date=cartdate,
@@ -3354,7 +3354,7 @@ class itemCartViewset(viewsets.ModelViewSet):
     @action(methods=['post'], detail=False, permission_classes=[IsAuthenticated & authenticated_only],
     authentication_classes=[ExpiringTokenAuthentication])
     def TrmtDoneCartCreate(self, request):
-        # try:
+        try:
             with transaction.atomic():
                 global type_ex
                 cartdate = timezone.now().date()
@@ -3370,23 +3370,23 @@ class itemCartViewset(viewsets.ModelViewSet):
 
                 # tmp_ids = TmpItemHelper.objects.filter(treatment__Cust_Codeid__pk=cust_obj.pk,
                 # site_code=site.itemsite_code,created_at__date=cartdate,line_no__isnull=True)   
-                # print(tmp_ids,"tmp_ids")
+                # # print(tmp_ids,"tmp_ids")
                 # if not tmp_ids:
                 #     result = {'status': status.HTTP_400_BAD_REQUEST,
                 #     "message":"TmpItemHelper ID does not exist!!",'error': True} 
                 #     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
                 # parent_ids = list(set(tmp_ids.values_list('treatment__treatment_parentcode', flat=True).distinct()))
-                # print(parent_ids,"parent_ids")
+                # # print(parent_ids,"parent_ids")
                 
                 # request.data.clear()
-                # print(request.data,"request.data")
+                # # print(request.data,"request.data")
                 # for p in parent_ids:
                 #     ttmp_ids = TmpItemHelper.objects.filter(treatment__Cust_Codeid__pk=cust_obj.pk,
                 #     site_code=site.itemsite_code,created_at__date=cartdate,line_no__isnull=True,treatment__treatment_parentcode=p).order_by('-treatment').values_list('treatment', flat=True).distinct()
-                #     print(ttmp_ids,"ttmp_ids gg")
+                #     # print(ttmp_ids,"ttmp_ids gg")
                 #     v = list(ttmp_ids)
-                #     print(v,"v")
+                #     # print(v,"v")
                 #     if v != []:
                 #         trmtobj = Treatment.objects.filter(pk=v[0]).first()
                     
@@ -3813,9 +3813,9 @@ class itemCartViewset(viewsets.ModelViewSet):
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":message,'error': error, 'data': data}
                 return Response(result, status=status.HTTP_400_BAD_REQUEST)
                 
-        # except Exception as e:
-        #     invalid_message = str(e)
-        #     return general_error_response(invalid_message)     
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)     
            
             
        

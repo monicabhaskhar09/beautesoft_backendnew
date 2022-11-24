@@ -575,9 +575,10 @@ class ServiceStockViewset(viewsets.ModelViewSet):
             serializer = StockSerializer(stock)
             result = {'status': status.HTTP_200_OK , "message": "Listed Succesfully", 'error': False, 'data': serializer.data}
             v = result.get('data')
+            # print(stock.Stock_PIC,"stock.Stock_PIC")
             if v['Stock_PIC']:
                 # v['Stock_PIC'] = str("http://"+request.META['HTTP_HOST']) + str(v['Stock_PIC'])
-                v['Stock_PIC'] = str(SITE_ROOT) + str(v['Stock_PIC']).replace("/media/","")
+                v['Stock_PIC'] = str(SITE_ROOT) + str(stock.Stock_PIC)
             if v['item_price']:
                 v['item_price'] = "{:.2f}".format(float(v['item_price']))
             return Response(result, status=status.HTTP_200_OK)
@@ -748,7 +749,7 @@ class RetailStockListViewset(viewsets.ModelViewSet):
             q = dict(v)
             if q['Stock_PIC']:
                 # q['Stock_PIC'] = str("http://"+request.META['HTTP_HOST']) + str(v['Stock_PIC'])
-                q['Stock_PIC'] = str(SITE_ROOT) + str(v['Stock_PIC']).replace("/media/","")
+                q['Stock_PIC'] = str(SITE_ROOT) + str(stock.Stock_PIC)
             val = {'uomprice': uomlst}  
             q.update(val) 
             result['data'] = q if uomlst != [] else []       
@@ -888,7 +889,7 @@ class PackageStockViewset(viewsets.ModelViewSet):
             v = result.get('data')
             if v['Stock_PIC']:
                 # v['Stock_PIC'] = str("http://"+request.META['HTTP_HOST']) + str(v['Stock_PIC'])
-                v['Stock_PIC'] = str(SITE_ROOT) + str(v['Stock_PIC']).replace("/media/","")
+                v['Stock_PIC'] = str(SITE_ROOT) + str(stock.Stock_PIC)
             if v['item_price']:
                 v['item_price'] = "{:.2f}".format(float(v['item_price']))
             return Response(result, status=status.HTTP_200_OK)
@@ -911,8 +912,6 @@ class PackageDtlViewset(viewsets.ModelViewSet):
 
             for s in stock:     
                 if s.Stock_PIC: 
-                    print(s.Stock_PIC) 
-                    print(s.Stock_PIC.url) 
                     # image = {"STOCK_PIC" : str("http://"+request.META['HTTP_HOST'])+str(s.Stock_PIC.url)}
                     image = {"STOCK_PIC" : str(SITE_ROOT)+str(s.Stock_PIC)}
                 else:
@@ -1035,7 +1034,7 @@ class PrepaidStockViewset(viewsets.ModelViewSet):
             v = result.get('data')
             if v['Stock_PIC']:
                 # v['Stock_PIC'] = str("http://"+request.META['HTTP_HOST']) + str(v['Stock_PIC'])
-                v['Stock_PIC'] = str(SITE_ROOT) + str(v['Stock_PIC']).replace("/media/","")
+                v['Stock_PIC'] = str(SITE_ROOT) + str(stock.Stock_PIC)
             if v['item_price']:
                 v['item_price'] = "{:.2f}".format(float(v['item_price']))
             return Response(result, status=status.HTTP_200_OK)
@@ -1141,7 +1140,7 @@ class VoucherStockViewset(viewsets.ModelViewSet):
             v = result.get('data')
             if v['Stock_PIC']:
                 # v['Stock_PIC'] = str("http://"+request.META['HTTP_HOST']) + str(v['Stock_PIC'])
-                v['Stock_PIC'] = str(SITE_ROOT) + str(v['Stock_PIC']).replace("/media/","")
+                v['Stock_PIC'] = str(SITE_ROOT) + str(stock.Stock_PIC)
             if v['item_price']:
                 v['item_price'] = "{:.2f}".format(float(v['item_price']))
             return Response(result, status=status.HTTP_200_OK)
@@ -1352,7 +1351,7 @@ class CatalogSearchViewset(viewsets.ModelViewSet):
             v = result.get('data')
             if v['Stock_PIC']:
                 # v['Stock_PIC'] = str("http://"+request.META['HTTP_HOST']) + str(v['Stock_PIC'])
-                v['Stock_PIC'] = str(SITE_ROOT) + str(v['Stock_PIC']).replace("/media/","")
+                v['Stock_PIC'] = str(SITE_ROOT) + str(stock.Stock_PIC)
             if v['item_price']:
                 v['item_price'] = "{:.2f}".format(float(v['item_price']))
             return Response(result, status=status.HTTP_200_OK)
@@ -1489,7 +1488,7 @@ class CatalogFavoritesViewset(viewsets.ModelViewSet):
             v = result.get('data')
             if v['Stock_PIC']:
                 # v['Stock_PIC'] = str("http://"+request.META['HTTP_HOST']) + str(v['Stock_PIC'])
-                v['Stock_PIC'] = str(SITE_ROOT) + str(v['Stock_PIC']).replace("/media/","")
+                v['Stock_PIC'] = str(SITE_ROOT) + str(stock.Stock_PIC)
             if v['item_price']:
                 v['item_price'] = "{:.2f}".format(float(v['item_price']))
             return Response(result, status=status.HTTP_200_OK)
@@ -5798,7 +5797,7 @@ class VoidViewset(viewsets.ModelViewSet):
 
                         cart = ItemCart(cart_date=date.today(),phonenumber=cust_obj.cust_phone2,
                         customercode=cust_obj.cust_code,cust_noid=cust_obj,lineno=lineno,
-                        itemcodeid=stock_obj,itemcode=stock_obj.item_code,itemdesc=d.itemcart.itemdesc,
+                        itemcodeid=stock_obj,itemcode=stock_obj.item_code,itemdesc=d.itemcart.itemdesc if d.itemcart and d.itemcart.itemdesc else stock_obj.item_desc,
                         quantity=d.itemcart.quantity,price="{:.2f}".format(float(d.itemcart.price)),
                         sitecodeid=site,sitecode=site.itemsite_code,
                         cart_status="Inprogress",cart_id=cart_id,item_uom=d.itemcart.item_uom,
@@ -6522,7 +6521,10 @@ class VoidViewset(viewsets.ModelViewSet):
                                 sacc_ids = TreatmentAccount.objects.filter(sa_transacno=haudobj.sa_transacno,type='Sales',
                                 cust_code=haudobj.sa_custno,treatment_parentcode=d.itemcart.treatment.treatment_parentcode)
                                 # description = d.itemcart.itemcodeid.item_name+" "+"(Void Transaction by {0})".format(fmspw[0].pw_userlogin)
-                                description = d.itemcart.itemdesc+" "+"(Void Transaction by {0})".format(fmspw[0].pw_userlogin)
+                                if d.itemcart and d.itemcart.itemdesc:
+                                    description = d.itemcart.itemdesc+" "+"(Void Transaction by {0})".format(fmspw[0].pw_userlogin)
+                                else:
+                                    description = d.itemcart.itemcodeid.item_name+" "+"(Void Transaction by {0})".format(fmspw[0].pw_userlogin)
 
                                 for i in d.itemcart.multi_treat.all():
                                     if i.type in ['FFi','FFd']:
@@ -7162,8 +7164,11 @@ class VoidViewset(viewsets.ModelViewSet):
                                 sacc_ids = TreatmentAccount.objects.filter(sa_transacno=haudobj.sa_transacno,type='Sales',
                                 cust_code=haudobj.sa_custno,treatment_parentcode=da.itemcart.treatment.treatment_parentcode)
                               
-                               
-                                description = da.itemcart.itemdesc+" "+"(Void Transaction by {0})".format(fmspw[0].pw_userlogin)
+                                if da.itemcart and da.itemcart.itemdesc:
+                                    description = da.itemcart.itemdesc+" "+"(Void Transaction by {0})".format(fmspw[0].pw_userlogin)
+                                else:
+                                    description = da.itemcart.itemcodeid.itemdesc+" "+"(Void Transaction by {0})".format(fmspw[0].pw_userlogin)
+
                                 
                                 for i in da.itemcart.multi_treat.all():
                                     if i.type in ['FFi','FFd']:
@@ -13432,54 +13437,58 @@ class TransactionHistoryViewset(viewsets.ModelViewSet):
            
             sales_multi = False ; help_ids = False
 
-            # print(sales_staffs,"sales_staffs")
-            if sales_staffs:
-                salesstaff = str(sales_staffs).split(',')
-                # print(salesstaff,"salesstaff")
-                if sales_staffs[0] == '0':
-                    # print("iff")
-                    return queryset
-                else:   
+            salsystem_setup = Systemsetup.objects.filter(title='TransactionHistoryFilterSalesStaff',
+            value_name='TransactionHistoryFilterSalesStaff',isactive=True).first()
+            
+            if salsystem_setup and salsystem_setup.value_data == 'True':
+                # print(sales_staffs,"sales_staffs")
+                if sales_staffs:
+                    salesstaff = str(sales_staffs).split(',')
+                    # print(salesstaff,"salesstaff")
+                    if sales_staffs[0] == '0':
+                        # print("iff")
+                        return queryset
+                    else:   
 
-                    squeryset = PosHaud.objects.none()
-                    wqueryset = PosHaud.objects.none()
+                        squeryset = PosHaud.objects.none()
+                        wqueryset = PosHaud.objects.none()
 
-                    # print("else") 
-                    emp_ids = Employee.objects.filter(emp_isactive=True,pk__in=salesstaff,show_in_sales=True).order_by('-pk').values_list('emp_code', flat=True).distinct()
-                    # print(emp_ids,"emp_ids")
-                    if emp_ids:
-                        sales_multi = Multistaff.objects.filter(emp_code__in=list(emp_ids),sa_transacno__in=fquery).order_by('-pk').values_list('sa_transacno', flat=True).distinct() 
-                        # print(sales_multi,"sales_multi")
-                        if sales_multi:
-                            squeryset = PosHaud.objects.filter(sa_transacno__in=list(sales_multi)).order_by('-pk').values_list('pk', flat=True).distinct()
-                            # print(queryset,"queryset77")
-                        
-          
-                    #Workstaffs 
-                    if fmspw[0].Emp_Codeid and fmspw[0].Emp_Codeid.emp_isactive == True and fmspw[0].Emp_Codeid.show_in_trmt == True:
-                        # print("gg")
-                        help_ids = ItemHelper.objects.filter(site_code=site.itemsite_code,
-                        helper_code=fmspw[0].Emp_Codeid.emp_code,sa_transacno__in=fquery).order_by('-pk').values_list('helper_transacno', flat=True).distinct() 
-                        # print(help_ids,"help_ids")
-                        if help_ids:
-                            wqueryset = PosHaud.objects.filter(sa_transacno__in=list(help_ids)).order_by('-pk').values_list('pk', flat=True).distinct()
-                            # print(wqueryset,"wqueryset")
+                        # print("else") 
+                        emp_ids = Employee.objects.filter(emp_isactive=True,pk__in=salesstaff,show_in_sales=True).order_by('-pk').values_list('emp_code', flat=True).distinct()
+                        # print(emp_ids,"emp_ids")
+                        if emp_ids:
+                            sales_multi = Multistaff.objects.filter(emp_code__in=list(emp_ids),sa_transacno__in=fquery).order_by('-pk').values_list('sa_transacno', flat=True).distinct() 
+                            # print(sales_multi,"sales_multi")
+                            if sales_multi:
+                                squeryset = PosHaud.objects.filter(sa_transacno__in=list(sales_multi)).order_by('-pk').values_list('pk', flat=True).distinct()
+                                # print(queryset,"queryset77")
+                            
+            
+                        #Workstaffs 
+                        if fmspw[0].Emp_Codeid and fmspw[0].Emp_Codeid.emp_isactive == True and fmspw[0].Emp_Codeid.show_in_trmt == True:
+                            # print("gg")
+                            help_ids = ItemHelper.objects.filter(site_code=site.itemsite_code,
+                            helper_code=fmspw[0].Emp_Codeid.emp_code,sa_transacno__in=fquery).order_by('-pk').values_list('helper_transacno', flat=True).distinct() 
+                            # print(help_ids,"help_ids")
+                            if help_ids:
+                                wqueryset = PosHaud.objects.filter(sa_transacno__in=list(help_ids)).order_by('-pk').values_list('pk', flat=True).distinct()
+                                # print(wqueryset,"wqueryset")
 
-                    if squeryset and wqueryset:
-                        # print("iff 11")
-                        combined_list = list(chain(squeryset,wqueryset))
-                        queryset = PosHaud.objects.filter(pk__in=combined_list).order_by('-pk')
-                        # print(queryset,"combined_list 8888")
-                    elif squeryset:
-                        # print("iff 22")
-                        combined_list = squeryset
-                        queryset = PosHaud.objects.filter(pk__in=combined_list).order_by('-pk')
-                    elif wqueryset:
-                        # print("iff 33")
-                        combined_list = wqueryset
-                        queryset = PosHaud.objects.filter(pk__in=combined_list).order_by('-pk') 
-                    elif not squeryset and not wqueryset:
-                        queryset = PosHaud.objects.none()
+                        if squeryset and wqueryset:
+                            # print("iff 11")
+                            combined_list = list(chain(squeryset,wqueryset))
+                            queryset = PosHaud.objects.filter(pk__in=combined_list).order_by('-pk')
+                            # print(queryset,"combined_list 8888")
+                        elif squeryset:
+                            # print("iff 22")
+                            combined_list = squeryset
+                            queryset = PosHaud.objects.filter(pk__in=combined_list).order_by('-pk')
+                        elif wqueryset:
+                            # print("iff 33")
+                            combined_list = wqueryset
+                            queryset = PosHaud.objects.filter(pk__in=combined_list).order_by('-pk') 
+                        elif not squeryset and not wqueryset:
+                            queryset = PosHaud.objects.none()
 
 
             # #not work,sales,role

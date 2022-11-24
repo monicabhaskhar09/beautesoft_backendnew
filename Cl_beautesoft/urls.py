@@ -55,6 +55,8 @@ urlpatterns = [
     path('', include('custom.urls')),
     path('', include('cl_app.urls')),
     path('', include('clpayroll.urls')),
+    path('', include('cl_ipad.urls')),
+
 
 
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

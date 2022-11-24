@@ -95,7 +95,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                 studio_ids = StudioWork.objects.filter(isactive=True).order_by('dateplus')
                 if studio_ids:
                     if stk_setupids and stk_setupids.value_data:
-                        isstockobj = Stock.objects.filter(pk=stk_setupids.value_data,item_isactive=True).order_by('item_seq').first()
+                        isstockobj = Stock.objects.filter(pk=stk_setupids.value_data).order_by('item_seq').first()
                         if isstockobj:
                             for s in studio_ids:
                                 aptctrl_obj = ControlNo.objects.filter(control_description__iexact="APPOINTMENT CODE",Site_Codeid__pk=fmspw.loginsite.pk).first()

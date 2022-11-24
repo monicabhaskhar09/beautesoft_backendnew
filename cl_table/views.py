@@ -1411,8 +1411,9 @@ class EmployeeViewset(viewsets.ModelViewSet):
             result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
             v = result.get('data')
             if v['emp_pic']:
-                images = str(ip)+str(v['emp_pic'])
-                v['emp_pic'] = images
+                # images = str(ip) + str(v['emp_pic'])
+                images = str(SITE_ROOT) + str(employee.emp_pic)
+                v['emp_pic'] = images    
             return Response(result, status=status.HTTP_200_OK)
         #except Exception as e:
         #    invalid_message = str(e)
@@ -5739,7 +5740,7 @@ class AppointmentRecurViewset(viewsets.ModelViewSet):
                     appobj.appt_to_time = endtime
             
             if request.data['item_id']:
-                stockobj = Stock.objects.filter(pk=request.data['item_id'],item_isactive=True).first()
+                stockobj = Stock.objects.filter(pk=request.data['item_id']).first()
                 if not stockobj:
                     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Stock Id does not exist!!",'error': True} 
                     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
@@ -7616,6 +7617,8 @@ class UsersList(APIView):
           
             servicelimit_setup = Systemsetup.objects.filter(title='CourseServiceLimitChangeUsernamePopup',
                 value_name='CourseServiceLimitChangeUsernamePopup',isactive=True).first()
+            retailbatchsno_setup = Systemsetup.objects.filter(title='RetailBatchSerialno',
+                value_name='RetailBatchSerialno',isactive=True).first()
 
 
             
@@ -7695,6 +7698,7 @@ class UsersList(APIView):
             'walkincust' : walkinobj,
             'service_expirydate' : True if service_expiry_setup and service_expiry_setup.value_data == 'True' else False,
             'course_servicelimitchange' : True if servicelimit_setup and servicelimit_setup.value_data == 'True' else False,
+            'retailbatchsno': True if retailbatchsno_setup and retailbatchsno_setup.value_data == 'True' else False,
             }
 
             level_qs = Securitylevellist.objects.filter(level_itemid=fmspw.LEVEL_ItmIDid.level_code).order_by('pk')
@@ -10844,9 +10848,9 @@ class CustomerReceiptPrintList(generics.ListAPIView):
                 'footer5':title.trans_footer5 if title.trans_footer5 else '','footer6':title.trans_footer6 if title.trans_footer6 else ''
                 }
             else:
-                company_hdr = {'remark':'','logo':'','name':'','address':'','email': '',
-                'gst_reg_no': '','company_reg_no': ''}
-                footer = {'footer1':'','footer2':'','footer3':'','footer4':'',
+                company_hdr = {'logo':'','name':'','address':'','email': '',
+                'gst_reg_no': '','company_reg_no': '','cust_sig':''}
+                footer = {'remark':'','footer1':'','footer2':'','footer3':'','footer4':'',
                 'footer5':'','footer6':''}
                     
 
@@ -13979,6 +13983,7 @@ class AppointmentListPdf(APIView):
                 # path = BASE_DIR + title.logo_pic.url
                 path = str(SITE_ROOT) + str(title.logo_pic)
             
+            print(path,"path")
             data = {'name': title.trans_h1 if title and title.trans_h1 else '', 
             'address': title.trans_h2 if title and title.trans_h2 else '', 
             'footer1':title.trans_footer1 if title and title.trans_footer1 else '',
@@ -16048,7 +16053,7 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
             total = None
             serializer_class = None
             employee = self.get_object(pk)
-            serializer = StaffPlusSerializer(employee)
+            serializer = StaffPlusSerializer(employee,context={'request': self.request})
             data = serializer.data
             state = status.HTTP_200_OK
             message = "Listed Succesfully"
@@ -16058,7 +16063,7 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
             v = result.get('data')
             if v['emp_pic']:
                 # images = str(ip) + str(v['emp_pic'])
-                images = str(SITE_ROOT) + str(v['emp_pic']).replace("media/","")
+                images = str(SITE_ROOT) + str(employee.emp_pic)
                 v['emp_pic'] = images
             return Response(result, status=status.HTTP_200_OK)
         except Exception as e:
@@ -22552,6 +22557,22 @@ class MGMPolicyCloudViewset(viewsets.ModelViewSet):
             with transaction.atomic():
                 fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
                 site = fmspw[0].loginsite
+                if not 'level' in request.data or not request.data['level']:
+                    raise Exception('Please give level!!.') 
+
+                if not 'point_value' in request.data or not request.data['point_value']:
+                    raise Exception('Please give point value!!.') 
+                
+                if not 'minimum_purchase_amt' in request.data or not request.data['minimum_purchase_amt']:
+                    raise Exception('Please give minimum purchase amt!!.') 
+
+                if not 'itemsite_ids' in request.data or not request.data['itemsite_ids']:
+                    raise Exception('Please give itemsite ids!.') 
+
+                if not 'no_of_reward_times' in request.data or not request.data['no_of_reward_times']:
+                    raise Exception('Please give no of rewardtimes!.') 
+                        
+                
                 requestData = request.data
                 itemsite_ids = requestData.pop('itemsite_ids')
                 res = itemsite_ids.split(',')
@@ -22620,6 +22641,22 @@ class MGMPolicyCloudViewset(viewsets.ModelViewSet):
             with transaction.atomic():
                 fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
                 site = fmspw.loginsite
+                if not 'level' in request.data or not request.data['level']:
+                    raise Exception('Please give level!!.') 
+
+                if not 'point_value' in request.data or not request.data['point_value']:
+                    raise Exception('Please give point value!!.') 
+                
+                if not 'minimum_purchase_amt' in request.data or not request.data['minimum_purchase_amt']:
+                    raise Exception('Please give minimum purchase amt!!.') 
+
+                if not 'itemsite_ids' in request.data or not request.data['itemsite_ids']:
+                    raise Exception('Please give itemsite ids !.') 
+
+                if not 'no_of_reward_times' in request.data or not request.data['no_of_reward_times']:
+                    raise Exception('Please give no of rewardtimes!.') 
+                        
+                
                 mgm = self.get_object(pk)
                 requestData = request.data
                 itemsite_ids = requestData.pop('itemsite_ids')

@@ -782,7 +782,7 @@ class EmployeeSerializer(serializers.ModelSerializer):
         fields = ['id','skills_list','emp_name','display_name','emp_phone1','emp_code','skills','services','emp_address',
         'Emp_sexesid','gender','defaultSiteCodeid','defaultsitecode','site_name','Site_Codeid','site_code',
         'emp_dob','emp_joindate','shift','shift_name','emp_email','emp_pic','EMP_TYPEid','jobtitle_name',
-        'is_login','pw_password','LEVEL_ItmIDid','level_desc']
+        'is_login','pw_password','LEVEL_ItmIDid','level_desc','isdelete']
         read_only_fields = ('emp_isactive', 'updated_at','created_at','emp_code','branch') 
         extra_kwargs = {'emp_email': {'required': False},'Site_Codeid': {'required': False},
         'emp_name': {'required': True}}
@@ -2438,7 +2438,8 @@ class StaffPlusSerializer(serializers.ModelSerializer):
                   'Site_Codeid','site_code', 'emp_dob','emp_joindate','shift','shift_name','emp_email','emp_pic','emp_salary','EMP_EPFid',
                   'EMP_TYPEid','jobtitle_name', 'is_login','pw_password','LEVEL_ItmIDid','level_desc','emp_isactive','flghourly',
                   "emp_nric","max_disc", 'emp_race', 'Emp_nationalityid', 'Emp_maritalid', 'Emp_religionid', 'emp_emer','emp_epf_employee',
-                  'emp_emerno', 'emp_country', 'emp_remarks','show_in_trmt','show_in_appt','show_in_sales','emp_epf_employer','shift_status']
+                  'emp_emerno', 'emp_country', 'emp_remarks','show_in_trmt','show_in_appt','show_in_sales','emp_epf_employer','shift_status',
+                  'isdelete']
         read_only_fields = ('updated_at','created_at','emp_code','branch')
         extra_kwargs = {
             'emp_email': {'required': False},
@@ -2545,6 +2546,7 @@ class StaffPlusSerializer(serializers.ModelSerializer):
                                            show_in_trmt=validated_data.get('show_in_trmt'),
                                            Site_Codeid=validated_data.get('Site_Codeid'),
                                            EMP_EPFid=validated_data.get('EMP_EPFid'),
+                                           isdelete=validated_data.get('isdelete')
                                            )
 
         # for s in site_list:
@@ -2602,6 +2604,7 @@ class StaffPlusSerializer(serializers.ModelSerializer):
         instance.flghourly = validated_data.get("flghourly", instance.flghourly)
         instance.emp_salary = validated_data.get("emp_salary", instance.emp_salary)
         instance.emphoursalary = validated_data.get("emphoursalary", instance.emphoursalary)
+        instance.isdelete = validated_data.get("isdelete", instance.isdelete)
 
         if 'emp_email' in validated_data:
             if validated_data['emp_email'] is not None:
