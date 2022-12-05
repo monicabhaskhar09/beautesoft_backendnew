@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+  <!-- <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"> -->
+<style>
+hr{
+    border:0;
+    margin:0;
+    width:100%;
+    height:1px;
+    border-bottom: 1px dashed black;
+}
+.checkbox {
+  width:15px;
+  height:15px;
+  border: 1px solid #000;
+  display: inline-block;
+}
+
+/* This is what simulates a checkmark icon */
+.checkbox.checked:after {
+  content: '';
+  display: block;
+  width: 4px;
+  height: 7px;
+
+  /* "Center" the checkmark */
+  position:absolute;
+  top:4px;
+  left:7px;
+
+  border: solid #000;
+  border-width: 0 2px 2px 0;
+
+}
+table {
+    border-collapse: collapse;
+    width: 100%;
+}
+td {
+  padding: 5px;
+  text-align: center;
+}
+th {
+  text-align: center;
+}
+.split {
+  height: 500px;
+  width: 48.5%;
+  position: absolute;
+}
+.right {
+  right: 0;
+  text-align: left;
+}
+.right1 {
+  right: 40px;
+  text-align: right;
+}
+.box {
+  width: 50%;
+  height: 160px;
+}
+.clearfix {
+  content: "";
+  clear: both;
+  display: table;
+}
+img.sticky {
+  position: -webkit-sticky;
+  position: sticky;
+  top: 0;
+  width: 200px;}
+.column {
+  float: left;
+  width: 33.33%;
+  padding: 5px;
+}
+.row::after {
+  content: "";
+  clear: both;
+  display: table;
+}
+header {
+   position: fixed;
+   padding: 10px 16px;
+}
+fix {
+    position: fixed;
+    /* bottom: -400px; */
+    left: 15px;
+    right: 15px;
+    text-align: left;
+}
+.spaDetails img{
+        /* border-radius: 50%; */
+        width: 8rem;
+        height: 8rem;
+}
+.spaDetails h4{
+        font-weight: 700;
+}
+.spaDetails p{
+        margin-bottom: 0;
+        font-size: 16px;
+}
+.new {
+  word-wrap: break-word;
+}
+body{
+  margin:0;
+  padding:0;
+  font-family: 'Times New Roman';
+}
+</style>
+</head>
+{% load static %}
+<body>
+
+  
+  <div class="container-fluid">
+    <table  style="font-family: 'Arial';font-size: 12px;width: 20%;" >
+      <div style="font-family: 'Arial';font-size: 12px;" width="20%">
+        <img src="{{path}}" width="85" height="85" alt="">
+        </br>
+        <tr>
+          <th>{{name}}<br>
+            {{address}}
+            <br>
+            {% if gst_reg_no %}
+              <b>GST No:</b> {{gst_reg_no}}
+            {% endif %} 
+          </th>		
+        </tr> 
+        
+      </div>
+
+    </table>
+     
+
+    <div class="clearfix mt-3">
+        <div class="split" style="font-family: 'Arial';font-size: 12px;line-height: 2px">
+          <p><b>Receipt: </b> {{ hdr.sa_transacno_ref }} </p>
+        </div>  
+    </div>
+    
+    {% load mathfilters %}
+
+
+    <table cellspacing="15" cellpadding="10" style="font-family: 'Arial';font-size: 12px;width: 20%;" >
+      <tr>
+        <th>Qty</th>
+        <th>Description</th>
+        <th>Paid</th>
+      </tr>
+      {% for d in daud %}
+      <tr>
+        <td>{{ d.dt_qty }}</td>
+        <td>{{ d.dt_itemdesc }}</td>
+        {% if d.dt_status == "SA" and d.record_detail_type == "TD" %}
+          <td>&nbsp;</td>
+        {% else %}
+          <td >$&nbsp;{{ d.dt_deposit|floatformat:2 }}</td>
+        {% endif %}
+      </tr>
+      {% endfor %}
+  
+      </table>
+	 <hr style="width: 20%;">
+    <table cellspacing="15" cellpadding="10" style="font-size: 12px;width: 20%;" >
+      <tr>
+			<td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+			<td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+			<td><b>Sub Total</b></td>
+			<td>${{ subtotal|floatformat:2 }}</td>
+      </tr>
+      
+      <!-- {% if gst_lable %}
+        <tr>
+        <td></td>
+        <td></td>
+        <td><b>{{ gst_lable }}</b></td>
+        <td>${{ hdr.sa_totgst|floatformat:2 }}</td>
+        </tr>
+      {% endif %} -->
+      
+      <tr>
+			<td></td>
+			<td></td>
+			<td><b>Total</b></td>
+			<td>${{ billing_amount|floatformat:2 }}</td>
+      </tr>
+      </table>
+
+        <table cellspacing="15" cellpadding="10" style="font-size: 12px;width: 20%;" >
+          {% for taud in postaud %}
+            <tr>
+					<td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+					<td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+					<td>{{ taud.pay_typeid.pay_description }}</td>
+					<td>${{ taud.pay_amt|floatformat:2 }}</td>
+            </tr>
+          {% endfor %}
+        </table>
+		<hr style="width: 20%;">
+		<div class="container-fluid" width="30%">
+			<div style="font-size: 12px;">
+			 <p><b>Member Info</b></br>
+				<b>Name:</b> {{ hdr.sa_custname }} </br>
+				<b>No:</b> {% if hdr.sa_custnoid.cust_phone2 %} {{ hdr.sa_custnoid.cust_phone2 }} {% else %} {% endif %}</br>
+				<b>ID:</b> {% if hdr.sa_custnoid.cust_nric %} {{ hdr.sa_custnoid.cust_nric }} {% else %} {% endif %}</br>
+        <b>Member Class:</b>{% if hdr.sa_custnoid.Cust_Classid.class_desc %} {{ hdr.sa_custnoid.Cust_Classid.class_desc }} {% else %} {% endif %}</br>
+        <b>Loyalty Points:</b> {% if hdr.sa_custnoid.cust_point_value %} {{ hdr.sa_custnoid.cust_point_value }} {% else %} {% endif %}</br>
+			 </p> 
+
+       
+        {% if treatmentbal %}  
+          <div class="row" width="30%">
+            <table cellspacing="15" cellpadding="10" style="font-family: 'Arial';font-size: 12px;width: 20%;" >
+              <tr>
+                <th ><b>Service</b></th>
+                <th ><b>Balance</b></th>
+              </tr>
+              {% for t in treatment %}
+                <tr style="line-height: 10px">
+                  <td style="text-align: left">{{ t.course }}</td>
+                  <td style="text-align: right">{{ t.total }}</td>
+                </tr>
+              {% endfor %}
+
+            </table>
+           
+      
+          </div>
+        {% endif %}
+			</div>	
+      </div>	
+		<hr style="width: 20%;">	
+		<div class="container-fluid" width="30%">
+			<div style="font-size: 12px;">
+			 <p>
+				<b>Cashier:</b> {{ hdr.cas_name }} </br>
+				<b>Order By:</b> {{ first_sales }} </br>
+				<b>Date:</b> {{ date }} {{ time }}</br>
+			 </p>
+			</div>	
+		</div>	
+
+    <!-- {% if gstlable %}
+      <table cellspacing="15" cellpadding="10" style="font-size: 12px; width: 20%;" >
+        <tr>
+          <th>{{ gstlable }}</th>
+          <th>Rate</th>
+          <th>Taxable</th>
+          <th>{{ gstlable }}</th>			
+        </tr>
+        <tr>
+          <td></td>
+          <td>{{ percent }}</td>
+          <td>{{ taxable }}</td>
+          <td>{{ pay_gst }}</td>
+        </tr>  
+      </table>
+    {% endif %}
+		<table cellspacing="15" cellpadding="10" style="font-size: 12px; width: 20%;" >
+			<tr>
+			  <th>{% if footer1 %} {{ footer1 }} {% else %} {% endif %}<br>
+          {% if footer2 %} {{ footer2 }} {% else %} {% endif %}
+			  </th>		
+			</tr> 
+		</table> -->
+</body>
+</html>

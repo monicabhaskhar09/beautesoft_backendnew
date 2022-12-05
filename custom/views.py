@@ -5159,6 +5159,7 @@ class itemCartViewset(viewsets.ModelViewSet):
         if instance.multi_treat.all().exists():
             for i in instance.multi_treat.all():
                 TmpItemHelper.objects.filter(treatment=i).delete()
+                Tmptreatment.objects.filter(treatment_id=i,status='Open').delete()
         
         
         instance.delete() 
@@ -8499,6 +8500,7 @@ class CartItemDeleteAPIView(APIView):
                     if instance.multi_treat.all().exists():
                         for i in instance.multi_treat.all():
                             TmpItemHelper.objects.filter(treatment=i).delete()
+                            Tmptreatment.objects.filter(treatment_id=i,status='Open').delete()
 
                     instance.delete() 
 

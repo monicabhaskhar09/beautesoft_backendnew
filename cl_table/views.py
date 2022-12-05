@@ -26,7 +26,7 @@ from .models import (Gender, Employee, Fmspw, Attendance2, Customer, Images, Tre
                      ItemDiv,Tempcustsign,CustomerDocument,TreatmentPackage,Tmptreatment,CustLogAudit,ContactPerson,
                      ItemFlexiservice,termsandcondition,Dayendconfirmlog,Participants,ProjectDocument,
                      MGMPolicyCloud,CustomerReferral,sitelistip)
-from cl_app.models import ItemSitelist, SiteGroup, LoggedInUser
+from cl_app.models import ItemSitelist, SiteGroup, LoggedInUser,TmpTreatmentSession
 from custom.models import Room,ItemCart,VoucherRecord,EmpLevel,PosPackagedeposit,payModeChangeLog,ProjectModel
 from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializer, Attendance2Serializer,
                           CustomerallSerializer, CustomerSerializer, ServicesSerializer, ItemSiteListSerializer,
@@ -3913,7 +3913,56 @@ class AppointmentViewset(viewsets.ModelViewSet):
            invalid_message = str(e)
            return general_error_response(invalid_message)         
 
-                
+    
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated & authenticated_only],
+    authentication_classes=[TokenAuthentication])
+    def statusupdate(self, request):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True).first()
+            
+            site = fmspw.loginsite
+            log_emp =  fmspw.Emp_Codeid
+            if not 'appt_id' in request.data or not request.data['appt_id']:
+                result = {'status': status.HTTP_200_OK,"message":"Please Give Appointment id!!",'error': True} 
+                return Response(data=result, status=status.HTTP_200_OK) 
+            
+            if not 'appt_status' in request.data or not request.data['appt_status']:
+                result = {'status': status.HTTP_200_OK,"message":"Please Give Appointment Status!!",'error': True} 
+                return Response(data=result, status=status.HTTP_200_OK) 
+
+            appt = Appointment.objects.filter(pk=request.data['appt_id'],appt_isactive=True).first()
+            if not appt:
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Appointment does not exist",'error': True} 
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)  
+            
+            if appt.appt_status == "Block":
+                result = {'status': status.HTTP_200_OK,"message":"Blocked Appointment Cant update status!",'error': True} 
+                return Response(result, status=status.HTTP_200_OK)   
+
+
+            if appt.linkcode:
+                link_ids = Appointment.objects.filter(linkcode=appt.linkcode).order_by('appt_fr_time')
+                if link_ids:
+                    for l in link_ids:
+                        l.appt_status = request.data['appt_status']
+                        l.save()
+                        apptlog = AppointmentLog(appt_id=l,userid=log_emp,
+                        username=log_emp.display_name,appt_date=l.appt_date,
+                        appt_fr_time=l.appt_fr_time,appt_to_time=l.appt_to_time,emp_code=l.emp_no,newempcode=None,
+                        appt_status=request.data['appt_status'],sec_status=l.sec_status,appt_remark=l.appt_remark,
+                        item_code=l.item_code,requesttherapist=l.requesttherapist,add_duration=l.add_duration,
+                        new_remark=l.new_remark).save()
+                    result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",'error': False}
+                    return Response(result, status=status.HTTP_200_OK)
+                else:
+                    raise Exception("Appointment Does not exist!!")    
+            else:
+                raise Exception("Appointment Does not exist!!")    
+
+        except Exception as e:
+           invalid_message = str(e)
+           return general_error_response(invalid_message)         
+            
 
 class AppointmentPopup(viewsets.ModelViewSet):
     authentication_classes = [ExpiringTokenAuthentication]
@@ -7609,8 +7658,8 @@ class UsersList(APIView):
             value_name='VoucherPromo',isactive=True).first()
             surcharge_setup = Systemsetup.objects.filter(title='Surcharge',
             value_name='Surcharge',isactive=True).first()
-            walkincust_setup = Systemsetup.objects.filter(title='Sales',
-            value_name='Cash Sales Cust No',isactive=True).first()
+            # walkincust_setup = Systemsetup.objects.filter(title='Sales',
+            # value_name='Cash Sales Cust No',isactive=True).first()
 
             service_expiry_setup = Systemsetup.objects.filter(title='allowServiceChangeExpiryDate',
             value_name='allowServiceChangeExpiryDate',isactive=True).first()
@@ -7619,12 +7668,21 @@ class UsersList(APIView):
                 value_name='CourseServiceLimitChangeUsernamePopup',isactive=True).first()
             retailbatchsno_setup = Systemsetup.objects.filter(title='RetailBatchSerialno',
                 value_name='RetailBatchSerialno',isactive=True).first()
+            custnameretaincart_setup = Systemsetup.objects.filter(title='CustomerNameRetainInCart',
+            value_name='CustomerNameRetainInCart',isactive=True).first()
+            transactionviewall_setup = Systemsetup.objects.filter(title='transactionViewAll',
+            value_name='transactionViewAll',isactive=True).first()
+            
+            autotdfor_setup = Systemsetup.objects.filter(title='autoTDForAlacarte',
+            value_name='autoTDForAlacarte',isactive=True).first()
+    
+    
 
 
             
             walkinobj = ""
-            if walkincust_setup and walkincust_setup.value_data:
-                cust_obj = Customer.objects.filter(pk=walkincust_setup.value_data,cust_isactive=True).first()
+            if fmspw.loginsite and fmspw.loginsite.walkin_custid:
+                cust_obj = Customer.objects.filter(pk=fmspw.loginsite.walkin_custid,cust_isactive=True).first()
                 if cust_obj:
 
                     serializer = CustApptSerializer(cust_obj, context={'request': self.request})
@@ -7699,7 +7757,12 @@ class UsersList(APIView):
             'service_expirydate' : True if service_expiry_setup and service_expiry_setup.value_data == 'True' else False,
             'course_servicelimitchange' : True if servicelimit_setup and servicelimit_setup.value_data == 'True' else False,
             'retailbatchsno': True if retailbatchsno_setup and retailbatchsno_setup.value_data == 'True' else False,
+            'custname_retaincart': True if custnameretaincart_setup and custnameretaincart_setup.value_data == 'True' else False,
+            'transactionviewall' : True if transactionviewall_setup and transactionviewall_setup.value_data == 'True' else False, 
+            'autotdforalacarte' : True if autotdfor_setup and autotdfor_setup.value_data == 'True' else False, 
             }
+
+
 
             level_qs = Securitylevellist.objects.filter(level_itemid=fmspw.LEVEL_ItmIDid.level_code).order_by('pk')
             # print(level_qs,"level_qs")
@@ -21539,14 +21602,44 @@ class TmpTreatmentNewServiceAPIView(GenericAPIView):
     permission_classes = [IsAuthenticated & authenticated_only]
     queryset = Tmptreatment.objects.filter().order_by('-pk')
 
+    def get(self, request):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+            site = fmspw[0].loginsite
+            treatment_ids = self.request.GET.get('treatment_ids',None)
+            if not treatment_ids:
+                raise ValueError("Please give treatment_ids!!") 
+
+            arrtreatmentids = treatment_ids.split(',')
+            trmt_ids = Treatment.objects.filter(status__in=["Open"],pk__in=arrtreatmentids)
+            if not trmt_ids:
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Treatment ID does not exist!!",'error': True} 
+                return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+            
+            tmp_ids = Tmptreatment.objects.filter(status="Open",treatment_id__pk__in=arrtreatmentids).values('pk','course','treatment_id','newservice_id')
+
+            result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 'data':  tmp_ids}
+            return Response(data=result, status=status.HTTP_200_OK)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)     
+
+
     @transaction.atomic
     def post(self, request):
         try:  
             with transaction.atomic():
-                if not request.data['treatment']:
+                if not 'treatment' in request.data or not request.data['treatment']:
                     raise ValueError("Please give treatment !!")      
-                if not request.data['newservice_id']:
-                    raise ValueError("Please give newservice_id !!")      
+                if not 'newservice_id' in request.data or not request.data['newservice_id']:
+                    raise ValueError("Please give newservice_id !!")  
+
+                if not 'treatment_ids' in request.data or not request.data['treatment_ids']:
+                    raise ValueError("Please give treatment_ids !!")      
+
+                if not 'session' in request.data or not request.data['session']:
+                    raise ValueError("Please give session selected !!")      
+                             
                     
                 if request.data['treatment'] and request.data['newservice_id']:
                     trmobj = Treatment.objects.filter(pk=request.data['treatment'],status="Open").first()
@@ -21563,12 +21656,24 @@ class TmpTreatmentNewServiceAPIView(GenericAPIView):
                             result = {'status': status.HTTP_400_BAD_REQUEST,"message":"treatment limit times is excided!!",'error': True} 
                             return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
+                    # search_ids = TmpTreatmentSession.objects.filter(treatment_parentcode=trmobj.treatment_parentcode,
+                    # created_at=date.today()).order_by('-pk').first()
+                    # if search_ids:
+                    #     if trm_ids >= search_ids.session:
+                    #         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"treatment service selection should not be greater than TD session entered!!",'error': True} 
+                    #         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
+
                     stock_obj = Stock.objects.filter(pk=request.data['newservice_id']).first()
                     if not stock_obj:
                         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Stock ID does not exist!!",'error': True} 
                         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-                
-                    if trmobj and stock_obj:
+                    
+                    tmp_ids = Tmptreatment.objects.filter(status="Open",treatment_id__pk=request.data['treatment'])
+                    if tmp_ids:
+                        raise ValueError("Already record exist for this treatment id,delete Tmptreatment for this treatment then try again!!")      
+
+                    if not tmp_ids:
                         Tmptreatment(course=stock_obj.item_name,times=trmobj.times,
                         treatment_no=trmobj.treatment_no,price=trmobj.price,
                         treatment_date=trmobj.treatment_date,
@@ -21593,7 +21698,27 @@ class TmpTreatmentNewServiceAPIView(GenericAPIView):
             invalid_message = str(e)
             return general_error_response(invalid_message)     
 
+  
+    def delete(self, request, pk=None):
+        try:
+            tmp = self.get_object(pk)
+            tmp.delete()
+           
+            result = {'status': status.HTTP_200_OK,"message":"Deleted Succesfully",'error': False}
+            return Response(result, status=status.HTTP_200_OK)
 
+           
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)       
+                 
+
+    def get_object(self, pk):
+        try:
+            return Tmptreatment.objects.get(pk=pk)
+        except Tmptreatment.DoesNotExist:
+            raise Exception('Tmptreatment ID Does not Exist') 
+    
 
 class ContactPersonViewset(viewsets.ModelViewSet):
     authentication_classes = [ExpiringTokenAuthentication]

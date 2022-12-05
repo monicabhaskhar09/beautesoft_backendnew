@@ -351,10 +351,22 @@ def GeneratePDF(self,request, sa_transacno):
         treatmentbal = True
     else:
         treatmentbal = False
-
+    
+    prepaidlst = []
     postaud_ids = PosTaud.objects.filter(sa_transacno=sa_transacno,pay_group="PREPAID")
     if postaud_ids:
         showprepaid = True
+        for po in postaud_ids:
+            spl_tn = str(po.pay_rem1).split("-")
+            ppno = spl_tn[0]
+            lineno = spl_tn[1]
+            prequeryset = PrepaidAccount.objects.filter(cust_code=hdr[0].sa_custno,
+            status=True,remain__gt=0,pp_no=ppno,line_no=lineno).only('site_code','cust_code','sa_status').order_by('-pk').first()
+            if prequeryset:
+                pval = {'pp_desc':prequeryset.pp_desc,'remain':"{:.2f}".format(prequeryset.remain)}
+                prepaidlst.append(pval)
+
+
     else:
         showprepaid = False
     
@@ -391,13 +403,15 @@ def GeneratePDF(self,request, sa_transacno):
     'packages': str(packages),'site':site,'treatment': treatopen_ids,'settings': set_obj,
     'tot_price':tot_price,'prepaid_balance': prepaid_amt,
     'creditnote_balance': credit_amt,'total_netprice':str("{:.2f}".format((total_netprice))),
-    'custsign_ids':path_custsign if path_custsign else '','prepaid_lst':prepaid_lst,
+    'custsign_ids':path_custsign if path_custsign else '','prepaid_lst':prepaid_lst,'prepaidlst':prepaidlst,
     'prepaidbal':prepaidbal,'treatmentbal':treatmentbal,'showprepaid': showprepaid,
     'showvoidreason':showvoidreason,'showcredit':showcredit,'creditlst': creditlst,
     'gst_reg_no': title.gst_reg_no if title and title.gst_reg_no else '',
     'company_reg_no': title.company_reg_no if title and title.company_reg_no else '',
     'gst_lable': gst_lable,'first_sales': daud[0].dt_Staffnoid.display_name if daud[0].dt_Staffnoid else '',
-    'gstlable': gstlable}
+    'gstlable': gstlable,'trans_promo1': title.trans_promo1 if title and title.trans_promo1 else '',
+    'trans_promo2' : title.trans_promo2 if title and title.trans_promo2 else '',
+    }
     data.update(sub_data)
     if site.inv_templatename:
         template = get_template(site.inv_templatename)

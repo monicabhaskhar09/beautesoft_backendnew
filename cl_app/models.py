@@ -81,6 +81,7 @@ class ItemSitelist(models.Model):
     is_dragappt = models.BooleanField(db_column='is_dragappt',default=True)  # Field name made lowercase.
     is_empvalidate = models.BooleanField(db_column='is_empvalidate',default=True)  # Field name made lowercase.
     is_exclusive = models.BooleanField(null=True)
+    walkin_custid = models.IntegerField(db_column='Walkin_Custid', blank=True, null=True)  # Field name made lowercase.
     
     class Meta:
         db_table = 'Item_SiteList'

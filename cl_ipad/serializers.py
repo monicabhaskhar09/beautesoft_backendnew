@@ -1,11 +1,12 @@
 from rest_framework import serializers
-from .models import (WebConsultation_Hdr,WebConsultation_Question)
+from .models import (WebConsultation_Hdr,WebConsultation_Question,
+WebConsultation_AnalysisResult,WebConsultation_Referral,WebConsultation_Referral_Hdr)
 
 
 class WebConsultationHdrSerializer(serializers.ModelSerializer):
     
-    doc_date = serializers.DateTimeField(format="%d-%m-%Y")
-    updated_at = serializers.DateTimeField(format="%d-%m-%Y")
+    doc_date = serializers.DateTimeField(format="%d-%m-%Y",required=False)
+    updated_at = serializers.DateTimeField(format="%d-%m-%Y",required=False)
 
     class Meta:
         model = WebConsultation_Hdr
@@ -32,3 +33,31 @@ class WebConsultationQuestionSerializer(serializers.ModelSerializer):
       
 
         return data               
+
+
+class WebConsultation_AnalysisResultSerializer(serializers.ModelSerializer):
+    
+    create_date = serializers.DateTimeField(format="%d-%m-%Y",required=False)
+    last_updatedate = serializers.DateTimeField(format="%d-%m-%Y",required=False)
+
+    class Meta:
+        model = WebConsultation_AnalysisResult
+        fields = '__all__'        
+
+class WebConsultation_ReferralSerializer(serializers.ModelSerializer):
+    
+    create_date = serializers.DateTimeField(format="%d-%m-%Y",required=False)
+    last_updatedate = serializers.DateTimeField(format="%d-%m-%Y",required=False)
+
+    class Meta:
+        model = WebConsultation_Referral
+        fields = '__all__'                
+
+class WebConsultation_Referral_HdrSerializer(serializers.ModelSerializer):
+    
+    create_date = serializers.DateTimeField(format="%d-%m-%Y",required=False)
+    last_updatedate = serializers.DateTimeField(format="%d-%m-%Y",required=False)
+
+    class Meta:
+        model = WebConsultation_Referral_Hdr
+        fields = '__all__'                        

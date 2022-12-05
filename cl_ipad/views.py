@@ -3,8 +3,11 @@ from cl_table.authentication import ExpiringTokenAuthentication
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from cl_app.permissions import authenticated_only
-from .serializers import (WebConsultationHdrSerializer,WebConsultationQuestionSerializer)
-from .models import (WebConsultation_Hdr,WebConsultation_Question)
+from .serializers import (WebConsultationHdrSerializer,WebConsultationQuestionSerializer,
+WebConsultation_AnalysisResultSerializer,WebConsultation_ReferralSerializer,
+WebConsultation_Referral_HdrSerializer)
+from .models import (WebConsultation_Hdr,WebConsultation_Question,WebConsultation_AnalysisResult,
+WebConsultation_Referral,WebConsultation_Referral_Hdr)
 from cl_table.models import Fmspw,Employee,ControlNo,Customer
 from rest_framework import status,viewsets,mixins
 from rest_framework.response import Response
@@ -98,7 +101,7 @@ class WebConsultationHdrViewset(viewsets.ModelViewSet):
 
                 
                 check_ids = WebConsultation_Hdr.objects.filter(site_code=site.itemsite_code,
-                cust_codeid=cust_obj,emp_codeid=emp_obj,doc_date=date.today()).order_by('-pk')
+                cust_codeid=cust_obj,emp_codeid=emp_obj,doc_date__date=date.today()).order_by('-pk')
                 if check_ids:
                     msg = "Customer {0} already consulted by this staff !!".format(str(cust_obj.cust_name))
                     raise Exception(msg) 
@@ -444,3 +447,558 @@ class WebConsultationQuestionViewset(viewsets.ModelViewSet):
             raise Exception('WebConsultation Question Does not Exist') 
         
         
+class WebConsultation_AnalysisResultViewset(viewsets.ModelViewSet):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = WebConsultation_AnalysisResult.objects.filter(isactive=True).order_by('-pk')
+    serializer_class = WebConsultation_AnalysisResultSerializer
+
+    def get_queryset(self):
+        fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+        site = fmspw[0].loginsite
+        queryset = WebConsultation_AnalysisResult.objects.filter(isactive=True,site_code=site.itemsite_code).order_by('-pk')
+       
+        return queryset      
+
+    def list(self, request):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+            site = fmspw[0].loginsite
+            serializer_class = WebConsultation_AnalysisResultSerializer
+            
+            queryset = self.filter_queryset(self.get_queryset())
+
+            total = len(queryset)
+            state = status.HTTP_200_OK
+            message = "Listed Succesfully"
+            error = False
+            data = None
+            result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+            return Response(result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)      
+
+    @transaction.atomic
+    def create(self, request):
+        try:
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+                site = fmspw[0].loginsite
+
+                if not 'age' in request.data or not request.data['age']:
+                    raise Exception('Please give age!!.') 
+
+                if not 'cust_weight' in request.data or not request.data['cust_weight']:
+                    raise Exception('Please give customer weight!!.') 
+                
+                if not 'doc_no' in request.data or not request.data['doc_no']:
+                    raise Exception('Please give doc no!!.') 
+
+                if not 'cust_code' in request.data or not request.data['cust_code']:
+                    raise Exception('Please give customer code!!.') 
+    
+
+               
+                check_ids = WebConsultation_AnalysisResult.objects.filter(site_code=site.itemsite_code,
+                cust_code=request.data['cust_code'],create_date__date=date.today()).order_by('-pk')
+                if check_ids:
+                    msg = "Already record there for this customer this site today date {0}!!".format(str(request.data['cust_code']))
+                    raise Exception(msg) 
+                    
+
+                serializer = WebConsultation_AnalysisResultSerializer(data=request.data)
+                if serializer.is_valid():
+                    
+                    k = serializer.save(
+                    site_code=site.itemsite_code,
+                    create_date=date.today())
+                    
+                    result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully",
+                    'error': False}
+                    return Response(result, status=status.HTTP_201_CREATED)
+                
+
+                data = serializer.errors
+
+                if 'non_field_errors' in data:
+                    message = data['non_field_errors'][0]
+                else:
+                    first_key = list(data.keys())[0]
+                    message = str(first_key)+":  "+str(data[first_key][0])
+
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":message,
+                'error': True, 'data': serializer.errors}
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+    
+    @transaction.atomic
+    def partial_update(self, request, pk=None):
+        try:
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+                site = fmspw.loginsite
+                ref = self.get_object(pk)
+                if not 'age' in request.data or not request.data['age']:
+                    raise Exception('Please give age!!.') 
+
+                if not 'cust_weight' in request.data or not request.data['cust_weight']:
+                    raise Exception('Please give customer weight!!.') 
+
+                if not 'doc_no' in request.data or not request.data['doc_no']:
+                    raise Exception('Please give doc no!!.') 
+    
+                if not 'cust_code' in request.data or not request.data['cust_code']:
+                    raise Exception('Please give customer code!!.') 
+    
+               
+                check_ids = WebConsultation_AnalysisResult.objects.filter(~Q(pk=ref.pk)).filter(site_code=site.itemsite_code,
+                cust_code=request.data['cust_code'],create_date=ref.create_date).order_by('-pk')
+                if check_ids:
+                    msg = "Already record there for this customer this site today date {0}!!".format(str(request.data['cust_code']))
+                    raise Exception(msg) 
+                    
+                serializer = self.get_serializer(ref, data=request.data, partial=True)
+                if serializer.is_valid():
+                
+                    serializer.save(last_updatedate=date.today())
+                    
+                    result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",'error': False}
+                    return Response(result, status=status.HTTP_200_OK)
+
+                
+                data = serializer.errors
+
+                if 'non_field_errors' in data:
+                    message = data['non_field_errors'][0]
+                else:
+                    first_key = list(data.keys())[0]
+                    message = str(first_key)+":  "+str(data[first_key][0])
+
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":message,
+                'error': True, 'data': serializer.errors}
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)   
+    
+    def retrieve(self, request, pk=None):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+            site = fmspw.loginsite
+            ref = self.get_object(pk)
+            serializer = WebConsultation_AnalysisResultSerializer(ref, context={'request': self.request})
+            result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
+            'data': serializer.data}
+            return Response(data=result, status=status.HTTP_200_OK)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message) 
+
+
+   
+    def destroy(self, request, pk=None):
+        try:
+            request.data["isactive"] = False
+            ref = self.get_object(pk)
+            serializer = WebConsultation_AnalysisResultSerializer(ref, data=request.data ,partial=True)
+            state = status.HTTP_204_NO_CONTENT
+            if serializer.is_valid():
+                serializer.save()
+                result = {'status': status.HTTP_200_OK,"message":"Deleted Succesfully",'error': False}
+                return Response(result, status=status.HTTP_200_OK)
+            
+            # print(serializer.errors,"jj")
+            result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",
+            'error': True,'data': serializer.errors }
+            return Response(result, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)          
+
+
+    def get_object(self, pk):
+        try:
+            return WebConsultation_AnalysisResult.objects.get(pk=pk)
+        except WebConsultation_AnalysisResult.DoesNotExist:
+            raise Exception('WebConsultation AnalysisResult Does not Exist') 
+            
+
+class WebConsultation_ReferralViewset(viewsets.ModelViewSet):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = WebConsultation_Referral.objects.filter(isactive=True).order_by('-pk')
+    serializer_class = WebConsultation_ReferralSerializer
+
+    def get_queryset(self):
+        fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+        site = fmspw[0].loginsite
+        queryset = WebConsultation_Referral.objects.filter(isactive=True,site_code=site.itemsite_code).order_by('-pk')
+       
+        return queryset      
+
+    def list(self, request):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+            site = fmspw[0].loginsite
+            serializer_class = WebConsultation_ReferralSerializer
+            
+            queryset = self.filter_queryset(self.get_queryset())
+
+            total = len(queryset)
+            state = status.HTTP_200_OK
+            message = "Listed Succesfully"
+            error = False
+            data = None
+            result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+            return Response(result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)      
+    
+    @transaction.atomic
+    def create(self, request):
+        try:
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+                site = fmspw[0].loginsite
+
+                if not 'referral_name' in request.data or not request.data['referral_name']:
+                    raise Exception('Please give referral name!!.') 
+
+                if not 'referral_age' in request.data or not request.data['referral_age']:
+                    raise Exception('Please give referral age!!.') 
+
+                if not 'referral_contactno' in request.data or not request.data['referral_contactno']:
+                    raise Exception('Please give referral contactno!!.') 
+                    
+                if not 'doc_no' in request.data or not request.data['doc_no']:
+                    raise Exception('Please give doc no!!.') 
+
+                if not 'cust_code' in request.data or not request.data['cust_code']:
+                    raise Exception('Please give customer code!!.') 
+    
+
+               
+                check_ids = WebConsultation_Referral.objects.filter(site_code=site.itemsite_code,
+                cust_code=request.data['cust_code'],referral_name=request.data['referral_name'],
+                create_date__date=date.today()).order_by('-pk')
+                if check_ids:
+                    msg = "Already record there for this customer this site ,today date , referral name{0}!!".format(str(request.data['cust_code']))
+                    raise Exception(msg) 
+                    
+
+                serializer = WebConsultation_ReferralSerializer(data=request.data)
+                if serializer.is_valid():
+                    
+                    k = serializer.save(
+                    site_code=site.itemsite_code,
+                    create_date=date.today())
+                    
+                    result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully",
+                    'error': False}
+                    return Response(result, status=status.HTTP_201_CREATED)
+                
+
+                data = serializer.errors
+
+                if 'non_field_errors' in data:
+                    message = data['non_field_errors'][0]
+                else:
+                    first_key = list(data.keys())[0]
+                    message = str(first_key)+":  "+str(data[first_key][0])
+
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":message,
+                'error': True, 'data': serializer.errors}
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+    
+    @transaction.atomic
+    def partial_update(self, request, pk=None):
+        try:
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+                site = fmspw.loginsite
+                ref = self.get_object(pk)
+                if not 'referral_name' in request.data or not request.data['referral_name']:
+                    raise Exception('Please give referral name!!.') 
+
+                if not 'referral_age' in request.data or not request.data['referral_age']:
+                    raise Exception('Please give referral age!!.') 
+
+                if not 'referral_contactno' in request.data or not request.data['referral_contactno']:
+                    raise Exception('Please give referral contactno!!.') 
+                    
+                if not 'doc_no' in request.data or not request.data['doc_no']:
+                    raise Exception('Please give doc no!!.') 
+
+                if not 'cust_code' in request.data or not request.data['cust_code']:
+                    raise Exception('Please give customer code!!.') 
+    
+               
+                check_ids = WebConsultation_Referral.objects.filter(~Q(pk=ref.pk)).filter(site_code=site.itemsite_code,
+                cust_code=request.data['cust_code'],referral_name=request.data['referral_name'],
+                create_date=ref.create_date).order_by('-pk')
+                if check_ids:
+                    msg = "Already record there for this customer this site ,today date , referral name{0}!!".format(str(request.data['cust_code']))
+                    raise Exception(msg) 
+                    
+                serializer = self.get_serializer(ref, data=request.data, partial=True)
+                if serializer.is_valid():
+                
+                    serializer.save(last_updatedate=date.today())
+                    
+                    result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",'error': False}
+                    return Response(result, status=status.HTTP_200_OK)
+
+                
+                data = serializer.errors
+
+                if 'non_field_errors' in data:
+                    message = data['non_field_errors'][0]
+                else:
+                    first_key = list(data.keys())[0]
+                    message = str(first_key)+":  "+str(data[first_key][0])
+
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":message,
+                'error': True, 'data': serializer.errors}
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)   
+    
+    def retrieve(self, request, pk=None):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+            site = fmspw.loginsite
+            ref = self.get_object(pk)
+            serializer = WebConsultation_ReferralSerializer(ref, context={'request': self.request})
+            result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
+            'data': serializer.data}
+            return Response(data=result, status=status.HTTP_200_OK)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message) 
+
+
+   
+    def destroy(self, request, pk=None):
+        try:
+            request.data["isactive"] = False
+            ref = self.get_object(pk)
+            serializer = WebConsultation_ReferralSerializer(ref, data=request.data ,partial=True)
+            state = status.HTTP_204_NO_CONTENT
+            if serializer.is_valid():
+                serializer.save()
+                result = {'status': status.HTTP_200_OK,"message":"Deleted Succesfully",'error': False}
+                return Response(result, status=status.HTTP_200_OK)
+            
+            # print(serializer.errors,"jj")
+            result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",
+            'error': True,'data': serializer.errors }
+            return Response(result, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)          
+
+
+    def get_object(self, pk):
+        try:
+            return WebConsultation_Referral.objects.get(pk=pk)
+        except WebConsultation_Referral.DoesNotExist:
+            raise Exception('WebConsultation Referral Does not Exist') 
+
+
+class WebConsultation_Referral_HdrViewset(viewsets.ModelViewSet):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = WebConsultation_Referral_Hdr.objects.filter(isactive=True).order_by('-pk')
+    serializer_class = WebConsultation_Referral_HdrSerializer
+
+    def get_queryset(self):
+        fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+        site = fmspw[0].loginsite
+        queryset = WebConsultation_Referral_Hdr.objects.filter(isactive=True,
+        site_code=site.itemsite_code).order_by('-pk')
+       
+        return queryset      
+
+    def list(self, request):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+            site = fmspw[0].loginsite
+            serializer_class = WebConsultation_Referral_HdrSerializer
+            
+            queryset = self.filter_queryset(self.get_queryset())
+
+            total = len(queryset)
+            state = status.HTTP_200_OK
+            message = "Listed Succesfully"
+            error = False
+            data = None
+            result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+            return Response(result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)      
+    
+    @transaction.atomic
+    def create(self, request):
+        try:
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+                site = fmspw[0].loginsite
+
+                if not 'signature_img' in request.data or not request.data['signature_img']:
+                    raise Exception('Please give signature img!!.') 
+
+                if not 'welcomedoor_signatureimg' in request.data or not request.data['welcomedoor_signatureimg']:
+                    raise Exception('Please give welcomedoor signatureimg!!.') 
+
+                if not 'create_by' in request.data or not request.data['create_by']:
+                    raise Exception('Please give create by!!.') 
+                    
+                if not 'doc_no' in request.data or not request.data['doc_no']:
+                    raise Exception('Please give doc no!!.') 
+
+                
+               
+                check_ids = WebConsultation_Referral_Hdr.objects.filter(site_code=site.itemsite_code,
+                doc_no=request.data['doc_no'],
+                create_date__date=date.today()).order_by('-pk')
+                if check_ids:
+                    msg = "Already record there for this customer this site ,today date , doc no {0}!!".format(str(request.data['doc_no']))
+                    raise Exception(msg) 
+                    
+
+                serializer = WebConsultation_Referral_HdrSerializer(data=request.data)
+                if serializer.is_valid():
+                    
+                    k = serializer.save(isactive=True,
+                    site_code=site.itemsite_code,
+                    create_date=date.today())
+                    
+                    result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully",
+                    'error': False}
+                    return Response(result, status=status.HTTP_201_CREATED)
+                
+
+                data = serializer.errors
+
+                if 'non_field_errors' in data:
+                    message = data['non_field_errors'][0]
+                else:
+                    first_key = list(data.keys())[0]
+                    message = str(first_key)+":  "+str(data[first_key][0])
+
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":message,
+                'error': True, 'data': serializer.errors}
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+    
+    @transaction.atomic
+    def partial_update(self, request, pk=None):
+        try:
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+                site = fmspw.loginsite
+                ref = self.get_object(pk)
+                if not 'signature_img' in request.data or not request.data['signature_img']:
+                    raise Exception('Please give signature img!!.') 
+
+                if not 'welcomedoor_signatureimg' in request.data or not request.data['welcomedoor_signatureimg']:
+                    raise Exception('Please give welcomedoor signatureimg!!.') 
+
+                if not 'last_updateby' in request.data or not request.data['last_updateby']:
+                    raise Exception('Please give last updateby!!.') 
+                    
+                if not 'doc_no' in request.data or not request.data['doc_no']:
+                    raise Exception('Please give doc no!!.') 
+
+               
+                check_ids = WebConsultation_Referral_Hdr.objects.filter(~Q(pk=ref.pk)).filter(site_code=site.itemsite_code,
+                doc_no=request.data['doc_no'],
+                create_date=ref.create_date).order_by('-pk').first()
+                if check_ids:
+                    msg = "Already record there for this customer this site ,today date , doc no {0}!!".format(str(request.data['doc_no']))
+                    raise Exception(msg) 
+                    
+                serializer = self.get_serializer(ref, data=request.data, partial=True)
+                if serializer.is_valid():
+                
+                    serializer.save(last_updatedate=date.today())
+                    
+                    result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",'error': False}
+                    return Response(result, status=status.HTTP_200_OK)
+
+                
+                data = serializer.errors
+
+                if 'non_field_errors' in data:
+                    message = data['non_field_errors'][0]
+                else:
+                    first_key = list(data.keys())[0]
+                    message = str(first_key)+":  "+str(data[first_key][0])
+
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":message,
+                'error': True, 'data': serializer.errors}
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)   
+    
+    def retrieve(self, request, pk=None):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+            site = fmspw.loginsite
+            ref = self.get_object(pk)
+            serializer = WebConsultation_Referral_HdrSerializer(ref, context={'request': self.request})
+            result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
+            'data': serializer.data}
+            return Response(data=result, status=status.HTTP_200_OK)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message) 
+
+
+   
+    def destroy(self, request, pk=None):
+        try:
+            request.data["isactive"] = False
+            ref = self.get_object(pk)
+            serializer = WebConsultation_Referral_HdrSerializer(ref, data=request.data ,partial=True)
+            state = status.HTTP_204_NO_CONTENT
+            if serializer.is_valid():
+                serializer.save()
+                result = {'status': status.HTTP_200_OK,"message":"Deleted Succesfully",'error': False}
+                return Response(result, status=status.HTTP_200_OK)
+            
+            # print(serializer.errors,"jj")
+            result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",
+            'error': True,'data': serializer.errors }
+            return Response(result, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)          
+
+
+    def get_object(self, pk):
+        try:
+            return WebConsultation_Referral_Hdr.objects.get(pk=pk)
+        except WebConsultation_Referral_Hdr.DoesNotExist:
+            raise Exception('WebConsultation Referral Hdr Does not Exist') 

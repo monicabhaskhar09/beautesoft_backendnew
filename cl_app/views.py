@@ -30,7 +30,7 @@ PrepaidAccount, Treatment,PosHaud,TmpItemHelper,Appointment,Source,PosHaud,Rever
 CreditNote,Multistaff,ItemHelper,ItemUom,Treatment_Master,Holditemdetail,PrepaidAccountCondition,
 CnRefund,ItemBrand,Title,ItemBatch,Stktrn,Paytable,ItemLink,Appointment,ItemStocklist,Systemsetup,
 Tmpmultistaff,PosDisc,CustomerPoint,CustomerPointDtl,RewardPolicy,PackageAuditingLog,AuditLog,
-ItemFlexiservice,TreatmentPackage,ItemBatchSno)
+ItemFlexiservice,TreatmentPackage,ItemBatchSno,Tmptreatment)
 from custom.models import (ItemCart, Room, Combo_Services,VoucherRecord,PosPackagedeposit,SmtpSettings,
 ManualInvoiceModel)
 from datetime import date, timedelta
@@ -3988,9 +3988,9 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Treatment ID does not exist/Status Should be in Open only!!",'error': True} 
                     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
-                if trmt_obj.type in ["FFi",'FFd'] and len(arrtreatmentid) > 1:
-                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Multiple Treatment done not possible for type FFi/FFd!!",'error': True} 
-                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+                # if trmt_obj.type in ["FFi",'FFd'] and len(arrtreatmentid) > 1:
+                #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Multiple Treatment done not possible for type FFi/FFd!!",'error': True} 
+                #     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
 
 
@@ -4486,7 +4486,9 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                             cartobj.treatment.helper_ids.add(t) 
                             if helper_obj:
                                 cartobj.service_staff.add(helper_obj.pk) 
-            
+
+                  
+
             session_ids = list(set(TmpItemHelper.objects.filter(treatment__pk__in=arrtreatmentid).values_list('treatment', flat=True).distinct()))
             # print(session_ids,"session_ids")
             if session_ids:
@@ -6527,30 +6529,38 @@ class VoidViewset(viewsets.ModelViewSet):
                                     description = d.itemcart.itemcodeid.item_name+" "+"(Void Transaction by {0})".format(fmspw[0].pw_userlogin)
 
                                 for i in d.itemcart.multi_treat.all():
-                                    if i.type in ['FFi','FFd']:
-                                        # Treatment.objects.filter(pk=i.pk).update(course=description,status="Cancel",
-                                        # trmt_room_code=None,treatment_count_done=0)
-                                        
-                                        # i.treatment_code = str(i.treatment_code)+"-"+"VT"
-                                        # i.times =  str(i.times)+"-"+"VT"
-                                        # i.treatment_no =  str(i.treatment_no)+"-"+"VT"
-                                        i.course = description
-                                        i.status = "Cancel"
-                                        i.trmt_room_code = None
-                                        i.treatment_count_done = 0
-                                        i.save()
-                                        ex_ids = Treatment.objects.filter(~Q(pk=i.pk),~Q(status='Cancel')).filter(treatment_parentcode=d.itemcart.treatment.treatment_parentcode,times__gt=i.times).order_by('pk')
-                                        for e in ex_ids:
-                                            tim = str(int(e.times) -1).zfill(2)
-                                            tr_no = str(int(e.treatment_no) -1).zfill(2)
-                                            e.times = tim
-                                            e.treatment_no = tr_no
-                                            e.treatment_code = str(d.itemcart.treatment.treatment_parentcode)+"-"+str(tim)
-                                            e.save() 
+                                    # if i.type in ['FFi','FFd']:
+                                    #     if i.treatment_limit_times is not None and int(i.treatment_limit_times) == 0:
+                                    #         # Treatment.objects.filter(pk=i.pk).update(course=description,status="Cancel",
+                                    #         # trmt_room_code=None,treatment_count_done=0)
+                                            
+                                    #         # i.treatment_code = str(i.treatment_code)+"-"+"VT"
+                                    #         # i.times =  str(i.times)+"-"+"VT"
+                                    #         # i.treatment_no =  str(i.treatment_no)+"-"+"VT"
+                                    #         i.course = description
+                                    #         i.status = "Cancel"
+                                    #         i.trmt_room_code = None
+                                    #         i.treatment_count_done = 0
+                                    #         i.save()
+                                    #         ex_ids = Treatment.objects.filter(~Q(pk=i.pk),~Q(status='Cancel')).filter(treatment_parentcode=d.itemcart.treatment.treatment_parentcode,times__gt=i.times).order_by('pk')
+                                    #         for e in ex_ids:
+                                    #             tim = str(int(e.times) -1).zfill(2)
+                                    #             tr_no = str(int(e.treatment_no) -1).zfill(2)
+                                    #             e.times = tim
+                                    #             e.treatment_no = tr_no
+                                    #             e.treatment_code = str(d.itemcart.treatment.treatment_parentcode)+"-"+str(tim)
+                                    #             e.save() 
+                                    #         op_obj =Treatment.objects.filter(treatment_parentcode=i.treatment_parentcode,status='Open').order_by('-pk').first()    
+                                    #         if op_obj:
+                                    #             op_obj.unit_amount = i.unit_amount
+                                    #             op_obj.save()
+                                    #     else:
+                                    #         Treatment.objects.filter(pk=i.pk).update(course=description,status="Open",
+                                    #         trmt_room_code=None,treatment_count_done=0)
 
-                                    else:
-                                        Treatment.objects.filter(pk=i.pk).update(course=description,status="Open",
-                                        trmt_room_code=None,treatment_count_done=0)
+                                    # else:
+                                    Treatment.objects.filter(pk=i.pk).update(course=description,status="Open",
+                                    trmt_room_code=None,treatment_count_done=0)
 
                                     TmpItemHelper.objects.filter(treatment__pk=i.pk).delete()
                                     
@@ -6679,36 +6689,38 @@ class VoidViewset(viewsets.ModelViewSet):
                                 if d.itemcart.multi_treat.all().exists():        
                                     ct = d.itemcart.multi_treat.all()[0]
                                     searcids = TreatmentPackage.objects.filter(treatment_parentcode=ct.treatment_parentcode).first()
-                                    if ct.type in ['FFi','FFd']:
-                                        ef_done_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Done").order_by('pk').count()
-                                        ef_open_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Open").order_by('pk')
-                                        if not ef_open_ids:
-                                            if ct.treatment_limit_times > ef_done_ids or ct.treatment_limit_times == 0:
-                                                efd_treat_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Done").order_by('-pk').first()
-                                                times_ve = str(int(efd_treat_ids.times) + 1).zfill(2)
-                                                treatment_coder = ct.treatment_parentcode+"-"+times_ve
-                                               
-                                                treatids = Treatment(treatment_code=treatment_coder,course=searcids.course,times=times_ve,
-                                                treatment_no=times_ve,price=searcids.totalprice,treatment_date=date.today(),
-                                                next_appt=ct.next_appt,cust_name=ct.cust_name,Cust_Codeid=ct.Cust_Codeid,
-                                                cust_code=ct.cust_code,status="Open",unit_amount=0,
-                                                Item_Codeid=searcids.Item_Codeid,item_code=str(searcids.Item_Codeid.item_code)+"0000",treatment_parentcode=ct.treatment_parentcode,
-                                                prescription=ct.prescription,allergy=ct.allergy,sa_transacno=ct.sa_transacno,
-                                                sa_status=ct.sa_status,record_status=ct.record_status,appt_time=ct.appt_time,
-                                                remarks=ct.remarks,duration=ct.duration,hold_item=ct.hold_item,transaction_time=ct.transaction_time,
-                                                dt_lineno=ct.dt_lineno,expiry=ct.expiry,lpackage=ct.lpackage,package_code=ct.package_code,
-                                                Site_Codeid=ct.Site_Codeid,site_code=ct.site_code,type=ct.type,treatment_limit_times=ct.treatment_limit_times,
-                                                treatment_count_done=ct.treatment_count_done,treatment_history_last_modify=ct.treatment_history_last_modify,
-                                                service_itembarcode=ct.service_itembarcode,isfoc=ct.isfoc,Trmt_Room_Codeid=ct.Trmt_Room_Codeid,
-                                                trmt_room_code=ct.trmt_room_code,trmt_is_auto_proportion=ct.trmt_is_auto_proportion,
-                                                smsout=ct.smsout,emailout=ct.emailout,treatment_account=ct.treatment_account)
-                                                treatids.save()
-                                                treatids.treatment_date = date.today()
-                                                treatids.save()
+                                    if searcids:
+                                        if ct.type in ['FFi','FFd']:
+                                            ef_done_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Done").order_by('pk').count()
+                                            ef_open_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Open").order_by('pk')
+                                            if ct.treatment_limit_times is not None:
+                                                if int(ct.treatment_limit_times) == 0:
+                                                    if not ef_open_ids:
+                                                        # if ct.treatment_limit_times > ef_done_ids or ct.treatment_limit_times == 0:
+                                                            efd_treat_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Done").order_by('-pk').first()
+                                                            times_ve = str(int(efd_treat_ids.times) + 1).zfill(2)
+                                                            treatment_coder = ct.treatment_parentcode+"-"+times_ve
+                                                        
+                                                            treatids = Treatment(treatment_code=treatment_coder,course=searcids.course,times=times_ve,
+                                                            treatment_no=times_ve,price=searcids.totalprice,treatment_date=date.today(),
+                                                            next_appt=ct.next_appt,cust_name=ct.cust_name,Cust_Codeid=ct.Cust_Codeid,
+                                                            cust_code=ct.cust_code,status="Open",unit_amount=0,
+                                                            Item_Codeid=searcids.Item_Codeid,item_code=str(searcids.Item_Codeid.item_code)+"0000",treatment_parentcode=ct.treatment_parentcode,
+                                                            prescription=ct.prescription,allergy=ct.allergy,sa_transacno=ct.sa_transacno,
+                                                            sa_status=ct.sa_status,appt_time=ct.appt_time,
+                                                            remarks=ct.remarks,duration=ct.duration,hold_item=ct.hold_item,
+                                                            dt_lineno=ct.dt_lineno,expiry=ct.expiry,lpackage=ct.lpackage,package_code=ct.package_code,
+                                                            Site_Codeid=ct.Site_Codeid,site_code=ct.site_code,type=ct.type,treatment_limit_times=ct.treatment_limit_times,
+                                                            treatment_history_last_modify=ct.treatment_history_last_modify,
+                                                            service_itembarcode=ct.service_itembarcode,isfoc=ct.isfoc,Trmt_Room_Codeid=ct.Trmt_Room_Codeid,
+                                                            trmt_room_code=ct.trmt_room_code,trmt_is_auto_proportion=ct.trmt_is_auto_proportion,
+                                                            smsout=ct.smsout,emailout=ct.emailout,treatment_account=ct.treatment_account)
+                                                            treatids.save()
+                                                            treatids.treatment_date = date.today()
+                                                            treatids.save()
 
                                        
                                     
-                                    if searcids:
                                         stptdone_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Done").order_by('pk').count()
                                         stptcancel_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Cancel").order_by('pk').count()
                                         stptopen_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Open").order_by('pk').count()
@@ -7171,30 +7183,38 @@ class VoidViewset(viewsets.ModelViewSet):
 
                                 
                                 for i in da.itemcart.multi_treat.all():
-                                    if i.type in ['FFi','FFd']:
-                                        # Treatment.objects.filter(pk=i.pk).update(course=description,status="Cancel",
-                                        # trmt_room_code=None,treatment_count_done=0)
-                                        
-                                        # i.treatment_code = str(i.treatment_code)+"-"+"VT"
-                                        # i.times =  str(i.times)+"-"+"VT"
-                                        # i.treatment_no =  str(i.treatment_no)+"-"+"VT"
-                                        i.course = description
-                                        i.status = "Cancel"
-                                        i.trmt_room_code = None
-                                        i.treatment_count_done = 0
-                                        i.save()
-                                        ex_ids = Treatment.objects.filter(~Q(pk=i.pk),~Q(status='Cancel')).filter(treatment_parentcode=da.itemcart.treatment.treatment_parentcode,times__gt=i.times).order_by('pk')
-                                        for e in ex_ids:
-                                            tim = str(int(e.times) -1).zfill(2)
-                                            tr_no = str(int(e.treatment_no) -1).zfill(2)
-                                            e.times = tim
-                                            e.treatment_no = tr_no
-                                            e.treatment_code = str(da.itemcart.treatment.treatment_parentcode)+"-"+str(tim)
-                                            e.save() 
+                                    # if i.type in ['FFi','FFd']:
+                                    #     if i.treatment_limit_times is not None and int(i.treatment_limit_times) == 0:
+                                    #         # Treatment.objects.filter(pk=i.pk).update(course=description,status="Cancel",
+                                    #         # trmt_room_code=None,treatment_count_done=0)
+                                            
+                                    #         # i.treatment_code = str(i.treatment_code)+"-"+"VT"
+                                    #         # i.times =  str(i.times)+"-"+"VT"
+                                    #         # i.treatment_no =  str(i.treatment_no)+"-"+"VT"
+                                    #         i.course = description
+                                    #         i.status = "Cancel"
+                                    #         i.trmt_room_code = None
+                                    #         i.treatment_count_done = 0
+                                    #         i.save()
+                                    #         ex_ids = Treatment.objects.filter(~Q(pk=i.pk),~Q(status='Cancel')).filter(treatment_parentcode=da.itemcart.treatment.treatment_parentcode,times__gt=i.times).order_by('pk')
+                                    #         for e in ex_ids:
+                                    #             tim = str(int(e.times) -1).zfill(2)
+                                    #             tr_no = str(int(e.treatment_no) -1).zfill(2)
+                                    #             e.times = tim
+                                    #             e.treatment_no = tr_no
+                                    #             e.treatment_code = str(da.itemcart.treatment.treatment_parentcode)+"-"+str(tim)
+                                    #             e.save() 
+                                    #         op_obj =Treatment.objects.filter(treatment_parentcode=i.treatment_parentcode,status='Open').order_by('-pk').first()    
+                                    #         if op_obj:
+                                    #             op_obj.unit_amount = i.unit_amount
+                                    #             op_obj.save()    
+                                    #     else:
+                                    #         Treatment.objects.filter(pk=i.pk).update(course=description,status="Open",
+                                    #         trmt_room_code=None,treatment_count_done=0)
 
-                                    else:
-                                        Treatment.objects.filter(pk=i.pk).update(course=description,status="Open",
-                                        trmt_room_code=None,treatment_count_done=0)
+                                    # else:
+                                    Treatment.objects.filter(pk=i.pk).update(course=description,status="Open",
+                                    trmt_room_code=None,treatment_count_done=0)
 
                                     TmpItemHelper.objects.filter(treatment__pk=i.pk).delete()
 
@@ -7321,35 +7341,37 @@ class VoidViewset(viewsets.ModelViewSet):
                                 if da.itemcart.multi_treat.all().exists():        
                                     ct = da.itemcart.multi_treat.all()[0]
                                     searcids = TreatmentPackage.objects.filter(treatment_parentcode=ct.treatment_parentcode).first()
-                                    if ct.type in ['FFi','FFd']:
-                                        ef_done_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Done").order_by('pk').count()
-                                        ef_open_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Open").order_by('pk')
-                                        if not ef_open_ids:
-                                            if ct.treatment_limit_times > ef_done_ids or ct.treatment_limit_times == 0:
-                                                efd_treat_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Done").order_by('-pk').first()
-                                                times_ve = str(int(efd_treat_ids.times) + 1).zfill(2)
-                                                treatment_coder = ct.treatment_parentcode+"-"+times_ve
-                                               
-                                                treatids = Treatment(treatment_code=treatment_coder,course=searcids.course,times=times_ve,
-                                                treatment_no=times_ve,price=searcids.totalprice,treatment_date=date.today(),
-                                                next_appt=ct.next_appt,cust_name=ct.cust_name,Cust_Codeid=ct.Cust_Codeid,
-                                                cust_code=ct.cust_code,status="Open",unit_amount=0,
-                                                Item_Codeid=searcids.Item_Codeid,item_code=str(searcids.Item_Codeid.item_code)+"0000",treatment_parentcode=ct.treatment_parentcode,
-                                                prescription=ct.prescription,allergy=ct.allergy,sa_transacno=ct.sa_transacno,
-                                                sa_status=ct.sa_status,record_status=ct.record_status,appt_time=ct.appt_time,
-                                                remarks=ct.remarks,duration=ct.duration,hold_item=ct.hold_item,transaction_time=ct.transaction_time,
-                                                dt_lineno=ct.dt_lineno,expiry=ct.expiry,lpackage=ct.lpackage,package_code=ct.package_code,
-                                                Site_Codeid=ct.Site_Codeid,site_code=ct.site_code,type=ct.type,treatment_limit_times=ct.treatment_limit_times,
-                                                treatment_count_done=ct.treatment_count_done,treatment_history_last_modify=ct.treatment_history_last_modify,
-                                                service_itembarcode=ct.service_itembarcode,isfoc=ct.isfoc,Trmt_Room_Codeid=ct.Trmt_Room_Codeid,
-                                                trmt_room_code=ct.trmt_room_code,trmt_is_auto_proportion=ct.trmt_is_auto_proportion,
-                                                smsout=ct.smsout,emailout=ct.emailout,treatment_account=ct.treatment_account)
-                                                treatids.save()
-                                                treatids.treatment_date = date.today()
-                                                treatids.save()
+                                    if searcids:
+                                        if ct.type in ['FFi','FFd']:
+                                            ef_done_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Done").order_by('pk').count()
+                                            ef_open_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Open").order_by('pk')
+                                            if ct.treatment_limit_times is not None:
+                                                if int(ct.treatment_limit_times) == 0:
+                                                    if not ef_open_ids:
+                                                        # if ct.treatment_limit_times > ef_done_ids or ct.treatment_limit_times == 0:
+                                                            efd_treat_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Done").order_by('-pk').first()
+                                                            times_ve = str(int(efd_treat_ids.times) + 1).zfill(2)
+                                                            treatment_coder = ct.treatment_parentcode+"-"+times_ve
+                                                        
+                                                            treatids = Treatment(treatment_code=treatment_coder,course=searcids.course,times=times_ve,
+                                                            treatment_no=times_ve,price=searcids.totalprice,treatment_date=date.today(),
+                                                            next_appt=ct.next_appt,cust_name=ct.cust_name,Cust_Codeid=ct.Cust_Codeid,
+                                                            cust_code=ct.cust_code,status="Open",unit_amount=0,
+                                                            Item_Codeid=searcids.Item_Codeid,item_code=str(searcids.Item_Codeid.item_code)+"0000",treatment_parentcode=ct.treatment_parentcode,
+                                                            prescription=ct.prescription,allergy=ct.allergy,sa_transacno=ct.sa_transacno,
+                                                            sa_status=ct.sa_status,appt_time=ct.appt_time,
+                                                            remarks=ct.remarks,duration=ct.duration,hold_item=ct.hold_item,
+                                                            dt_lineno=ct.dt_lineno,expiry=ct.expiry,lpackage=ct.lpackage,package_code=ct.package_code,
+                                                            Site_Codeid=ct.Site_Codeid,site_code=ct.site_code,type=ct.type,treatment_limit_times=ct.treatment_limit_times,
+                                                            treatment_history_last_modify=ct.treatment_history_last_modify,
+                                                            service_itembarcode=ct.service_itembarcode,isfoc=ct.isfoc,Trmt_Room_Codeid=ct.Trmt_Room_Codeid,
+                                                            trmt_room_code=ct.trmt_room_code,trmt_is_auto_proportion=ct.trmt_is_auto_proportion,
+                                                            smsout=ct.smsout,emailout=ct.emailout,treatment_account=ct.treatment_account)
+                                                            treatids.save()
+                                                            treatids.treatment_date = date.today()
+                                                            treatids.save()
                                                 
 
-                                    if searcids:
                                         stptdone_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Done").order_by('pk').count()
                                         stptcancel_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Cancel").order_by('pk').count()
                                         stptopen_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Open").order_by('pk').count()
@@ -8490,6 +8512,10 @@ class TreatmentAccListViewset(viewsets.ModelViewSet):
     def service_expirydatechange(self, request): 
         try:  
             with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+                site = fmspw.loginsite
+                log_emp = fmspw.Emp_Codeid
+
                 if not request.data['treatment_parentcode']:
                     raise Exception('Please give treatment parentcode!!.') 
                 
@@ -8501,7 +8527,29 @@ class TreatmentAccListViewset(viewsets.ModelViewSet):
     
                 treat_ids = Treatment.objects.filter(treatment_parentcode=request.data['treatment_parentcode']).order_by('pk')   
                 if not treat_ids:
-                    raise Exception('Treatment parentcode IDs does not exist!!.') 
+                    raise Exception('Treatment parentcode IDs does not exist!!.')
+
+                if not 'username' in request.data or not 'password' in request.data or not request.data['username'] or not request.data['password']:
+                    raise Exception('Please Enter Valid Username and Password!!.') 
+
+                if User.objects.filter(username=request.data['username']):
+                    self.user = authenticate(username=request.data['username'], password=request.data['password'])
+                    # print(self.user,"self.user")
+                    if self.user:
+                        
+                        fmspw_c = Fmspw.objects.filter(user=self.user.id,pw_isactive=True)
+                        if not fmspw_c:
+                            raise Exception('User is inactive.') 
+
+                        log_emp = fmspw_c[0].Emp_Codeid
+                        if fmspw_c[0] and fmspw_c[0].flgchangeexpirydate == False:
+                            raise Exception('Logined User not allowed to update service expiry date !!')
+                    
+                    else:
+                        raise Exception('Password Wrong !') 
+
+                else:
+                    raise Exception('Invalid Username.')      
 
                 if treat_ids:
                     for i in treat_ids:
@@ -13381,17 +13429,26 @@ class TransactionHistoryViewset(viewsets.ModelViewSet):
         
         system_setup = Systemsetup.objects.filter(title='allinvoiceviewsetting',
         value_name='allinvoiceviewsetting',isactive=True).first()
-        if system_setup and system_setup.value_data == 'False':
-            if cust_id:
-                queryset = PosHaud.objects.filter(ItemSite_Codeid__pk=site.pk,sa_custnoid__pk=cust_id).order_by('-pk')
-            else:
+
+        cus_system_setup = Systemsetup.objects.filter(title='Customer Profile - Invoice History',
+        value_name='allinvoiceviewsetting',isactive=True).first()
+
+        if not cust_id:
+            if system_setup and system_setup.value_data == 'False':
                 queryset = PosHaud.objects.filter(ItemSite_Codeid__pk=site.pk).order_by('-pk')
-        else:
-            if system_setup and system_setup.value_data == 'True':
-                if cust_id:
-                    queryset = PosHaud.objects.filter(sa_custnoid__pk=cust_id).order_by('-pk')
-                else:
+            else:
+                if system_setup and system_setup.value_data == 'True':
                     queryset = PosHaud.objects.filter().order_by('-pk')
+        else:
+            if cust_id:
+                if cus_system_setup and cus_system_setup.value_data == 'False':
+                    queryset = PosHaud.objects.filter(ItemSite_Codeid__pk=site.pk,
+                    sa_custnoid__pk=cust_id).order_by('-pk')
+                else:
+                    if cus_system_setup and cus_system_setup.value_data == 'True':
+                        queryset = PosHaud.objects.filter(sa_custnoid__pk=cust_id).order_by('-pk')
+
+
 
 
         if not from_date and not to_date and not transac_no and not cust_code and not cust_name:
