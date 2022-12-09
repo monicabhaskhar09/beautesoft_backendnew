@@ -338,7 +338,7 @@ class SmtpSettings(models.Model):
     smtp_serverhost = models.CharField(db_column='Smtp_Serverhost', max_length=500, blank=True, null=True)  # Field name made lowercase.
     port = models.CharField(db_column='Port', max_length=100, blank=True, null=True)  # Field name made lowercase.
     user_email = models.EmailField(db_column='User_Email', max_length=255, blank=True, null=True)  # Field name made lowercase.
-    user_password = models.CharField(db_column='User_Password', max_length=15, blank=True, null=True)  # Field name made lowercase.
+    user_password = models.CharField(db_column='User_Password', max_length=2000, blank=True, null=True)  # Field name made lowercase.
     email_use_ssl = models.BooleanField(db_column='EMAIL_USE_SSL',default=True)
     email_use_tls = models.BooleanField(db_column='EMAIL_USE_TLS',default=False)
     email_subject = models.CharField(db_column='Email_Subject', max_length=300, blank=True, null=True)  # Field name made lowercase.

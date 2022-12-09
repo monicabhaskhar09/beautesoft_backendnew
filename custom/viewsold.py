@@ -44,7 +44,7 @@ GstSetting,PosTaud,PosDaud,PosHaud,ControlNo,EmpSitelist,ItemStatus, TmpItemHelp
 TreatmentAccount, PosDaud, ItemDept, DepositAccount, PrepaidAccount, ItemDiv, Systemsetup, Title,
 PackageHdr,PackageDtl,Paytable,Multistaff,ItemBatch,Stktrn,ItemUomprice,Holditemdetail,CreditNote,
 CustomerClass,ItemClass,Tmpmultistaff,Tmptreatment,ExchangeDtl,ItemUom,ItemHelper,PrepaidAccountCondition,
-City, State, Country, Stock,PayGroup,Tempcustsign)
+City, State, Country, Stock,PayGroup)
 from cl_app.models import ItemSitelist, SiteGroup, TmpTreatmentSession
 from cl_table.serializers import PostaudSerializer,StaffsAvailableSerializer,PosdaudSerializer,TmpItemHelperSerializer
 from datetime import date, timedelta, datetime
@@ -5159,7 +5159,6 @@ class itemCartViewset(viewsets.ModelViewSet):
         if instance.multi_treat.all().exists():
             for i in instance.multi_treat.all():
                 TmpItemHelper.objects.filter(treatment=i).delete()
-                Tmptreatment.objects.filter(treatment_id=i,status='Open').delete()
         
         
         instance.delete() 
@@ -5379,11 +5378,6 @@ class ReceiptPdfSend(APIView):
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"sa_transacno Does not exist!!",'error': True} 
                 return Response(result, status=status.HTTP_400_BAD_REQUEST) 
 
-            if not daud:
-                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"sa_transacno PosDaud Does not exist!!",'error': True}
-                return Response(data=result, status=status.HTTP_400_BAD_REQUEST)   
-            
-
             if not hdr[0].sa_custnoid.cust_email or hdr[0].sa_custnoid.cust_email is None:
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give customer email!!",'error': True} 
                 return Response(result, status=status.HTTP_400_BAD_REQUEST)
@@ -5402,14 +5396,13 @@ class ReceiptPdfSend(APIView):
             #ItemSite_Codeid__pk=site.pk).first()
             Pos_daud = PosDaud.objects.filter(sa_transacno=sa_transacno).first()
 
-            tot_qty = 0;tot_trans = 0 ; tot_depo = 0; tot_bal = 0;balance = 0;tot_price = 0;tot_disc =0
+            tot_qty = 0;tot_trans = 0 ; tot_depo = 0; tot_bal = 0;balance = 0; tot_price=0;tot_disc =0
             total_netprice = 0
             dtl_serializer = PosdaudSerializer(daud, many=True)
             dtl_data = dtl_serializer.data
             for dat in dtl_data:
                 d = dict(dat)
-                #d_obj = PosDaud.objects.filter(pk=d['id'],ItemSite_Codeid__pk=site.pk).first()
-                d_obj = PosDaud.objects.filter(pk=d['id']).first()
+                d_obj = PosDaud.objects.filter(pk=d['id'],ItemSite_Codeid__pk=site.pk).first()
                 tot_price += d_obj.dt_price
                 total_netprice += d_obj.dt_price * d_obj.dt_qty
                 package_desc = []; packages = ""
@@ -5437,8 +5430,7 @@ class ReceiptPdfSend(APIView):
                 tot_qty += int(d['dt_qty'])
                 totdisc = d_obj.dt_price - d_obj.dt_promoprice
                 tot_disc += totdisc
-                
-                    
+
                 # app_obj = Appointment.objects.filter(pk=d['Appointment']).first()
                 # sales = "";service = ""
                 # if 'itemcart' in d:
@@ -5456,89 +5448,62 @@ class ReceiptPdfSend(APIView):
                 #                     service = service + s.display_name
                 #                 elif not service == "":
                 #                     service = service +","+ s.display_name 
-                
-                
-                # daud_obj = PosDaud.objects.filter(pk=d['id']).first()
-                # daud_obj.staffs = sales +" "+"/"+" "+ service
-                # daud_obj.save()
+            
+            
+                # daud_obj = PosDaud.objects.filter(pk=d['id']).update(staffs=sales +" "+"/"+" "+ service)
 
                 # if d['record_detail_type'] == "TD":
                 #     d['staffs'] = "/"+ service
                 # else:
                 #     d['staffs'] = sales +" "+"/"+" "+ service
-                    
-            # value = receipt_calculation(daud)
-            # sub_data = {'subtotal': "{:.2f}".format(float(value['subtotal'])),'total_disc':"{:.2f}".format(float(value['discount'])),
-            #         'trans_amt':"{:.2f}".format(float(value['trans_amt'])),'deposit_amt':"{:.2f}".format(float(value['deposit_amt'])),
-            #         'tax_amt':"{:.2f}".format(float(value['tax_amt'])),'tax_lable': value['tax_lable'],
-            #         'billing_amount':"{:.2f}".format(float(value['billable_amount'])),'balance':"{:.2f}".format(float(value['balance'])),
-            #         'total_balance':"{:.2f}".format(float(value['total_balance'])),'total_qty': value['total_qty']} 
-            
-            #gst = GstSetting.objects.filter(item_code="100001",item_desc='GST',isactive=True).first()
-            gst = GstSetting.objects.filter(isactive=True,activefromdate__lte=hdr[0].sa_date,
-            activetodate__gte=hdr[0].sa_date).first()
 
-            if gst and gst.is_exclusive == True and gst.item_value:
-                tax_amt = tot_depo * (gst.item_value / 100)
+            # value = receipt_calculation(request, daud)
+        
+            # sub_data = {'subtotal': "{:.2f}".format(float(value['subtotal'])),'total_disc':"{:.2f}".format(float(value['discount'])),
+            # 'trans_amt':"{:.2f}".format(float(value['trans_amt'])),'deposit_amt':"{:.2f}".format(float(value['deposit_amt'])),
+            # 'tax_amt':"{:.2f}".format(float(value['tax_amt'])),'tax_lable': value['tax_lable'],
+            # 'billing_amount':"{:.2f}".format(float(value['billable_amount'])),'balance':"{:.2f}".format(float(value['balance'])),
+            # 'total_balance':"{:.2f}".format(float(value['total_balance'])),'total_qty': value['total_qty']}
+            
+            if gst and gst.is_exclusive == True:
+                tax_amt = tot_depo * (gst.item_value / 100) if gst and gst.item_value else 0.0
                 billable_amount = "{:.2f}".format(tot_depo + tax_amt)
             else:
                 billable_amount = "{:.2f}".format(tot_depo)
 
-            gst_lable = ""; gstlable = ""
-            if site.site_is_gst == True:
-                if site.is_exclusive == True:
-                    if gst and gst.item_value:
-                        gst_lable = "GST (EXC "+str(int(gst.item_value))+"%)"
-                elif site.is_exclusive == False: 
-                    gstlable = "GST (INC)" 
-                    
-                        
-
-            tot_payamt = 0.0;tot_gst = 0 ; pay_actamt = 0
+            tot_payamt = 0.0
             for ta in taud:
                 pay_amt = float(ta.pay_amt)
-                tot_payamt += pay_amt
-                pay_gst = float(ta.pay_gst)
-                tot_gst += pay_gst
-                pay_actamt += float(ta.pay_actamt)
-        
-            taxable = pay_actamt - tot_gst
+                tot_payamt += pay_amt    
+
             sub_data = {'total_qty':str(tot_qty),'trans_amt':str("{:.2f}".format((tot_trans))),
             'deposit_amt':str("{:.2f}".format((tot_depo))),'total_balance':str("{:.2f}".format((tot_bal))),
             'subtotal':str("{:.2f}".format((tot_depo))),'billing_amount':"{:.2f}".format(float(tot_payamt)),
-            'tot_disc':str("{:.2f}".format((tot_disc))),
-            'pay_gst':str("{:.2f}".format(tot_gst)) if tot_gst else "0.00",
-            'taxable':  str("{:.2f}".format(taxable)) if taxable else "0.00"
-            }
+            'tot_disc':str("{:.2f}".format((tot_disc)))}
 
             split = str(hdr[0].sa_date).split(" ")
-            #date = datetime.datetime.strptime(str(split[0]), '%Y-%m-%d').strftime('%d.%m.%Y')
+            # date = datetime.datetime.strptime(str(split[0]), '%Y-%m-%d').strftime('%d.%m.%Y')
             esplit = str(hdr[0].sa_time).split(" ")
             Time = str(esplit[1]).split(":")
 
             time = Time[0]+":"+Time[1]
-            dtime = datetime.datetime.strptime(str(time),"%H:%M").strftime("%I:%M:%S %p")
             day = datetime.datetime.strptime(str(split[0]), '%Y-%m-%d').strftime('%a')
             title = Title.objects.filter(product_license=site.itemsite_code).first()
             path = None
             if title and title.logo_pic:
                 path = BASE_DIR + title.logo_pic.url
-            taud_f = PosTaud.objects.filter(sa_transacno=sa_transacno,ItemSIte_Codeid__pk=site.pk).first()
-
-
+            
+            
             date = datetime.datetime.strptime(str(split[0]), '%Y-%m-%d').strftime("%d-%b-%Y")
+
+            taud_f = PosTaud.objects.filter(sa_transacno=sa_transacno,
+            ItemSIte_Codeid__pk=site.pk).first()
 
             #treatopen_ids = Treatment.objects.filter(cust_code=hdr[0].sa_custno,
             #site_code=site.itemsite_code,status='Open').values('item_code','course').annotate(total=Count('item_code'))
             treatopen_ids = Treatment.objects.filter(cust_code=hdr[0].sa_custno,
             status='Open').values('item_code','course').annotate(total=Count('item_code'))
             
-            set_obj = False
-            # if site.inv_templatename:
-            #     set_obj = TemplateSettings.objects.filter(site_code=site.itemsite_code,template_name=site.inv_templatename).order_by('pk').first()
-            #     if not set_obj:
-            #         raise Exception('Template Settings not found') 
-
             pre_acc_ids = PrepaidAccount.objects.filter(cust_code=hdr[0].sa_custno,outstanding__gt = 0,status=True
             ).order_by('-pk').aggregate(balance=Coalesce(Sum('remain'), 0))
             # print(pre_acc_ids)
@@ -5552,87 +5517,8 @@ class ReceiptPdfSend(APIView):
                 credit_amt = "{:.2f}".format(credit['amount'])
             else:
                 credit_amt = "0.00"  
-            # print(credit,"credit") 
-            custsign_ids = Tempcustsign.objects.filter(transaction_no=sa_transacno).order_by("-pk").first()
+            # print(credit,"credit")     
 
-            path_custsign = None
-            if custsign_ids and custsign_ids.cust_sig:
-                path_custsign = BASE_DIR + custsign_ids.cust_sig.url
-            # print(path_custsign,"path_custsign")
-
-            prepaid_lst = []
-            pre_queryset = PrepaidAccount.objects.filter(cust_code=hdr[0].sa_custno,
-            status=True,remain__gt=0).only('site_code','cust_code','sa_status').order_by('-pk')
-            if pre_queryset:
-                for i in pre_queryset:
-                    val = {'pp_desc':i.pp_desc,'remain':"{:.2f}".format(i.remain)}
-                    prepaid_lst.append(val)
-
-            voucher_ids = VoucherRecord.objects.filter(isvalid=True,cust_code=hdr[0].sa_custno,
-            used=False).order_by('-pk')  
-            voucher_lst = [{'voucher_name':i.voucher_name,'value':"{:.2f}".format(i.value)} for i in voucher_ids ]  
-            
-            voucherbal_setup = Systemsetup.objects.filter(title='InvoiceSetting',
-            value_name='showvoucherbalance',isactive=True).first()
-
-            if voucherbal_setup and voucherbal_setup.value_data == 'True':
-                voucherbal = True
-            else:
-                voucherbal = False
-
-            prepaidbal_setup = Systemsetup.objects.filter(title='InvoiceSetting',
-            value_name='showprepaidbalance',isactive=True).first()
-
-            if prepaidbal_setup and prepaidbal_setup.value_data == 'True':
-                prepaidbal = True
-            else:
-                prepaidbal = False
-
-            treatmentbal_setup = Systemsetup.objects.filter(title='InvoiceSetting',
-            value_name='showtreatmentbalance',isactive=True).first()
-            if treatmentbal_setup and treatmentbal_setup.value_data == 'True':
-                treatmentbal = True
-            else:
-                treatmentbal = False
-            
-            prepaidlst = []
-            postaud_ids = PosTaud.objects.filter(sa_transacno=sa_transacno,pay_group="PREPAID")
-            if postaud_ids:
-                showprepaid = True
-                for po in postaud_ids:
-                    spl_tn = str(po.pay_rem1).split("-")
-                    ppno = spl_tn[0]
-                    lineno = spl_tn[1]
-                    prequeryset = PrepaidAccount.objects.filter(cust_code=hdr[0].sa_custno,
-                    status=True,remain__gt=0,pp_no=ppno,line_no=lineno).only('site_code','cust_code','sa_status').order_by('-pk').first()
-                    if prequeryset:
-                        pval = {'pp_desc':prequeryset.pp_desc,'remain':"{:.2f}".format(prequeryset.remain)}
-                        prepaidlst.append(pval)
-
-
-            else:
-                showprepaid = False
-            
-            if hdr[0].isvoid == True and hdr[0].sa_status == "VT":
-                showvoidreason = True
-            else:
-                showvoidreason = False
-
-            cretaud_ids = PosTaud.objects.filter(sa_transacno=sa_transacno,pay_group="Credit")
-            if cretaud_ids:
-                showcredit = True
-            else:
-                showcredit = False
-            
-            creditlst = []
-            credit_ids = CreditNote.objects.filter(cust_code=hdr[0].sa_custno, status='OPEN').only('cust_code','status').order_by('-pk','-sa_date')
-            if credit_ids:
-                for ce in credit_ids:
-                    cval = {'creditnote_no':ce.credit_code,'balance':"{:.2f}".format(ce.balance) if ce.balance else "0.00"}
-                    creditlst.append(cval)
-
-
-            # print(treatopen_ids,"treatopen_ids")
             data = {'name': title.trans_h1 if title and title.trans_h1 else '', 
             'address': title.trans_h2 if title and title.trans_h2 else '', 
             'footer1':title.trans_footer1 if title and title.trans_footer1 else '',
@@ -5642,30 +5528,26 @@ class ReceiptPdfSend(APIView):
             'footer5':title.trans_footer5 if title and title.trans_footer5 else '',
             'footer6':title.trans_footer6 if title and title.trans_footer6 else '',
             'hdr': hdr[0], 'daud':daud,'taud_f':taud_f,'postaud':taud,'day':day,'fmspw':fmspw,
-            'date':date,'time':dtime,'percent':int(gst.item_value) if gst and gst.item_value else "0" ,'path':path if path else '','title':title if title else None,
-            'packages': str(packages),'site':site,'treatment': treatopen_ids,'settings': set_obj,
+            'date':date,'time':time,'percent':int(gst.item_value) if gst and gst.item_value else "0",'path':path if path else '','title':title if title else None,
+            'packages': str(packages),'site':site,'treatment': treatopen_ids,
             'tot_price':tot_price,'prepaid_balance': prepaid_amt,
-            'creditnote_balance': credit_amt,'total_netprice':str("{:.2f}".format((total_netprice))),
-            'custsign_ids':path_custsign if path_custsign else '','prepaid_lst':prepaid_lst,'prepaidlst':prepaidlst,
-            'prepaidbal':prepaidbal,'treatmentbal':treatmentbal,'showprepaid': showprepaid,
-            'showvoidreason':showvoidreason,'showcredit':showcredit,'creditlst': creditlst,
-            'gst_reg_no': title.gst_reg_no if title and title.gst_reg_no else '',
-            'company_reg_no': title.company_reg_no if title and title.company_reg_no else '',
-            'gst_lable': gst_lable,'first_sales': daud[0].dt_Staffnoid.display_name if daud[0].dt_Staffnoid else '',
-            'gstlable': gstlable,'trans_promo1': title.trans_promo1 if title and title.trans_promo1 else '',
-            'trans_promo2' : title.trans_promo2 if title and title.trans_promo2 else '',
-            'voucher_lst':voucher_lst,'voucherbal':voucherbal,
-            }
+            'creditnote_balance': credit_amt,'total_netprice':str("{:.2f}".format((total_netprice)))}
             data.update(sub_data)
-            if site.inv_templatename:
-                template = get_template(site.inv_templatename)
-            else:
-                template = get_template('customer_receipt.html')
 
+            html = render_to_string(template_path, data)
 
+            result = BytesIO()
+            # pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")),result)
+
+            pdf = pisa.pisaDocument(BytesIO(html.encode("UTF-8")),result)
+            
+            to = hdr[0].sa_custnoid.cust_email
+            cust_name = hdr[0].sa_custnoid.cust_name
+
+            template = get_template('customer_receipt.html')
+            html = template.render(data)
             display = Display(visible=0, size=(800, 600))
             display.start()
-            html = template.render(data)
             options = {
                 'margin-top': '.25in',
                 'margin-right': '.25in',
@@ -5675,22 +5557,10 @@ class ReceiptPdfSend(APIView):
                 'no-outline': None,
                 
             }
-            
-            # existing = os.listdir(settings.PDF_ROOT)
-            dst ="customer_receipt_" + str(str(hdr[0].sa_transacno_ref)) + ".pdf"
-
-            # src = settings.PDF_ROOT + existing[0] 
-            # dst = settings.PDF_ROOT + dst 
-                
-            # os.rename(src, dst) 
             p=pdfkit.from_string(html,False,options=options)
-            
-            
             smpt_ids = SmtpSettings.objects.filter(email_subject='Customer Invoice').order_by('pk').first()
             subject = smpt_ids.email_subject
-            to = hdr[0].sa_custnoid.cust_email
-            cust_name = hdr[0].sa_custnoid.cust_name
-
+        
             # html_message = '''Dear {0},\nKindly Find your receipt bill no {1}.\nThank You,'''.format(cust_name,sa_transacno)
             html_message = smpt_ids.email_content.format(cust_name,sa_transacno)
             
@@ -5703,17 +5573,17 @@ class ReceiptPdfSend(APIView):
                 cc = [system_setup.value_data] if system_setup.value_data else []
             else:
                 cc = []  
-           
 
             connection = get_connection(host=smpt_ids.smtp_serverhost, 
                                         port=smpt_ids.port, 
                                         username=smpt_ids.user_email, 
                                         password=smpt_ids.user_password, 
                                         use_tls=smpt_ids.email_use_ssl)     
+
             msg = EmailMultiAlternatives(subject, html_message, smpt_ids.user_email, [to], cc, connection=connection)
-            # msg = EmailMultiAlternatives(subject, html_message, smpt_ids.user_email, [to], cc)
             # msg.attach_alternative('Customer Receipt Report.pdf',result.getvalue(),'application/pdf')
             filename  = "customer_receipt_" + str(str(hdr[0].sa_transacno_ref)) + ".pdf"
+
             msg.attach(filename,p,'application/pdf')
             msg.send()
             response = HttpResponse(p,content_type='application/pdf')
@@ -5721,7 +5591,6 @@ class ReceiptPdfSend(APIView):
             result = {'status': status.HTTP_200_OK,"message":"Email sent succesfully",'error': False}
             display.stop()
             return Response(data=result, status=status.HTTP_200_OK)
-
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)     
@@ -8630,7 +8499,6 @@ class CartItemDeleteAPIView(APIView):
                     if instance.multi_treat.all().exists():
                         for i in instance.multi_treat.all():
                             TmpItemHelper.objects.filter(treatment=i).delete()
-                            Tmptreatment.objects.filter(treatment_id=i,status='Open').delete()
 
                     instance.delete() 
 
@@ -13087,7 +12955,7 @@ class QuotationListViewset(viewsets.ModelViewSet):
         try:
             serializer_class = QuotationSerializer
             queryset = self.filter_queryset(self.get_queryset())
-            # print(queryset,"queryset")
+            print(queryset,"queryset")
             if queryset:
                 full_tot = queryset.count()
                 try:

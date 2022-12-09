@@ -11297,7 +11297,7 @@ class PayGroupViewset(viewsets.ModelViewSet):
         if paygroup:
             group = list(set([p.pay_groupid_id for p in paygroup if p.pay_groupid_id]))
             # queryset = Paytable.objects.filter(pay_isactive=True,pay_groupid__pk__in=group).order_by('-pk')
-            queryset = PayGroup.objects.filter(id__in=group).order_by('pk')
+            queryset = PayGroup.objects.filter(id__in=group).order_by('seq')
             # print(group,"group")
         else:
             queryset = self.filter_queryset(self.get_queryset())
