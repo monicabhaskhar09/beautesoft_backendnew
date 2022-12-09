@@ -16,7 +16,7 @@ from pyvirtualdisplay import Display
 from Cl_beautesoft import settings
 from cl_table.models import (GstSetting,PosTaud,PosDaud,PosHaud,Fmspw,Title,PackageDtl,PackageHdr,Treatment,
 TreatmentAccount,DepositAccount,PrepaidAccount,TemplateSettings,CreditNote,Tempcustsign,Systemsetup)
-from custom.models import ItemCart, RoundSales
+from custom.models import ItemCart, RoundSales,VoucherRecord
 from cl_table.serializers import PosdaudSerializer
 from Cl_beautesoft.settings import BASE_DIR , SITE_ROOT
 from django.utils import timezone
@@ -337,6 +337,18 @@ def GeneratePDF(self,request, sa_transacno):
             val = {'pp_desc':i.pp_desc,'remain':"{:.2f}".format(i.remain)}
             prepaid_lst.append(val)
 
+    voucher_ids = VoucherRecord.objects.filter(isvalid=True,cust_code=hdr[0].sa_custno,
+    used=False).order_by('-pk')  
+    voucher_lst = [{'voucher_name':i.voucher_name,'value':"{:.2f}".format(i.value)} for i in voucher_ids ]  
+    
+    voucherbal_setup = Systemsetup.objects.filter(title='InvoiceSetting',
+    value_name='showvoucherbalance',isactive=True).first()
+
+    if voucherbal_setup and voucherbal_setup.value_data == 'True':
+        voucherbal = True
+    else:
+        voucherbal = False
+
     prepaidbal_setup = Systemsetup.objects.filter(title='InvoiceSetting',
     value_name='showprepaidbalance',isactive=True).first()
 
@@ -411,6 +423,7 @@ def GeneratePDF(self,request, sa_transacno):
     'gst_lable': gst_lable,'first_sales': daud[0].dt_Staffnoid.display_name if daud[0].dt_Staffnoid else '',
     'gstlable': gstlable,'trans_promo1': title.trans_promo1 if title and title.trans_promo1 else '',
     'trans_promo2' : title.trans_promo2 if title and title.trans_promo2 else '',
+    'voucher_lst':voucher_lst,'voucherbal':voucherbal,
     }
     data.update(sub_data)
     if site.inv_templatename:

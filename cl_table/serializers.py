@@ -1810,7 +1810,12 @@ class CustApptSerializer(serializers.ModelSerializer):
             contactperson = list(ContactPerson.objects.filter(isactive=True,customer_id=instance
             ).values('name','mobile_phone')) 
             # print(contactperson,"contactperson")    
-       
+        
+        cust_joindate = ""
+        if instance.cust_joindate:
+            splt = str(instance.cust_joindate).split(" ")
+            cust_joindate = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d-%b-%y")
+
         mapped_object = {'id':instance.pk,'cust_name':instance.cust_name if instance.cust_name else "",
         'cust_phone2': instance.cust_phone2 if instance.cust_phone2 else "",
         'cust_email': instance.cust_email if instance.cust_email else "",
@@ -1822,7 +1827,8 @@ class CustApptSerializer(serializers.ModelSerializer):
         'cust_refer': instance.cust_refer if instance.cust_refer else "",'iscurrent':iscurrent,
         'cust_corporate': instance.cust_corporate,
         'contactperson': contactperson,
-        'outstanding_amt': "{:.2f}".format(float(instance.outstanding_amt)) if instance.outstanding_amt else "0.00"}
+        'outstanding_amt': "{:.2f}".format(float(instance.outstanding_amt)) if instance.outstanding_amt else "0.00",
+        'cust_joindate':cust_joindate}
         return mapped_object    
 
    
@@ -2729,7 +2735,7 @@ class CustomerPlusnewSerializer(serializers.ModelSerializer):
                   'cust_consultant_id','cust_address1','cust_address2','cust_address3',
                   'prepaid_card','cust_occupation', 'creditnote','voucher_available','oustanding_payment','cust_refer',
                   'custallowsendsms','cust_maillist','cust_title','cust_sexes','cust_class','cust_corporate',
-                  'referredby_id','cust_referby_code']
+                  'referredby_id','cust_referby_code','cust_nationality','cust_race','cust_marital']
         read_only_fields = ('cust_isactive','created_at', 'updated_at','last_visit','upcoming_appointments',
         'Site_Code','cust_code','ProneToComplain')
         extra_kwargs = {'cust_name': {'required': True},'cust_phone2': {'required': False},}
@@ -2843,7 +2849,7 @@ class CustomerPlusSerializer(serializers.ModelSerializer):
                   'cust_consultant_id','cust_address1','cust_address2','cust_address3',
                   'prepaid_card','cust_occupation', 'creditnote','voucher_available','oustanding_payment','cust_refer',
                   'custallowsendsms','cust_maillist','cust_title','cust_sexes','cust_class','cust_corporate',
-                  'referredby_id','cust_referby_code']
+                  'referredby_id','cust_referby_code','cust_nationality','cust_race','cust_marital']
         read_only_fields = ('cust_isactive','created_at', 'updated_at','last_visit','upcoming_appointments',
         'Site_Code','cust_code','ProneToComplain')
         extra_kwargs = {'cust_name': {'required': True},'cust_phone2': {'required': False},}

@@ -6225,9 +6225,10 @@ class TreatmentApptAPI(generics.ListAPIView):
             data_list= []
             for row in queryset:
                 if row.__class__.__name__ == 'TreatmentPackage':
-                    open_ids = Treatment.objects.filter(cust_code=cust_obj.cust_code,
-                    treatment_parentcode=row.treatment_parentcode,status='Open').order_by('pk').count()
-                    last_ids = Treatment.objects.filter(treatment_parentcode=row.treatment_parentcode).order_by('-pk').first()
+                    # open_ids = Treatment.objects.filter(cust_code=cust_obj.cust_code,
+                    # treatment_parentcode=row.treatment_parentcode,status='Open').order_by('pk').count()
+                    
+                    # last_ids = Treatment.objects.filter(treatment_parentcode=row.treatment_parentcode).order_by('-pk').first()
                     srvduration = 60
 
                     # a = row.item_code
@@ -6254,11 +6255,14 @@ class TreatmentApptAPI(generics.ListAPIView):
                         split = str(row.expiry_date).split(" ")
                         expiry = datetime.datetime.strptime(str(split[0]), '%Y-%m-%d').strftime("%d/%m/%Y")
                     
-                    acc_ids = TreatmentAccount.objects.filter(ref_transacno=row.sa_transacno,
-                    treatment_parentcode=row.treatment_parentcode,
-                    cust_code=cust_obj.cust_code).order_by('-sa_date','-sa_time','-pk').only('ref_transacno','treatment_parentcode','site_code').first()
-                    balance = "{:.2f}".format(float(acc_ids.balance)) if acc_ids and acc_ids.balance else "0.00"    
-                    outstanding = "{:.2f}".format(float(acc_ids.outstanding)) if acc_ids and acc_ids.outstanding else "0.00"
+                    splt = str(row.treatment_date).split(' ')
+                    treatment_date = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d-%m-%Y")
+                    
+                    # acc_ids = TreatmentAccount.objects.filter(ref_transacno=row.sa_transacno,
+                    # treatment_parentcode=row.treatment_parentcode,
+                    # cust_code=cust_obj.cust_code).order_by('-sa_date','-sa_time','-pk').only('ref_transacno','treatment_parentcode','site_code').first()
+                    # balance = "{:.2f}".format(float(acc_ids.balance)) if acc_ids and acc_ids.balance else "0.00"    
+                    # outstanding = "{:.2f}".format(float(acc_ids.outstanding)) if acc_ids and acc_ids.outstanding else "0.00"
                     
                     # q_val = list(Treatment.objects.filter(pk=row.pk).order_by('-pk').values('pk').annotate(id=F('pk'),
                     # treatment_parentcode=F('treatment_parentcode'),
@@ -6275,12 +6279,12 @@ class TreatmentApptAPI(generics.ListAPIView):
                     # lst.extend([q_val[0]])
 
                     pre = {'treatment_parentcode': row.treatment_parentcode,'item_name': name ,
-                    'tr_open': open_ids, 'tr_done': last_ids.treatment_no, 
+                    'tr_open': row.open_session, 'tr_done': row.treatment_no, 
                     'price': unit_amount,'expiry': expiry,'add_duration': hrs,
                     'stock_id': stock.pk if stock else "",
-                    'balance': balance,
-                    'outstanding': outstanding,
-                    'type':'TD'}
+                    'balance': "{:.2f}".format(float(row.balance)) if row.balance else "0.00",
+                    'outstanding': "{:.2f}".format(float(row.outstanding)) if row.outstanding else "0.00",
+                    'type':'TD','purchase_date': treatment_date}
 
                     data_list.append(pre)
 
@@ -7675,6 +7679,9 @@ class UsersList(APIView):
             
             autotdfor_setup = Systemsetup.objects.filter(title='autoTDForAlacarte',
             value_name='autoTDForAlacarte',isactive=True).first()
+            quickprint_setup = Systemsetup.objects.filter(title='quickPrint',
+            value_name='quickPrint',isactive=True).first()
+    
     
     
 
@@ -7760,6 +7767,7 @@ class UsersList(APIView):
             'custname_retaincart': True if custnameretaincart_setup and custnameretaincart_setup.value_data == 'True' else False,
             'transactionviewall' : True if transactionviewall_setup and transactionviewall_setup.value_data == 'True' else False, 
             'autotdforalacarte' : True if autotdfor_setup and autotdfor_setup.value_data == 'True' else False, 
+            'quickprint': True if quickprint_setup and quickprint_setup.value_data == 'True' else False, 
             }
 
 
@@ -9256,16 +9264,16 @@ class postaudViewset(viewsets.ModelViewSet):
 
                     if "GT1" in checkgt:
                         in_refcontrol_obj = ControlNo.objects.filter(control_description__iexact="Reference Receipt No",Site_Codeid__pk=fmspw.loginsite.pk).first()
+                        sa_transacno_type = "Receipt"
                     else:
                         in_refcontrol_obj = ControlNo.objects.filter(control_description__iexact="Reference Non Sales No",Site_Codeid__pk=fmspw.loginsite.pk).first()
-                        
+                        sa_transacno_type = "Non Sales"
                         
                     focnot_ids = cart_ids.filter(is_foc=False) 
                     if focnot_ids:
                         sa_transacno_refval = str(in_refcontrol_obj.control_prefix)+str(in_refcontrol_obj.Site_Codeid.itemsite_code)+str(in_refcontrol_obj.control_no)
                         in_refcontrol_obj.control_no = int(in_refcontrol_obj.control_no) + 1
                         in_refcontrol_obj.save()
-                        sa_transacno_type = "Receipt"
                     else:
                         nscontrol_obj = ControlNo.objects.filter(control_description__iexact="Reference Non Sales No",Site_Codeid__pk=fmspw.loginsite.pk).first()
                         # if not nscontrol_obj:
@@ -9339,7 +9347,31 @@ class postaudViewset(viewsets.ModelViewSet):
                         # if hdr.pk:
                             # control_obj.control_no = int(control_obj.control_no) + 1
                             # control_obj.save()
-                        
+                
+
+                nopointsfordiscount_setup = Systemsetup.objects.filter(title='nopointsfordiscount',
+                value_name='nopointsfordiscount',isactive=True).first()
+                nopointsforvoucheruse_setup = Systemsetup.objects.filter(title='nopointsforvoucheruse',
+                value_name='nopointsforvoucheruse',isactive=True).first()
+                nopointsforpointsredeem_setup = Systemsetup.objects.filter(title='nopointsforpointsredeem',
+                value_name='nopointsforpointsredeem',isactive=True).first()
+                
+                give_points =  True
+                taud_voucherids = PosTaud.objects.filter(sa_transacno=sa_transacno,itemsite_code=site.itemsite_code,
+                pay_type='VC').order_by('pk')
+                if taud_voucherids and nopointsforvoucheruse_setup and nopointsforvoucheruse_setup.value_data == 'True':
+                    give_points = False
+
+                taud_pointsids = PosTaud.objects.filter(sa_transacno=sa_transacno,itemsite_code=site.itemsite_code,
+                pay_type='BP').order_by('pk')
+                if taud_pointsids and nopointsforpointsredeem_setup and nopointsforpointsredeem_setup.value_data == 'True':
+                    give_points = False
+
+
+
+
+                # if dayendtd_setup and dayendtd_setup.value_data == 'True':
+
                 #customer Reward Policy points given Deposit Topup not TD , Void 
                 gt1_ids = Paytable.objects.filter(gt_group='GT1',pay_isactive=True).order_by('-pk') 
                 gt1_lst = list(set([i.pay_code for i in gt1_ids if i.pay_code]))
@@ -9355,6 +9387,12 @@ class postaudViewset(viewsets.ModelViewSet):
                 posdaudsale_ids = PosDaud.objects.filter(itemsite_code=site.itemsite_code,
                 sa_transacno=sa_transacno,dt_status="SA",record_detail_type__in=['SERVICE','PRODUCT','PREPAID','VOUCHER','PACKAGE','TP SERVICE','TP PRODUCT','TP PREPAID'],
                 isfoc=False).order_by('pk')
+
+                if nopointsfordiscount_setup and nopointsfordiscount_setup.value_data == 'True':
+                    posdaudsale_ids = PosDaud.objects.filter(itemsite_code=site.itemsite_code,
+                    sa_transacno=sa_transacno,dt_status="SA",record_detail_type__in=['SERVICE','PRODUCT','PREPAID','VOUCHER','PACKAGE','TP SERVICE','TP PRODUCT','TP PREPAID'],
+                    isfoc=False,dt_discamt=0).order_by('pk')
+
 
                 sum_deposit_ids = posdaudsale_ids.aggregate(dt_deposit=Coalesce(Sum('dt_deposit'), 0))
                 if sum_deposit_ids['dt_deposit'] > 0.0:
@@ -9391,69 +9429,49 @@ class postaudViewset(viewsets.ModelViewSet):
                         now_point = cust_obj.cust_point_value
 
                 total_point= 0;cdtl_lst =[]
-                for ecl in posdaudsale_ids:
-                    # print(ecl,"ecl")
-                    # print(ecl.dt_itemnoid.item_dept,"ecl.dt_itemnoid.item_dept")
-                    departreward_ids = False;brandreward_ids = False;eachreward_ids = False
-                    if ecl.dt_itemnoid.item_div == '3' and ecl.dt_itemnoid.item_dept:
-                        # print("iff")
-                        departreward_ids = RewardPolicy.objects.filter(cust_type=cust_class,isactive=True,
-                        dept_ids__itm_code=ecl.dt_itemnoid.item_dept).order_by('-pk')
-                        # print(departreward_ids,"departreward_ids")
-                    elif int(ecl.dt_itemnoid.item_div) in [1,4,5] and ecl.dt_itemnoid.item_brand:
-                        # print("eliff")
-                        brandreward_ids = RewardPolicy.objects.filter(cust_type=cust_class,isactive=True,
-                        brand_ids__itm_code=ecl.dt_itemnoid.item_brand).order_by('-pk')
-                        # print(brandreward_ids,"brandreward_ids")     
-                    
-                    if departreward_ids:
-                        # print("iff dept")
-                        eachreward_ids = departreward_ids
-                    elif brandreward_ids:
-                        # print("eliff brand")
-                        eachreward_ids = brandreward_ids
-                    if not departreward_ids and not brandreward_ids:
-                        # print("if not dept brand")
-                        eachreward_ids = RewardPolicy.objects.filter(cust_type=cust_class,isactive=True,
-                        item_divids__itm_code=int(ecl.dt_itemnoid.item_div),dept_ids=None,brand_ids=None).order_by('-pk')[:1]
-                        # print(eachreward_ids,"eachreward_ids")
+                # print(give_points,"give_points")
+                # print(posdaudsale_ids,"posdaudsale_ids")
+                if give_points == True:
+                    for ecl in posdaudsale_ids:
+                        # print(ecl,"ecl")
+                        # print(ecl.dt_itemnoid.item_dept,"ecl.dt_itemnoid.item_dept")
+                        departreward_ids = False;brandreward_ids = False;eachreward_ids = False
+                        if ecl.dt_itemnoid.item_div == '3' and ecl.dt_itemnoid.item_dept:
+                            # print("iff")
+                            departreward_ids = RewardPolicy.objects.filter(cust_type=cust_class,isactive=True,
+                            dept_ids__itm_code=ecl.dt_itemnoid.item_dept).order_by('-pk')
+                            # print(departreward_ids,"departreward_ids")
+                        elif int(ecl.dt_itemnoid.item_div) in [1,4,5] and ecl.dt_itemnoid.item_brand:
+                            # print("eliff")
+                            brandreward_ids = RewardPolicy.objects.filter(cust_type=cust_class,isactive=True,
+                            brand_ids__itm_code=ecl.dt_itemnoid.item_brand).order_by('-pk')
+                            # print(brandreward_ids,"brandreward_ids")     
                         
-                    
-                    if eachreward_ids:
-                        for j in eachreward_ids:
-                            # print(j,j.pk,"eachreward_ids")
-                            if j.cur_value > 0:
-                                rewardratio_per = (j.point_value / j.cur_value) * 100 
-                                # print(rewardratio_per,"rewardratio_per")
-                                if rewardratio_per > 0:
-                                    if pickamt > 0 and pickamt >= ecl.dt_deposit:
-                                        # print(pickamt,"pickamt IFF")
-                                
-                                        eachcart_rewpt = (ecl.dt_deposit *  rewardratio_per) / 100
-                                        # print(eachcart_rewpt,"eachcart_rewpt")
-                                        if eachcart_rewpt > 0:
-                                            total_point += eachcart_rewpt
-                                            # print(total_point,"total_point")
-                                        
-                                            now_point  += eachcart_rewpt
-                                            # print(now_point,"now_point")
-                                            ct = CustomerPointDtl(type="Reward",cust_code=cust_obj.cust_code,
-                                            cust_name=cust_obj.cust_name,parent_code=None,parent_desc=None,
-                                            parent_display=None,itm_code=ecl.dt_itemnoid.item_code,itm_desc=ecl.dt_itemnoid.item_desc,
-                                            point="{:.2f}".format(eachcart_rewpt),now_point="{:.2f}".format(now_point),remark=None,remark_code=None,
-                                            remark_desc=None,isvoid=False,void_referenceno=None,isopen=True,qty=ecl.dt_qty,
-                                            seq=False,sa_status="SA",bal_acc2=None,point_acc1=None,
-                                            point_acc2=None,locid=False)
-                                            ct.save()
-                                            cdtl_lst.append(ct.pk)
+                        if departreward_ids:
+                            # print("iff dept")
+                            eachreward_ids = departreward_ids
+                        elif brandreward_ids:
+                            # print("eliff brand")
+                            eachreward_ids = brandreward_ids
 
-                                            dtl = True
-                                            pickamt = pickamt - ecl.dt_deposit
-                                    else:
-                                        # print("else")
-                                        if pickamt > 0 and float(pickamt) != 0.0:
-                                            # print(pickamt,"pickamt else IF")
-                                            eachcart_rewpt = (pickamt *  rewardratio_per) / 100
+                        if not departreward_ids or not brandreward_ids:
+                            # print("if not dept brand")
+                            eachreward_ids = RewardPolicy.objects.filter(cust_type=cust_class,isactive=True,
+                            item_divids__itm_code=int(ecl.dt_itemnoid.item_div),dept_ids=None,brand_ids=None).order_by('-pk')[:1]
+                            # print(eachreward_ids,"eachreward_ids")
+                            
+                        # print(eachreward_ids,"eachreward_ids")
+                        if eachreward_ids:
+                            for j in eachreward_ids:
+                                # print(j,j.pk,"eachreward_ids")
+                                if j.cur_value > 0:
+                                    rewardratio_per = (j.point_value / j.cur_value) * 100 
+                                    # print(rewardratio_per,"rewardratio_per")
+                                    if rewardratio_per > 0:
+                                        if pickamt > 0 and pickamt >= ecl.dt_deposit:
+                                            # print(pickamt,"pickamt IFF")
+                                    
+                                            eachcart_rewpt = (ecl.dt_deposit *  rewardratio_per) / 100
                                             # print(eachcart_rewpt,"eachcart_rewpt")
                                             if eachcart_rewpt > 0:
                                                 total_point += eachcart_rewpt
@@ -9473,30 +9491,54 @@ class postaudViewset(viewsets.ModelViewSet):
 
                                                 dtl = True
                                                 pickamt = pickamt - ecl.dt_deposit
+                                        else:
+                                            # print("else")
+                                            if pickamt > 0 and float(pickamt) != 0.0:
+                                                # print(pickamt,"pickamt else IF")
+                                                eachcart_rewpt = (pickamt *  rewardratio_per) / 100
+                                                # print(eachcart_rewpt,"eachcart_rewpt")
+                                                if eachcart_rewpt > 0:
+                                                    total_point += eachcart_rewpt
+                                                    # print(total_point,"total_point")
+                                                
+                                                    now_point  += eachcart_rewpt
+                                                    # print(now_point,"now_point")
+                                                    ct = CustomerPointDtl(type="Reward",cust_code=cust_obj.cust_code,
+                                                    cust_name=cust_obj.cust_name,parent_code=None,parent_desc=None,
+                                                    parent_display=None,itm_code=ecl.dt_itemnoid.item_code,itm_desc=ecl.dt_itemnoid.item_desc,
+                                                    point="{:.2f}".format(eachcart_rewpt),now_point="{:.2f}".format(now_point),remark=None,remark_code=None,
+                                                    remark_desc=None,isvoid=False,void_referenceno=None,isopen=True,qty=ecl.dt_qty,
+                                                    seq=False,sa_status="SA",bal_acc2=None,point_acc1=None,
+                                                    point_acc2=None,locid=False)
+                                                    ct.save()
+                                                    cdtl_lst.append(ct.pk)
 
-                if dtl == True:
-                    # print("True")
-                    cust_obj.cust_point_value = "{:.2f}".format(now_point)
-                    cust_obj.save()
+                                                    dtl = True
+                                                    pickamt = pickamt - ecl.dt_deposit
 
-                    rew_refcontrol_obj = ControlNo.objects.filter(control_description__iexact="Reward Sales",Site_Codeid__pk=fmspw.loginsite.pk).first()
-                    rew_transacno = str(rew_refcontrol_obj.control_prefix)+str(rew_refcontrol_obj.Site_Codeid.itemsite_code)+str(rew_refcontrol_obj.control_no)
-                    rew_refcontrol_obj.control_no = int(rew_refcontrol_obj.control_no) + 1
-                    rew_refcontrol_obj.save()
+                    if dtl == True:
+                        # print("True")
+                        cust_obj.cust_point_value = "{:.2f}".format(now_point)
+                        cust_obj.save()
 
-                    CustomerPoint(transacno=rew_transacno,date=hdr.sa_date,username=fmspw.pw_userlogin,
-                    time=hdr.sa_time,cust_name=cust_obj.cust_name,cust_code=cust_obj.cust_code,type="Reward",
-                    refno=sa_transacno,ref_source="Sales",isvoid=False,sa_status="SA",void_referenceno=None,
-                    total_point="{:.2f}".format(total_point),now_point="{:.2f}".format(now_point),seq=None,remarks=None,
-                    bal_point="{:.2f}".format(now_point-total_point),expired=False,expired_date=None,mac_code=False,logno=False,
-                    approval_user=fmspw.pw_userlogin,cardno=False,bdate=None,pdate=None,expired_point=0,
-                    postransactionno=sa_transacno,postotalamt="{:.2f}".format(float(value['deposit_amt'])),locid=False,mgm_refno=None,tdate=None).save()
-                    for cd in cdtl_lst:
-                        cdt = CustomerPointDtl.objects.filter(pk=cd).first()
-                        if cdt:
-                            cdt.transacno = rew_transacno 
-                            cdt.total_point = "{:.2f}".format(total_point)
-                            cdt.save()
+                        rew_refcontrol_obj = ControlNo.objects.filter(control_description__iexact="Reward Sales",Site_Codeid__pk=fmspw.loginsite.pk).first()
+                        rew_transacno = str(rew_refcontrol_obj.control_prefix)+str(rew_refcontrol_obj.Site_Codeid.itemsite_code)+str(rew_refcontrol_obj.control_no)
+                        rew_refcontrol_obj.control_no = int(rew_refcontrol_obj.control_no) + 1
+                        rew_refcontrol_obj.save()
+
+                        CustomerPoint(transacno=rew_transacno,date=hdr.sa_date,username=fmspw.pw_userlogin,
+                        time=hdr.sa_time,cust_name=cust_obj.cust_name,cust_code=cust_obj.cust_code,type="Reward",
+                        refno=sa_transacno,ref_source="Sales",isvoid=False,sa_status="SA",void_referenceno=None,
+                        total_point="{:.2f}".format(total_point),now_point="{:.2f}".format(now_point),seq=None,remarks=None,
+                        bal_point="{:.2f}".format(now_point-total_point),expired=False,expired_date=None,mac_code=False,logno=False,
+                        approval_user=fmspw.pw_userlogin,cardno=False,bdate=None,pdate=None,expired_point=0,
+                        postransactionno=sa_transacno,postotalamt="{:.2f}".format(float(value['deposit_amt'])),locid=False,mgm_refno=None,tdate=None).save()
+                        for cd in cdtl_lst:
+                            cdt = CustomerPointDtl.objects.filter(pk=cd).first()
+                            if cdt:
+                                cdt.transacno = rew_transacno 
+                                cdt.total_point = "{:.2f}".format(total_point)
+                                cdt.save()
 
 
                 taud_gt1ids = PosTaud.objects.filter(sa_transacno=sa_transacno,itemsite_code=site.itemsite_code,
@@ -10888,6 +10930,11 @@ class CustomerReceiptPrintList(generics.ListAPIView):
             taud = PosTaud.objects.filter(sa_transacno=satransacno)
             title = Title.objects.filter(product_license=site.itemsite_code).order_by("pk").first()
             custsign_ids = Tempcustsign.objects.filter(transaction_no=satransacno).order_by("-pk").first()
+            cust_sig = ""
+            if custsign_ids:
+                # cust_sig = str(ip)+str(custsign_ids.cust_sig.url)
+                cust_sig = str(SITE_ROOT)+str(custsign_ids.cust_sig)
+
             #studio A api pdf
             if title:
                 pic = False
@@ -10895,11 +10942,7 @@ class CustomerReceiptPrintList(generics.ListAPIView):
                     # pic = str(ip)+str(title.logo_pic.url)
                     pic = str(SITE_ROOT)+str(title.logo_pic)
                 
-                cust_sig = ""
-                if custsign_ids:
-                    # cust_sig = str(ip)+str(custsign_ids.cust_sig.url)
-                    cust_sig = str(SITE_ROOT)+str(custsign_ids.cust_sig)
-
+              
 
                 company_hdr = {'logo':pic if pic else '','name':title.trans_h1 if title.trans_h1 else '','address': title.trans_h2 if title.trans_h2 else '',
                 'email': title.email if title.email else '','cust_sig':cust_sig,
@@ -10912,8 +10955,8 @@ class CustomerReceiptPrintList(generics.ListAPIView):
                 }
             else:
                 company_hdr = {'logo':'','name':'','address':'','email': '',
-                'gst_reg_no': '','company_reg_no': '','cust_sig':''}
-                footer = {'remark':'','footer1':'','footer2':'','footer3':'','footer4':'',
+                'gst_reg_no': '','company_reg_no': '','cust_sig':cust_sig}
+                footer = {'remark':hdr[0].trans_remark if hdr[0].trans_remark else '','footer1':'','footer2':'','footer3':'','footer4':'',
                 'footer5':'','footer6':''}
                     
 
@@ -10970,6 +11013,19 @@ class CustomerReceiptPrintList(generics.ListAPIView):
                 h['date_ofphotoshooting'] = hdr[0].date_ofphotoshooting if hdr[0] and hdr[0].date_ofphotoshooting else ""
                 h['ref_inv_no'] = hdr[0].sa_transacno
                 h['sold_service_by'] = hdr[0].sa_staffname if hdr[0] and hdr[0].sa_staffname else ""
+                h['invoice_header'] = ''
+                if hdr[0] and hdr[0].sa_transacno_type == "Receipt":
+                    h['invoice_header'] = "TAX INVOICE"
+                elif hdr[0] and hdr[0].sa_transacno_type == "Redeem Service":  
+                    h['invoice_header'] = "Service Redeem" 
+                elif hdr[0] and hdr[0].sa_transacno_type == "Non Sales":  
+                    h['invoice_header'] = "Non Sales" 
+                elif hdr[0] and hdr[0].sa_transacno_type == "Void Transaction":  
+                    h['invoice_header'] = "Void Transaction" 
+                else:
+                    h['invoice_header'] = ''
+
+                           
 
 
             dtl_serializer = PosdaudSerializer(daud, many=True)
@@ -16189,7 +16245,7 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
                             Site_Codeid=employee.defaultSiteCodeid,
                             site_code=employee.defaultSiteCodeid.itemsite_code).save()
 
-                        fmspw_ids = Fmspw.objects.filter(Emp_Codeid=employee, pw_isactive=True).first()
+                        fmspw_ids = Fmspw.objects.filter(Emp_Codeid=employee).first()
                         if not fmspw_ids:
                             user = User.objects.filter(username=request.data['display_name']).first()
                             if not user:
@@ -16227,6 +16283,14 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
                         if fmspwids_s:
                             fmspwids_s.pw_isactive = False
                             fmspwids_s.save()
+
+                    if 'emp_isactive' in request.data and request.data['emp_isactive'] == "True":
+                        fmspwidss = Fmspw.objects.filter(Emp_Codeid=employee).first()
+                        if fmspwidss:
+                            fmspwidss.pw_isactive = True
+                            fmspwidss.save()
+
+
 
 
                     serializer.save(type_code=jobtitle.level_code)
@@ -17485,7 +17549,12 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
                     k = serializer.save(site_code=site.itemsite_code, cust_code=cus_code,
                                         cust_sexes=gender, cust_joindate=timezone.now(),
                                         cust_title=title,cust_source=source,custallowsendsms=allowsendsms,
-                                        Site_Codeid=site,join_status=True,Cust_sexesid=gender_obj)
+                                        Site_Codeid=site,join_status=True,Cust_sexesid=gender_obj,
+                                        cust_occupation=request.data['cust_occupation'] if 'cust_occupation' in request.data and request.data['cust_occupation'] else None,
+                                        cust_nationality= request.data['cust_nationality'] if 'cust_nationality' in request.data and request.data['cust_nationality'] else None,
+                                        cust_race=request.data['cust_race'] if 'cust_race' in request.data and request.data['cust_race'] else None,
+                                        cust_marital=request.data['cust_marital'] if 'cust_marital' in request.data and request.data['cust_marital'] else None,
+                                        )
 
                     if 'cust_corporate' in request.data and request.data['cust_corporate']:
                         serializer.save(cust_corporate=request.data['cust_corporate'])
@@ -17663,7 +17732,12 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
                             source = sou_obj.source_code
                     
                     serializer.save(cust_sexes=gender,cust_title=title,cust_source=source,
-                    Cust_sexesid=gender_obj)
+                    Cust_sexesid=gender_obj,
+                    cust_occupation=request.data['cust_occupation'] if 'cust_occupation' in request.data and request.data['cust_occupation'] else customer.cust_occupation,
+                    cust_nationality= request.data['cust_nationality'] if 'cust_nationality' in request.data and request.data['cust_nationality'] else customer.cust_nationality,
+                    cust_race=request.data['cust_race'] if 'cust_race' in request.data and request.data['cust_race'] else customer.cust_race,
+                    cust_marital=request.data['cust_marital'] if 'cust_marital' in request.data and request.data['cust_marital'] else customer.cust_marital,
+                    )
 
                     if 'cust_corporate' in requestData and requestData['cust_corporate']:
                         customer.cust_corporate = requestData['cust_corporate']

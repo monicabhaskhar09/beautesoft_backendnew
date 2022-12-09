@@ -29,6 +29,19 @@ class WebConsultation_Hdr(models.Model):
     def __str__(self):
         return str(self.doc_no)   
 
+class WebConsultation_Dtl(models.Model):
+    id = models.AutoField(db_column='ID',primary_key=True)
+    doc_no = models.CharField(db_column='DocNo', max_length=255, blank=True, null=True)
+    question_number = models.CharField(db_column='questionNumber', max_length=10, null=True, blank=True)  # Field name made lowercase.
+    answer = models.IntegerField(db_column='answer', null=True, blank=True)  # Field name made lowercase.
+    answer_text = models.CharField(db_column='answerText', max_length=200, null=True, blank=True)  # Field name made lowercase.
+    
+    class Meta:
+        db_table = 'WebConsultation_Dtl'
+
+    def __str__(self):
+        return str(self.doc_no)   
+
 
 class WebConsultation_Question(models.Model):
     id = models.AutoField(db_column='ID',primary_key=True)
@@ -136,3 +149,52 @@ class WebConsultation_Referral_Hdr(models.Model):
 
     def __str__(self):
         return str(self.doc_no)
+
+class TNC_Master(models.Model):
+    id = models.AutoField(db_column='ID',primary_key=True)
+    sno = models.CharField(db_column='SNo', max_length=20, null=True, blank=True)  # Field name made lowercase.  
+    isactive = models.BooleanField(db_column='isActive',default=True)
+    english = models.CharField(db_column='English', max_length=2000, null=True, blank=True)  # Field name made lowercase.
+    otherlanguage = models.CharField(db_column='OtherLanguage', max_length=2000, null=True, blank=True)  # Field name made lowercase.    
+
+    class Meta:
+        db_table = 'TNC_Master'
+        unique_together = (('english'),)
+
+    def __str__(self):
+        return str(self.english)
+
+class TNC_Header(models.Model):
+    id = models.AutoField(db_column='ID',primary_key=True)
+    tncno = models.CharField(db_column='TNCNo', max_length=20)  # Field name made lowercase.  
+    cust_code = models.CharField(db_column='CustCode', max_length=20, null=True, blank=True)
+    consultant_code = models.CharField(db_column='ConsultantCode', max_length=20, null=True, blank=True)
+    signature1 = models.ImageField(db_column='Signature1', blank=True, null=True,upload_to='img')  # Field name made lowercase.
+    signature2 = models.ImageField(db_column='Signature2', blank=True, null=True,upload_to='img')  # Field name made lowercase.
+    sign_date = models.DateTimeField(db_column='signDate', blank=True, null=True)  # Field name made lowercase.
+    site_code = models.CharField(db_column='ItemSite_Code', max_length=20, null=True, blank=True)  # Field name made lowercase.  
+
+    class Meta:
+        db_table = 'TNC_Header'
+        unique_together = (('tncno'),)
+
+    def __str__(self):
+        return str(self.tncno)
+
+class TNC_Detail(models.Model):
+    id = models.AutoField(db_column='ID',primary_key=True)
+    tncno = models.CharField(db_column='TNCNo', max_length=20, blank=True, null=True)  # Field name made lowercase.  
+    receipt_date = models.DateTimeField(db_column='ReceiptDate', blank=True, null=True)  # Field name made lowercase.
+    receiptno = models.CharField(db_column='ReceiptNo', max_length=20, blank=True, null=True)  # Field name made lowercase.  
+    package = models.CharField(db_column='Package', max_length=80, blank=True, null=True)  # Field name made lowercase.  
+    amount = models.DecimalField(db_column='Amount', max_digits=18, decimal_places=2, blank=True, null=True)  # Field name made lowercase.
+    dt_lineno = models.IntegerField(db_column='dt_LineNo',blank=True, null=True)  # Field name made lowercase.
+
+    class Meta:
+        db_table = 'TNC_Detail'
+        # unique_together = (('tncno'),)
+
+    def __str__(self):
+        return str(self.tncno)
+
+       

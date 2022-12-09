@@ -12957,7 +12957,7 @@ class QuotationListViewset(viewsets.ModelViewSet):
         try:
             serializer_class = QuotationSerializer
             queryset = self.filter_queryset(self.get_queryset())
-            print(queryset,"queryset")
+            # print(queryset,"queryset")
             if queryset:
                 full_tot = queryset.count()
                 try:

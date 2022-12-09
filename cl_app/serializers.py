@@ -851,7 +851,8 @@ class VoucherPromoSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = VoucherPromo
-        fields = ['id','voucher_code','voucher_desc','sms_text','isactive','price']
+        fields = ['id','voucher_code','voucher_desc','sms_text','isactive','price',
+        'isdiscount','conditiontype1','conditiontype2']
 
     def to_representation(self, instance):
        

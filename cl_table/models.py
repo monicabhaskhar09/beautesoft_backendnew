@@ -2025,7 +2025,8 @@ class PayGroup(models.Model):
     iscreditcard = models.BooleanField(db_column='IsCreditCard', blank=True, null=True)  # Field name made lowercase.
     updated_at = models.DateTimeField(auto_now=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
-    picturelocation = models.CharField(db_column='PICTURELOCATION', max_length=200, null=True)  # Field name made lowercase.
+    # picturelocation = models.CharField(db_column='PICTURELOCATION', max_length=200, null=True)  # Field name made lowercase.
+    picturelocation = models.ImageField(db_column='PICTURELOCATION', upload_to='img',null=True)
 
 
     class Meta:

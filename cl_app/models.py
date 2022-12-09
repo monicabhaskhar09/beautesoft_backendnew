@@ -287,9 +287,13 @@ class VoucherPromo(models.Model):
     updated_at = models.DateTimeField(auto_now=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     price = models.FloatField(db_column='Price', blank=True, null=True)  # Field name made lowercase.
+    isdiscount = models.BooleanField(db_column='isdiscount',default=False)  # Field name made lowercase.
+    conditiontype1 = models.CharField(db_column='conditiontype1', max_length=20, blank=True, null=True)  # Field name made lowercase.
+    conditiontype2 = models.CharField(db_column='conditiontype2', max_length=20, blank=True, null=True)  # Field name made lowercase.
 
     class Meta:
         db_table = 'VoucherPromo'
+        unique_together = (('price', 'isdiscount', 'conditiontype1','conditiontype2'),)
 
 class SmsProcessLog(models.Model):
     id = models.AutoField(db_column='ID',primary_key=True)  # Field name made lowercase.

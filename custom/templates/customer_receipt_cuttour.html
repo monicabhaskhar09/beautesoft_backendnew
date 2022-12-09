@@ -73,6 +73,10 @@ img.sticky {
   position: sticky;
   top: 0;
   width: 200px;}
+img {
+  display: block;
+  margin-left: 45px;
+}  
 .column {
   float: left;
   width: 33.33%;
@@ -121,9 +125,10 @@ body{
 
   
   <div class="container-fluid">
-    <table  style="font-family: 'Arial';font-size: 12px;width: 20%;" >
-      <div style="font-family: 'Arial';font-size: 12px;" width="20%">
-        <img src="{{path}}" width="85" height="85" alt="">
+    <table  style="font-family: 'Arial';font-size: 12px;width: 20%;text-align: center;" >
+      <div style="font-family: 'Arial';font-size: 12px;justify-content: center;" width="20%">
+        
+        <img src="{{path}}" width="85" height="85" alt="" class="center">
         </br>
         <tr>
           <th>{{name}}<br>
@@ -141,8 +146,8 @@ body{
      
 
     <div class="clearfix mt-3">
-        <div class="split" style="font-family: 'Arial';font-size: 12px;line-height: 2px">
-          <p><b>Receipt: </b> {{ hdr.sa_transacno_ref }} </p>
+        <div class="split" style="font-family: 'Arial';font-size: 12px;line-height: 2px;margin-left: 10px;">
+          <p><b>Receipt : {{ hdr.sa_transacno_ref }}</b>  </p>
         </div>  
     </div>
     
@@ -150,10 +155,10 @@ body{
 
 
     <table cellspacing="15" cellpadding="10" style="font-family: 'Arial';font-size: 12px;width: 20%;" >
-      <tr>
-        <th>Qty</th>
-        <th>Description</th>
-        <th>Paid</th>
+      <tr style="margin-left: 10px">
+        <th><u>Qty</u></th>
+        <th><u>Description</u></th>
+        <th><u>Paid</u></th>
       </tr>
       {% for d in daud %}
       <tr>
@@ -199,7 +204,7 @@ body{
             <tr>
 					<td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
 					<td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
-					<td>{{ taud.pay_typeid.pay_description }}</td>
+					<td><b>{{ taud.pay_typeid.pay_description }}</b></td>
 					<td>${{ taud.pay_amt|floatformat:2 }}</td>
             </tr>
           {% endfor %}
@@ -207,12 +212,12 @@ body{
 		<hr style="width: 20%;">
 		<div class="container-fluid" width="30%">
 			<div style="font-size: 12px;">
-			 <p><b>Member Info</b></br>
-				<b>Name:</b> {{ hdr.sa_custname }} </br>
-				<b>No:</b> {% if hdr.sa_custnoid.cust_phone2 %} {{ hdr.sa_custnoid.cust_phone2 }} {% else %} {% endif %}</br>
-				<b>ID:</b> {% if hdr.sa_custnoid.cust_nric %} {{ hdr.sa_custnoid.cust_nric }} {% else %} {% endif %}</br>
-        <b>Member Class:</b>{% if hdr.sa_custnoid.Cust_Classid.class_desc %} {{ hdr.sa_custnoid.Cust_Classid.class_desc }} {% else %} {% endif %}</br>
-        <b>Loyalty Points:</b> {% if hdr.sa_custnoid.cust_point_value %} {{ hdr.sa_custnoid.cust_point_value }} {% else %} {% endif %}</br>
+			 <p><b><u>Member Info</u></b></br>
+				Name :   {{ hdr.sa_custname }} </br>
+				HP :     {% if hdr.sa_custnoid.cust_phone2 %} {{ hdr.sa_custnoid.cust_phone2 }} {% else %} {% endif %}</br>
+				ID :     {% if hdr.sa_custnoid.cust_nric %} {{ hdr.sa_custnoid.cust_nric }} {% else %} {% endif %}</br>
+        Member Class :   {% if hdr.sa_custnoid.Cust_Classid.class_desc %} {{ hdr.sa_custnoid.Cust_Classid.class_desc }} {% else %} {% endif %}</br>
+        Loyalty Points : {% if hdr.sa_custnoid.cust_point_value %} {{ hdr.sa_custnoid.cust_point_value }} {% else %} {% endif %}</br>
 			 </p> 
 
        
@@ -220,11 +225,11 @@ body{
           <div class="row" width="30%">
             <table cellspacing="15" cellpadding="10" style="font-family: 'Arial';font-size: 12px;width: 20%;" >
               <tr>
-                <th ><b>Service</b></th>
-                <th ><b>Balance</b></th>
+                <th style="text-align: left"><b><u>Treatment Balance</u></b></th>
+                <!-- <th ><b>Balance</b></th> -->
               </tr>
               {% for t in treatment %}
-                <tr style="line-height: 10px">
+                <tr style="line-height: 12px">
                   <td style="text-align: left">{{ t.course }}</td>
                   <td style="text-align: right">{{ t.total }}</td>
                 </tr>
@@ -235,19 +240,68 @@ body{
       
           </div>
         {% endif %}
+
+        {% if showprepaid %}
+        <div class="row" width="30%">
+         <table cellspacing="15" cellpadding="10" style="font-family: 'Arial';font-size: 12px;width: 20%;" >
+              <tr>
+                 <th style="text-align: left"><b><u>Prepaid Credit</u></b></th>
+                 <!-- <th ><b>Balance</b></th> -->
+               </tr>
+       
+               {% for p in prepaidlst %}
+                 <tr style="line-height: 12px">
+                   <td style="text-align: left">{{ p.pp_desc }}</td>
+                   <td style="text-align: right">{{ p.remain }}</td>
+                 </tr>
+               {% endfor %}
+       
+             </table>
+           </div>
+        {% endif %}
+
+        {% if voucherbal %}
+        <div class="row" width="30%">
+         <table cellspacing="15" cellpadding="10" style="font-family: 'Arial';font-size: 12px;width: 20%;" >
+              <tr >
+                 <th style="text-align: left"><b><u>Voucher</u></b></th>
+                 <!-- <th ><b>Balance</b></th> -->
+               </tr>
+       
+               {% for p in voucher_lst %}
+                 <tr style="line-height: 12px">
+                   <td style="text-align: left">{{ p.voucher_name }}</td>
+                   <td style="text-align: right">{{ p.value }}</td>
+                 </tr>
+               {% endfor %}
+       
+             </table>
+           </div>
+        {% endif %}
+
 			</div>	
       </div>	
 		<hr style="width: 20%;">	
 		<div class="container-fluid" width="30%">
 			<div style="font-size: 12px;">
-			 <p>
-				<b>Cashier:</b> {{ hdr.cas_name }} </br>
-				<b>Order By:</b> {{ first_sales }} </br>
-				<b>Date:</b> {{ date }} {{ time }}</br>
+			 <p style="text-align: left">
+				Cashier : {{ hdr.cas_name }} </br>
+				Order By : {{ first_sales }} </br>
+				Date : {{ date }} {{ time }}</br>
 			 </p>
 			</div>	
 		</div>	
-
+    <hr style="width: 20%;">
+    <div class="container-fluid" width="30%">
+			<div style="font-size: 14px;text-align: left;">
+			 <p >
+				<b><u>Terms & Conditions</u></b> </br>
+        Good sold are not refundable
+			</br>FEEDBACK/BOOKING/ENQUIRY : +6593656118
+			</br>FB: @cuttoursingapore / IG : @cuttoursingapore</br>
+			 </p>
+			</div>	
+		</div>		
     <!-- {% if gstlable %}
       <table cellspacing="15" cellpadding="10" style="font-size: 12px; width: 20%;" >
         <tr>

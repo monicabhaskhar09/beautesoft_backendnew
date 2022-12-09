@@ -13405,7 +13405,6 @@ class TransactionInvoicesViewset(viewsets.ModelViewSet):
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)   
-        
 
             
 class TransactionHistoryViewset(viewsets.ModelViewSet):
@@ -15542,13 +15541,28 @@ class VoucherPromoViewset(viewsets.ModelViewSet):
 
                 if not 'price' in request.data or not request.data['price']:
                     raise Exception('Please give price!!.') 
+
+                # if not 'isdiscount' in request.data or request.data['isdiscount'] is not None:
+                #     raise Exception('Please give isdiscount !!.') 
+                
+                # if not 'conditiontype1' in request.data or not request.data['conditiontype1']:
+                #     raise Exception('Please give conditiontype1!!.')
+
+                # if not 'conditiontype2' in request.data or not request.data['conditiontype2']:
+                #     raise Exception('Please give conditiontype2!!.')     
      
-                # check_ids = CustomerReferral.objects.filter(Site_Codeid__pk=site.pk,
-                # cust_id__pk=cust_obj.pk).order_by('-pk')
-                # if check_ids:
-                #     msg = "Customer {0} already referred by some other customer !!".format(str(cust_obj.cust_name))
+                check_ids = VoucherPromo.objects.filter(voucher_desc=request.data['voucher_desc']).order_by('-pk')
+                if check_ids:
+                    msg = "VoucherPromo {0} this voucher desc already record exist!!".format(str(request.data['voucher_desc']))
+                    raise Exception(msg) 
+
+                # vcheck_ids = VoucherPromo.objects.filter(price=request.data['price'],
+                # isdiscount=request.data['isdiscount'],conditiontype1=request.data['conditiontype1'],
+                # conditiontype2=request.data['conditiontype2']).order_by('-pk')
+                # if vcheck_ids:
+                #     msg = "VoucherPromo {0} this price,discount,conditiontype1 & 2 already record exist!!".format(str(request.data['conditiontype1']))
                 #     raise Exception(msg) 
-                    
+                       
                
                 serializer = VoucherPromoSerializer(data=request.data)
                 if serializer.is_valid():
@@ -15601,11 +15615,10 @@ class VoucherPromoViewset(viewsets.ModelViewSet):
                 if not 'price' in request.data or not request.data['price']:
                     raise Exception('Please give price!!.') 
          
-                # check_ids = CustomerReferral.objects.filter(~Q(pk=ref.pk)).filter(Site_Codeid__pk=site.pk,
-                # cust_id__pk=cust_obj.pk).order_by('-pk')
-                # if check_ids:
-                #     msg = "Customer {0} already referred by some other customer !!".format(str(cust_obj.cust_name))
-                #     raise Exception(msg) 
+                check_ids = VoucherPromo.objects.filter(~Q(pk=ref.pk)).filter(voucher_desc=request.data['voucher_desc']).order_by('-pk')
+                if check_ids:
+                    msg = "VoucherPromo {0} this voucher desc already record exist!!".format(str(request.data['voucher_desc']))
+                    raise Exception(msg) 
                     
                 serializer = self.get_serializer(ref, data=request.data, partial=True)
                 if serializer.is_valid():
@@ -15717,7 +15730,9 @@ class VoucherPromoViewset(viewsets.ModelViewSet):
                 cust_name=cust_obj.cust_name,percent=0,site_codeid=site,site_code=site.itemsite_code,
                 issued_expiry_date=None,issued_staff=fmspw.Emp_Codeid.emp_code,
                 onhold=0,paymenttype=None,remark=None,type_code=vorecontrolobj.control_prefix,used=0,
-                ref_fullvoucherno=None,ref_rangefrom=None,ref_rangeto=None,site_allocate=None,dt_lineno=1,)
+                ref_fullvoucherno=None,ref_rangefrom=None,ref_rangeto=None,site_allocate=None,dt_lineno=1,
+                isdiscount=vopr_obj.isdiscount,conditiontype1=vopr_obj.conditiontype1,
+                conditiontype2=vopr_obj.conditiontype2)
                 vo_rec.save()
                 vo_rec.sa_date = hdr.sa_date
                 vo_rec.save()
