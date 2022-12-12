@@ -291,7 +291,7 @@ def GeneratePDF(self,request, sa_transacno):
     path = None
     if title and title.logo_pic:
         path = BASE_DIR + title.logo_pic.url
-    print(path,"path")    
+    # print(path,"path")    
     taud_f = PosTaud.objects.filter(sa_transacno=sa_transacno,ItemSIte_Codeid__pk=site.pk).first()
 
 

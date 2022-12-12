@@ -8546,7 +8546,11 @@ class postaudViewset(viewsets.ModelViewSet):
                 topup_ids = cart_ids.filter(type='Top Up')
                 sales_ids = cart_ids.filter(type='Sales') 
                 exchange_ids = cart_ids.filter(type='Exchange') 
-
+                
+                if not depotop_ids and not depo_ids and not topup_ids and not sales_ids and not exchange_ids:
+                    result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+                    return Response(data=result, status=status.HTTP_200_OK)
+                
                 # print(sales_ids,"sales_ids")
 
                 for idx, s in enumerate(sales_ids, start=1):
@@ -8570,7 +8574,8 @@ class postaudViewset(viewsets.ModelViewSet):
                         checkgt.append("GT1") 
                     if st_newgt == 'GT2': 
                         checkgt.append("GT2") 
-
+                
+                refcontrol_obj = ControlNo.objects.none()
                 if depotop_ids:
 
                     if "GT1" in checkgt:
@@ -11017,7 +11022,7 @@ class CustomerReceiptPrintList(generics.ListAPIView):
                 if hdr[0] and hdr[0].sa_transacno_type == "Receipt":
                     h['invoice_header'] = "TAX INVOICE"
                 elif hdr[0] and hdr[0].sa_transacno_type == "Redeem Service":  
-                    h['invoice_header'] = "Service Redeem" 
+                    h['invoice_header'] = "Render Service Receipt" 
                 elif hdr[0] and hdr[0].sa_transacno_type == "Non Sales":  
                     h['invoice_header'] = "Non Sales" 
                 elif hdr[0] and hdr[0].sa_transacno_type == "Void Transaction":  

@@ -4913,7 +4913,7 @@ class ReversalListViewset(viewsets.ModelViewSet):
                 return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
             treat_id = treatment_id.split(',')
-            sum = 0; lst = []; count = 0 ; tot_balance = 0 ; tot_credit = 0; checklst = []
+            sum = 0; lst = []; count = 0 ; tot_balance = 0 ; tot_credit = 0; checklst = [];total=0
             for i in treat_id:
                 count +=1
                 # queryset = Treatment.objects.filter(pk=i,status='Open',site_code=site.itemsite_code).order_by('-pk')
@@ -4936,6 +4936,29 @@ class ReversalListViewset(viewsets.ModelViewSet):
                                     tot_credit += queryset[0].unit_amount
                                 elif float(acc_ids.balance) <= float(queryset[0].unit_amount):
                                     tot_credit += acc_ids.balance
+                        
+                        if count == 1:
+                            outstanding = acc_ids.outstanding
+                            
+                        if acc_ids:
+                            if outstanding >= queryset[0].unit_amount:
+                                tamount = queryset[0].unit_amount
+                                balance = acc_ids.balance
+                                outstanding = outstanding - queryset[0].unit_amount
+                                total = 0
+                            elif queryset[0].unit_amount > outstanding and outstanding > 0:
+                                tamount = queryset[0].unit_amount 
+                                remaining = queryset[0].unit_amount - outstanding
+                                if remaining > 0:
+                                    balance = acc_ids.balance - remaining
+                                    total += remaining
+                                outstanding = 0    
+                            else:
+                                if queryset[0].unit_amount > 0 and outstanding == 0:
+                                    tamount = queryset[0].unit_amount
+                                    outstanding = outstanding
+                                    balance = acc_ids.balance - queryset[0].unit_amount
+                                    total += queryset[0].unit_amount
 
                         data['no'] = count
                         sum += data['unit_amount']
@@ -4945,6 +4968,7 @@ class ReversalListViewset(viewsets.ModelViewSet):
                     result = {'status': status.HTTP_200_OK,"message":"Treatment ID does not exist/Not in Open Status!!",'error': True} 
                     return Response(data=result, status=status.HTTP_200_OK) 
             
+            # print(total,"total")
             if lst != []:
                 control_obj = ControlNo.objects.filter(control_description__iexact="Reverse No",Site_Codeid=site).first()
                 if not control_obj:
@@ -4952,7 +4976,8 @@ class ReversalListViewset(viewsets.ModelViewSet):
                     return Response(result, status=status.HTTP_400_BAD_REQUEST)
                 rev_code = str(control_obj.control_prefix)+str(control_obj.Site_Codeid.itemsite_code)+str(control_obj.control_no)
                 header_data = {"reverse_no" : rev_code, "total" : "{:.2f}".format(float(sum)),
-                "total_depobalance" : "{:.2f}".format(float(tot_balance)),"total_credit" : "{:.2f}".format(float(tot_credit))}
+                "total_depobalance" : "{:.2f}".format(float(tot_balance)),"total_credit" : "{:.2f}".format(float(tot_credit)),
+                "creditnote_amt": "{:.2f}".format(float(total))}
                 
                 # if self.request.GET.get('adjustment',None) is not None:
                 #     header_data["creditnote_after_adjustment"] = "Null"

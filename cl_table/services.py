@@ -2636,7 +2636,9 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
             treatment_parentcode=c.treatment.treatment_parentcode).order_by('-sa_date','-sa_time','-id').first()
             # print(acc_ids,acc_ids.pk,"kk")
             deduct_unitamt = c.multi_treat.filter().aggregate(amount=Coalesce(Sum('unit_amount'), 0)) 
-            print(deduct_unitamt,"deduct_unitamt") 
+            # print(deduct_unitamt,"deduct_unitamt") 
+            dtl.dt_itemdesc = str(dtl.dt_itemdesc) +" "+"$"+str("{:.2f}".format(float(deduct_unitamt['amount'] )))
+            dtl.save()
             Balance = 0
             if acc_ids:
                 # Balance = acc_ids.balance - c.treatment.unit_amount if acc_ids.balance else c.treatment.unit_amount
