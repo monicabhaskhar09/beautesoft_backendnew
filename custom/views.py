@@ -77,7 +77,7 @@ import os.path
 import tempfile
 from django.db.models import Sum
 from django.db.models import Count
-from custom.services import GeneratePDF, round_calc, customeraccount
+from custom.services import GeneratePDF, round_calc, customeraccount,customer_balanceoutstanding
 from cl_app.permissions import authenticated_only
 from django.core.exceptions import PermissionDenied
 from rest_framework import exceptions
@@ -3651,11 +3651,13 @@ class itemCartViewset(viewsets.ModelViewSet):
                         # empids = Employee.objects.filter(emp_code__in=staffsno,emp_isactive=True)
 
                         # is_allow_foc = request.GET.get('is_foc',None)
+                        itemdesc = stock_obj.item_desc
                         if req['ori_stockid']:
                             itemdesc = stock_obj.item_desc
                         else:
-                            itemdesc = trmt_obj.treatment_account.itemcart.itemdesc if trmt_obj.treatment_account and trmt_obj.treatment_account.itemcart and trmt_obj.treatment_account.itemcart.itemdesc else stock_obj.item_desc
-
+                            if not trmt_obj.package_code:
+                                itemdesc = trmt_obj.treatment_account.itemcart.itemdesc if trmt_obj.treatment_account and trmt_obj.treatment_account.itemcart and trmt_obj.treatment_account.itemcart.itemdesc else stock_obj.item_desc
+                            
 
                         carttr_ids = ItemCart.objects.filter(isactive=True,cust_noid=cust_obj,cart_date=cartdate,
                         cart_id=cart_id,cart_status="Inprogress",is_payment=False,sitecodeid=site,
@@ -5631,7 +5633,7 @@ class ReceiptPdfSend(APIView):
                     cval = {'creditnote_no':ce.credit_code,'balance':"{:.2f}".format(ce.balance) if ce.balance else "0.00"}
                     creditlst.append(cval)
 
-
+            custbal = customer_balanceoutstanding(self,request, hdr[0].sa_custno)
             # print(treatopen_ids,"treatopen_ids")
             data = {'name': title.trans_h1 if title and title.trans_h1 else '', 
             'address': title.trans_h2 if title and title.trans_h2 else '', 
@@ -5657,6 +5659,7 @@ class ReceiptPdfSend(APIView):
             'voucher_lst':voucher_lst,'voucherbal':voucherbal,
             }
             data.update(sub_data)
+            data.update(custbal)
             if site.inv_templatename:
                 template = get_template(site.inv_templatename)
             else:
@@ -7045,7 +7048,8 @@ class ChangeStaffViewset(viewsets.ModelViewSet):
                                                 tmpmulti = Tmpmultistaff(item_code=itemcart.itemcodeid.item_code,
                                                 emp_code=emp_obj.emp_code,ratio=s['sales_percentage'],
                                                 salesamt="{:.2f}".format(float(s['sales_amount'])),type=None,isdelete=False,role=1,
-                                                dt_lineno=itemcart.lineno,itemcart=itemcart,emp_id=emp_obj,salescommpoints=s['sp'])
+                                                dt_lineno=itemcart.lineno,itemcart=itemcart,emp_id=emp_obj,salescommpoints=s['sp'],
+                                                sa_transacno=itemcart.sa_transacno)
                                                 tmpmulti.save()
 
                                     
@@ -7127,6 +7131,24 @@ class ChangeStaffViewset(viewsets.ModelViewSet):
                                 value ="{:.2f}".format(float(tmpids['wp1__sum']))
                                 tmp_ids = TmpItemHelper.objects.filter(itemcart=itemcart).order_by('pk').update(workcommpoints=value)
                             
+                            sales = "";service = ""
+                            if itemcart.sales_staff.all():
+                                for i in itemcart.sales_staff.all():
+                                    if sales == "":
+                                        sales = sales + i.display_name
+                                    elif not sales == "":
+                                        sales = sales +","+ i.display_name
+                            if itemcart.service_staff.all(): 
+                                for s in itemcart.service_staff.all():
+                                    if service == "":
+                                        service = service + s.display_name
+                                    elif not service == "":
+                                        service = service +","+ s.display_name 
+
+                            daud_ids = PosDaud.objects.filter(itemcart=itemcart).first()
+                            if daud_ids:
+                                daud_ids.staffs = sales +" "+"/"+" "+ service
+                                daud_ids.save()
 
                             
                         elif itemcart.type == 'Sales' and int(itemcart.itemcodeid.item_div) == 3:
@@ -7197,6 +7219,20 @@ class ChangeStaffViewset(viewsets.ModelViewSet):
                                     newshareamt=s['old_share_amt'] if 'old_share_amt' in s and s['old_share_amt'] else None,
                                     newworkamt=s['work_amount'],
                                     line_no=itemcart.lineno,itemsite_code=site.itemsite_code).save()            
+                            
+                            service = ""
+                            if itemcart.service_staff.all(): 
+                                for s in itemcart.service_staff.all():
+                                    if service == "":
+                                        service = service + s.display_name
+                                    elif not service == "":
+                                        service = service +","+ s.display_name 
+
+                            daudids = PosDaud.objects.filter(itemcart=itemcart).first()
+                            if daudids:
+                                daudids.staffs = "/"+" "+ service
+                                daudids.save()
+ 
 
 
                             #         if s['tmp_workid']:
@@ -7241,7 +7277,8 @@ class ChangeStaffViewset(viewsets.ModelViewSet):
                                                 tmpmulti = Tmpmultistaff(item_code=itemcart.itemcodeid.item_code,
                                                 emp_code=emp_obj.emp_code,ratio=sa['sales_percentage'],
                                                 salesamt="{:.2f}".format(float(sa['sales_amount'])),type=None,isdelete=False,role=1,
-                                                dt_lineno=itemcart.lineno,itemcart=itemcart,emp_id=emp_obj,salescommpoints=sa['sp'])
+                                                dt_lineno=itemcart.lineno,itemcart=itemcart,emp_id=emp_obj,salescommpoints=sa['sp'],
+                                                sa_transacno=itemcart.sa_transacno)
                                                 tmpmulti.save()
 
                                     salesStaffChangeLog(sa_transacno=sa_transacno,item_code=itemcart.itemcodeid.item_code,
@@ -7271,7 +7308,19 @@ class ChangeStaffViewset(viewsets.ModelViewSet):
                                 emp_code=sale.emp_code,ratio=sale.ratio,salesamt="{:.2f}".format(float(sale.salesamt)),type=None,isdelete=False,role=1,
                                 dt_lineno=itemcart.lineno,salescommpoints=sale.salescommpoints)
                                 multi.save()
-                    
+                            
+                            sales = ""
+                            if itemcart.sales_staff.all():
+                                for i in itemcart.sales_staff.all():
+                                    if sales == "":
+                                        sales = sales + i.display_name
+                                    elif not sales == "":
+                                        sales = sales +","+ i.display_name
+                           
+                            dau_ids = PosDaud.objects.filter(itemcart=itemcart).first()
+                            if dau_ids:
+                                dau_ids.staffs = sales +" "+"/"+" "+ service
+                                dau_ids.save()
                    
                     result = {'status': status.HTTP_200_OK,"message":"Updated Sucessfully",'error': False}
                     return Response(result, status=status.HTTP_200_OK)
@@ -7828,7 +7877,7 @@ class CartServiceCourseViewset(viewsets.ModelViewSet):
 
 
     def partial_update(self, request, pk=None):
-        try:
+        # try:
             fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
             site = fmspw.loginsite
             log_emp = fmspw.Emp_Codeid
@@ -7919,9 +7968,9 @@ class CartServiceCourseViewset(viewsets.ModelViewSet):
             result = {'status': status.HTTP_204_NO_CONTENT,"message":serializer.errors,'error': True}
             return Response(result, status=status.HTTP_200_OK)  
 
-        except Exception as e:
-            invalid_message = str(e)
-            return general_error_response(invalid_message)     
+        # except Exception as e:
+        #     invalid_message = str(e)
+        #     return general_error_response(invalid_message)     
         
         
 
@@ -8239,13 +8288,17 @@ class CourseTmpAPIView(generics.ListCreateAPIView):
                 else:
                     course_val = cartobj.itemdesc
                     isfoc_val = False
+                
+                discount_price = cartobj.discount_price
+                if 'unit_amount' in request.data and request.data['unit_amount']:
+                       discount_price = float(request.data['unit_amount'])
 
                 # print(request.data,"request.data")    
                 serializer = CourseTmpSerializer(data=request.data)
                 if serializer.is_valid():
                 
                     if request.data['treatment_no']:
-                        price = request.data['treatment_no'] * cartobj.discount_price
+                        price = request.data['treatment_no'] * discount_price
 
                         checkids = Tmptreatment.objects.filter(itemcart=cartobj).order_by('pk').first()
 
@@ -8283,7 +8336,7 @@ class CourseTmpAPIView(generics.ListCreateAPIView):
                         #for i in range(1, treat_val+1, 1):
                         for i in range(treat_val, 0, -1):
                             times = str(i).zfill(2)
-                            unit_amount = cartobj.discount_price
+                            unit_amount = discount_price
 
                             if i in check:
                                 unit_amount = 0.0
@@ -8851,6 +8904,11 @@ class CourseTmpItemHelperViewset(viewsets.ModelViewSet):
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Course Tmp Treatment Does not exist!!",'error': True} 
                 return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
             
+            qty = Tmptreatment.objects.filter(itemcart=cartobj).order_by('pk').count() 
+            if qty:
+                if done > int(qty):
+                    raise Exception("Item Cart Done Session Should not be greater than Cart quantity!!")
+
             amount = float("{:.2f}".format(sum([i.unit_amount for i in tmp_treatids])))
 
             if amount > float(deposit):
@@ -9219,6 +9277,11 @@ class CourseTmpItemHelperViewset(viewsets.ModelViewSet):
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Course Tmp Treatment Does not exist!!",'error': True} 
                 return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
             
+            qty = Tmptreatment.objects.filter(itemcart=cartobj).order_by('pk').count() 
+            if qty:
+                if done > int(qty):
+                    raise Exception("Item Cart Done Session Should not be greater than Cart quantity!!")
+
             amount = float("{:.2f}".format(sum([i.unit_amount for i in tmp_treatids])))
 
             if amount > float(deposit):
@@ -9319,7 +9382,11 @@ class CourseTmpItemHelperViewset(viewsets.ModelViewSet):
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Course Tmp Treatment Does not exist!!",'error': True} 
                 return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
             
-        
+            qty = Tmptreatment.objects.filter(itemcart=cartobj).order_by('pk').count() 
+            if qty:
+                if done > int(qty):
+                    raise Exception("Item Cart Done Session Should not be greater than Cart quantity!!")
+
             arrtreatmentid = [i.pk for i in tmp_treatids]
             # print(arrtreatmentid,"arrtreatmentid")
             workcommpoints = 0.0

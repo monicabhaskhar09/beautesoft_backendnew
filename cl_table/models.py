@@ -476,8 +476,8 @@ class Treatment(models.Model):
     is_datainsert = models.BooleanField(default=False, blank=True, null=True)
     flexipoints = models.FloatField(db_column='flexipoints', blank=True, null=True)
     redeempoints = models.FloatField(db_column='redeempoints', blank=True, null=True)
-
-
+    
+   
     class Meta:
         db_table = 'Treatment'
         # unique_together = (('treatment_code', 'site_code'),)
@@ -520,6 +520,21 @@ class TreatmentPackage(models.Model):
 
     def __str__(self):
         return str(self.course) 
+
+class Treatmentids(models.Model):
+    id = models.AutoField(db_column='ID', primary_key=True)
+    treatment_parentcode = models.CharField(db_column='Treatment_ParentCode', max_length=20, blank=True, null=True)  # Field name made lowercase.
+    treatment_int = models.IntegerField(db_column='treatment_int', blank=True, null=True)  # Field name made lowercase.
+    
+    class Meta:
+        db_table = 'Treatmentids'
+        indexes = [
+            models.Index(fields=['treatment_parentcode',]),
+            models.Index(fields=['treatment_int',]),
+        ]
+
+    def __str__(self):
+        return str(self.treatment_parentcode) 
 
 class Tmptreatment(models.Model):
     sys_code = models.AutoField(db_column='Sys_Code', primary_key=True)  # Field name made lowercase.
@@ -1361,7 +1376,7 @@ class DepositAccount(models.Model):
     ref_code = models.CharField(db_column='Ref_Code', max_length=100, null=True)  # Field name made lowercase.
     sa_status = models.CharField(db_column='SA_STATUS', max_length=50, blank=True, null=True)  # Field name made lowercase.
     item_barcode = models.CharField(db_column='Item_Barcode', max_length=50, null=True)  # Field name made lowercase.
-    item_description = models.CharField(db_column='Item_Description', max_length=80, blank=True, null=True)  # Field name made lowercase.
+    item_description = models.CharField(db_column='Item_Description', max_length=100, blank=True, null=True)  # Field name made lowercase.
     treat_code = models.CharField(db_column='Treat_Code', max_length=50, blank=True, null=True)  # Field name made lowercase.
     void_link = models.CharField(db_column='Void_Link', max_length=50, blank=True, null=True)  # Field name made lowercase.
     lpackage = models.BooleanField(db_column='lPackage', null=True)  # Field name made lowercase.
@@ -2576,7 +2591,7 @@ class ItemBatchSno(models.Model):
     site_code = models.CharField(db_column='SITE_CODE', max_length=20, blank=True, null=True)  # Field name made lowercase.
     batch_sno = models.CharField(db_column='BATCH_SNO', max_length=300, blank=True, null=True)  # Field name made lowercase.
     uom = models.CharField(db_column='UOM', max_length=20, blank=True, null=True)  # Field name made lowercase.
-    availability = models.BooleanField(db_column='Avaliability', blank=True, null=True)  # Field name made lowercase.
+    availability = models.BooleanField(db_column='Availability', blank=True, null=True)  # Field name made lowercase.
     exp_date = models.DateTimeField(db_column='EXP_DATE', blank=True, null=True)  # Field name made lowercase.
     batch_cost = models.FloatField(db_column='BATCH_COST', blank=True, null=True)  # Field name made lowercase.
     updated_at = models.DateTimeField(auto_now=True, null=True)

@@ -32,7 +32,28 @@ class WebConsultationHdrViewset(viewsets.ModelViewSet):
     def get_queryset(self):
         fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
         site = fmspw[0].loginsite
+        cust_id = self.request.GET.get('cust_id',None)
+        from_date = self.request.GET.get('from_date',None)
+        to_date = self.request.GET.get('to_date',None)
+        form_no = self.request.GET.get('form_no',None)
+        consultant_id = self.request.GET.get('consultant_id',None)
+            
+        if not cust_id:
+            raise Exception('Please give Customer ID!!') 
+            
         queryset = WebConsultation_Hdr.objects.filter(isactive=True,site_codeid=site).order_by('-pk')
+        if cust_id:
+            queryset = queryset.filter(cust_codeid__pk=cust_id).order_by('-pk')
+
+        if from_date and to_date:
+            queryset = queryset.filter(doc_date__date__gte=from_date,doc_date__date__lte=to_date).order_by('-pk')
+        
+        if form_no:
+            queryset = queryset.filter(doc_no__icontains=form_no).order_by('-pk')
+
+        if consultant_id:
+            queryset = queryset.filter(emp_codeid__pk=consultant_id).order_by('-pk')
+            
        
         return queryset
 
@@ -424,7 +445,7 @@ class WebConsultationQuestionViewset(viewsets.ModelViewSet):
     def get_queryset(self):
         fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
         site = fmspw[0].loginsite
-        queryset = WebConsultation_Question.objects.filter().order_by('-pk')
+        queryset = WebConsultation_Question.objects.filter(isactive=True,site_ids__pk=site.pk).order_by('-pk')
        
         return queryset
 

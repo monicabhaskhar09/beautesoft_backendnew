@@ -133,7 +133,7 @@ body{
         {% if hdr.sa_transacno_type == "Receipt" %}
           <h5>TAX INVOICE</h5>
         {% elif hdr.sa_transacno_type == "Redeem Service" %}  
-          <h5>Service Redeem</h5>
+          <h5>Render Service Receipt</h5>
         {% elif hdr.sa_transacno_type == "Non Sales" %}  
           <h5>Non Sales</h5> 
         {% elif hdr.sa_transacno_type == "Void Transaction" %}  
@@ -208,23 +208,23 @@ body{
           <td>{{ forloop.counter }}</td>
   
             {% if d.isfoc %}
-              <td>{{ d.dt_itemdesc }}</td>
+              <td style="text-align: left;width: 40%;">{{ d.dt_itemdesc }}</td>
             {% elif d.dt_status == "SA" and d.record_detail_type == "PACKAGE" %}
-              <td>{{ d.dt_itemdesc }}&#8209; {{ packages }}</td>  
+              <td style="text-align: left;width: 40%">{{ d.dt_itemdesc }} &#8209; {{ packages }}</td>  
             {% elif d.dt_status == "SA" and d.record_detail_type == "TD" %}
-              <td>{{ d.record_detail_type }}&#8209; {{ d.dt_itemdesc }}</td>
+              <td style="text-align: left;width: 40%">{{ d.record_detail_type }} &#8209; {{ d.dt_itemdesc }}</td>
             {% elif d.dt_status == "SA" and d.record_detail_type == 'TP SERVICE' or d.record_detail_type == 'TP PRODUCT' or d.record_detail_type == 'TP PREPAID' %}
-              <td>{{ d.record_detail_type }}&#8209; {{ d.dt_itemdesc }}</td>
+              <td style="text-align: left;width: 40%">{{ d.record_detail_type }} &#8209; {{ d.dt_itemdesc }}</td>
             {% elif d.dt_status == "VT" %}
-              <td>{{ d.dt_itemdesc }}</td>
+              <td style="text-align: left;width: 40%">{{ d.dt_itemdesc }}</td>
             {% elif d.dt_status == "VT" and d.record_detail_type == "TD"%}
-              <td>{{ d.dt_itemdesc }}</td>
+              <td style="text-align: left;width: 40%">{{ d.dt_itemdesc }}</td>
             {% elif d.dt_status == "VT" and d.record_detail_type == 'TP SERVICE' or d.record_detail_type == 'TP PRODUCT' or d.record_detail_type == 'TP PREPAID' %}
-              <td>{{ d.dt_itemdesc }}</td>
+              <td style="text-align: left;width: 40%">{{ d.dt_itemdesc }}</td>
             {% elif d.holditemqty is not None and d.record_detail_type == 'PRODUCT'%}
-              <td>{{ d.record_detail_type }}&#8209;{{ d.dt_itemdesc|add:"(H"}}{{ d.holditemqty|floatformat:"0"|add:")"}}</td>
+              <td style="text-align: left;width: 40%">{{ d.record_detail_type }} &#8209;{{ d.dt_itemdesc|add:"(H"}}{{ d.holditemqty|floatformat:"0"|add:")"}}</td>
             {% else %}
-              <td>{{ d.record_detail_type }}&#8209; {{ d.dt_itemdesc }}</td>
+              <td style="text-align: left;width: 40%">{{ d.record_detail_type }} &#8209; {{ d.dt_itemdesc }}</td>
             {% endif %}
   
             <td>&nbsp;{{ d.dt_qty }}</td>
@@ -338,78 +338,86 @@ body{
       
      <br/>
      
-      <div style="padding-top: 30%">
+     <div class="box" style="padding-top: 30%">
+      
+      <div class="split" style="font-size: 15px;line-height: 10px">
+        <td style="text-align: left;font-size: 15px;float: left;"><h5>Remarks:</h5>  <td>
+        {% if treatmentbal %}  
+        <div class="row">
+          <table style="width: 80%;text-align: center">
+            <tr>
+              <td style="text-align: left;"><u><b>Bal</b></u></td>
+              <td style="text-align: left;"><u><b>Treatment Desc</b></u></td>
+            </tr>
+    
+            {% for t in treatment %}
+              <tr style="line-height: 14px">
+                <td style="text-align: left;">{{ t.total }}</td>
+                <td style="text-align: left;">{{ t.course }}</td>
+              </tr>
+            {% endfor %}
+    
+          </table>
+        </div>
+      {% endif %}
 
-        {% if showprepaid %}
+      <br/>
+      {% if showprepaid %}
           <div class="row">
-            <table style="width: 40%;border: 1px solid black;text-align: center">
+            <table style="width: 80%;text-align: center">
               <tr>
-                <th style="border: 1px solid black;">Prepaid Desc</th>
-                <th style="border: 1px solid black;">Balance</th>
+                <td style="text-align: left;"><u><b>Bal</b></u></td>
+                <td style="text-align: left;"><u><b>Prepaid Desc</b></u></td>
               </tr>
       
               {% for p in prepaid_lst %}
-                <tr>
-                  <td>{{ p.pp_desc }}</td>
-                  <td>{{ p.remain }}</td>
+                <tr style="line-height: 14px">
+                  <td style="text-align: left;">{{ p.remain }}</td>
+                  <td style="text-align: left;">{{ p.pp_desc }}</td>
                 </tr>
               {% endfor %}
       
             </table>
           </div>
-       {% endif %}
+      {% endif %}
 
-       <br/>
-        {% if treatmentbal %}  
+      <br/>
+      {% if showcredit %}  
           <div class="row">
-            <table style="width: 40%;border: 1px solid black;text-align: center">
+            <table style="width: 80%;text-align: center">
               <tr>
-                <th style="border: 1px solid black;">Treatment Desc</th>
-                <th style="border: 1px solid black;">Balance</th>
-              </tr>
-      
-              {% for t in treatment %}
-                <tr>
-                  <td>{{ t.course }}</td>
-                  <td>{{ t.total }}</td>
-                </tr>
-              {% endfor %}
-      
-            </table>
-          </div>
-        {% endif %}
-        <br/>
-        {% if showcredit %}  
-          <div class="row">
-            <table style="width: 40%;border: 1px solid black;text-align: center">
-              <tr>
-                <th style="border: 1px solid black;">CreditNote</th>
-                <th style="border: 1px solid black;">Balance</th>
+                <td style="text-align: left;"><u><b>Bal</b></u></td>
+                <td style="text-align: left;"><u><b>CreditNote</b></u></td>
               </tr>
       
               {% for ce in creditlst %}
-                <tr>
-                  <td>{{ ce.creditnote_no }}</td>
-                  <td>{{ ce.balance }}</td>
+                <tr style="line-height: 14px">
+                  <td style="text-align: left;">{{ ce.balance }}</td>
+                  <td style="text-align: left;">{{ ce.creditnote_no }}</td>
                 </tr>
               {% endfor %}
       
             </table>
           </div>
-        {% endif %}
-
-        {% if showvoidreason %}
-          <tr>
-            <p>Void Reason:  <td style="font-size: 12px;">{% if hdr.trans_remark %} {{ hdr.trans_remark }}  {% else %} {% endif %}</td></p>
-          </tr>
-
-        {% endif %}
+      {% endif %}
+      <br/>
+      {% if showvoidreason %}
         <tr>
-          <p>Remarks:  </p>
+          <p>Void Reason:  <td style="font-size: 12px;">{% if hdr.trans_remark %} {{ hdr.trans_remark }}  {% else %} {% endif %}</td></p>
         </tr>
-     
-  
+
+      {% endif %}
+      </div>
+      <div class="split right" style="font-size: 15px;line-height: 10px">
+        <div style="display: flex;justify-content: flex-end;" >
+          <div>
+            <img src="{{custsign_ids}}" width="85" height="85" alt="" style="padding-left: 30px;padding-bottom:20px;" > 
+            <p style="border-top: 1px dashed black;padding-top:10px;"><b>Customer Signature</b></p> 
+            </div>
+        </div>
         <div style="min-height: 5px;">
+
+          
           {% for taud in postaud %}
             <tr>
               <p style="font-size: 14px;"> {% if taud.pay_rem4 %} {{ taud.pay_rem4 }} {% else %} {% endif %} </p>
@@ -423,17 +431,11 @@ body{
           <p style="font-size: 14px;">{% if footer5 %} {{ footer5 }} {% else %} {% endif %}</p>
           <p style="font-size: 14px;">{% if footer6 %} {{ footer6 }} {% else %} {% endif %}</p>
         </div>
-
-        
-
-        <div style="display: flex;justify-content: flex-end;" >
-          <div>
-            <img src="{{custsign_ids}}" width="85" height="85" alt="" style="padding-left: 30px;padding-bottom:20px;"> 
-            <p style="border-top: 1px dashed black;padding-top:10px;">Customer Signature</p> 
-            </div>
-        </div>
   
       </div>
+    </div>
+
+     
 
     
 	</div>

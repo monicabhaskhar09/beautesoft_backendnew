@@ -30,7 +30,7 @@ PrepaidAccount, Treatment,PosHaud,TmpItemHelper,Appointment,Source,PosHaud,Rever
 CreditNote,Multistaff,ItemHelper,ItemUom,Treatment_Master,Holditemdetail,PrepaidAccountCondition,
 CnRefund,ItemBrand,Title,ItemBatch,Stktrn,Paytable,ItemLink,Appointment,ItemStocklist,Systemsetup,
 Tmpmultistaff,PosDisc,CustomerPoint,CustomerPointDtl,RewardPolicy,PackageAuditingLog,AuditLog,
-ItemFlexiservice,TreatmentPackage,ItemBatchSno,Tmptreatment)
+ItemFlexiservice,TreatmentPackage,ItemBatchSno,Tmptreatment,Treatmentids)
 from custom.models import (ItemCart, Room, Combo_Services,VoucherRecord,PosPackagedeposit,SmtpSettings,
 ManualInvoiceModel)
 from datetime import date, timedelta
@@ -1174,7 +1174,7 @@ class CatalogSearchViewset(viewsets.ModelViewSet):
         return queryset
                         
     def list(self, request, *args, **kwargs):
-        try:
+        # try:
             qs = self.request.GET.get('search',None)
            
             fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
@@ -1332,9 +1332,9 @@ class CatalogSearchViewset(viewsets.ModelViewSet):
             
 
             return Response(result, status=status.HTTP_200_OK) 
-        except Exception as e:
-            invalid_message = str(e)
-            return general_error_response(invalid_message)
+        # except Exception as e:
+        #     invalid_message = str(e)
+        #     return general_error_response(invalid_message)
                            
 
     def get_object(self, pk):
@@ -2919,13 +2919,17 @@ class TreatmentDoneNewViewset(viewsets.ModelViewSet):
                     td_setup = Systemsetup.objects.filter(title='TDSessionSelect',
                     value_name='TDSessionSelect',isactive=True).first()
                     
-                    treatmentids = json.loads(row.treatmentids) if row.treatmentids else []
+                    # treatmentids = json.loads(row.treatmentids) if row.treatmentids else []
 
-                    if td_setup and td_setup.value_data == 'asc':
-                        c = treatmentids.sort()
-                    elif td_setup and td_setup.value_data == 'desc':
-                        c = treatmentids.sort(reverse=True)
-                    # print(treatmentids,"treatmentids")
+                    # if td_setup and td_setup.value_data == 'asc':
+                    #     c = treatmentids.sort()
+                    # elif td_setup and td_setup.value_data == 'desc':
+                    #     c = treatmentids.sort(reverse=True)
+                    # # print(treatmentids,"treatmentids")
+
+                    treatmentids =  list(Treatmentids.objects.filter(
+                    treatment_parentcode=trmt_obj.treatment_parentcode).order_by('treatment_int').values_list('treatment_int', flat=True).distinct())
+
 
 
                     data_list.append({
@@ -2985,7 +2989,14 @@ class TreatmentDoneNewViewset(viewsets.ModelViewSet):
                 }
             else:
                 serializer = self.get_serializer()
-                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+                result = {'status': status.HTTP_200_OK,"message":"No Content"
+                ,'error': False, 'data': [],
+                'cust_data': {'cust_name': cust_obj.cust_name if cust_obj.cust_name else "", 
+                'cust_refer': cust_obj.cust_refer if cust_obj.cust_refer else "",
+                'cust_phone': cust_obj.cust_phone2 if cust_obj.cust_phone2 else "",
+                'cust_remark': cust_obj.cust_remark if cust_obj.cust_remark else "",
+                },
+                }
             return Response(data=result, status=status.HTTP_200_OK) 
         except Exception as e:
             invalid_message = str(e)
@@ -3947,6 +3958,7 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
 
     def list(self, request):
         try:
+            print(request.GET.get('treatmentid',None),"request.GET.get('treatmentid',None)")
             if request.GET.get('treatmentid',None) is None:
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give Treatment Record ID",'error': False}
                 return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
@@ -4497,11 +4509,12 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Treatment ID does not exist!!",'error': True} 
                     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
-                search_ids = TmpTreatmentSession.objects.filter(treatment_parentcode=trmtobj.treatment_parentcode,
-                created_at=date.today()) 
-                if not search_ids:
-                    t = TmpTreatmentSession(treatment_parentcode=trmtobj.treatment_parentcode,session=len(arrtreatmentid))
-                    t.save()
+                if trmtobj.status == "Open":  
+                    search_ids = TmpTreatmentSession.objects.filter(treatment_parentcode=trmtobj.treatment_parentcode,
+                    created_at=date.today()) 
+                    if not search_ids:
+                        t = TmpTreatmentSession(treatment_parentcode=trmtobj.treatment_parentcode,session=len(arrtreatmentid))
+                        t.save()
             
 
 
@@ -5234,17 +5247,32 @@ class ReversalListViewset(viewsets.ModelViewSet):
                         stptopen_ids = Treatment.objects.filter(treatment_parentcode=treat_obj.treatment_parentcode,status="Open").order_by('pk').count()
                         
                         trmtAccObj = TreatmentAccount.objects.filter(treatment_parentcode=treat_obj.treatment_parentcode).order_by('-sa_date','-sa_time','-id').first()
-                        treatmids = list(Treatment.objects.filter(
-                        treatment_parentcode=treat_obj.treatment_parentcode,status="Open").only('pk').order_by('pk').values_list('pk', flat=True).distinct())
-                        
+                      
                         searcids.open_session = stptopen_ids
                         searcids.done_session = stptdone_ids
                         searcids.cancel_session = stptcancel_ids
 
                         searcids.balance = "{:.2f}".format(float(trmtAccObj.balance)) 
                         searcids.outstanding = "{:.2f}".format(float(trmtAccObj.outstanding))
-                        searcids.treatmentids = treatmids
+                        # searcids.treatmentids = treatmids
                         searcids.save()
+                        treatmids = list(set(Treatment.objects.filter(
+                        treatment_parentcode=treat_obj.treatment_parentcode).filter(~Q(status="Open")).only('pk').order_by('pk').values_list('pk', flat=True).distinct()))
+
+                        Treatmentids.objects.filter(treatment_parentcode=treat_obj.treatment_parentcode,
+                        treatment_int__in=treatmids).delete()
+
+                        p_ids = list(set(Treatmentids.objects.filter(treatment_parentcode=treat_obj.treatment_parentcode).values_list('treatment_int', flat=True).distinct()))
+                        op_ids = list(Treatment.objects.filter(
+                        treatment_parentcode=treat_obj.treatment_parentcode).filter(Q(status="Open"),~Q(pk__in=p_ids)).only('pk').order_by('pk').values_list('pk', flat=True).distinct())
+                        if op_ids:
+                            for j in op_ids:
+                                stf_ids = Treatmentids.objects.filter(treatment_int=j)
+                                if not stf_ids: 
+                                    Treatmentids(treatment_parentcode=treat_obj.treatment_parentcode,
+                                                treatment_int=j).save()
+        
+                
             
                 if lst != [] and trm_lst != []:
                     title = Title.objects.filter(product_license=site.itemsite_code).first()
@@ -6056,7 +6084,7 @@ class VoidViewset(viewsets.ModelViewSet):
                 
                      
                 finalsatrasc  = False
-                if haudobj.sa_transacno_type in ['Receipt','Non Sales']:
+                if haudobj.sa_transacno_type in ['Receipt','Non Sales','Redeem Service']:
                     for i in daud_ids:
                         if int(i.itemcart.itemcodeid.item_div) == 5:
                             if i.itemcart.type == 'Deposit':
@@ -6082,8 +6110,23 @@ class VoidViewset(viewsets.ModelViewSet):
                                 if void_hoids:
                                     p_msg = "Can't do void retail product line no {0} has hold item already voided".format(str(i.dt_lineno))
                                     raise Exception(p_msg)
+                        
+                        if int(i.itemcart.itemcodeid.item_div) == 3:
+                            if i.itemcart.type == 'Deposit':
+                                
+                                ihelper_ids = list(set(ItemHelper.objects.filter(helper_transacno=haudobj.sa_transacno,
+                                line_no=i.dt_lineno).values_list('item_code', flat=True).distinct()))
+                                # print(ihelper_ids,"ihelper_ids")
+                                donetreatids = Treatment.objects.filter(sa_transacno=haudobj.sa_transacno,
+                                cust_code=haudobj.sa_custno,status='Done',dt_lineno=i.dt_lineno).filter(~Q(treatment_code__in=ihelper_ids))
+                                # print(donetreatids,"donetreatids")
+                                if donetreatids:
+                                    p_msg = "Can't do void Service line no {0} has Treatment Redeem Done status".format(str(i.dt_lineno))
+                                    raise Exception(p_msg)
 
-                       
+
+
+
                     # print(sa_transacno,"sa_transacno")
                     for t in taud_ids:
                           
@@ -6285,7 +6328,21 @@ class VoidViewset(viewsets.ModelViewSet):
                             if d.itemcart.type == 'Deposit':
                                 donetreat_ids = Treatment.objects.filter(sa_transacno=haudobj.sa_transacno,
                                 cust_code=haudobj.sa_custno,status='Done',dt_lineno=d.dt_lineno)
-                                for treat_obj in donetreat_ids:    
+                                for treat_obj in donetreat_ids:   
+
+                                    ihelper_ids = ItemHelper.objects.filter(helper_transacno=haudobj.sa_transacno,
+                                    item_code=treat_obj.treatment_code)
+                                    for hlp in ihelper_ids:
+                                        itmp = ItemHelper(item_code=hlp.item_code,item_name=hlp.item_name,line_no=hlp.line_no,
+                                        sa_transacno=hlp.sa_transacno,amount=-hlp.amount,helper_name=hlp.helper_name,
+                                        helper_code=hlp.helper_code,site_code=hlp.site_code,share_amt=-hlp.share_amt,
+                                        helper_transacno=sa_transacno,system_remark=hlp.system_remark,
+                                        wp1=hlp.wp1,wp2=hlp.wp2,wp3=hlp.wp3,td_type_code=hlp.td_type_code,
+                                        td_type_short_desc=hlp.td_type_short_desc,times=hlp.times,
+                                        treatment_no=hlp.treatment_no)
+                                        itmp.save()
+                                        ItemHelper.objects.filter(id=itmp.id).update(sa_date= date.today())
+                                       
 
                                     # accids = TreatmentAccount.objects.filter(ref_transacno=treat_obj.sa_transacno,
                                     # treatment_parentcode=treat_obj.treatment_parentcode,site_code=site.itemsite_code,ref_no=treat_obj.treatment_code,
@@ -6397,9 +6454,7 @@ class VoidViewset(viewsets.ModelViewSet):
                                                 stptopen_ids = Treatment.objects.filter(treatment_parentcode=p,status="Open").order_by('pk').count()
                                                 
                                                 trmtAccObj = TreatmentAccount.objects.filter(treatment_parentcode=p).order_by('-sa_date','-sa_time','-id').first()
-                                                treatmids = list(Treatment.objects.filter(
-                                                treatment_parentcode=p,status="Open").only('pk').order_by('pk').values_list('pk', flat=True).distinct())
-                                                
+                                              
                                                 
                                                 searc_ids.open_session = stptopen_ids
                                                 searc_ids.done_session = stptdone_ids
@@ -6407,8 +6462,25 @@ class VoidViewset(viewsets.ModelViewSet):
                                                 
                                                 searc_ids.balance = "{:.2f}".format(float(trmtAccObj.balance)) 
                                                 searc_ids.outstanding = "{:.2f}".format(float(trmtAccObj.outstanding))
-                                                searc_ids.treatmentids = treatmids
+                                                # searc_ids.treatmentids = treatmids
                                                 searc_ids.save()
+                                                treatmids = list(set(Treatment.objects.filter(
+                                                treatment_parentcode=p).filter(~Q(status="Open")).only('pk').order_by('pk').values_list('pk', flat=True).distinct()))
+
+                                                Treatmentids.objects.filter(treatment_parentcode=p,
+                                                treatment_int__in=treatmids).delete()
+                                                
+                                                p_ids = list(set(Treatmentids.objects.filter(treatment_parentcode=p).values_list('treatment_int', flat=True).distinct()))
+                                                op_ids = list(Treatment.objects.filter(
+                                                treatment_parentcode=p).filter(Q(status="Open"),~Q(pk__in=p_ids)).only('pk').order_by('pk').values_list('pk', flat=True).distinct())
+                                                if op_ids:
+                                                    for j in op_ids:
+                                                        stf_ids = Treatmentids.objects.filter(treatment_int=j)
+                                                        if not stf_ids: 
+                                                            Treatmentids(treatment_parentcode=p,
+                                                                        treatment_int=j).save()
+                           
+                
      
 
                                 if d.dt_itemnoid.item_type == 'PACKAGE':
@@ -6743,6 +6815,12 @@ class VoidViewset(viewsets.ModelViewSet):
                                                             treatids.save()
                                                             treatids.treatment_date = date.today()
                                                             treatids.save()
+                                                            if treatids:
+                                                                stfd_ids = Treatmentids.objects.filter(treatment_int=treatids.pk)
+                                                                if not stfd_ids: 
+                                                                    t_id =  Treatmentids(treatment_parentcode=ct.treatment_parentcode,
+                                                                    treatment_int=treatids.pk).save()
+                                                    
 
                                        
                                     
@@ -6751,8 +6829,6 @@ class VoidViewset(viewsets.ModelViewSet):
                                         stptopen_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Open").order_by('pk').count()
                                         
                                         trmtAccObj = TreatmentAccount.objects.filter(treatment_parentcode=ct.treatment_parentcode).order_by('-sa_date','-sa_time','-id').first()
-                                        treatmids = list(Treatment.objects.filter(
-                                        treatment_parentcode=ct.treatment_parentcode,status="Open").only('pk').order_by('pk').values_list('pk', flat=True).distinct())
                                         
                                         
                                         searcids.open_session = stptopen_ids
@@ -6761,8 +6837,25 @@ class VoidViewset(viewsets.ModelViewSet):
 
                                         searcids.balance = "{:.2f}".format(float(trmtAccObj.balance)) 
                                         searcids.outstanding = "{:.2f}".format(float(trmtAccObj.outstanding))
-                                        searcids.treatmentids = treatmids
+                                        # searcids.treatmentids = treatmids
                                         searcids.save()
+                                        treatmids = list(set(Treatment.objects.filter(
+                                        treatment_parentcode=ct.treatment_parentcode).filter(~Q(status="Open")).only('pk').order_by('pk').values_list('pk', flat=True).distinct()))
+
+                                        Treatmentids.objects.filter(treatment_parentcode=ct.treatment_parentcode,
+                                        treatment_int__in=treatmids).delete() 
+
+                                        p_ids = list(set(Treatmentids.objects.filter(treatment_parentcode=ct.treatment_parentcode).values_list('treatment_int', flat=True).distinct()))
+                                        op_ids = list(Treatment.objects.filter(
+                                        treatment_parentcode=ct.treatment_parentcode).filter(Q(status="Open"),~Q(pk__in=p_ids)).only('pk').order_by('pk').values_list('pk', flat=True).distinct())
+                                        if op_ids:
+                                            for j in op_ids:
+                                                stf_ids = Treatmentids.objects.filter(treatment_int=j)
+                                                if not stf_ids: 
+                                                    Treatmentids(treatment_parentcode=ct.treatment_parentcode,
+                                                                treatment_int=j).save()
+                    
+        
   
 
                                 
@@ -7395,6 +7488,13 @@ class VoidViewset(viewsets.ModelViewSet):
                                                             treatids.save()
                                                             treatids.treatment_date = date.today()
                                                             treatids.save()
+                                                            if treatids:
+                                                                stfdids = Treatmentids.objects.filter(treatment_int=treatids.pk)
+                                                                if not stfdids: 
+                                                                    t_id =  Treatmentids(treatment_parentcode=ct.treatment_parentcode,
+                                                                    treatment_int=treatids.pk).save()
+                                                    
+                                                            
                                                 
 
                                         stptdone_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Done").order_by('pk').count()
@@ -7402,17 +7502,32 @@ class VoidViewset(viewsets.ModelViewSet):
                                         stptopen_ids = Treatment.objects.filter(treatment_parentcode=ct.treatment_parentcode,status="Open").order_by('pk').count()
                                         
                                         trmtAccObj = TreatmentAccount.objects.filter(treatment_parentcode=ct.treatment_parentcode).order_by('-sa_date','-sa_time','-id').first()
-                                        treatmids = list(Treatment.objects.filter(
-                                        treatment_parentcode=ct.treatment_parentcode,status="Open").only('pk').order_by('pk').values_list('pk', flat=True).distinct())
-                  
+                                       
                                         
                                         searcids.open_session = stptopen_ids
                                         searcids.done_session = stptdone_ids
                                         searcids.cancel_session = stptcancel_ids
                                         searcids.balance = "{:.2f}".format(float(trmtAccObj.balance)) 
                                         searcids.outstanding = "{:.2f}".format(float(trmtAccObj.outstanding))
-                                        searcids.treatmentids = treatmids
+                                        # searcids.treatmentids = treatmids
                                         searcids.save()
+                                        treatmids = list(set(Treatment.objects.filter(
+                                        treatment_parentcode=ct.treatment_parentcode).filter(~Q(status="Open")).only('pk').order_by('pk').values_list('pk', flat=True).distinct()))
+
+                                        Treatmentids.objects.filter(treatment_parentcode=ct.treatment_parentcode,
+                                        treatment_int__in=treatmids).delete() 
+
+                                        p_ids = list(set(Treatmentids.objects.filter(treatment_parentcode=ct.treatment_parentcode).values_list('treatment_int', flat=True).distinct()))
+                                        op_ids = list(Treatment.objects.filter(
+                                        treatment_parentcode=ct.treatment_parentcode).filter(Q(status="Open"),~Q(pk__in=p_ids)).only('pk').order_by('pk').values_list('pk', flat=True).distinct())
+                                        if op_ids:
+                                            for j in op_ids:
+                                                stf_ids = Treatmentids.objects.filter(treatment_int=j)
+                                                if not stf_ids: 
+                                                    Treatmentids(treatment_parentcode=ct.treatment_parentcode,
+                                                                treatment_int=j).save()
+                     
+        
                                 
                                
                     

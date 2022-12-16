@@ -6,7 +6,8 @@ from cl_table.models import (Customer, PosDaud,PosHaud)
 class WebConsultationHdrSerializer(serializers.ModelSerializer):
     
     doc_date = serializers.DateTimeField(format="%d-%m-%Y",required=False)
-    updated_at = serializers.DateTimeField(format="%d-%m-%Y",required=False)
+    updated_at = serializers.DateTimeField(format="%d-%m-%Y %H:%M:%S",required=False)
+    consultant_name = serializers.CharField(source='emp_codeid.display_name',required=False)
 
     class Meta:
         model = WebConsultation_Hdr

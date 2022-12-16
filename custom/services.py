@@ -15,7 +15,7 @@ from io import BytesIO
 from pyvirtualdisplay import Display
 from Cl_beautesoft import settings
 from cl_table.models import (GstSetting,PosTaud,PosDaud,PosHaud,Fmspw,Title,PackageDtl,PackageHdr,Treatment,
-TreatmentAccount,DepositAccount,PrepaidAccount,TemplateSettings,CreditNote,Tempcustsign,Systemsetup)
+TreatmentAccount,DepositAccount,PrepaidAccount,TemplateSettings,CreditNote,Tempcustsign,Systemsetup,TreatmentPackage)
 from custom.models import ItemCart, RoundSales,VoucherRecord
 from cl_table.serializers import PosdaudSerializer
 from Cl_beautesoft.settings import BASE_DIR , SITE_ROOT
@@ -144,6 +144,34 @@ def round_calc(value):
 #     'billable_amount': "{:.2f}".format(float(billable_amount)),'balance': "{:.2f}".format(float(balance)),
 #     'total_balance': "{:.2f}".format(float(total_balance)),'total_qty':total_qty}
 #     return value
+
+def customer_balanceoutstanding(self,request,cust_code):
+    treatment_openids = TreatmentPackage.objects.filter(cust_code=cust_code,
+                open_session__gt=0).order_by('-pk').aggregate(balance=Coalesce(Sum('balance'), 0),outstanding=Coalesce(Sum('outstanding'), 0),
+                qty=Coalesce(Sum('open_session'), 0))
+    # print(treatment_openids,"treatment_openids")
+    pre_acc_ids = PrepaidAccount.objects.filter(cust_code=cust_code,status=True,remain__gt=0
+    ).order_by('-pk').aggregate(balance=Coalesce(Sum('remain'), 0),qty=Coalesce(Count('id'), 0),outstanding=Coalesce(Sum('outstanding'), 0))
+    # print(pre_acc_ids,"pre_acc_ids")
+    pr_outstanding = 0
+    pqueryset = DepositAccount.objects.filter(cust_code=cust_code, type='Deposit').order_by('pk')
+    # print(pqueryset,"pqueryset")
+    if pqueryset:
+        for pq in pqueryset:
+            pacc_ids = DepositAccount.objects.filter(ref_transacno=pq.sa_transacno,
+            ref_productcode=pq.treat_code).order_by('-sa_date','-sa_time','-id').first()
+            if pacc_ids and pacc_ids.outstanding:
+                pr_outstanding += pacc_ids.outstanding
+    # print(pr_outstanding,"pr_outstanding")
+    tot_outstanding = treatment_openids['outstanding'] + pre_acc_ids['outstanding'] + pr_outstanding
+    val = {'treatment_bal': treatment_openids['balance'],
+    'treatment_qty': treatment_openids['qty'],
+    'treatment_outstanding': treatment_openids['outstanding'],
+    'prepaid_bal': pre_acc_ids['balance'], 'prepaid_qty': pre_acc_ids['qty'],
+    'prepaid_outstanding': pre_acc_ids['outstanding'],'tot_outstanding': tot_outstanding}
+    return val
+                    
+ 
 
 
 def GeneratePDF(self,request, sa_transacno):
@@ -323,10 +351,11 @@ def GeneratePDF(self,request, sa_transacno):
         credit_amt = "0.00"  
     # print(credit,"credit") 
     custsign_ids = Tempcustsign.objects.filter(transaction_no=sa_transacno).order_by("-pk").first()
-
+    # print(custsign_ids,"custsign_ids") 
     path_custsign = None
     if custsign_ids and custsign_ids.cust_sig:
         path_custsign = BASE_DIR + custsign_ids.cust_sig.url
+        # path_custsign =  str(SITE_ROOT)+str(custsign_ids.cust_sig)
     # print(path_custsign,"path_custsign")
 
     prepaid_lst = []
@@ -400,7 +429,8 @@ def GeneratePDF(self,request, sa_transacno):
             cval = {'creditnote_no':ce.credit_code,'balance':"{:.2f}".format(ce.balance) if ce.balance else "0.00"}
             creditlst.append(cval)
 
-
+    custbal = customer_balanceoutstanding(self,request, hdr[0].sa_custno)
+    # print(custbal,"custbal")
     # print(treatopen_ids,"treatopen_ids")
     data = {'name': title.trans_h1 if title and title.trans_h1 else '', 
     'address': title.trans_h2 if title and title.trans_h2 else '', 
@@ -426,6 +456,7 @@ def GeneratePDF(self,request, sa_transacno):
     'voucher_lst':voucher_lst,'voucherbal':voucherbal,
     }
     data.update(sub_data)
+    data.update(custbal)
     if site.inv_templatename:
         template = get_template(site.inv_templatename)
     else:

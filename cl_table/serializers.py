@@ -1511,7 +1511,16 @@ class PayGroupSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = PayGroup
-        fields = ['id','pay_group_code','picturelocation']        
+        fields = ['id','pay_group_code','picturelocation']      
+
+    def to_representation(self, instance):
+        data = super(PayGroupSerializer, self).to_representation(instance)
+        pic = ""
+        if instance.picturelocation:
+            pic = str(SITE_ROOT)+str(instance.picturelocation)
+        
+        data['picturelocation'] = pic
+        return data      
 
 class PaytableSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source='pk',required=False)
