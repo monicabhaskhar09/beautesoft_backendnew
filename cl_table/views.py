@@ -6096,7 +6096,9 @@ class StockListViewset(viewsets.ModelViewSet):
                 if not request.GET.get('search',None) is None:
                     queryset = queryset.filter(
                         Q(item_name__icontains=request.GET.get('search',None)) | Q(item_desc__icontains=request.GET.get('search',None))).order_by('item_seq')
-
+            
+            systemsetup_dur = Systemsetup.objects.filter(title='AppointmentServiceDurationAdd'
+            ,value_name='AppointmentServiceDurationAdd',isactive=True).first()
             # print(queryset,"queryset")
             if queryset:
                 serializer_class = StockListSerializer
@@ -6125,7 +6127,11 @@ class StockListViewset(viewsets.ModelViewSet):
                     # else:
                     #     stk_duration = int(stock_obj.srv_duration)
 
-                    stkduration = int(srvduration) + 30
+                    if systemsetup_dur and systemsetup_dur.value_data:     
+                        stkduration = int(srvduration) + int(systemsetup_dur.value_data)
+                    else:
+                        stkduration = int(srvduration)
+
                     # print(stkduration,"stkduration")
 
                     hrs = '{:02d}:{:02d}'.format(*divmod(stkduration, 60))
@@ -6155,7 +6161,8 @@ class StockListViewset(viewsets.ModelViewSet):
                 v['stock_id'] = ""
                 system_setup = Systemsetup.objects.filter(title='Stock Setting',value_name='Free Text',isactive=True).first()
                 if system_setup and system_setup.value_data:
-                    isstock_obj = Stock.objects.filter(pk=system_setup.value_data,item_isactive=True).order_by('item_seq').first()
+                    # isstock_obj = Stock.objects.filter(pk=system_setup.value_data,item_isactive=True).order_by('item_seq').first()
+                    isstock_obj = Stock.objects.filter(pk=system_setup.value_data).order_by('item_seq').first()
                     v['stock_id'] = isstock_obj.pk if isstock_obj else ""
                 return Response(result, status=status.HTTP_200_OK)   
             else:
@@ -6247,7 +6254,8 @@ class TreatmentApptAPI(generics.ListAPIView):
                             srvduration = int(stock.srv_duration) if stock.srv_duration else 60   
                     hrs = '{:02d}:{:02d}'.format(*divmod(srvduration, 60))        
 
-                    name = str(stock.item_name)+" "+str(row.treatment_parentcode) if stock and stock.item_name else "" 
+                    # name = str(stock.item_name)+" "+str(row.treatment_parentcode) if stock and stock.item_name else ""
+                    name = str(row.course)+" "+str(row.treatment_parentcode)  
                     unit_amount = "{:.2f}".format(float(row.unit_amount))
 
                     expiry = ""
@@ -12836,7 +12844,7 @@ class CustApptAPI(generics.ListAPIView):
             #queryset = Customer.objects.filter(cust_isactive=True,site_code=branch.itemsite_code).order_by('-pk')
             queryset = queryset.filter(Q(cust_name__icontains=q) | 
             Q(cust_email__icontains=q) | Q(cust_code__icontains=q) | Q(cust_phone2__icontains=q) | Q(cust_phone1__icontains=q) |
-            Q(cust_nric__icontains=q) | Q(cust_refer__icontains=q) )[:20]
+            Q(cust_nric__icontains=q) | Q(cust_refer__icontains=q) |  Q(cust_joindate__date__icontains=q))[:20]
         # else:
             #queryset = Customer.objects.filter(cust_isactive=True,site_code=branch.itemsite_code).order_by('-pk')
             # queryset = Customer.objects.filter(cust_isactive=True).order_by('-pk')[:20]
@@ -14664,59 +14672,108 @@ class DayEndListAPIView(generics.ListAPIView,generics.CreateAPIView):
                         deptlst.extend([dict(a) for a in td_daudids])
 
                         nonsaleslst.extend([{'desc': i['dept_sales'], 'qty': i['qty'], 'amount': "{:.2f}".format(i['amount'])}  for i in td_daudids])
-                        
 
-                    ser_daudids = PosDaud.objects.filter(itemsite_code=site.itemsite_code,sa_date__date=givendate,
-                    sa_transacno__in=given_haudids,dt_status="SA",record_detail_type__in=['SERVICE','TP SERVICE',
-                    'PREPAID','PACKAGE','TP PREPAID','VOUCHER']
-                    ).order_by('-pk')
-                    # print(ser_daudids,"ser_daudids")
-                    
-                    if ser_daudids:
-                        for ser in ser_daudids:
-                            if ser.record_detail_type == 'SERVICE':
-                                # print("iff")
-                                # print(ser.dt_deposit,"ser.dt_deposit")
-                                if ser.dt_qty > 1:
-                                    course_amt += ser.dt_deposit
-                                elif ser.dt_qty == 1:
-                                    single_amt += ser.dt_deposit
-
-                            elif ser.record_detail_type == 'TP SERVICE':
-                                # print("elif")
-                                ta_valacc_ids = TreatmentAccount.objects.filter(
-                                sa_transacno=ser.sa_transacno,
-                                dt_lineno=ser.dt_lineno,type='Top Up').order_by('-pk').first()
-                                # print(ta_valacc_ids.pk,"ta_valacc_ids")
-                                if ta_valacc_ids:
-                                    if ta_valacc_ids.ref_transacno:
-                                        # print(ta_valacc_ids.ref_transacno,"ta_valacc_ids.ref_transacno")
-                                        # daudtp_ids =  PosDaud.objects.filter(
-                                        # sa_transacno=ta_valacc_ids.ref_transacno,dt_status="SA",record_detail_type='SERVICE',
-                                        # ).order_by('-pk').first()
-                                        # print(daudtp_ids,"daudtp_ids")
-                                        depo_valacc_ids = TreatmentAccount.objects.filter(sa_transacno=ta_valacc_ids.ref_transacno,
-                                        type='Deposit',treatment_parentcode=ta_valacc_ids.treatment_parentcode).order_by('-pk').first()
-                                    
-                                        if depo_valacc_ids:
-                                            # print(depo_valacc_ids.qty," depo_valacc_ids.qty")
-                                            # print(ta_valacc_ids.amount,"ta_valacc_ids.amount")
-                                            if depo_valacc_ids.qty > 1:
-                                                course_amt += ta_valacc_ids.amount
-                                            elif depo_valacc_ids.qty == 1:
-                                                single_amt += ta_valacc_ids.amount
+                    for h in given_haudids:
+                        service_amount = 0 ; course_amount = 0
+                        service_daudids = PosDaud.objects.filter(itemsite_code=site.itemsite_code,sa_date__date=givendate,
+                        sa_transacno=h,dt_status="SA",record_detail_type__in=['SERVICE','PACKAGE']).order_by('-pk')
+                        # print(service_daudids,"service_daudids")
+                        if service_daudids:
+                            for sr in service_daudids:
+                                if sr.record_detail_type == 'SERVICE':
+                                    # print("iff")
+                                    # print(ser.dt_deposit,"ser.dt_deposit")
+                                    if sr.dt_qty > 1:
+                                        course_amount += sr.dt_deposit
+                                    elif sr.dt_qty == 1:
+                                        service_amount += sr.dt_deposit
+                                elif sr.record_detail_type == 'PACKAGE':
+                                    packhdrids = PackageHdr.objects.filter(code=sr.dt_itemno[:-4]).first()
+                                    if packhdrids:
+                                        packdtlids = PackageDtl.objects.filter(package_code=packhdrids.code,isactive=True)
+                                        if packdtlids:
+                                            for pad in packdtlids:
+                                                packdtlcode = str(pad.code)
+                                                itmcode = packdtlcode[:-4]
+                                                itm_stock = Stock.objects.filter(item_code=itmcode).first()
+                                                if itm_stock:
+                                                    pos_ids = PosPackagedeposit.objects.filter(sa_transacno=h,
+                                                    code=pad.code,dt_lineno=sr.dt_lineno).order_by('pk')
+                                                    if pos_ids:
+                                                        pos = pos_ids.first()
+                                                        pa_trasac = pos.price * pos.qty
+                                                        pa_deposit = pos.deposit_amt
+                                                        if int(itm_stock.item_div) == 3:
+                                                            if pos.qty > 1:
+                                                                course_amount += pos.deposit_amt
+                                                            elif pos.qty == 1:
+                                                                service_amount += pos.deposit_amt
                             
-                            elif ser.record_detail_type in ['PACKAGE','PREPAID','TP PREPAID']:
-                                if ser.dt_qty >= 1:
-                                    course_amt += ser.dt_deposit
-                            elif ser.record_detail_type == 'VOUCHER':
-                                if ser.dt_qty >= 1:
-                                    single_amt += ser.dt_deposit
+                            taud_sumids = PosTaud.objects.filter(sa_transacno=h,itemsite_code=site.itemsite_code).order_by('pk').aggregate(pay_amt=Coalesce(Sum('pay_amt'), 0))
+                            if taud_sumids and taud_sumids['pay_amt'] > 0:
+                                taudgt1_ids = PosTaud.objects.filter(sa_transacno=h,itemsite_code=site.itemsite_code,
+                                pay_type__in=gt1_lst).order_by('pk').aggregate(pay_amt=Coalesce(Sum('pay_amt'), 0))
+                                # print(daily_taud_salesids,"daily_taud_salesids")
+                                if taudgt1_ids and taudgt1_ids['pay_amt'] > 0:
+                                    serviceamount = (service_amount / taud_sumids['pay_amt']) * taudgt1_ids['pay_amt']
+                                    courseamount = (course_amount / taud_sumids['pay_amt']) * taudgt1_ids['pay_amt']
+                                    single_amt += serviceamount
+                                    course_amt += courseamount
+
+                    service_sales.append({'desc': 'Single', 'amount': "{:.2f}".format(single_amt)})
+                    service_sales.append({'desc': 'Course', 'amount': "{:.2f}".format(course_amt)})
+
+                    # ser_daudids = PosDaud.objects.filter(itemsite_code=site.itemsite_code,sa_date__date=givendate,
+                    # sa_transacno__in=given_haudids,dt_status="SA",record_detail_type__in=['SERVICE','TP SERVICE',
+                    # 'PREPAID','PACKAGE','TP PREPAID','VOUCHER']
+                    # ).order_by('-pk')
+                    # # print(ser_daudids,"ser_daudids")
+                    
+                    # if ser_daudids:
+                    #     for ser in ser_daudids:
+                    #         if ser.record_detail_type == 'SERVICE':
+                    #             # print("iff")
+                    #             # print(ser.dt_deposit,"ser.dt_deposit")
+                    #             if ser.dt_qty > 1:
+                    #                 course_amt += ser.dt_deposit
+                    #             elif ser.dt_qty == 1:
+                    #                 single_amt += ser.dt_deposit
+
+                    #         elif ser.record_detail_type == 'TP SERVICE':
+                    #             # print("elif")
+                    #             ta_valacc_ids = TreatmentAccount.objects.filter(
+                    #             sa_transacno=ser.sa_transacno,
+                    #             dt_lineno=ser.dt_lineno,type='Top Up').order_by('-pk').first()
+                    #             # print(ta_valacc_ids.pk,"ta_valacc_ids")
+                    #             if ta_valacc_ids:
+                    #                 if ta_valacc_ids.ref_transacno:
+                    #                     # print(ta_valacc_ids.ref_transacno,"ta_valacc_ids.ref_transacno")
+                    #                     # daudtp_ids =  PosDaud.objects.filter(
+                    #                     # sa_transacno=ta_valacc_ids.ref_transacno,dt_status="SA",record_detail_type='SERVICE',
+                    #                     # ).order_by('-pk').first()
+                    #                     # print(daudtp_ids,"daudtp_ids")
+                    #                     depo_valacc_ids = TreatmentAccount.objects.filter(sa_transacno=ta_valacc_ids.ref_transacno,
+                    #                     type='Deposit',treatment_parentcode=ta_valacc_ids.treatment_parentcode).order_by('-pk').first()
+                                    
+                    #                     if depo_valacc_ids:
+                    #                         # print(depo_valacc_ids.qty," depo_valacc_ids.qty")
+                    #                         # print(ta_valacc_ids.amount,"ta_valacc_ids.amount")
+                    #                         if depo_valacc_ids.qty > 1:
+                    #                             course_amt += ta_valacc_ids.amount
+                    #                         elif depo_valacc_ids.qty == 1:
+                    #                             single_amt += ta_valacc_ids.amount
+                            
+                    #         elif ser.record_detail_type in ['PACKAGE','PREPAID','TP PREPAID']:
+                    #             if ser.dt_qty >= 1:
+                    #                 course_amt += ser.dt_deposit
+                    #         elif ser.record_detail_type == 'VOUCHER':
+                    #             if ser.dt_qty >= 1:
+                    #                 single_amt += ser.dt_deposit
 
         
 
-                        service_sales.append({'desc': 'Single', 'amount': "{:.2f}".format(single_amt)})
-                        service_sales.append({'desc': 'Course', 'amount': "{:.2f}".format(course_amt)})
+                    #     service_sales.append({'desc': 'Single', 'amount': "{:.2f}".format(single_amt)})
+                    #     service_sales.append({'desc': 'Course', 'amount': "{:.2f}".format(course_amt)})
 
                 sase_amount =  "{:.2f}".format(float(sum([float(i['amount']) for i in service_sales])))
 
@@ -14940,10 +14997,11 @@ class DayEndListAPIView(generics.ListAPIView,generics.CreateAPIView):
                     # msg.attach(dst,p,'application/pdf')
                     msg.attach(ip_link,'application/pdf')
                     msg.send()
-                    response = HttpResponse(p,content_type='application/pdf')
+                    print(ip_link,"ip_link")
+                    response = HttpResponse(ip_link,content_type='application/pdf')
                     response['Content-Disposition'] = 'attachment; filename="DayEnd Report.pdf"'
                     result = {'status': status.HTTP_200_OK,"message":"Email sent succesfully",'error': False}
-                    display.stop()
+                    # display.stop()
                     return Response(data=result, status=status.HTTP_200_OK)            
     
         except Exception as e:
@@ -15394,59 +15452,109 @@ class DayEndListAPIView(generics.ListAPIView,generics.CreateAPIView):
                             deptlst.extend([dict(a) for a in td_daudids])
 
                             nonsaleslst.extend([{'desc': i['dept_sales'], 'qty': i['qty'], 'amount': "{:.2f}".format(i['amount'])}  for i in td_daudids])
-                            
 
-                        ser_daudids = PosDaud.objects.filter(itemsite_code=site.itemsite_code,sa_date__date=givendate,
-                        sa_transacno__in=given_haudids,dt_status="SA",record_detail_type__in=['SERVICE','TP SERVICE',
-                        'PREPAID','PACKAGE','TP PREPAID','VOUCHER']
-                        ).order_by('-pk')
-                        # print(ser_daudids,"ser_daudids")
-                        
-                        if ser_daudids:
-                            for ser in ser_daudids:
-                                if ser.record_detail_type == 'SERVICE':
-                                    # print("iff")
-                                    # print(ser.dt_deposit,"ser.dt_deposit")
-                                    if ser.dt_qty > 1:
-                                        course_amt += ser.dt_deposit
-                                    elif ser.dt_qty == 1:
-                                        single_amt += ser.dt_deposit
-
-                                elif ser.record_detail_type == 'TP SERVICE':
-                                    # print("elif")
-                                    ta_valacc_ids = TreatmentAccount.objects.filter(
-                                    sa_transacno=ser.sa_transacno,
-                                    dt_lineno=ser.dt_lineno,type='Top Up').order_by('-pk').first()
-                                    # print(ta_valacc_ids.pk,"ta_valacc_ids")
-                                    if ta_valacc_ids:
-                                        if ta_valacc_ids.ref_transacno:
-                                            # print(ta_valacc_ids.ref_transacno,"ta_valacc_ids.ref_transacno")
-                                            # daudtp_ids =  PosDaud.objects.filter(
-                                            # sa_transacno=ta_valacc_ids.ref_transacno,dt_status="SA",record_detail_type='SERVICE',
-                                            # ).order_by('-pk').first()
-                                            # print(daudtp_ids,"daudtp_ids")
-                                            depo_valacc_ids = TreatmentAccount.objects.filter(sa_transacno=ta_valacc_ids.ref_transacno,
-                                            type='Deposit',treatment_parentcode=ta_valacc_ids.treatment_parentcode).order_by('-pk').first()
-                                        
-                                            if depo_valacc_ids:
-                                                # print(depo_valacc_ids.qty," depo_valacc_ids.qty")
-                                                # print(ta_valacc_ids.amount,"ta_valacc_ids.amount")
-                                                if depo_valacc_ids.qty > 1:
-                                                    course_amt += ta_valacc_ids.amount
-                                                elif depo_valacc_ids.qty == 1:
-                                                    single_amt += ta_valacc_ids.amount
+                        for h in given_haudids:
+                            service_amount = 0 ; course_amount = 0
+                            service_daudids = PosDaud.objects.filter(itemsite_code=site.itemsite_code,sa_date__date=givendate,
+                            sa_transacno=h,dt_status="SA",record_detail_type__in=['SERVICE','PACKAGE']).order_by('-pk')
+                            # print(service_daudids,"service_daudids")
+                            if service_daudids:
+                                for sr in service_daudids:
+                                    if sr.record_detail_type == 'SERVICE':
+                                        # print("iff")
+                                        # print(ser.dt_deposit,"ser.dt_deposit")
+                                        if sr.dt_qty > 1:
+                                            course_amount += sr.dt_deposit
+                                        elif sr.dt_qty == 1:
+                                            service_amount += sr.dt_deposit
+                                    elif sr.record_detail_type == 'PACKAGE':
+                                        packhdrids = PackageHdr.objects.filter(code=sr.dt_itemno[:-4]).first()
+                                        if packhdrids:
+                                            packdtlids = PackageDtl.objects.filter(package_code=packhdrids.code,isactive=True)
+                                            if packdtlids:
+                                                for pad in packdtlids:
+                                                    packdtlcode = str(pad.code)
+                                                    itmcode = packdtlcode[:-4]
+                                                    itm_stock = Stock.objects.filter(item_code=itmcode).first()
+                                                    if itm_stock:
+                                                        pos_ids = PosPackagedeposit.objects.filter(sa_transacno=h,
+                                                        code=pad.code,dt_lineno=sr.dt_lineno).order_by('pk')
+                                                        if pos_ids:
+                                                            p = pos_ids.first()
+                                                            pa_trasac = p.price * p.qty
+                                                            pa_deposit = p.deposit_amt
+                                                            if int(itm_stock.item_div) == 3:
+                                                                if p.qty > 1:
+                                                                    course_amount += p.deposit_amt
+                                                                elif p.qty == 1:
+                                                                    service_amount += p.deposit_amt
                                 
-                                elif ser.record_detail_type in ['PACKAGE','PREPAID','TP PREPAID']:
-                                    if ser.dt_qty >= 1:
-                                        course_amt += ser.dt_deposit
-                                elif ser.record_detail_type == 'VOUCHER':
-                                    if ser.dt_qty >= 1:
-                                        single_amt += ser.dt_deposit
+                                taud_sumids = PosTaud.objects.filter(sa_transacno=h,itemsite_code=site.itemsite_code).order_by('pk').aggregate(pay_amt=Coalesce(Sum('pay_amt'), 0))
+                                if taud_sumids and taud_sumids['pay_amt'] > 0:
+                                    taudgt1_ids = PosTaud.objects.filter(sa_transacno=h,itemsite_code=site.itemsite_code,
+                                    pay_type__in=gt1_lst).order_by('pk').aggregate(pay_amt=Coalesce(Sum('pay_amt'), 0))
+                                    # print(daily_taud_salesids,"daily_taud_salesids")
+                                    if taudgt1_ids and taudgt1_ids['pay_amt'] > 0:
+                                        serviceamount = (service_amount / taud_sumids['pay_amt']) * taudgt1_ids['pay_amt']
+                                        courseamount = (course_amount / taud_sumids['pay_amt']) * taudgt1_ids['pay_amt']
+                                        single_amt += serviceamount
+                                        course_amt += courseamount
+
+                        service_sales.append({'desc': 'Single', 'amount': "{:.2f}".format(single_amt)})
+                        service_sales.append({'desc': 'Course', 'amount': "{:.2f}".format(course_amt)})
+        
+
+                        # ser_daudids = PosDaud.objects.filter(itemsite_code=site.itemsite_code,sa_date__date=givendate,
+                        # sa_transacno__in=given_haudids,dt_status="SA",record_detail_type__in=['SERVICE','TP SERVICE',
+                        # 'PREPAID','PACKAGE','TP PREPAID','VOUCHER']
+                        # ).order_by('-pk')
+                        # # print(ser_daudids,"ser_daudids")
+                        
+                        # if ser_daudids:
+                        #     for ser in ser_daudids:
+                        #         if ser.record_detail_type == 'SERVICE':
+                        #             # print("iff")
+                        #             # print(ser.dt_deposit,"ser.dt_deposit")
+                        #             if ser.dt_qty > 1:
+                        #                 course_amt += ser.dt_deposit
+                        #             elif ser.dt_qty == 1:
+                        #                 single_amt += ser.dt_deposit
+
+                        #         elif ser.record_detail_type == 'TP SERVICE':
+                        #             # print("elif")
+                        #             ta_valacc_ids = TreatmentAccount.objects.filter(
+                        #             sa_transacno=ser.sa_transacno,
+                        #             dt_lineno=ser.dt_lineno,type='Top Up').order_by('-pk').first()
+                        #             # print(ta_valacc_ids.pk,"ta_valacc_ids")
+                        #             if ta_valacc_ids:
+                        #                 if ta_valacc_ids.ref_transacno:
+                        #                     # print(ta_valacc_ids.ref_transacno,"ta_valacc_ids.ref_transacno")
+                        #                     # daudtp_ids =  PosDaud.objects.filter(
+                        #                     # sa_transacno=ta_valacc_ids.ref_transacno,dt_status="SA",record_detail_type='SERVICE',
+                        #                     # ).order_by('-pk').first()
+                        #                     # print(daudtp_ids,"daudtp_ids")
+                        #                     depo_valacc_ids = TreatmentAccount.objects.filter(sa_transacno=ta_valacc_ids.ref_transacno,
+                        #                     type='Deposit',treatment_parentcode=ta_valacc_ids.treatment_parentcode).order_by('-pk').first()
+                                        
+                        #                     if depo_valacc_ids:
+                        #                         # print(depo_valacc_ids.qty," depo_valacc_ids.qty")
+                        #                         # print(ta_valacc_ids.amount,"ta_valacc_ids.amount")
+                        #                         if depo_valacc_ids.qty > 1:
+                        #                             course_amt += ta_valacc_ids.amount
+                        #                         elif depo_valacc_ids.qty == 1:
+                        #                             single_amt += ta_valacc_ids.amount
+                                
+                        #         elif ser.record_detail_type in ['PACKAGE','PREPAID','TP PREPAID']:
+                        #             if ser.dt_qty >= 1:
+                        #                 course_amt += ser.dt_deposit
+                        #         elif ser.record_detail_type == 'VOUCHER':
+                        #             if ser.dt_qty >= 1:
+                        #                 single_amt += ser.dt_deposit
 
             
 
-                            service_sales.append({'desc': 'Single', 'amount': "{:.2f}".format(single_amt)})
-                            service_sales.append({'desc': 'Course', 'amount': "{:.2f}".format(course_amt)})
+                        #     service_sales.append({'desc': 'Single', 'amount': "{:.2f}".format(single_amt)})
+                        #     service_sales.append({'desc': 'Course', 'amount': "{:.2f}".format(course_amt)})
 
                     sase_amount =  "{:.2f}".format(float(sum([float(i['amount']) for i in service_sales])))
 
@@ -20201,6 +20309,14 @@ class PdfSave(APIView):
         try:
             if request.method=="POST":
                 f=request.FILES['pdf']
+                name = request.FILES['pdf'].name
+               
+
+                file_path = os.path.join(settings.PDF_ROOT, name)
+                report = os.path.isfile(file_path)
+                if report: 
+                    d = os.remove(os.path.join(settings.PDF_ROOT, name)) 
+
                 fs=FileSystemStorage(location=settings.PDF_ROOT)
                 file_=fs.save(str(f),f)
             
@@ -20211,6 +20327,60 @@ class PdfSave(APIView):
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)
+
+class customerinvoicetemplateupload(APIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only] 
+
+    @csrf_exempt
+    def post(self,request):
+        try:
+            if request.method=="POST":
+                if not 'siteid' in request.data or not request.data['siteid']:
+                    raise Exception('Please give siteid!!.')
+
+                if not 'template_name' in request.data or not request.data['template_name']:
+                    raise Exception('Please give template name!!.') 
+
+                if not 'file' in request.data or not request.FILES['file']:
+                    raise Exception('Please give template file!!.') 
+       
+                siteid = request.data.get('siteid',[]).split(',')
+                # print(siteid,"siteid")
+                site_ids = ItemSitelist.objects.filter(pk__in=siteid
+                ,itemsite_isactive=True)
+                # print(site_ids,"site_ids")
+                if not site_ids:  
+                    raise Exception('Selected Site IDs does not exist!!.') 
+
+                folder = os.path.join(BASE_DIR, 'custom/templates')
+                # print(folder,"folder")
+                f=request.FILES['file']
+                name = request.FILES['file'].name
+               
+
+                file_path = os.path.join(BASE_DIR, 'custom/templates', name)
+                # print(file_path,"file_path")
+                report = os.path.isfile(file_path)
+                if report: 
+                    d = os.remove(os.path.join(BASE_DIR, 'custom/templates', name)) 
+
+                fs=FileSystemStorage(location=folder)
+                file_=fs.save(str(f),f)
+                if site_ids:
+                    for j in site_ids:
+                        j.inv_templatename = request.data['template_name']
+                        j.save()
+            
+                result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",'error': False}
+                return Response(result, status=status.HTTP_200_OK)
+            else:
+                raise Exception('POST Method only allowed!!')   
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+
+
 
 
 class CustomerPointsViewsets(viewsets.ModelViewSet):

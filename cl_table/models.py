@@ -539,7 +539,7 @@ class Treatmentids(models.Model):
 class Tmptreatment(models.Model):
     sys_code = models.AutoField(db_column='Sys_Code', primary_key=True)  # Field name made lowercase.
     treatment_code = models.CharField(db_column='Treatment_Code', max_length=20, blank=True, null=True)  # Field name made lowercase.
-    course = models.CharField(db_column='Course', max_length=80, blank=True, null=True)  # Field name made lowercase.
+    course = models.CharField(db_column='Course', max_length=280, blank=True, null=True)  # Field name made lowercase.
     times = models.CharField(db_column='Times', max_length=10, blank=True, null=True)  # Field name made lowercase.
     treatment_no = models.CharField(db_column='Treatment_No', max_length=10, blank=True, null=True)  # Field name made lowercase.
     price = models.FloatField(db_column='Price', blank=True, null=True)  # Field name made lowercase.

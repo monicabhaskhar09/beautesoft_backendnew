@@ -2829,6 +2829,10 @@ class TreatmentDoneNewViewset(viewsets.ModelViewSet):
             def_setup = Systemsetup.objects.filter(title='Default TD List Years Ago',
             value_name='Default TD List Years Ago',isactive=True).first()
 
+            flexirev_setup = Systemsetup.objects.filter(title='FlexiRedeemAllowReversal',
+            value_name='FlexiRedeemAllowReversal',isactive=True).first()
+
+
             current_year = date.today().year
             
             queryset = TreatmentPackage.objects.none()
@@ -2859,6 +2863,22 @@ class TreatmentDoneNewViewset(viewsets.ModelViewSet):
                 elif year == "All":
                     queryset = TreatmentPackage.objects.filter(cust_code=cust_obj.cust_code,
                     open_session__gt=0).filter(Q(expiry_date__date__gte=date.today()) | Q(expiry_date__isnull=True)).order_by('-pk')
+            
+            q = self.request.GET.get('search',None)
+            if q:
+                queryset = TreatmentPackage.objects.filter(cust_code=cust_obj.cust_code,
+                open_session__gt=0).filter(Q(course__icontains=q)).filter(Q(expiry_date__date__gte=date.today()) | Q(expiry_date__isnull=True)).order_by('-pk')
+            
+            purchase_date = self.request.GET.get('purchase_date',None)
+            if purchase_date and q:
+                queryset = TreatmentPackage.objects.filter(cust_code=cust_obj.cust_code,
+                open_session__gt=0,treatment_date__date=purchase_date).filter(Q(course__icontains=q)).filter(Q(expiry_date__date__gte=date.today()) | Q(expiry_date__isnull=True)).order_by('-pk')
+            elif purchase_date:
+                queryset = TreatmentPackage.objects.filter(cust_code=cust_obj.cust_code,
+                open_session__gt=0,treatment_date__date=purchase_date).filter(Q(expiry_date__date__gte=date.today()) | Q(expiry_date__isnull=True)).order_by('-pk')
+
+
+
 
             if queryset:
                 full_tot = queryset.count()
@@ -2929,6 +2949,10 @@ class TreatmentDoneNewViewset(viewsets.ModelViewSet):
 
                     treatmentids =  list(Treatmentids.objects.filter(
                     treatment_parentcode=trmt_obj.treatment_parentcode).order_by('treatment_int').values_list('treatment_int', flat=True).distinct())
+                    reversal_check = True
+                    if flexirev_setup and flexirev_setup.value_data == 'True':
+                        if row.type in ['FFd','FFi'] and row.done_session > 0:
+                            reversal_check = False
 
 
 
@@ -2950,7 +2974,7 @@ class TreatmentDoneNewViewset(viewsets.ModelViewSet):
                         "open" : row.open_session,
                         "rev": "0"+"/"+row.treatment_no,
                         "td":str(row.open_session)+"/"+row.treatment_no,
-                        "reversal_check": False if row.type in ['FFd','FFi'] and row.done_session > 0 else True, 
+                        "reversal_check": reversal_check, 
                         "sel": True if search_ids else None ,
                         "session" : session,
                         "site_code" :  trmt_obj.site_code,
@@ -5042,13 +5066,16 @@ class ReversalListViewset(viewsets.ModelViewSet):
                 treat_id = treatment_id.split(',')
 
                 treat_obj = Treatment.objects.filter(pk=treat_id[0]).order_by('-pk').first()
-
-                if treat_obj and treat_obj.type in ['FFd','FFi']:
-                    done_ids = Treatment.objects.filter(treatment_parentcode=treat_obj.treatment_parentcode,status="Done").order_by('pk').count()
-                    if done_ids > 0:
-                        result = {'status': status.HTTP_400_BAD_REQUEST,
-                        "message":"Reversal Not possible for FFi/FFd already have treatment done!!",'error': True} 
-                        return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                
+                flexirev_setup = Systemsetup.objects.filter(title='FlexiRedeemAllowReversal',
+                value_name='FlexiRedeemAllowReversal',isactive=True).first()
+                if flexirev_setup and flexirev_setup.value_data == 'True': 
+                    if treat_obj and treat_obj.type in ['FFd','FFi']:
+                        done_ids = Treatment.objects.filter(treatment_parentcode=treat_obj.treatment_parentcode,status="Done").order_by('pk').count()
+                        if done_ids > 0:
+                            result = {'status': status.HTTP_400_BAD_REQUEST,
+                            "message":"Reversal Not possible for FFi/FFd already have treatment done!!",'error': True} 
+                            return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
                 # print(treat_id,"treat_id")
                 sum = 0; lst = [];total = 0;trm_lst = [];total_r = 0.0;rea_obj = False

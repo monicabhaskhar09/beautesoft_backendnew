@@ -6,9 +6,10 @@ from cl_app.permissions import authenticated_only
 from .serializers import (WebConsultationHdrSerializer,WebConsultationDtlSerializer,WebConsultationQuestionSerializer,
 WebConsultation_AnalysisResultSerializer,WebConsultation_ReferralSerializer,
 WebConsultation_Referral_HdrSerializer,TransactionCustomerSerializer,
-TransactionPosDaudSerializer,TNCMasterSerializer)
+TransactionPosDaudSerializer,TNCMasterSerializer,WebConsultationQuestionMultichoiceSerializer)
 from .models import (WebConsultation_Hdr,WebConsultation_Dtl,WebConsultation_Question,WebConsultation_AnalysisResult,
-WebConsultation_Referral,WebConsultation_Referral_Hdr,TNC_Master,TNC_Header,TNC_Detail)
+WebConsultation_Referral,WebConsultation_Referral_Hdr,TNC_Master,TNC_Header,TNC_Detail,
+WebConsultation_QuestionMultichoice)
 from cl_table.models import (Fmspw,Employee,ControlNo,Customer,PosHaud,PosDaud)
 from rest_framework import status,viewsets,mixins
 from rest_framework.response import Response
@@ -432,7 +433,178 @@ class WebConsultationDtlViewset(viewsets.ModelViewSet):
         except WebConsultation_Dtl.DoesNotExist:
             raise Exception('WebConsultation_Dtl Does not Exist') 
 
+class WebConsultationQuestionMultichoiceViewset(viewsets.ModelViewSet):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = WebConsultation_QuestionMultichoice.objects.filter().order_by('-pk')
+    serializer_class = WebConsultationQuestionMultichoiceSerializer
 
+    def get_queryset(self):
+        fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+        site = fmspw[0].loginsite
+        questionid = self.request.GET.get('questionid',None)
+            
+        if not questionid:
+            raise Exception('Please give questionid') 
+        
+        queryset = WebConsultation_QuestionMultichoice.objects.filter(questionid=questionid).order_by('-pk')
+       
+        return queryset
+
+    def list(self, request):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+            site = fmspw[0].loginsite
+            serializer_class = WebConsultationQuestionMultichoiceSerializer
+            
+            queryset = self.filter_queryset(self.get_queryset())
+
+            total = len(queryset)
+            state = status.HTTP_200_OK
+            message = "Listed Succesfully"
+            error = False
+            data = None
+            result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+            return Response(result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+
+    @transaction.atomic
+    def create(self, request):
+        try:
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+                site = fmspw[0].loginsite
+
+                if not 'questionid' in request.data or not request.data['questionid']:
+                    raise Exception('Please give questionid!!.') 
+
+                if not 'choice' in request.data or not request.data['choice']:
+                    raise Exception('Please give choice!!.') 
+                
+              
+
+               
+                check_ids = WebConsultation_QuestionMultichoice.objects.filter(questionid__pk=request.data['questionid'],
+                choice=request.data['choice']).order_by('-pk')
+                if check_ids:
+                    msg = "Already record there for this {0} and questionid!!".format(str(request.data['choice']))
+                    raise Exception(msg) 
+                    
+
+                serializer = WebConsultationQuestionMultichoiceSerializer(data=request.data)
+                if serializer.is_valid():
+                    
+                    k = serializer.save()
+                    
+                    result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully",
+                    'error': False}
+                    return Response(result, status=status.HTTP_201_CREATED)
+                
+
+                data = serializer.errors
+
+                if 'non_field_errors' in data:
+                    message = data['non_field_errors'][0]
+                else:
+                    first_key = list(data.keys())[0]
+                    message = str(first_key)+":  "+str(data[first_key][0])
+
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":message,
+                'error': True, 'data': serializer.errors}
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+    
+    @transaction.atomic
+    def partial_update(self, request, pk=None):
+        try:
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+                site = fmspw.loginsite
+                ref = self.get_object(pk)
+                if not 'questionid' in request.data or not request.data['questionid']:
+                    raise Exception('Please give questionid!!.') 
+
+                if not 'choice' in request.data or not request.data['choice']:
+                    raise Exception('Please give choice!!.') 
+                
+               
+                check_ids = WebConsultation_QuestionMultichoice.objects.filter(~Q(pk=ref.pk)).filter(questionid__pk=request.data['questionid'],
+                choice=request.data['choice']).order_by('-pk')
+                if check_ids:
+                    msg = "Already record there for this {0} and questionid!!".format(str(request.data['choice']))
+                    raise Exception(msg) 
+                    
+                serializer = self.get_serializer(ref, data=request.data, partial=True)
+                if serializer.is_valid():
+                
+                    serializer.save()
+                    
+                    result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",'error': False}
+                    return Response(result, status=status.HTTP_200_OK)
+
+                
+                data = serializer.errors
+
+                if 'non_field_errors' in data:
+                    message = data['non_field_errors'][0]
+                else:
+                    first_key = list(data.keys())[0]
+                    message = str(first_key)+":  "+str(data[first_key][0])
+
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":message,
+                'error': True, 'data': serializer.errors}
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)   
+    
+    def retrieve(self, request, pk=None):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+            site = fmspw.loginsite
+            ref = self.get_object(pk)
+            serializer = WebConsultationQuestionMultichoiceSerializer(ref, context={'request': self.request})
+            result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
+            'data': serializer.data}
+            return Response(data=result, status=status.HTTP_200_OK)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message) 
+
+
+   
+    def destroy(self, request, pk=None):
+        try:
+            ref = self.get_object(pk)
+            serializer = WebConsultationQuestionMultichoiceSerializer(ref, data=request.data ,partial=True)
+            state = status.HTTP_204_NO_CONTENT
+            if serializer.is_valid():
+                ref.delete()
+                result = {'status': status.HTTP_200_OK,"message":"Deleted Succesfully",'error': False}
+                return Response(result, status=status.HTTP_200_OK)
+            
+            # print(serializer.errors,"jj")
+            result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",
+            'error': True,'data': serializer.errors }
+            return Response(result, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)          
+
+
+    def get_object(self, pk):
+        try:
+            return WebConsultation_QuestionMultichoice.objects.get(pk=pk)
+        except WebConsultation_QuestionMultichoice.DoesNotExist:
+            raise Exception('WebConsultation QuestionMultichoice Does not Exist') 
+    
 
 
 
@@ -486,10 +658,14 @@ class WebConsultationQuestionViewset(viewsets.ModelViewSet):
 
                 if not 'itemsite_ids' in request.data or not request.data['itemsite_ids']:
                     raise Exception('Please give site ids!.') 
-    
+                
+                if not 'question_text' in request.data or request.data['question_text'] is None:
+                    raise Exception('Please give question Text!!.') 
+
 
                 requestData = request.data
                 itemsite_ids = requestData.pop('itemsite_ids')
+                multichoice_ids = requestData.pop('multichoice_ids')
                 # print(itemsite_ids,"itemsite_ids")
                 res = str(itemsite_ids).split(',')
                 # print(res,"res")
@@ -514,7 +690,15 @@ class WebConsultationQuestionViewset(viewsets.ModelViewSet):
                         k = serializer.save(isactive=True)
                         for div in sitelist:
                             k.site_ids.add(div)
-                    
+
+                        if multichoice_ids != []:
+                            for j in multichoice_ids:
+                                check_ids = WebConsultation_QuestionMultichoice.objects.filter(questionid__pk=k.pk,
+                                choice=j['choice']).order_by('-pk')
+                                if not check_ids:
+                                    c = WebConsultation_QuestionMultichoice(questionid=k,choice=j['choice'])
+                                    c.save()
+
                         result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully",
                         'error': False}
                         return Response(result, status=status.HTTP_201_CREATED)
@@ -554,7 +738,10 @@ class WebConsultationQuestionViewset(viewsets.ModelViewSet):
 
                 if not 'itemsite_ids' in request.data or not request.data['itemsite_ids']:
                     raise Exception('Please give site ids!.') 
-    
+                
+                if not 'question_text' in request.data or request.data['question_text'] is None:
+                    raise Exception('Please give question Text!!.') 
+
                 
                 requestData = request.data
                 itemsite_ids = requestData.pop('itemsite_ids')
@@ -622,12 +809,13 @@ class WebConsultationQuestionViewset(viewsets.ModelViewSet):
    
     def destroy(self, request, pk=None):
         try:
-            request.data["isactive"] = False
+            # request.data["isactive"] = False
             ref = self.get_object(pk)
             serializer = WebConsultationQuestionSerializer(ref, data=request.data ,partial=True)
             state = status.HTTP_204_NO_CONTENT
             if serializer.is_valid():
-                serializer.save()
+                # serializer.save()
+                ref.delete()
                 result = {'status': status.HTTP_200_OK,"message":"Deleted Succesfully",'error': False}
                 return Response(result, status=status.HTTP_200_OK)
             

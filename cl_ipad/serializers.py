@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import (WebConsultation_Hdr,WebConsultation_Dtl,WebConsultation_Question,
-WebConsultation_AnalysisResult,WebConsultation_Referral,WebConsultation_Referral_Hdr,TNC_Master)
+WebConsultation_AnalysisResult,WebConsultation_Referral,WebConsultation_Referral_Hdr,TNC_Master,
+WebConsultation_QuestionMultichoice)
 from cl_table.models import (Customer, PosDaud,PosHaud)
 
 class WebConsultationHdrSerializer(serializers.ModelSerializer):
@@ -39,10 +40,16 @@ class WebConsultationQuestionSerializer(serializers.ModelSerializer):
             data['item_site_ids'] =  [{'label': i.itemsite_code ,'value': i.pk} for i in site_ids if i.itemsite_code]
             data['item_site_desc'] = ','.join([v.itemsite_code for v in site_ids if v.itemsite_code])
         
-      
+        cho_ids = WebConsultation_QuestionMultichoice.objects.filter(questionid__pk=obj.pk).values('id','questionid','choice')
+        data['multichoices'] = cho_ids
 
         return data               
 
+class WebConsultationQuestionMultichoiceSerializer(serializers.ModelSerializer):
+    
+    class Meta:
+        model = WebConsultation_QuestionMultichoice
+        fields = '__all__'
 
 class WebConsultation_AnalysisResultSerializer(serializers.ModelSerializer):
     

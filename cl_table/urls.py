@@ -121,6 +121,6 @@ urlpatterns = [
     path('api/securitylevellistdupdel/', views.SecuritylevellistDuplicateDelete.as_view(), name='securitylevellistdupdel'),
     path('api/custsearchclass/', views.CustSearchClassAPI.as_view(), name='custsearchclass'),
     path('api/tmptreatmentnewservice/<int:pk>/', views.TmpTreatmentNewServiceAPIView.as_view(), name='tmptreatmentnewservice'),
-
+    path('api/customerinvoicetemplateupload/', views.customerinvoicetemplateupload.as_view(), name='customerinvoicetemplateupload'),
 
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
