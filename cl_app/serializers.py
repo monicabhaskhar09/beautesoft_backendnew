@@ -431,7 +431,7 @@ class BillingSerializer(serializers.ModelSerializer):
         payment_remarks = ','.join([v.pay_rem4 for v in taud if v.pay_rem4]) 
 
         daud = PosDaud.objects.filter(sa_transacno=instance.sa_transacno).order_by('pk') 
-        item = ''.join([v.dt_itemdesc for v in daud if v.dt_itemdesc]) 
+        item = ', '.join([v.dt_itemdesc for v in daud if v.dt_itemdesc]) 
 
         is_current = ""
         if instance.itemsite_code == site.itemsite_code:

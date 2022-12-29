@@ -7689,7 +7689,9 @@ class UsersList(APIView):
             value_name='autoTDForAlacarte',isactive=True).first()
             quickprint_setup = Systemsetup.objects.filter(title='quickPrint',
             value_name='quickPrint',isactive=True).first()
-    
+            updisc_setup = Systemsetup.objects.filter(title='showUnitPriceDiscOnView',
+            value_name='showUnitPriceDiscOnView',isactive=True).first()
+       
     
     
 
@@ -7775,7 +7777,8 @@ class UsersList(APIView):
             'custname_retaincart': True if custnameretaincart_setup and custnameretaincart_setup.value_data == 'True' else False,
             'transactionviewall' : True if transactionviewall_setup and transactionviewall_setup.value_data == 'True' else False, 
             'autotdforalacarte' : True if autotdfor_setup and autotdfor_setup.value_data == 'True' else False, 
-            'quickprint': True if quickprint_setup and quickprint_setup.value_data == 'True' else False, 
+            'quickprint': True if quickprint_setup and quickprint_setup.value_data == 'True' else False,
+            'show_unitpricedisconview': True if updisc_setup and updisc_setup.value_data == 'True' else False,  
             }
 
 
@@ -9342,8 +9345,10 @@ class postaudViewset(viewsets.ModelViewSet):
                         re_refcontrol_obj.control_no = int(re_refcontrol_obj.control_no) + 1
                         re_refcontrol_obj.save()
 
+                        # sa_totqty=0.0,
+
                         hdr = PosHaud(cas_name=fmspw.pw_userlogin,sa_transacno=sa_transacno,sa_status="SA",
-                        sa_totamt=0.0,sa_totqty=0.0,sa_totdisc=0.0,sa_totgst=None,
+                        sa_totamt=0.0,sa_totqty=totQty,sa_totdisc=0.0,sa_totgst=None,
                         sa_staffnoid=alservice_staff,sa_staffno=Emp_code,sa_staffname=Emp_name,sa_custnoid=cust_obj,sa_custno=cust_obj.cust_code,
                         sa_custname=cust_obj.cust_name,sa_discuser=None,sa_disctotal=0.0,ItemSite_Codeid=site,itemsite_code=site.itemsite_code,
                         sa_depositamt=0.0,sa_transacamt=0.0,sa_round=0,total_outstanding=outstanding if outstanding is not None and outstanding > 0 else 0,

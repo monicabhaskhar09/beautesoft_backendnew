@@ -1855,8 +1855,14 @@ class TopupCombinedViewset(viewsets.ModelViewSet):
                     pro_splt = str(pq.description).split(":")
                     # print(pro_splt,"pro_splt")
                     # ,type__in=('Deposit', 'Top Up')
-                    pacc_ids = DepositAccount.objects.filter(ref_transacno=pq.sa_transacno,
-                    ref_productcode=pq.treat_code).order_by('-sa_date','-sa_time','-id').first()
+
+                    # pacc_ids = DepositAccount.objects.filter(ref_transacno=pq.sa_transacno,
+                    # ref_productcode=pq.treat_code).order_by('-sa_date','-sa_time','-id').first()
+
+                    pacc_ids = DepositAccount.objects.filter(sa_transacno=pq.sa_transacno,
+                    treat_code=pq.treat_code).order_by('-sa_date','-sa_time','-id').first()
+                   
+                    
                     if pacc_ids:
                         pacc = DepositAccount.objects.filter(pk=pacc_ids.pk)
                         pserializer = TopupproductSerializer(pacc, many=True)
@@ -8595,9 +8601,13 @@ class TreatmentAccListViewset(viewsets.ModelViewSet):
 
             cust_obj = Customer.objects.filter(cust_code=account.cust_code,cust_isactive=True).first()
            
+            # queryset = TreatmentAccount.objects.filter(ref_transacno=account.sa_transacno,
+            # treatment_parentcode=account.treatment_parentcode
+            # ).only('ref_transacno','treatment_parentcode','site_code').order_by('-sa_date','-sa_time','-id')
+            
             queryset = TreatmentAccount.objects.filter(ref_transacno=account.sa_transacno,
             treatment_parentcode=account.treatment_parentcode
-            ).only('ref_transacno','treatment_parentcode','site_code').order_by('-sa_date','-sa_time','-id')
+            ).only('ref_transacno','treatment_parentcode','site_code').order_by('sa_date','sa_time','id')
 
             #pos_haud = PosHaud.objects.filter(sa_custno=account.cust_code,
             #sa_transacno=account.sa_transacno,itemsite_code=account.site_code
@@ -9493,7 +9503,7 @@ class PrepaidAccListViewset(viewsets.ModelViewSet):
                     elif ppobj.sa_status == 'SA':
                         if ppobj.transac_no:
                             poshaud = PosHaud.objects.filter(sa_custno=account.cust_code,
-                            sa_transacno=ppobj.transac_no,ItemSite_Codeid__pk=site.pk).only('sa_custno','sa_transacno').order_by('pk').first()
+                            sa_transacno=ppobj.transac_no).only('sa_custno','sa_transacno').order_by('pk').first()
                             if poshaud:
                                 v['old_transaction'] = poshaud.sa_transacno
                                 v['transaction_ref'] = poshaud.sa_transacno_ref

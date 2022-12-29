@@ -4298,6 +4298,65 @@ class itemCartViewset(viewsets.ModelViewSet):
                             total_price=total_price,discount_price=discount_price,trans_amt=trans_amt,deposit=deposit)
 
                         # print(itemcart.quantity,itemcart.price,itemcart.total_price,itemcart.discount_price,itemcart.trans_amt,itemcart.deposit,"price")
+                    
+                        # tmptreat_ids = Tmptreatment.objects.filter(itemcart=itemcart).order_by('pk')
+                        # # print(tmptreat_ids,"tmptreat_ids") 
+                        # if tmptreat_ids:
+                        #     # print("iff")
+                        #     dprice = discount_price
+                        #     # print(dprice,"dprice")
+                        #     auto = tmptreat_ids[0].trmt_is_auto_proportion
+                        #     if dprice:
+                        #         if auto == False:
+                        #             number = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk').count()
+                        #             price = dprice * number
+
+                        #             otmp = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk')
+                        #             for ot in otmp:
+                        #                 ot.unit_amount = "{:.2f}".format(float(dprice))
+                        #                 ot.price = "{:.2f}".format(float(price))
+                        #                 ot.save()
+                        #                 # print(ot.unit_amount,"kk")
+                        #             ftmp = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True).order_by('pk')
+                        #             for fi in ftmp:
+                        #                 fi.unit_amount = 0.00
+                        #                 fi.price = 0.00
+                        #                 fi.save()
+                        #                 # print(fi.unit_amount,"f.unit_amount")
+
+                        #         elif auto == True: 
+                        #             no = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk').count()
+                        #             price = dprice * no
+                        #             number = Tmptreatment.objects.filter(itemcart=itemcart).order_by('pk').count()
+                                    
+                        #             d_price = price / number
+
+                        #             l_ids = Tmptreatment.objects.filter(itemcart=itemcart).order_by('pk').last()
+
+                        #             otmp = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk')
+                                    
+                        #             for ol in otmp:
+                        #                 ol.unit_amount = "{:.2f}".format(float(d_price))
+                        #                 ol.price = "{:.2f}".format(float(price))
+                        #                 ol.save()
+                        #                 # print(ol.unit_amount,"ol.unit_amount")
+
+                        #             oftmp = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True).order_by('pk').exclude(pk=l_ids.pk)
+                        #             for olf in oftmp:
+                        #                 olf.unit_amount = "{:.2f}".format(float(d_price))
+                        #                 olf.price = 0
+                        #                 olf.save()
+
+                        #             amt = "{:.2f}".format(float(d_price))   
+                        #             lval = price - (float(amt) * (number -1))
+
+                        #             fltmp = Tmptreatment.objects.filter(itemcart=itemcart,pk=l_ids.pk).order_by('pk')
+                                    
+
+                        #             for fl in fltmp:
+                        #                 fl.unit_amount = "{:.2f}".format(float(lval))
+                        #                 fl.price = 0
+                        #                 fl.save()
 
                 
                 #hold reason,hold qty,foc reason

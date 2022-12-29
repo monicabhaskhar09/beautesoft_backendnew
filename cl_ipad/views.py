@@ -815,6 +815,7 @@ class WebConsultationQuestionViewset(viewsets.ModelViewSet):
             state = status.HTTP_204_NO_CONTENT
             if serializer.is_valid():
                 # serializer.save()
+                WebConsultation_QuestionMultichoice.objects.filter(questionid__pk=ref.pk).delete()
                 ref.delete()
                 result = {'status': status.HTTP_200_OK,"message":"Deleted Succesfully",'error': False}
                 return Response(result, status=status.HTTP_200_OK)
