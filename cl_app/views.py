@@ -13590,6 +13590,9 @@ class TransactionHistoryViewset(viewsets.ModelViewSet):
     serializer_class = BillingSerializer
 
     def get_queryset(self):
+        # now2 = timezone.now()
+        # print(str(now2.hour) + '  ' +  str(now2.minute) + '  ' +  str(now2.second),"1 End hour, minute, second\n")
+         
         queryset = PosHaud.objects.none()
         fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
         site = fmspw[0].loginsite
@@ -13645,6 +13648,9 @@ class TransactionHistoryViewset(viewsets.ModelViewSet):
                 elif invoice_type == "NonSales":
                     queryset = queryset.filter(sa_date__date__gte=from_date,sa_date__date__lte=to_date,
                     sa_transacno_type="Non Sales").order_by('-pk') 
+                else:
+                    queryset = queryset.filter(sa_date__date__gte=from_date,sa_date__date__lte=to_date).order_by('-pk')
+
 
          
             if transac_no:
@@ -13730,7 +13736,10 @@ class TransactionHistoryViewset(viewsets.ModelViewSet):
             #         if fmspw[0].LEVEL_ItmIDid and fmspw[0].LEVEL_ItmIDid.role_code != 1 and not sales_staffs:
             #             queryset = PosHaud.objects.none()
 
-
+        # now1 = timezone.now()
+        # print(str(now1.hour) + '  ' +  str(now1.minute) + '  ' +  str(now1.second),"1 End hour, minute, second\n")
+        # totalh = now1.second - now2.second
+        # print(totalh,"total 1")
         return queryset
     
     def list(self, request):
@@ -13739,7 +13748,8 @@ class TransactionHistoryViewset(viewsets.ModelViewSet):
             # print(str(now.hour) + '  ' +  str(now.minute) + '  ' +  str(now.second),"Start hour, minute, second\n")
            
             # now2 = timezone.now()
-            # print(str(now2.hour) + '  ' +  str(now2.minute) + '  ' +  str(now2.second),"End hour, minute, second\n")
+            # print(str(now2.hour) + '  ' +  str(now2.minute) + '  ' +  str(now2.second),"3 End hour, minute, second\n")
+            
             # totalr = now2.second - now.second
             # print(totalr,"total 22")
             year = timezone.now().year
@@ -13757,9 +13767,9 @@ class TransactionHistoryViewset(viewsets.ModelViewSet):
             # sa_total = "{:.2f}".format(sum([float(i['sa_totamt']) for i in d]))
             # result.update({'sa_total':sa_total})
             # now1 = timezone.now()
-            # print(str(now1.hour) + '  ' +  str(now1.minute) + '  ' +  str(now1.second),"End hour, minute, second\n")
+            # print(str(now1.hour) + '  ' +  str(now1.minute) + '  ' +  str(now1.second),"3 End hour, minute, second\n")
             # totalh = now1.second - now2.second
-            # print(totalh,"total")
+            # print(totalh," total")
             return Response(result, status=status.HTTP_200_OK)   
         except Exception as e:
             invalid_message = str(e)

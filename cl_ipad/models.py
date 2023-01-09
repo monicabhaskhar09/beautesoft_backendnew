@@ -49,13 +49,13 @@ class WebConsultation_Question(models.Model):
     question_number = models.IntegerField(db_column='QuestionNumber', blank=True, null=True)  # Field name made lowercase.
     page_number = models.IntegerField(db_column='PageNumber', blank=True, null=True)  # Field name made lowercase.
     isactive = models.BooleanField(default=True)
-    question_type = models.IntegerField(db_column='QuestionType', blank=True, null=True)  # Field name made lowercase.
+    question_type = models.CharField(db_column='QuestionType', max_length=500, blank=True, null=True)  # Field name made lowercase.
     image = models.ImageField(db_column='image', blank=True, null=True,upload_to='img')  # Field name made lowercase. 
     question_english = models.CharField(db_column='QuestionEnglish', max_length=500, blank=True, null=True)
     question_chinese = models.CharField(db_column='QuestionChinese', max_length=500, blank=True, null=True)
     question_others = models.CharField(db_column='QuestionOthers', max_length=500, blank=True, null=True)
     site_ids = models.ManyToManyField('cl_app.ItemSitelist',blank=True)
-    question_text = models.IntegerField(db_column='QuestionText', blank=True, null=True)  # Field name made lowercase.
+    question_text = models.CharField(db_column='QuestionText',max_length=500,  blank=True, null=True)  # Field name made lowercase.
 
     class Meta:
         db_table = 'WebConsultation_Question'

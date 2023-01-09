@@ -44,7 +44,7 @@ GstSetting,PosTaud,PosDaud,PosHaud,ControlNo,EmpSitelist,ItemStatus, TmpItemHelp
 TreatmentAccount, PosDaud, ItemDept, DepositAccount, PrepaidAccount, ItemDiv, Systemsetup, Title,
 PackageHdr,PackageDtl,Paytable,Multistaff,ItemBatch,Stktrn,ItemUomprice,Holditemdetail,CreditNote,
 CustomerClass,ItemClass,Tmpmultistaff,Tmptreatment,ExchangeDtl,ItemUom,ItemHelper,PrepaidAccountCondition,
-City, State, Country, Stock,PayGroup,Tempcustsign)
+City, State, Country, Stock,PayGroup,Tempcustsign,Item_MembershipPrice)
 from cl_app.models import ItemSitelist, SiteGroup, TmpTreatmentSession
 from cl_table.serializers import PostaudSerializer,StaffsAvailableSerializer,PosdaudSerializer,TmpItemHelperSerializer
 from datetime import date, timedelta, datetime
@@ -2408,7 +2408,57 @@ class itemCartViewset(viewsets.ModelViewSet):
                                         posdisc.save()
                                         # print(posdisc.id,"posdisc")  
                                         cart.pos_disc.add(posdisc.id) 
-                                    
+
+                        msystem_obj = Systemsetup.objects.filter(title='MembershipPrice',
+                        value_name='MembershipPrice',isactive=True).first()
+                        if msystem_obj and msystem_obj.value_data == 'True':
+                            memb_ids = Item_MembershipPrice.objects.filter(item_code=stock_obj.item_code,
+                                class_code=cust_obj.cust_class).order_by('pk').first()
+                            if memb_ids:
+                                if cart.pos_disc.all().exists():
+                                    cart.pos_disc.all().delete()
+
+                                # uprice = req['price']
+                                # if memb_ids.price and memb_ids.price > 0:
+                                uprice = memb_ids.price
+                                cart.price = memb_ids.price
+                                cart.discount_price = memb_ids.price * 1.0
+                                cart.discount = 0
+                                cart.discount_amt = 0
+                                cart.total_price=float(memb_ids.price) * int(req['qty']) if req['qty'] else float(memb_ids.price) * 1.0
+                                cart.trans_amt=float(memb_ids.price) * int(req['qty']) if req['qty'] else float(memb_ids.price) * 1.0
+                                cart.deposit=float(memb_ids.price) * int(req['qty']) if req['qty'] else float(memb_ids.price) * 1.0
+                                cart.save()
+
+                                if memb_ids.discount_percent and memb_ids.discount_percent > 0:
+                                    discper = memb_ids.discount_percent
+                                    discamt = (float(uprice) * discper) / 100
+
+                                    value = float(uprice) - discamt
+
+                                    if value > 0:
+                                        amount = value * int(req['qty'])
+
+                                        cart.discount = discper
+                                        cart.discount_amt = discamt
+                                        cart.discount_price = value
+                                        cart.deposit = amount
+                                        cart.trans_amt = amount
+                                        cart.save()
+
+                                       
+                                        posdisc = PosDisc(sa_transacno=None,dt_itemno=stock_obj.item_code+"0000",
+                                        disc_amt=discamt,disc_percent=discper,
+                                        dt_lineno=cart.lineno,remark='Membership Price',site_code=site.itemsite_code,
+                                        dt_status="New",dt_auto=1,line_no=1,disc_user=fmspw[0].emp_code,lnow=1,dt_price=None,
+                                        istransdisc=False)
+                                        posdisc.save()
+                                        # print(posdisc.id,"posdisc")  
+                                        cart.pos_disc.add(posdisc.id) 
+
+
+                            
+            
                     
                     if int(stock_obj.item_div) == 3 and stock_obj.item_type == 'PACKAGE':
                         packhdr_ids = PackageHdr.objects.filter(code=stock_obj.item_code).first()
@@ -3405,7 +3455,6 @@ class itemCartViewset(viewsets.ModelViewSet):
                
                 
                
-                # # print(n)
                     
                 
                 cart_lst = [];subtotal = 0.0; discount=0.0; billable_amount=0.0;trans_amt=0.0;deposit_amt = 0.0
@@ -5278,6 +5327,11 @@ class VoucherRecordViewset(viewsets.ModelViewSet):
                 else:
                     dict_d['issued_expiry_date'] = ""
 
+                dict_d['issued_staff'] = ""
+                if dict_d['issued_staff']:
+                    emp_obj = Employee.objects.filter(emp_code=dict_d['issued_staff']).first()
+                    if emp_obj:
+                        dict_d['issued_staff'] = emp_obj.display_name if emp_obj.display_name else ""
                 lst.append(dict_d)
 
             result = {'status': state,"message":message,'error': error, 'data': lst}

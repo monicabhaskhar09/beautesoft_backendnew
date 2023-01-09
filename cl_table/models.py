@@ -70,7 +70,8 @@ class CustomerClass(models.Model):
     objects = models.Manager()
     active_objects = IsActiveManager(active_field="class_isactive",label="class_desc",value="id")
     autoclassamount =  models.IntegerField(db_column='autoclassamount', blank=True, null=True)  # Field name made lowercase.
-   
+    package_code = models.CharField(db_column='Package_Code', max_length=50, blank=True, null=True)  # Field name made lowercase.
+    
     class Meta:
         db_table = 'Customer_Class'
 
@@ -1087,6 +1088,10 @@ class Customer(models.Model):
     title_name = models.CharField(max_length=40, blank=True, null=True)
     cust_corporate = models.BooleanField(db_column='cust_corporate',default=False)
     referredby_id = models.ForeignKey('cl_table.Customer',on_delete=models.PROTECT, null=True) 
+    is_pregnant = models.BooleanField(db_column='IsPregnant', blank=True, null=True)
+    estimated_deliverydate = models.DateTimeField(db_column='EstimatedDeliveryDate', blank=True, null=True)  # Field name made lowercase.
+    no_of_weeks_pregnant = models.IntegerField(db_column='NoOfWeeksOfPregnancy', blank=True, null=True)  # Field name made lowercase.
+    no_of_children = models.IntegerField(db_column='NoOfChildren', blank=True, null=True)  # Field name made lowercase.
 
     def save(self, *args,**kwargs):
         if self.Cust_Classid:
@@ -3999,7 +4004,7 @@ class Dayendconfirmlog(models.Model):
     confirm_date = models.DateTimeField(blank=True, null=True)
     Site_Codeid = models.ForeignKey('cl_app.ItemSitelist', on_delete=models.PROTECT, null=True)
     site_code = models.CharField(db_column='Site_Code', max_length=50, null=True, blank=True)  # Field name made lowercase.
-    dayend_pdf = models.ImageField(upload_to='img', null=True)
+    dayend_pdf = models.ImageField(upload_to='img', null=True, max_length=300)
     isdayend = models.BooleanField(db_column='isdayend', blank=True, null=True)
 
     class Meta:
@@ -4100,3 +4105,14 @@ class sitelistip(models.Model):
     class Meta:
         db_table = 'sitelistip'
         unique_together = (('siteid', 'ip'),)
+
+class Item_MembershipPrice(models.Model):
+    id = models.AutoField(db_column='ID', primary_key=True)
+    item_code = models.CharField(db_column='Item_Code', max_length=20) 
+    class_code = models.CharField(db_column='Class_Code', max_length=50) 
+    price = models.FloatField(db_column='Price', blank=True, null=True)  # Field name made lowercase.
+    discount_percent =  models.FloatField(db_column='DiscountPer', blank=True, null=True)  # Field name made lowercase.
+
+    class Meta:
+        db_table = 'Item_MembershipPrice'
+        unique_together = (('item_code', 'class_code'),)

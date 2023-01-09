@@ -263,13 +263,21 @@ class CustomerdetailSerializer(serializers.ModelSerializer):
         
         appointment = "{0} appointments (upcoming)".format(str(appt_ids))        
 
-        tr_open_ids = Treatment.objects.filter(cust_code=obj.cust_code,status="Open"
+        tropen_ids = Treatment.objects.filter(cust_code=obj.cust_code,status="Open"
         ).only('cust_code','status').count()
+        print(tropen_ids,"tropen_ids")
 
-        package_ids = Treatment.objects.filter(cust_code=obj.cust_code,status="Open").values('treatment_parentcode',
+        tr_open_ids = TreatmentPackage.objects.filter(cust_code=obj.cust_code, open_session__gt=0
+        ).only('cust_code','open_session').order_by('pk').aggregate(amount=Coalesce(Sum('open_session'), 0))
+        print(tr_open_ids,"tr_open_ids")
+
+        packagew_ids = Treatment.objects.filter(cust_code=obj.cust_code,status="Open").values('treatment_parentcode',
         ).order_by('treatment_parentcode').annotate(total=Count('treatment_parentcode'))
-        # print(package_ids,"package_ids")
+        print(packagew_ids,"packagew_ids")
 
+        package_ids = TreatmentPackage.objects.filter(cust_code=obj.cust_code, open_session__gt=0).values('treatment_parentcode',
+        ).order_by('treatment_parentcode').annotate(total=Count('treatment_parentcode'))
+        print(package_ids,"package_ids")
         if package_ids:
             package = len(package_ids)
         else:
@@ -278,17 +286,24 @@ class CustomerdetailSerializer(serializers.ModelSerializer):
 
         tr_balance = 0.0 ; tr_outstanding = 0.0
 
-        tr_acc = TreatmentAccount.objects.filter(cust_code=obj.cust_code,type='Deposit').exclude(sa_status="VOID").only('cust_code','type').order_by('pk')
+        tracc = list(set(TreatmentAccount.objects.filter(cust_code=obj.cust_code,type='Deposit').exclude(sa_status="VOID").only('cust_code','type').order_by('pk').values_list('treatment_parentcode', flat=True).distinct()))
+        print(tracc,"tracc")
+        if tracc:
+            trb_ids = TreatmentPackage.objects.filter(treatment_parentcode__in=tracc).aggregate(balance=Coalesce(Sum('balance'), 0),outstanding=Coalesce(Sum('outstanding'), 0))
+            if trb_ids:
+                tr_balance = trb_ids['balance']
+                tr_outstanding = trb_ids['outstanding']
+
+        # tr_acc = TreatmentAccount.objects.filter(cust_code=obj.cust_code,type='Deposit').exclude(sa_status="VOID").only('cust_code','type').order_by('pk')        
+        # for i in tr_acc: 
+        #     last_tracc_ids = TreatmentAccount.objects.filter(ref_transacno=i.sa_transacno,
+        #     treatment_parentcode=i.treatment_parentcode
+        #     ).only('ref_transacno','treatment_parentcode').order_by('-sa_date','-sa_time','-id').first()
+        #     if last_tracc_ids:
+        #         tr_balance += last_tracc_ids.balance if last_tracc_ids.balance else 0
+        #         tr_outstanding += last_tracc_ids.outstanding if last_tracc_ids.outstanding else 0 
         
-        for i in tr_acc: 
-            last_tracc_ids = TreatmentAccount.objects.filter(ref_transacno=i.sa_transacno,
-            treatment_parentcode=i.treatment_parentcode
-            ).only('ref_transacno','treatment_parentcode').order_by('-sa_date','-sa_time','-id').first()
-            if last_tracc_ids:
-                tr_balance += last_tracc_ids.balance if last_tracc_ids.balance else 0
-                tr_outstanding += last_tracc_ids.outstanding if last_tracc_ids.outstanding else 0 
-        
-        service_package = "{0} Sessions in {1} packages Balance: ${2} Outstanding: ${3}".format(str(tr_open_ids),str(package),str("{:.2f}".format(float(tr_balance))),str("{:.2f}".format(float(tr_outstanding))))        
+        # service_package = "{0} Sessions in {1} packages Balance: ${2} Outstanding: ${3}".format(str(tr_open_ids),str(package),str("{:.2f}".format(float(tr_balance))),str("{:.2f}".format(float(tr_outstanding))))        
         
         dp_balance = 0.0 ; dp_outstanding = 0.0 ; hold_qty = 0
         dep_acc = DepositAccount.objects.filter(cust_code=obj.cust_code,
@@ -319,13 +334,13 @@ class CustomerdetailSerializer(serializers.ModelSerializer):
             if holdids:
                 hold_qty += holdids.holditemqty if holdids.holditemqty else 0
         
-        product = "{0} Item on Hold Balance: {1} Outstanding: ${2}".format(str(hold_qty),str("{:.2f}".format(float(dp_balance))),str("{:.2f}".format(float(dp_outstanding))))             
+        # product = "{0} Item on Hold Balance: {1} Outstanding: ${2}".format(str(hold_qty),str("{:.2f}".format(float(dp_balance))),str("{:.2f}".format(float(dp_outstanding))))             
 
 
         pre_balance = 0.0 ; pre_outstanding = 0.0
 
-        prepaid_cnt = PrepaidAccount.objects.filter(cust_code=obj.cust_code,
-        status=True,remain__gt=0).only('remain','cust_code','sa_status').order_by('pk').count()
+        # prepaid_cnt = PrepaidAccount.objects.filter(cust_code=obj.cust_code,
+        # status=True,remain__gt=0).only('remain','cust_code','sa_status').order_by('pk').count()
        
         pre_acc = PrepaidAccount.objects.filter(cust_code=obj.cust_code,
         status=True,remain__gt=0).only('remain','cust_code','sa_status').order_by('pk')
@@ -336,7 +351,7 @@ class CustomerdetailSerializer(serializers.ModelSerializer):
                 pre_balance += lst_preacc_ids.remain if lst_preacc_ids.remain else 0
                 pre_outstanding += lst_preacc_ids.outstanding if lst_preacc_ids.outstanding else 0
                        
-        prepaid = "Balance: {0} (in {1} cards) Outstanding {2}".format(str("{:.2f}".format(float(pre_balance))),str(prepaid_cnt),str("{:.2f}".format(float(pre_outstanding))))        
+        # prepaid = "Balance: {0} (in {1} cards) Outstanding {2}".format(str("{:.2f}".format(float(pre_balance))),str(prepaid_cnt),str("{:.2f}".format(float(pre_outstanding))))        
 
         credit_ids = CreditNote.objects.filter(cust_code=obj.cust_code, status='OPEN'
         ).only('cust_code','status').order_by('pk').count()
@@ -348,7 +363,7 @@ class CustomerdetailSerializer(serializers.ModelSerializer):
         else:
             credit_amt = "0.00"  
 
-        credit_val = "${0} (in {1} credit note)".format(str("{:.2f}".format(float(credit_amt))),str(credit_ids))               
+        # credit_val = "${0} (in {1} credit note)".format(str("{:.2f}".format(float(credit_amt))),str(credit_ids))               
 
           
         voucherids = VoucherRecord.objects.filter(isvalid=True,cust_code=obj.cust_code,
@@ -362,7 +377,7 @@ class CustomerdetailSerializer(serializers.ModelSerializer):
         else:
             voucher_amt = "0.00"
 
-        voucher = "${0} (in {1} vouchers)".format(str("{:.2f}".format(float(voucher_amt))),str(voucherids))
+        # voucher = "${0} (in {1} vouchers)".format(str("{:.2f}".format(float(voucher_amt))),str(voucherids))
         
         form_control_qs = CustomerFormControl.objects.filter(isActive=True,Site_Codeid=site) 
         
@@ -426,16 +441,16 @@ class CustomerdetailSerializer(serializers.ModelSerializer):
         'cust_refer': obj.cust_refer if obj.cust_refer else '',
         'join_date': cust_joindate,
         'total_invoice': total_inv,
-        'service_session' : tr_open_ids,
+        'service_session' : tr_open_ids['amount'],
         'service_packages' : package,
         'service_balance' : "{:.2f}".format(float(tr_balance)),
         'service_outstanding' : "{:.2f}".format(float(tr_outstanding)),
         'prepaid_balance' : "{:.2f}".format(float(pre_balance)),
-        'prepaid_card': prepaid_cnt,
+        'prepaid_card': pre_acc.count(),
         'prepaid_outstanding' : "{:.2f}".format(float(pre_outstanding)),
         'product_hold' : hold_qty,
         'product_balance' : "{:.2f}".format(float(dp_balance)),
-        'product_outstanding' : "{:.2f}".format(float(pre_outstanding)),
+        'product_outstanding' : "{:.2f}".format(float(dp_outstanding)),
         'credit_amount' : "{:.2f}".format(float(credit_amt)),
         'credit_count': credit_ids,
         'voucher_amount': "{:.2f}".format(float(voucher_amt)),
@@ -593,8 +608,18 @@ class ItemSiteListAPISerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ItemSitelist
-        fields = ['id','itemsite_desc','itemsite_code']
+        fields = ['id','itemsite_desc','itemsite_code','inv_templatename']
+    
+    def to_representation(self, instance):
+        
+        data = super(ItemSiteListAPISerializer, self).to_representation(instance)
+        if instance.inv_templatename:
+            data['inv_templatename'] = instance.inv_templatename
+        else:
+            data['inv_templatename'] = "customer_receipt.html"
 
+        
+        return data    
 
 class ItemSiteListSerializer(serializers.ModelSerializer):
 
@@ -2744,7 +2769,8 @@ class CustomerPlusnewSerializer(serializers.ModelSerializer):
                   'cust_consultant_id','cust_address1','cust_address2','cust_address3',
                   'prepaid_card','cust_occupation', 'creditnote','voucher_available','oustanding_payment','cust_refer',
                   'custallowsendsms','cust_maillist','cust_title','cust_sexes','cust_class','cust_corporate',
-                  'referredby_id','cust_referby_code','cust_nationality','cust_race','cust_marital']
+                  'referredby_id','cust_referby_code','cust_nationality','cust_race','cust_marital',
+                  'is_pregnant','estimated_deliverydate','no_of_weeks_pregnant','no_of_children']
         read_only_fields = ('cust_isactive','created_at', 'updated_at','last_visit','upcoming_appointments',
         'Site_Code','cust_code','ProneToComplain')
         extra_kwargs = {'cust_name': {'required': True},'cust_phone2': {'required': False},}
@@ -2858,7 +2884,8 @@ class CustomerPlusSerializer(serializers.ModelSerializer):
                   'cust_consultant_id','cust_address1','cust_address2','cust_address3',
                   'prepaid_card','cust_occupation', 'creditnote','voucher_available','oustanding_payment','cust_refer',
                   'custallowsendsms','cust_maillist','cust_title','cust_sexes','cust_class','cust_corporate',
-                  'referredby_id','cust_referby_code','cust_nationality','cust_race','cust_marital']
+                  'referredby_id','cust_referby_code','cust_nationality','cust_race','cust_marital',
+                  'is_pregnant','estimated_deliverydate','no_of_weeks_pregnant','no_of_children']
         read_only_fields = ('cust_isactive','created_at', 'updated_at','last_visit','upcoming_appointments',
         'Site_Code','cust_code','ProneToComplain')
         extra_kwargs = {'cust_name': {'required': True},'cust_phone2': {'required': False},}

@@ -187,11 +187,14 @@ class VoucherRecordSerializer(serializers.ModelSerializer):
 
     sitecode_name = serializers.CharField(source='site_codeid.itemsite_desc',required=False)
     cust_name = serializers.CharField(source='cust_codeid.cust_name',required=False)
+    sa_date = serializers.DateTimeField(format="%d-%m-%Y",required=False)
 
 
     class Meta:
         model = VoucherRecord
-        fields = ['id','voucher_no','cust_codeid','cust_name','value','percent','site_codeid','sitecode_name','issued_expiry_date','isvalid','voucher_name']
+        fields = ['id','voucher_no','cust_codeid','cust_name',
+        'value','percent','site_codeid','sitecode_name',
+        'issued_expiry_date','isvalid','voucher_name','sa_date','issued_staff']
                  
 class VoucherRecordAccSerializer(serializers.ModelSerializer):
 
