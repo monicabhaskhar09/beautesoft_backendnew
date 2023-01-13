@@ -270,7 +270,7 @@ class ItemCart(models.Model):
     multistaff_ids = models.ManyToManyField('cl_table.Tmpmultistaff', related_name='multistaff', blank=True)
     treatment_no = models.CharField(db_column='Treatment_No', max_length=10, blank=True, null=True)  # Field name made lowercase.
     free_sessions = models.CharField(db_column='Free_Sessions', max_length=10, blank=True, null=True)  # Field name made lowercase.
-    exchange_id = models.ForeignKey('cl_table.ExchangeDtl', on_delete=models.SET_NULL,blank=True, null=True)
+    exchange_id = models.ForeignKey('cl_table.ExchangeDtl', on_delete=models.PROTECT,blank=True, null=True)
     is_total = models.BooleanField(default=False,null=True)
     prepaid_value = models.FloatField(db_column='Prepaid_Value', blank=True, null=True)  # Field name made lowercase.
     isopen_prepaid = models.BooleanField(db_column='isOpen_Prepaid',default=False)  # Field name made lowercase.
@@ -284,7 +284,7 @@ class ItemCart(models.Model):
     quotationitem_id = models.ForeignKey('custom.QuotationItemModel', on_delete=models.PROTECT,blank=True, null=True)
     is_flexinewservice = models.BooleanField(default=False, blank=True, null=True)
     addstaff_time = models.IntegerField(blank=True, null=True)
-    batch_sno = models.CharField(db_column='BATCH_SNO', max_length=300, blank=True, null=True)  # Field name made lowercase.
+    batch_sno = models.CharField(db_column='BATCH_SNO', max_length=30, blank=True, null=True)  # Field name made lowercase.
     
     class Meta:
         db_table = 'item_Cart'
@@ -1854,11 +1854,11 @@ class CommissionProfile(models.Model):
         ("2", "incentive"),
     )
     
-    employe_level_id =models.ForeignKey(EmpLevel, on_delete=models.CASCADE,blank=True,null=True) 
+    employe_level_id =models.ForeignKey(EmpLevel, on_delete=models.PROTECT,blank=True,null=True) 
     profile_name = models.CharField(max_length=255)
     period = models.CharField(max_length = 20,choices = PERIOD_CHOICES,default = None)
-   # item_div_id = models.ForeignKey(ItemDiv, on_delete=models.CASCADE) 
-   # item_id = models.ForeignKey(ItemDiv, on_delete=models.CASCADE) 
+   # item_div_id = models.ForeignKey(ItemDiv, on_delete=models.PROTECT) 
+   # item_id = models.ForeignKey(ItemDiv, on_delete=models.PROTECT) 
     from_date = models.DateField(null=True,blank=True)
     to_date = models.DateField(null=True,blank=True) 
     min_value = models.FloatField(db_column='Target min')
@@ -1867,19 +1867,19 @@ class CommissionProfile(models.Model):
     ispercent = models.BooleanField()
     incentive = models.FloatField(db_column='incentive',null=True)
     incentive_ispercent = models.BooleanField()
-    range_id  = models.ForeignKey(ItemRangeModel,on_delete=models.CASCADE)
-    brand_id =  models.ForeignKey(ItemBrandModel, on_delete=models.CASCADE) 
-    department_id =  models.ForeignKey(ItemDeptModel, on_delete=models.CASCADE,related_name= 'item_department') 
+    range_id  = models.ForeignKey(ItemRangeModel,on_delete=models.PROTECT)
+    brand_id =  models.ForeignKey(ItemBrandModel, on_delete=models.PROTECT) 
+    department_id =  models.ForeignKey(ItemDeptModel, on_delete=models.PROTECT,related_name= 'item_department') 
     commission_type = models.BooleanField()
-    rangee_comm_id  =  models.ForeignKey(ItemRangeModel,on_delete=models.CASCADE,related_name= 'range_commission',null=True)
-    brand_comm_id =   models.ForeignKey(ItemBrandModel, on_delete=models.CASCADE,related_name= 'range_brand',null=True)
-    department_comm_id = models.ForeignKey(ItemDeptModel, on_delete=models.CASCADE,related_name= 'range_dept',null=True) 
+    rangee_comm_id  =  models.ForeignKey(ItemRangeModel,on_delete=models.PROTECT,related_name= 'range_commission',null=True)
+    brand_comm_id =   models.ForeignKey(ItemBrandModel, on_delete=models.PROTECT,related_name= 'range_brand',null=True)
+    department_comm_id = models.ForeignKey(ItemDeptModel, on_delete=models.PROTECT,related_name= 'range_dept',null=True) 
     
     class Meta:
         db_table = 'Commission_profile'
 
 class CommTarget(models.Model):
-    employe_level_id = models.ForeignKey(EmpLevel, on_delete=models.CASCADE)  
+    employe_level_id = models.ForeignKey(EmpLevel, on_delete=models.PROTECT)  
     profile_name = models.CharField(max_length=255)
     from_date_comm = models.DateField(null=True)
     to_date_comm = models.DateField(null=True)
@@ -1889,13 +1889,13 @@ class CommTarget(models.Model):
     ispercent_comm = models.BooleanField(default=False)
     incentive_comm = models.FloatField(db_column='incentive comm',null=True,blank=True)
     incentive_ispercent_comm = models.BooleanField(default=False)
-    comm_Profile_id = models.ForeignKey(CommissionProfile, on_delete=models.CASCADE,null=True) 
+    comm_Profile_id = models.ForeignKey(CommissionProfile, on_delete=models.PROTECT,null=True) 
     
     class Meta:
         db_table = 'Comm_target'
 
 class CommDeduction(models.Model): 
-    employe_level_id = models.ForeignKey(EmpLevel, on_delete=models.CASCADE) 
+    employe_level_id = models.ForeignKey(EmpLevel, on_delete=models.PROTECT) 
     profile_name = models.CharField(max_length=255)
     gst =  models.FloatField(db_column='GST',null=True,blank=True)
     gst_ispercent = models.BooleanField(default=False)
@@ -1903,7 +1903,7 @@ class CommDeduction(models.Model):
     bc_ispercent = models.BooleanField(default=False)
     emi =  models.FloatField(db_column='EMI',null=True,blank=True)
     emi_ispercent = models.BooleanField(default=False)
-    comm_Profilede_id = models.ForeignKey(CommissionProfile, on_delete=models.CASCADE,null=True)
+    comm_Profilede_id = models.ForeignKey(CommissionProfile, on_delete=models.PROTECT,null=True)
     
     class Meta:
         db_table = 'Comm_deduction'

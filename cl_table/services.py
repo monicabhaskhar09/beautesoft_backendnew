@@ -1102,6 +1102,10 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                             dx_split = str(batchso_ids.exp_date).split(" ")
                             exp_rdate = datetime.datetime.strptime(str(dx_split[0]), '%Y-%m-%d').strftime("%d/%m/%Y")
                             dtl.dt_itemdesc = dtl.dt_itemdesc+" "+", Expiry Date : "+str(exp_rdate)
+                        
+                        if batchso_ids:
+                            batchso_ids.availability = False
+                            batchso_ids.save()
 
                         dtl.save()    
                     
@@ -1990,7 +1994,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                             tptopen_ids = Treatment.objects.filter(treatment_parentcode=treatment_parentcode,status="Open").order_by('pk').count()
                             fu_ids =  Treatment.objects.filter(treatment_parentcode=treatment_parentcode,times="01").first()
                             q = str(c.quantity).zfill(2)
-                            ls_ids = Treatment.objects.filter(treatment_parentcode=treatment_parentcode,times=q).first()
+                            ls_ids = Tmptreatment.objects.filter(itemcart=c,isfoc=False).order_by('-pk').first()
 
                             trmtAccObj = TreatmentAccount.objects.filter(treatment_parentcode=treatment_parentcode).order_by('-sa_date','-sa_time','-id').first()
                             
@@ -1998,7 +2002,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                             tr = TreatmentPackage(treatment_parentcode=treatment_parentcode,
                             item_code=str(treatmentid.Item_Codeid.item_code)+"0000",course=treatmentid.course,
                             treatment_no=str(o_ids).zfill(2),open_session=tptopen_ids,done_session=tptdone_ids,
-                            cancel_session=tptcancel_ids,expiry_date=treatmentid.expiry,unit_amount=ls_ids.unit_amount,
+                            cancel_session=tptcancel_ids,expiry_date=treatmentid.expiry,unit_amount=ls_ids.unit_amount if ls_ids else treatmentid.unit_amount,
                             customerid=cust_obj,cust_name=treatmentid.cust_name,cust_code=treatmentid.cust_code,
                             treatment_accountid=treatmentid.treatment_account,totalprice=treatmentid.price,
                             type=treatmentid.type,

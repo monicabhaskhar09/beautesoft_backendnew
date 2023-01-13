@@ -337,6 +337,8 @@ body{
           <h6>Rounding: {{ "0.00" }}</h6>
         {% endif %}
         <h6>Grand Total: {{ billing_amount|floatformat:2 }}</h6>
+        <h6>Deposit: {{ deposit_amt|floatformat:2 }}</h6>
+        <h6>Outstanding: {{ trans_amt|sub:deposit_amt |floatformat:2 }}</h6>
       </div>
       
      <br/>

@@ -1377,8 +1377,10 @@ class itemCartViewset(viewsets.ModelViewSet):
                 queryset = ItemCart.objects.filter(cust_noid=cust_obj,cart_date=cart_date,
                 cart_status="Inprogress",isactive=True,is_payment=False,sitecode=site.itemsite_code).exclude(type__in=type_ex).order_by('lineno')    
                 lst = list(set([e.cart_id for e in queryset if e.cart_id]))
+                cart_strv = ', '.join(lst)
                 if len(lst) > 1:
-                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"This Customer will have more than one Cart ID in Inprogress status,Please check and delete Unwanted Cart ID!!",'error': True} 
+                    msg = "Site {0},Cart IDS {1},Total Lines {2} This Customer will have more than one Cart ID in Inprogress status,Please check and delete Unwanted Cart ID!!".format(str(site.itemsite_code),str(cart_strv),str(len(queryset)))
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":msg,'error': True} 
                     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
                 
                 if lst != []:
@@ -1859,7 +1861,7 @@ class itemCartViewset(viewsets.ModelViewSet):
 
 
                 enterdeposit = request.data.get('enter_deposit') 
-                if not enterdeposit:
+                if not enterdeposit >= 0:
                     raise Exception('Please Enter Deposit !!') 
 
                 enter_deposit = float("{:.2f}".format(float(enterdeposit)))
@@ -2081,73 +2083,87 @@ class itemCartViewset(viewsets.ModelViewSet):
                         return Response(result, status=status.HTTP_400_BAD_REQUEST) 
                 else:
                     cartcids = ItemCart.objects.filter(isactive=True,cart_date=cart_date,
-                    cust_noid=cust_obj,cart_status="Inprogress",is_payment=False,sitecodeid=site).exclude(type__in=type_ex)  
-                    if cartcids:
-                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cart Inprogress record is there for this cutomer!!",'error': True} 
-                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-
-                    check = "New"
-                    control_obj = ControlNo.objects.filter(control_description__iexact="ITEM CART",Site_Codeid__pk=fmspw[0].loginsite.pk).first()
-                    if not control_obj:
-                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Item Cart Control No does not exist!!",'error': True} 
-                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-                
-                    # cart_rec = ItemCart.objects.all().count()
-                    # print(cart_rec,"cart_rec")
-                    #cartre = ItemCart.objects.filter(sitecodeid=site).order_by('cart_id')
-                    cartre = ItemCart.objects.filter(sitecodeid=site).order_by('-cart_id')[:2]
-                    final = list(set([r.cart_id for r in cartre]))
-                    # print(final,len(final),"final")
-                    code_site = site.itemsite_code
-                    prefix = control_obj.control_prefix
-
-                    silicon = 6
-                    cosystem_setup = Systemsetup.objects.filter(title='ICControlnoslice',value_name='ICControlnoslice',isactive=True).first()
-                    if cosystem_setup and cosystem_setup.value_data: 
-                        silicon = int(cosystem_setup.value_data)
-
-
-                    lst = []
-                    if final != []:
-                        for f in final:
-                            fhstr = int(f[silicon:])
-                            # newstr = f.replace(prefix,"")
-                            # new_str = newstr.replace(code_site, "")
-                            lst.append(fhstr)
-                            # print(lst,"kklst")
-                            lst.sort(reverse=True)
-
-                        # print(lst,"lst 66")
-                        c_no = int(lst[0]) + 1
-                        # print(lst[0][-6:],"nnn")
-                        # c_no = int(lst[0][-6:]) + 1
-                        # print(c_no,"99")
-
-                        cart_id = str(control_obj.control_prefix)+str(control_obj.Site_Codeid.itemsite_code)+str(c_no)
-                    else:
-                        cart_id = str(control_obj.control_prefix)+str(control_obj.Site_Codeid.itemsite_code)+str(control_obj.control_no)
+                    cust_noid=cust_obj,cart_status="Inprogress",is_payment=False,sitecodeid=site).exclude(type__in=type_ex).order_by('-pk')  
                     
+                    
+                    
+                    if cartcids:
+                        check = "Old"
+                        cart_id = cartcids[0].cart_id
+                        # result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cart Inprogress record is there for this cutomer!!",'error': True} 
+                        # return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                         
+                    if not cartcids:
+                        check = "New"
+                        control_obj = ControlNo.objects.filter(control_description__iexact="ITEM CART",Site_Codeid__pk=fmspw[0].loginsite.pk).first()
+                        if not control_obj:
+                            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Item Cart Control No does not exist!!",'error': True} 
+                            return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                    
+                        # cart_rec = ItemCart.objects.all().count()
+                        # print(cart_rec,"cart_rec")
+                        #cartre = ItemCart.objects.filter(sitecodeid=site).order_by('cart_id')
+                        cartre = ItemCart.objects.filter(sitecodeid=site).order_by('-cart_id')[:2]
+                        final = list(set([r.cart_id for r in cartre]))
+                        # print(final,len(final),"final")
+                        code_site = site.itemsite_code
+                        prefix = control_obj.control_prefix
+
+                        silicon = 6
+                        cosystem_setup = Systemsetup.objects.filter(title='ICControlnoslice',value_name='ICControlnoslice',isactive=True).first()
+                        if cosystem_setup and cosystem_setup.value_data: 
+                            silicon = int(cosystem_setup.value_data)
+
+
+                        lst = []
+                        if final != []:
+                            for f in final:
+                                fhstr = int(f[silicon:])
+                                # newstr = f.replace(prefix,"")
+                                # new_str = newstr.replace(code_site, "")
+                                lst.append(fhstr)
+                                # print(lst,"kklst")
+                                lst.sort(reverse=True)
+
+                            # print(lst,"lst 66")
+                            c_no = int(lst[0]) + 1
+                            # print(lst[0][-6:],"nnn")
+                            # c_no = int(lst[0][-6:]) + 1
+                            # print(c_no,"99")
+
+                            cart_id = str(control_obj.control_prefix)+str(control_obj.Site_Codeid.itemsite_code)+str(c_no)
+                        else:
+                            cart_id = str(control_obj.control_prefix)+str(control_obj.Site_Codeid.itemsite_code)+str(control_obj.control_no)
+                        
+                        #cust_noid=cust_obj,
+                        cartcc_ids = ItemCart.objects.filter(isactive=True,cart_date=cart_date,
+                        cart_id=cart_id,cart_status="Completed",is_payment=True,sitecodeid=site).exclude(type__in=type_ex)  
+                        if cartcc_ids:
+                            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Invalid Cart ID,Send correct Cart Id,Given Cart ID Payment done!!",'error': True} 
+                            return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                    
+                        #same customer
+                        cartcu_ids = ItemCart.objects.filter(isactive=True,cust_noid=cust_obj,cart_date=cart_date,
+                        cart_id=cart_id,cart_status="Inprogress",is_payment=False,sitecodeid=site,check="New").exclude(type__in=type_ex)     
+                        if len(cartcu_ids) == 1:
+                            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Invalid Cart ID,Send correct Cart Id!!",'error': True} 
+                            return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
+                        #Different customer
+                        cartcut_ids = ItemCart.objects.filter(isactive=True,cart_date=cart_date,
+                        cart_id=cart_id,cart_status="Inprogress",is_payment=False,sitecodeid=site,check="New").exclude(type__in=type_ex)     
+                        if len(cartcut_ids) == 1:
+                            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Invalid Cart ID,Send correct Cart Id!!",'error': True} 
+                            return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
                     #cust_noid=cust_obj,
-                    cartcc_ids = ItemCart.objects.filter(isactive=True,cart_date=cart_date,
-                    cart_id=cart_id,cart_status="Completed",is_payment=True,sitecodeid=site).exclude(type__in=type_ex)  
-                    if cartcc_ids:
+                    cartc_ids = ItemCart.objects.filter(isactive=True,cart_date=cart_date,
+                    cart_id=cart_id,cart_status="Completed",is_payment=True,sitecodeid=site).exclude(type__in=type_ex)
+                    if cartc_ids:
                         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Invalid Cart ID,Send correct Cart Id,Given Cart ID Payment done!!",'error': True} 
                         return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-                
-                    #same customer
-                    cartcu_ids = ItemCart.objects.filter(isactive=True,cust_noid=cust_obj,cart_date=cart_date,
-                    cart_id=cart_id,cart_status="Inprogress",is_payment=False,sitecodeid=site,check="New").exclude(type__in=type_ex)     
-                    if len(cartcu_ids) == 1:
-                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Invalid Cart ID,Send correct Cart Id!!",'error': True} 
-                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-
-                    #Different customer
-                    cartcut_ids = ItemCart.objects.filter(isactive=True,cart_date=cart_date,
-                    cart_id=cart_id,cart_status="Inprogress",is_payment=False,sitecodeid=site,check="New").exclude(type__in=type_ex)     
-                    if len(cartcut_ids) == 1:
-                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Invalid Cart ID,Send correct Cart Id!!",'error': True} 
-                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-                
+                        
+                    
                 cag_ids = ItemCart.objects.filter(isactive=True,cart_date=cart_date,
                 cart_id=cart_id,cart_status="Inprogress",is_payment=False,sitecode=site.itemsite_code).exclude(type__in=type_ex)  
                 if cag_ids:
@@ -2649,7 +2665,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                         return Response(result, status=status.HTTP_400_BAD_REQUEST) 
                 else:
                     cartcids = ItemCart.objects.filter(isactive=True,cart_date=cartdate,
-                    cust_noid=cust_obj,cart_status="Inprogress",is_payment=False,sitecodeid=site).exclude(type__in=type_ex).order_by('pk')
+                    cust_noid=cust_obj,cart_status="Inprogress",is_payment=False,sitecodeid=site).exclude(type__in=type_ex).order_by('-pk')
                     if cartcids:
                         check = "Old"
                         cart_id = cartcids[0].cart_id
@@ -9071,7 +9087,8 @@ class CourseTmpItemHelperViewset(viewsets.ModelViewSet):
                 # print(h_obj.count())
 
                 count = 1;Source_Codeid=None;Room_Codeid=None;new_remark=None;appt_fr_time=None;appt_to_time=None;add_duration=None
-                session=1
+                # session=1
+                session = done
                 if cartobj.itemcodeid.srv_duration is None or float(cartobj.itemcodeid.srv_duration) == 0.0:
                     stk_duration = 60
                 else:

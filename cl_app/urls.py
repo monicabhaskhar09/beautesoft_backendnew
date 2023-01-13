@@ -54,6 +54,7 @@ router.register(r'flexiserviceslist', views.FlexiServicesListViewset, basename='
 router.register(r'transactioninvoices', views.TransactionInvoicesViewset, basename='transactioninvoices')
 router.register(r'treatmentdonenew', views.TreatmentDoneNewViewset, basename='treatmentdonenew')
 router.register(r'voucherpromo', views.VoucherPromoViewset, basename='voucherpromo')
+router.register(r'sessiontmpitemhelper', views.SessionTmpItemHelperViewset, basename='sessiontmpitemhelper')
 
 
 

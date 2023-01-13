@@ -1249,14 +1249,14 @@ class WebConsultation_Referral_HdrViewset(viewsets.ModelViewSet):
                 fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
                 site = fmspw[0].loginsite
 
-                if not 'signature_img' in request.data or not request.data['signature_img']:
-                    raise Exception('Please give signature img!!.') 
+                # if not 'signature_img' in request.data or not request.data['signature_img']:
+                #     raise Exception('Please give signature img!!.') 
 
-                if not 'welcomedoor_signatureimg' in request.data or not request.data['welcomedoor_signatureimg']:
-                    raise Exception('Please give welcomedoor signatureimg!!.') 
+                # if not 'welcomedoor_signatureimg' in request.data or not request.data['welcomedoor_signatureimg']:
+                #     raise Exception('Please give welcomedoor signatureimg!!.') 
 
-                if not 'create_by' in request.data or not request.data['create_by']:
-                    raise Exception('Please give create by!!.') 
+                # if not 'create_by' in request.data or not request.data['create_by']:
+                #     raise Exception('Please give create by!!.') 
                     
                 if not 'doc_no' in request.data or not request.data['doc_no']:
                     raise Exception('Please give doc no!!.') 

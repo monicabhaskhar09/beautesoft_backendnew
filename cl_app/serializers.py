@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import (SiteGroup,ItemSitelist,ReverseTrmtReason,VoidReason,TreatmentUsage,UsageMemo,
-Treatmentface,VoucherPromo)
+Treatmentface,VoucherPromo,TmpItemHelperSession)
 from cl_table.models import (ItemDept, ItemRange, Stktrn, Stock, TreatmentAccount, Treatment,DepositAccount,
 PrepaidAccount,PosHaud,PosDaud, Customer, PosTaud,CreditNote,PrepaidAccountCondition,Fmspw,Holditemdetail,
 ItemLink,Systemsetup,Employee,Multistaff,ItemDiv,TreatmentPackage)
@@ -860,3 +860,17 @@ class VoucherPromoSerializer(serializers.ModelSerializer):
         data['price'] = "{:.2f}".format(float(data['price'])) if instance.price else "0.00"
 
         return data     
+
+class SessionTmpItemHelperSerializer(serializers.ModelSerializer): 
+
+    class Meta:
+        model = TmpItemHelperSession
+        fields = ['id','helper_name','session','wp1']
+
+    def to_representation(self, instance):
+       
+        data = super(SessionTmpItemHelperSerializer, self).to_representation(instance)
+        data['session'] = "{:.2f}".format(float(instance.session)) if instance.session else "0.00"
+        data['wp1'] = "{:.2f}".format(float(instance.wp1)) if instance.wp1 else "0.00"
+
+        return data      

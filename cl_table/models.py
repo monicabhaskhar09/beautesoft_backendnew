@@ -1111,8 +1111,8 @@ class Customer(models.Model):
 class Images(models.Model):
 
     id = models.AutoField(db_column='ID', primary_key=True)  # Field name made lowercase.
-    services = models.ForeignKey('cl_table.Stock', on_delete=models.CASCADE, blank=True, null=True)
-    item_sitelist = models.ForeignKey('cl_app.ItemSitelist', on_delete=models.CASCADE,blank=True, null=True)
+    services = models.ForeignKey('cl_table.Stock', on_delete=models.PROTECT, blank=True, null=True)
+    item_sitelist = models.ForeignKey('cl_app.ItemSitelist', on_delete=models.PROTECT,blank=True, null=True)
     image = models.ImageField(upload_to='img')
 
     class Meta:
@@ -1695,7 +1695,7 @@ class PosDaud(models.Model):
     cas_logno = models.CharField( max_length=20, blank=True,  null=True)
     sa_transacno = models.CharField(max_length=20,blank=True, null=True)
     dt_status = models.CharField(max_length=5, blank=True,choices=DT_STATUS, null=True)
-    dt_itemnoid = models.ForeignKey('cl_table.Stock', on_delete=models.CASCADE,  null=True)
+    dt_itemnoid = models.ForeignKey('cl_table.Stock', on_delete=models.PROTECT,  null=True)
     dt_itemno = models.CharField(max_length=20, blank=True, null=True)
     dt_itemdesc = models.CharField(max_length=200, blank=True,  null=True)
     dt_price = models.FloatField(blank=True, null=True)

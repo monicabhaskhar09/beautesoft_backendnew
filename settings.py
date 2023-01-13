@@ -28,7 +28,7 @@ SECRET_KEY = '0hvkn)58&z=%mogc(sz!324jk5-g4pp*8q=7$g(g7lvb3b(^hf'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['52.60.58.9','127.0.0.1','103.253.15.184','103.253.15.185','UBUNTUCLOUD15-185']
+ALLOWED_HOSTS = ['52.60.58.9','127.0.0.1','103.253.15.184','103.253.15.185','103.253.14.219','UBUNTUCLOUD15-185']
 
 
 
@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'cl_app',
     'custom',
     'clpayroll',
+    'cl_ipad',
 ]
 
 MIDDLEWARE = [
@@ -130,10 +131,10 @@ DATABASES = {
     'default': {
         'ENGINE': 'sql_server.pyodbc',
         'NAME': 'healspahq_backup9',
-        'HOST': 'localhost',
-        'PORT': '3307',
-        'USER': 'sa',
-        'PASSWORD': 'Doodle@123',
+        'HOST': '103.253.14.219',
+        'PORT': '8890',
+        'USER': 'monica',
+        'PASSWORD': 'monica@Doodle',
         'OPTIONS': {
             'driver': 'ODBC Driver 17 for SQL Server',
         }
@@ -217,6 +218,7 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 PDF_ROOT = MEDIA_ROOT + '/pdf/'
 IMG_ROOT = MEDIA_ROOT + '/img/'
+SITE_ROOT = 'http://103.253.15.184:8000/media/'
 
 # CORS Settings
 CORS_ALLOW_METHODS =['DELETE','GET','OPTIONS','PATCH','POST','PUT',]
@@ -224,7 +226,7 @@ CORS_ALLOW_METHODS =['DELETE','GET','OPTIONS','PATCH','POST','PUT',]
 CORS_ORIGIN_ALLOW_ALL = True
 CORS_ALLOW_CREDENTIALS = True
 CORS_ORIGIN_WHITELIST = (
-    'http://localhost:8107',
+    'http://localhost:8000',
     # 'http://3.6.59.208',
     
 )
@@ -234,8 +236,8 @@ EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_USE_TLS = True
 EMAIL_USE_SSL = False
 EMAIL_PORT = 587
-EMAIL_HOST_USER = 'monicabhaskhar09@gmail.com'
-EMAIL_HOST_PASSWORD = 'Bhass$095'
+EMAIL_HOST_USER = 'noreplybeautesoft@gmail.com'
+EMAIL_HOST_PASSWORD = 'vnyawmeuzdnmtlky'
 
 SMS_SECRET_KEY = "JBSWY3DPEHPK3VAG"
 SMS_ACCOUNT_SID = 'AC908cc6d0a44dc2a10ad84fea39d791ae'

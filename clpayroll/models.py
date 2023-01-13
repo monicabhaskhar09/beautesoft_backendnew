@@ -16,7 +16,7 @@ class Employee_Salary(models.Model):
 
 
     id = models.AutoField(db_column='ID', primary_key=True)  # Field name made lowercase.
-    empid = models.ForeignKey(Employee, on_delete=models.CASCADE,blank=True,null=True)
+    empid = models.ForeignKey(Employee, on_delete=models.PROTECT,blank=True,null=True)
     emp_name = models.CharField(db_column='Emp_name', max_length=600, blank=True, null=True)  # Field name made lowercase.
     site_code = models.CharField(db_column='Site_Code', max_length=100, blank=True, null=True)
     basicsalary = models.FloatField(db_column='basicsalary',blank=True, null=True)
@@ -34,7 +34,7 @@ class Employee_Salary(models.Model):
     netpay = models.FloatField(db_column='netPay', blank=True, null=True)  # Field name made lowercase.
     empcpfcont = models.FloatField(db_column='empCPFCont', blank=True, null=True)  # Field name made lowercase.
     dateofpay = models.DateField(blank=True, null=True)
-    modeofPayid =  models.ForeignKey('custom.ModeOfPayment', on_delete=models.CASCADE,blank=True,null=True)   
+    modeofPayid =  models.ForeignKey('custom.ModeOfPayment', on_delete=models.PROTECT,blank=True,null=True)   
     salarystatus = models.CharField(max_length=250,choices=SA_STATUS, null=True, blank=True,default="New")
     salarymonth = models.CharField(db_column='salarly_month', max_length=100, blank=True, null=True)
     from_date =  models.DateField(blank=True, null=True)
@@ -55,7 +55,7 @@ class Employee_Salary(models.Model):
 class AllowanceList(models.Model):
     
     id = models.AutoField(db_column='ID', primary_key=True)  # Field name made lowercase.
-    emp_salaryid  = models.ForeignKey(Employee_Salary, on_delete=models.CASCADE,blank=True,null=True) 
+    emp_salaryid  = models.ForeignKey(Employee_Salary, on_delete=models.PROTECT,blank=True,null=True) 
     desc = models.TextField(null=True)
     type_nameid = models.ForeignKey('custom.SalarySubTypeLookup', on_delete=models.PROTECT,null=True)
     amount = models.FloatField(db_column='amount', blank=True, null=True)  # Field name made lowercase.
@@ -70,7 +70,7 @@ class AllowanceList(models.Model):
 class DeductionList(models.Model):
     
     id = models.AutoField(db_column='ID', primary_key=True)  # Field name made lowercase.
-    emp_salaryid  = models.ForeignKey(Employee_Salary, on_delete=models.CASCADE,blank=True,null=True) 
+    emp_salaryid  = models.ForeignKey(Employee_Salary, on_delete=models.PROTECT,blank=True,null=True) 
     desc = models.TextField(null=True)
     type_nameid = models.ForeignKey('custom.SalarySubTypeLookup', on_delete=models.PROTECT,null=True)
     amount = models.FloatField(db_column='amount', blank=True, null=True)  # Field name made lowercase.
@@ -85,7 +85,7 @@ class DeductionList(models.Model):
 class PaymentList(models.Model):
     
     id = models.AutoField(db_column='ID', primary_key=True)  # Field name made lowercase.
-    emp_salaryid  = models.ForeignKey(Employee_Salary, on_delete=models.CASCADE,blank=True,null=True) 
+    emp_salaryid  = models.ForeignKey(Employee_Salary, on_delete=models.PROTECT,blank=True,null=True) 
     desc = models.TextField(null=True)
     type_nameid = models.ForeignKey('custom.SalarySubTypeLookup', on_delete=models.PROTECT,null=True)
     amount = models.FloatField(db_column='amount', blank=True, null=True)  # Field name made lowercase.

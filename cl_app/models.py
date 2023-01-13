@@ -139,7 +139,7 @@ class VoidReason(models.Model):
         return str(self.reason_desc)    
     
 class LoggedInUser(models.Model):
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, related_name='logged_in_user', on_delete=models.CASCADE)
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, related_name='logged_in_user', on_delete=models.PROTECT)
     session_key = models.CharField(max_length=40, blank=True, null=True)
     current_key = models.CharField(max_length=40, blank=True, null=True)
     
@@ -318,4 +318,18 @@ class SmsProcessLog(models.Model):
 
     class Meta:
         db_table = 'SMS_Process_Log'
-           
+
+class TmpItemHelperSession(models.Model):
+    id = models.AutoField(db_column='ID',primary_key=True)  # Field name made lowercase.
+    treatment_parentcode = models.CharField(db_column='Treatment_ParentCode', max_length=200, blank=True, null=True)  # Field name made lowercase.
+    treatmentpackage = models.ForeignKey('cl_table.TreatmentPackage', on_delete=models.PROTECT,null=True, blank=True)
+    wp1 = models.FloatField(db_column='WP1', blank=True, null=True)  # Field name made lowercase.
+    session = models.FloatField(db_column='Session', blank=True, null=True)  # Field name made lowercase.
+    helper_name = models.CharField(db_column='Helper_Name', max_length=50, blank=True, null=True)  # Field name made lowercase.
+    helper_code = models.CharField(db_column='Helper_Code', max_length=20, blank=True, null=True)  # Field name made lowercase.
+    sa_date = models.DateTimeField(blank=True, null=True)
+    site_code = models.CharField(db_column='Site_Code', max_length=10, blank=True, null=True)  # Field name made lowercase.
+    helper_id = models.ForeignKey('cl_table.Employee', on_delete=models.PROTECT,null=True)
+
+    class Meta:
+        db_table = 'Tmp_Item_helperSession'

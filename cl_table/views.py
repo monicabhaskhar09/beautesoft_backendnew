@@ -3885,8 +3885,10 @@ class AppointmentViewset(viewsets.ModelViewSet):
                 if 1 == 1:
                     final = []
                     emp_siteids = list(EmpSitelist.objects.filter(Site_Codeid__pk=outlet.pk,isactive=True,Emp_Codeid__emp_isactive=True,Emp_Codeid__show_in_appt=True).values_list('Emp_Codeid', flat=True).distinct())
+                    # emp_queryset = Employee.objects.filter(pk__in=emp_siteids,emp_isactive=True,
+                    # show_in_appt=True,show_in_trmt=True) 
                     emp_queryset = Employee.objects.filter(pk__in=emp_siteids,emp_isactive=True,
-                    show_in_appt=True,show_in_trmt=True) 
+                    show_in_appt=True) 
                     staffs_f = list(set([e.pk for e in emp_queryset if e.pk and e.emp_isactive == True]))
                     if sc_system_obj and sc_system_obj.value_data == 'True':
                         month = ScheduleMonth.objects.filter(itm_date=date,Emp_Codeid__pk__in=staffs_f,
@@ -3897,8 +3899,9 @@ class AppointmentViewset(viewsets.ModelViewSet):
                             final = staffs_f
 
                     if final != []:
-                        queryset = Employee.objects.filter(pk__in=final,emp_isactive=True,show_in_appt=True,
-                        show_in_trmt=True).order_by('emp_seq_webappt') 
+                        # queryset = Employee.objects.filter(pk__in=final,emp_isactive=True,show_in_appt=True,
+                        # show_in_trmt=True).order_by('emp_seq_webappt') 
+                        queryset = Employee.objects.filter(pk__in=final,emp_isactive=True,show_in_appt=True).order_by('emp_seq_webappt') 
                     else:
                         queryset = Employee.objects.none()
                     
@@ -5385,10 +5388,15 @@ class AppointmentEditViewset(viewsets.ModelViewSet):
                                 #     master_ids.item_code = stockobj.item_code
                                 #     master_ids.course = stockobj.item_desc
 
-                        if j['checktype'] == 'freetext': 
-                            if 'item_text' in j and j['item_text']:
-                                if not j['item_text'] is None:
-                                    appt_obj.appt_remark = j['item_text']
+                        # if j['checktype'] == 'freetext': 
+                        #     if 'item_text' in j and j['item_text']:
+                        #         if not j['item_text'] is None:
+                        #             appt_obj.appt_remark = j['item_text']
+
+                        if 'item_text' in j and j['item_text']:
+                            if not j['item_text'] is None:
+                                appt_obj.appt_remark = j['item_text']
+        
 
                         if 'checktype' in j and j['checktype']:
                             if not j['checktype'] is None:
@@ -8358,7 +8366,7 @@ class postaudViewset(viewsets.ModelViewSet):
                             pay_actamt=req['pay_amt'],subtotal="{:.2f}".format(float(value['subtotal'])) if value['subtotal'] else 0.0,paychange=0.0,
                             tax="{:.2f}".format(float(value['tax_amt'])) if value['tax_amt'] else 0.0, discount_amt="{:.2f}".format(float(value['discount'])) if value['discount'] else 0.0,
                             billable_amount="{:.2f}".format(float(value['billable_amount'])) if value['billable_amount'] else 0.0,
-                            pay_gst_amt_collect="{:.2f}".format(float(pay_gst)),pay_gst="{:.2f}".format(float(pay_gst)),pay_rem4=req['pay_rem4'],
+                            pay_gst_amt_collect="{:.2f}".format(float(pay_gst)),pay_gst="{:.2f}".format(float(pay_gst)),pay_rem4=req['pay_rem4'] if 'pay_rem4' in req and req['pay_rem4'] else None,
                             sa_date=poshaud_v.sa_date,sa_time=poshaud_v.sa_time)
                             
                             taud.save()
@@ -8868,7 +8876,7 @@ class postaudViewset(viewsets.ModelViewSet):
                             pay_actamt=req['pay_amt'],subtotal="{:.2f}".format(float(value['subtotal'])) if value['subtotal'] else 0.0,paychange=0.0,
                             tax="{:.2f}".format(float(value['tax_amt'])) if value['tax_amt'] else 0.0, discount_amt="{:.2f}".format(float(value['discount'])) if value['discount'] else 0.0,
                             billable_amount="{:.2f}".format(float(value['billable_amount'])) if value['billable_amount'] else 0.0,
-                            pay_gst_amt_collect="{:.2f}".format(float(pay_gst)),pay_gst="{:.2f}".format(float(pay_gst)),pay_rem4=req['pay_rem4'])
+                            pay_gst_amt_collect="{:.2f}".format(float(pay_gst)),pay_gst="{:.2f}".format(float(pay_gst)),pay_rem4=req['pay_rem4'] if 'pay_rem4' in req and req['pay_rem4'] else None)
                             
                             taud.sa_date = pay_date
                             taud.sa_time = pay_time
@@ -9276,7 +9284,10 @@ class postaudViewset(viewsets.ModelViewSet):
                 totQty = int(sumqty['quantity__sum'])
                 ex_cart_ids = cart_ids.exclude(type='Exchange')
                 total_disc = sum([ca.discount_amt + ca.additional_discountamt for ca in ex_cart_ids if ca.discount_amt and ca.additional_discountamt])
-                
+                gt1_ids = Paytable.objects.filter(gt_group='GT1',pay_isactive=True).order_by('-pk') 
+                gt1_lst = list(set([i.pay_code for i in gt1_ids if i.pay_code]))
+                # print(gt1_lst,"gt1_lst")
+
                 if depotop_ids:
                     #header creation
                     if alsales_staff:
@@ -9311,10 +9322,13 @@ class postaudViewset(viewsets.ModelViewSet):
                         sa_transacno_type = "Non Sales"
                         
 
-                
+                    taudgst_gt1ids = PosTaud.objects.filter(sa_transacno=sa_transacno,itemsite_code=site.itemsite_code,
+                    pay_type__in=gt1_lst).order_by('pk').aggregate(pay_gst_amt_collect=Coalesce(Sum('pay_gst_amt_collect'), 0))
+                    # print(taud_gt1ids,"taud_gt1ids")
                     
+                        
                     hdr = PosHaud(cas_name=fmspw.pw_userlogin,sa_transacno=sa_transacno,sa_status="SA",
-                    sa_totamt="{:.2f}".format(float(value['tot_deposit'])),sa_totqty=totQty,sa_totdisc="{:.2f}".format(float(total_disc)),sa_totgst="{:.2f}".format(float(value['tax_amt'])),
+                    sa_totamt="{:.2f}".format(float(value['tot_deposit'])),sa_totqty=totQty,sa_totdisc="{:.2f}".format(float(total_disc)),sa_totgst="{:.2f}".format(float(taudgst_gt1ids['pay_gst_amt_collect'])) if taudgst_gt1ids and taudgst_gt1ids['pay_gst_amt_collect'] > 0.0 else 0,
                     sa_staffnoid=alsales_staff,sa_staffno=Emp_code,sa_staffname=Emp_name,sa_custnoid=cust_obj,sa_custno=cust_obj.cust_code,
                     sa_custname=cust_obj.cust_name,sa_discuser=fmspw.pw_userlogin,sa_discamt="{:.2f}".format(float(total_disc)),sa_disctotal="{:.2f}".format(float(total_disc)),ItemSite_Codeid=site,itemsite_code=site.itemsite_code,
                     sa_depositamt="{:.2f}".format(float(value['deposit_amt'])),sa_transacamt="{:.2f}".format(float(value['trans_amt'])),sa_round="{:.2f}".format(float(value['sa_Round'])),total_outstanding="{:.2f}".format(float(outstanding)) if outstanding is not None and outstanding > 0 else 0,
@@ -9400,9 +9414,7 @@ class postaudViewset(viewsets.ModelViewSet):
                 # if dayendtd_setup and dayendtd_setup.value_data == 'True':
 
                 #customer Reward Policy points given Deposit Topup not TD , Void 
-                gt1_ids = Paytable.objects.filter(gt_group='GT1',pay_isactive=True).order_by('-pk') 
-                gt1_lst = list(set([i.pay_code for i in gt1_ids if i.pay_code]))
-                # print(gt1_lst,"gt1_lst")
+               
                 taud_salesids = PosTaud.objects.filter(pk__in=taud_ids,itemsite_code=site.itemsite_code,
                 pay_type__in=gt1_lst).order_by('pk').aggregate(pay_amt=Coalesce(Sum('pay_amt'), 0))
                 # print(daily_taud_salesids,"daily_taud_salesids")
