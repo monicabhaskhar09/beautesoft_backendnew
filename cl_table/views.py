@@ -8983,7 +8983,8 @@ class postaudViewset(viewsets.ModelViewSet):
                                     CreditNote.objects.filter(pk=crdobj.pk).update(balance=crbalance,status=crstatus)
 
                                 check.remove("CREDIT")
-                            elif req['pay_typeid'] == 9:
+                            # elif req['pay_typeid'] == 9:
+                            elif str(paytable.pay_code).upper() == 'VC':    
                                 card_no = req['pay_rem1']
                                 # crdobj = CreditNote.objects.filter(credit_code=req['pay_rem1'],cust_code=cust_obj.cust_code,site_code=site.itemsite_code).first()
                                 # crdobj = CreditNote.objects.filter(credit_code=req['pay_rem1'],cust_code=cust_obj.cust_code).first()
@@ -8993,7 +8994,8 @@ class postaudViewset(viewsets.ModelViewSet):
                                     VoucherRecord.objects.filter(pk=crdobj.pk).update(isvalid=False,used=True)
 
                                 check.remove("VOUCHER")
-                            elif req['pay_typeid'] == 2:
+                            # elif req['pay_typeid'] == 2:
+                            elif str(paytable.pay_code).upper() == 'CS':    
                             # elif "CASH" in check:
 
                                 # if len(request.data) == 1:
@@ -17818,7 +17820,7 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
         try:
             return Customer.objects.get(pk=pk, cust_isactive=True)
         except Customer.DoesNotExist:
-            raise Http404
+            raise Exception('Customer ID Does not Exist')  
 
     def retrieve(self, request, pk=None):
         try:
@@ -18787,15 +18789,16 @@ class PhotoDiagnosis(APIView):
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated & authenticated_only]
 
-    def get(self, request):
+
+    def get(self, request , format=None):
         # fmspw = Fmspw.objects.filter(user=request.user, pw_isactive=True)
         # site = fmspw[0].loginsite.itemsite_code
         search_key = request.GET.get("search")
-        customer_list = None
-        if search_key:
-            customer_list = Customer.objects.filter(Q(cust_name__icontains=search_key) |
-                                                    Q(cust_code__icontains=search_key) |
-                                                    Q(cust_phone1__icontains=search_key)).values('cust_no')
+        # customer_list = None
+        # if search_key:
+        #     customer_list = Customer.objects.filter(Q(cust_name__icontains=search_key) |
+        #                                             Q(cust_code__icontains=search_key) |
+        #                                             Q(cust_phone1__icontains=search_key)).values('cust_no')
 
         site = request.GET.get("site")
 
@@ -18806,8 +18809,8 @@ class PhotoDiagnosis(APIView):
         # diag_qs = Diagnosis.objects.filter(site_code=site)
         diag_qs = Diagnosis.objects.filter().order_by('-diagnosis_date')
 
-        if customer_list:
-            diag_qs = diag_qs.filter(cust_no_id__in=customer_list)
+        if search_key:
+            diag_qs = diag_qs.filter(cust_no__pk=search_key).order_by('-diagnosis_date')
 
         full_tot = diag_qs.count()
         try:
@@ -18842,19 +18845,37 @@ class PhotoDiagnosis(APIView):
         return Response(result, status=status.HTTP_200_OK)
 
     def post(self,request):
+        fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+        site = fmspw[0].loginsite
+
         requestData = request.data
         # print(requestData,request.FILES)
         # requestData._mutable = True
         # requestData['pic_path'] = request.FILES.get("pic_path")
-        print(request.data)
+        # print(request.data)
 
         serializer = DiagnosisSerializer(data=requestData,context={'request':request})
         if serializer.is_valid():
-            serializer.save()
+            control_obj = ControlNo.objects.filter(control_description__iexact="Diagnosis",
+            Site_Codeid__pk=site.pk).first()
+            if not control_obj:
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Diagnosis Control No does not exist!!",'error': True} 
+                return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+            diagnosis_code = str(control_obj.control_prefix)+str(control_obj.Site_Codeid.itemsite_code)+str(control_obj.control_no)    
+                     
+            serializer.save(diagnosis_code=diagnosis_code,site_code=site.itemsite_code)
+             
+            control_obj.control_no = int(control_obj.control_no) + 1
+            control_obj.save()
+                    
             result = {'status': status.HTTP_200_OK, 'message': "success", 'error': False, "data": serializer.data}
             return Response(result, status=status.HTTP_200_OK)
         result = {'status': status.HTTP_400_BAD_REQUEST, 'message': "invalid input", 'error': True, "data": None, "error": serializer.errors}
         return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+class PhotoDiagnosisDetail(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
 
     def put(self,request,id):
         requestData = request.data
@@ -18877,7 +18898,47 @@ class PhotoDiagnosis(APIView):
             return Response(result, status=status.HTTP_200_OK)
         result = {'status': status.HTTP_400_BAD_REQUEST, 'message': "invalid input", 'error': True, "data": None, "error": serializer.errors}
         return Response(result, status=status.HTTP_400_BAD_REQUEST)
+    
+   
+    def get_object(self, id):
+        try:
+            return Diagnosis.objects.get(pk=id)
+        except Diagnosis.DoesNotExist:
+            raise Exception('Diagnosis ID Does not Exist') 
 
+    def get(self, request, id, format=None):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+            site = fmspw.loginsite
+            ref = self.get_object(id)
+            serializer = DiagnosisSerializer(ref, context={'request': self.request})
+            result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
+            'data': serializer.data}
+            return Response(data=result, status=status.HTTP_200_OK)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message) 
+
+            
+    def delete(self, request, id):
+        try:
+            ref = self.get_object(id)
+            serializer = DiagnosisSerializer(ref, data=request.data ,partial=True)
+            state = status.HTTP_204_NO_CONTENT
+            if serializer.is_valid():
+                # serializer.save()
+                ref.delete()
+                result = {'status': status.HTTP_200_OK,"message":"Deleted Succesfully",'error': False}
+                return Response(result, status=status.HTTP_200_OK)
+            
+            # print(serializer.errors,"jj")
+            result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",
+            'error': True,'data': serializer.errors }
+            return Response(result, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)          
 
 
 class DiagnosisCompareView(APIView):
@@ -18886,11 +18947,12 @@ class DiagnosisCompareView(APIView):
 
     def get(self, request):
         search_key = request.GET.get("search")
-        customer_list = None
-        if search_key:
-            customer_list = Customer.objects.filter(Q(cust_name__icontains=search_key) |
-                                                    Q(cust_code__icontains=search_key) |
-                                                    Q(cust_phone1__icontains=search_key)).values('cust_no')
+        # customer_list = None
+        # if search_key:
+        #     customer_list = Customer.objects.filter(Q(cust_name__icontains=search_key) |
+        #                                             Q(cust_code__icontains=search_key) |
+        #                                             Q(cust_phone1__icontains=search_key)).values('cust_no')
+        
         site = request.GET.get("site")
         if not site:
             fmspw = Fmspw.objects.filter(user=request.user, pw_isactive=True)
@@ -18898,8 +18960,8 @@ class DiagnosisCompareView(APIView):
 
         # diag_qs = Diagnosis.objects.filter(site_code=site)
         diag_qs = Diagnosis.objects.filter()
-        if customer_list:
-            diag_qs = diag_qs.filter(cust_no_id__in=customer_list)
+        if search_key:
+            diag_qs = diag_qs.filter(cust_no__pk=search_key)
 
         diag_list = diag_qs.values_list('sys_code',flat=True)
 
@@ -18938,18 +19000,35 @@ class DiagnosisCompareView(APIView):
         return Response(result, status=status.HTTP_200_OK)
 
     def post(self, request):
+        fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+        site = fmspw[0].loginsite
+
         requestData = request.data
         fmspw = Fmspw.objects.filter(user=request.user).first()
         compare_user = fmspw.emp_code
         requestData['compare_user'] = compare_user
         serializer = DiagnosisCompareSerializer(data=requestData,context={"request":request})
         if serializer.is_valid():
-            serializer.save()
+            control_obj = ControlNo.objects.filter(control_description__iexact="DiagnosisCompare",
+            Site_Codeid__pk=site.pk).first()
+            if not control_obj:
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"DiagnosisCompare Control No does not exist!!",'error': True} 
+                return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+            diagnosisc_code = str(control_obj.control_prefix)+str(control_obj.Site_Codeid.itemsite_code)+str(control_obj.control_no)    
+                     
+            serializer.save(compare_code=diagnosisc_code)
+             
+            control_obj.control_no = int(control_obj.control_no) + 1
+            control_obj.save()
             result = {'status': status.HTTP_200_OK, 'message': "success", 'error': False, "data": serializer.data}
             return Response(result, status=status.HTTP_200_OK)
         result = {'status': status.HTTP_400_BAD_REQUEST, 'message': "invalid input", 'error': True, "data": None,
                   "error": serializer.errors}
         return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+class DiagnosisCompareViewDetail(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
 
     def put(self,request,id):
         requestData = request.data
@@ -18972,6 +19051,49 @@ class DiagnosisCompareView(APIView):
         result = {'status': status.HTTP_400_BAD_REQUEST, 'message': "invalid input", 'error': True, "data": None,
                   "error": serializer.errors}
         return Response(result, status=status.HTTP_400_BAD_REQUEST)
+    
+    def get_object(self, id):
+        try:
+            return DiagnosisCompare.objects.get(pk=id)
+        except DiagnosisCompare.DoesNotExist:
+            raise Exception('DiagnosisCompare ID Does not Exist') 
+
+    def get(self, request, id, format=None):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+            site = fmspw.loginsite
+            ref = self.get_object(id)
+            serializer = DiagnosisCompareSerializer(ref, context={'request': self.request})
+            result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
+            'data': serializer.data}
+            return Response(data=result, status=status.HTTP_200_OK)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message) 
+        
+
+    def delete(self, request, id):
+        try:
+            ref = self.get_object(id)
+            serializer = DiagnosisCompareSerializer(ref, data=request.data ,partial=True)
+            state = status.HTTP_204_NO_CONTENT
+            if serializer.is_valid():
+                # serializer.save()
+                ref.delete()
+                result = {'status': status.HTTP_200_OK,"message":"Deleted Succesfully",'error': False}
+                return Response(result, status=status.HTTP_200_OK)
+            
+            # print(serializer.errors,"jj")
+            result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",
+            'error': True,'data': serializer.errors }
+            return Response(result, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)          
+
+
+
 
 class EmployeeSecuritySettings(APIView):
     authentication_classes = [TokenAuthentication]

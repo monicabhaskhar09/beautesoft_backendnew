@@ -2345,7 +2345,8 @@ class DiagnosisSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Diagnosis
-        fields = ['sys_code','diagnosis_date','remarks','date_pic_take','cust_name','cust_code','diagnosis_code','pic_path','cust_no','pic_data','pic_data1']
+        fields = ['sys_code','diagnosis_date','remarks','date_pic_take','cust_name',
+        'cust_code','diagnosis_code','pic_path','cust_no','pic_data','pic_data1']
         read_only_fields = ("diagnosis_code","cust_code",)
         extra_kwargs = {'diagnosis_code': {'required': False},
                         'cust_code': {'required': False},
@@ -2388,8 +2389,38 @@ class DiagnosisCompareSerializer(serializers.ModelSerializer):
     #         raise serializers.ValidationError("cust_code mismatch")
     #
     #     return attrs
+    
+    def create(self, validated_data):
+        
+        diagnosis_data = validated_data.pop("diagnosis", None)
+        compare = DiagnosisCompare.objects.create(**validated_data)
+        for data in diagnosis_data:
+            print(data,"data")
+            # diag = Diagnosis.objects.get(pk=data)
+            compare.diagnosis.add(data)
+        return compare 
+    
+    def update(self, instance, validated_data):
 
+        # Updating rooms
+        diagnosis_data = validated_data.pop("diagnosis", None)
+        instance.diagnosis.clear()
 
+        for data in diagnosis_data:
+            # diag = Diagnosis.objects.get(pk=data)
+            instance.diagnosis.add(data)
+
+        # Updating other fields
+        fields = [
+            'compare_remark',
+            'compare_datetime',
+            'compare_user',
+            'cust_code',
+        ]
+        for field in fields:
+            setattr(instance, field, validated_data[field])
+        instance.save()
+        return instance
 
 class SecuritylevellistSerializer(serializers.ModelSerializer):
     class Meta:

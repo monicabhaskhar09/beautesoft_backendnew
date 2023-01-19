@@ -1377,18 +1377,18 @@ class itemCartViewset(viewsets.ModelViewSet):
                 queryset = ItemCart.objects.filter(cust_noid=cust_obj,cart_date=cart_date,
                 cart_status="Inprogress",isactive=True,is_payment=False,sitecode=site.itemsite_code).exclude(type__in=type_ex).order_by('lineno')    
                 lst = list(set([e.cart_id for e in queryset if e.cart_id]))
-                cart_strv = ', '.join(lst)
-                if len(lst) > 1:
-                    msg = "Site {0},Cart IDS {1},Total Lines {2} This Customer will have more than one Cart ID in Inprogress status,Please check and delete Unwanted Cart ID!!".format(str(site.itemsite_code),str(cart_strv),str(len(queryset)))
-                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":msg,'error': True} 
-                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+                # cart_strv = ', '.join(lst)
+                # if len(lst) > 1:
+                #     msg = "Site {0},Cart IDS {1},Total Lines {2} This Customer will have more than one Cart ID in Inprogress status,Please check and delete Unwanted Cart ID!!".format(str(site.itemsite_code),str(cart_strv),str(len(queryset)))
+                #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":msg,'error': True} 
+                #     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
                 
                 if lst != []:
                     cartc_ids = ItemCart.objects.filter(isactive=True,cart_date=cart_date,
-                    cart_id=lst[0],cart_status="Completed",is_payment=True,sitecodeid=site).exclude(type__in=type_ex)
+                    cart_id__in=lst,cart_status="Completed",is_payment=True,sitecodeid=site).exclude(type__in=type_ex)
                     # print(cartc_ids,"cartc_ids") 
                     if cartc_ids:
-                        inqueryset = ItemCart.objects.filter(cust_noid=cust_obj,cart_id=lst[0],cart_date=cart_date,
+                        inqueryset = ItemCart.objects.filter(cust_noid=cust_obj,cart_id__in=lst,cart_date=cart_date,
                         cart_status="Inprogress",isactive=True,is_payment=False,sitecodeid=site).exclude(type__in=type_ex).order_by('lineno')  
                         for j in inqueryset:
                             j.cart_status = "Completed" 
@@ -1397,7 +1397,44 @@ class itemCartViewset(viewsets.ModelViewSet):
                             j.save()
                         scount += 1
                     else:
-                        scount = 0
+                        if len(lst) > 1:
+                            d_cartids = ItemCart.objects.filter(cart_id__in=lst,cart_date=cart_date,
+                            cart_status="Inprogress",isactive=True,is_payment=False,sitecode=site.itemsite_code).exclude(type__in=type_ex).order_by('lineno')  
+                            # checkd =list(set([x.pk for x in d_cartids if x.remark != None]))
+                            # if len(checkd) == d_cartids.count():
+                            #     raise Exception('TCM ItemCart Cant Delete !!') 
+
+                            check_e =list(set([x.pk for x in d_cartids if x.remark == None]))
+                            cartids = ItemCart.objects.filter(cart_id__in=lst,cart_date=cart_date,
+                            cart_status="Inprogress",isactive=True,is_payment=False,sitecode=site.itemsite_code,pk__in=check_e).exclude(type__in=type_ex,).order_by('lineno')    
+
+                            # if not cartids:
+                            #     raise Exception('Given Cart ID Does Not Exist') 
+
+                            if cartids:
+                                for instance in cartids:
+                                    instance.isactive = False
+                                    if instance.treatment:
+                                        TmpTreatmentSession.objects.filter(treatment_parentcode=instance.treatment.treatment_parentcode,
+                                        created_at=date.today()).delete() 
+
+                                    if instance.exchange_id:
+                                        ExchangeDtl.objects.filter(exchange_no=instance.exchange_id.exchange_no,status=False).delete()    
+                                    TreatmentAccount.objects.filter(itemcart=instance).update(itemcart=None)
+                                    PosDaud.objects.filter(itemcart=instance).update(itemcart=None)
+                                    TmpItemHelper.objects.filter(itemcart=instance).delete()
+                                    TmpItemHelper.objects.filter(treatment=instance.treatment).delete()
+                                    PosPackagedeposit.objects.filter(itemcart=instance).delete()
+                                    Tmpmultistaff.objects.filter(itemcart=instance).delete()
+                                    Tmptreatment.objects.filter(itemcart=instance).delete()
+                                    if instance.multi_treat.all().exists():
+                                        for i in instance.multi_treat.all():
+                                            TmpItemHelper.objects.filter(treatment=i).delete()
+                                            Tmptreatment.objects.filter(treatment_id=i,status='Open').delete()
+
+                                    instance.delete() 
+                                scount += 1 
+                        scount = 0        
                 else:
                     scount = 0
 
@@ -5899,6 +5936,11 @@ class HolditemSetupAPIView(generics.ListAPIView):
             invalid_message = str(e)
             return general_error_response(invalid_message)      
 
+def decimailpoint(value):
+    n = str(float(value)).split('.')
+    # print(n,"n")
+    amount = float(n[0]+"."+n[1][:2])
+    return amount
 
 class PosPackagedepositViewset(viewsets.ModelViewSet):
     authentication_classes = [ExpiringTokenAuthentication]
@@ -5932,8 +5974,10 @@ class PosPackagedepositViewset(viewsets.ModelViewSet):
                     deposit += dict_t['deposit_amt']
 
                     net_deposit += dict_t['net_amt']
-                    dict_t['deposit_amt'] = "{:.2f}".format(float(dict_t['deposit_amt']))
-                    dict_t['net_amt'] = "{:.2f}".format(float(dict_t['net_amt']))
+                    # dict_t['deposit_amt'] = "{:.2f}".format(float(dict_t['deposit_amt']))
+                    dict_t['deposit_amt'] = decimailpoint(dict_t['deposit_amt'])
+                    # dict_t['net_amt'] = "{:.2f}".format(float(dict_t['net_amt']))
+                    dict_t['net_amt'] = decimailpoint(dict_t['net_amt'])
                     lst.append(dict_t)
                 
                 if request.GET.get('autoamt', None):
@@ -5964,7 +6008,8 @@ class PosPackagedepositViewset(viewsets.ModelViewSet):
                             if l['auto'] == True:
                                 updateval = (float(l['net_amt']) * float(percent)) / 100
                                 # print(updateval,"updateval")
-                                l['deposit_amt'] = "{:.2f}".format(float(updateval))
+                                # l['deposit_amt'] = "{:.2f}".format(float(updateval))
+                                l['deposit_amt'] = decimailpoint(updateval)
                                 auto_deposit += float(l['deposit_amt'])
                                 deposit += float(l['deposit_amt'])
                             else:
@@ -5982,8 +6027,9 @@ class PosPackagedepositViewset(viewsets.ModelViewSet):
                     
 
                 result = {'status': status.HTTP_200_OK,"message":"Listed Successfully",'error': False, 
-                'data':  lst,'auto_deposit': "{:.2f}".format(float(auto_deposit)),'deposit':"{:.2f}".format(float(deposit)),
-                'net_deposit': "{:.2f}".format(float(net_deposit))}
+                'data':  lst,'auto_deposit': decimailpoint(auto_deposit),
+                'deposit':decimailpoint(deposit),
+                'net_deposit': decimailpoint(net_deposit) }
             else:
                 result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
             return Response(data=result, status=status.HTTP_200_OK)

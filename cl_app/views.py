@@ -4241,8 +4241,25 @@ class SessionTmpItemHelperViewset(viewsets.ModelViewSet):
 
             cartobj = ItemCart.objects.filter(pk=request.GET.get('cart_id',None)).first()
             
-            
             arrtreatmentid = request.GET.get('treatmentid',None).split(',')
+            print(arrtreatmentid,"arrtreatmentid")
+            treatmentpackage = self.request.GET.get('treatmentpackage',None)
+            if not treatmentpackage:
+                result = {'status': status.HTTP_400_BAD_REQUEST,
+                "message":"Please give treatmentpackage id",'error': False}
+                return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
+            tpackage_obj = TreatmentPackage.objects.filter(pk=treatmentpackage).first()
+            if not tpackage_obj:
+                result = {'status': status.HTTP_200_OK,"message":"TreatmentPackage id does't exist!!",'error': True} 
+                return Response(data=result, status=status.HTTP_200_OK) 
+            
+            queryset = TmpItemHelperSession.objects.filter(treatmentpackage=tpackage_obj,
+            sa_date__date=date.today()).order_by('-pk')
+
+            
+            
+            
             for t in arrtreatmentid:
                 trmt_obj = Treatment.objects.filter(status__in=["Open","Done"],pk=t).first()
                 if not trmt_obj:
@@ -6585,7 +6602,7 @@ class VoidViewset(viewsets.ModelViewSet):
                         taud.save()
 
                         #prepaid   
-                        if t.pay_type == 'PP':
+                        if str(t.pay_type).upper() == 'PP':
                             spltn = str(t.pay_rem1).split("-")
                             ppno = spltn[0]
                             lineno = spltn[1]
@@ -6673,7 +6690,7 @@ class VoidViewset(viewsets.ModelViewSet):
 
                         #print(t.pay_desc,"pay_desc")
                         #creditnote
-                        if t.pay_type == 'CN':
+                        if str(t.pay_type).upper() == 'CN':
                             crdobj = CreditNote.objects.filter(credit_code=t.pay_rem1,cust_code=haudobj.sa_custno).first()
                             #print(haudobj.sa_custno,"customer")
                             if crdobj:
@@ -6689,7 +6706,7 @@ class VoidViewset(viewsets.ModelViewSet):
                                 CreditNote.objects.filter(pk=crdobj.pk).update(balance=crbalance,status=crstatus)
                         
                         #voucher
-                        if t.pay_type == 'VC':
+                        if str(t.pay_type).upper() == 'VC':
                             crdobj = VoucherRecord.objects.filter(voucher_no=t.pay_rem1,cust_code=haudobj.sa_custno).first()
                             #print(t.pay_rem1,"Voucher Reset")
                             if crdobj:

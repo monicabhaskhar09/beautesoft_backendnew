@@ -3607,7 +3607,7 @@ class Diagnosis(models.Model):
     next_appt = models.DateTimeField(db_column='Next_Appt', blank=True, null=True)  # Field name made lowercase.
     remarks = models.CharField(db_column='Remarks', max_length=255, blank=True, null=True)  # Field name made lowercase.
     homecare = models.CharField(db_column='HomeCare', max_length=255, blank=True, null=True)  # Field name made lowercase.
-    pic_path = models.CharField(db_column='PIC_path', max_length=255, blank=True, null=True)  # Field name made lowercase.
+    # pic_path = models.CharField(db_column='PIC_path', max_length=255, blank=True, null=True)  # Field name made lowercase.
     date_pic_take = models.DateTimeField(db_column='Date_Pic_Take', blank=True, null=True)  # Field name made lowercase.
     treatment_code = models.CharField(db_column='Treatment_Code', max_length=50, blank=True, null=True)  # Field name made lowercase.
     cust_name = models.CharField(db_column='Cust_Name', max_length=100, blank=True, null=True)  # Field name made lowercase.
@@ -3646,7 +3646,9 @@ class Diagnosis(models.Model):
     # pic5 = models.ImageField(db_column='PIC5', blank=True, null=True,upload_to='img')
     # pic6 = models.ImageField(db_column='PIC6', blank=True, null=True,upload_to='img')
     site_code = models.CharField(db_column='Site_Code', max_length=50)  # Field name made lowercase.
+    
 
+   
     def save(self, *args, **kwargs):
         self.cust_code = self.cust_no.cust_code
         self.cust_name = self.cust_no.cust_name
