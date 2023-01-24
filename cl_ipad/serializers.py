@@ -108,3 +108,12 @@ class TNCMasterSerializer(serializers.ModelSerializer):
     class Meta:
         model = TNC_Master
         fields = '__all__'
+
+class TNC_DetailSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='pk',required=False)
+    sa_date = serializers.DateTimeField(format="%d-%m-%Y",required=False)
+    
+    class Meta:
+        model = PosDaud
+        fields = ['id','tncno','receipt_date','receiptno','package'] 
+    

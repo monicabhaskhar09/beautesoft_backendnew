@@ -6,7 +6,8 @@ from cl_app.permissions import authenticated_only
 from .serializers import (WebConsultationHdrSerializer,WebConsultationDtlSerializer,WebConsultationQuestionSerializer,
 WebConsultation_AnalysisResultSerializer,WebConsultation_ReferralSerializer,
 WebConsultation_Referral_HdrSerializer,TransactionCustomerSerializer,
-TransactionPosDaudSerializer,TNCMasterSerializer,WebConsultationQuestionMultichoiceSerializer)
+TransactionPosDaudSerializer,TNCMasterSerializer,WebConsultationQuestionMultichoiceSerializer,
+TNC_DetailSerializer)
 from .models import (WebConsultation_Hdr,WebConsultation_Dtl,WebConsultation_Question,WebConsultation_AnalysisResult,
 WebConsultation_Referral,WebConsultation_Referral_Hdr,TNC_Master,TNC_Header,TNC_Detail,
 WebConsultation_QuestionMultichoice)
@@ -1511,7 +1512,61 @@ class TransactionCustomerViewset(viewsets.ModelViewSet):
 
         except Exception as e:
             invalid_message = str(e)
-            return general_error_response(invalid_message) 
+            return general_error_response(invalid_message)
+
+    @action(methods=['get'], detail=False, permission_classes=[IsAuthenticated & authenticated_only],
+    authentication_classes=[TokenAuthentication])
+    def listtncdetail(self, request):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+            site = fmspw[0].loginsite 
+            from_date = self.request.GET.get('from_date',None)
+            if not from_date:
+                raise Exception('Please give from_date') 
+
+            to_date = self.request.GET.get('to_date',None)
+            if not to_date:
+                raise Exception('Please give to_date') 
+            cust_id = self.request.GET.get('cust_id',None)
+            if not cust_id:
+                raise Exception('Please give cust_id')
+
+            cust_obj = Customer.objects.filter(pk=cust_id,cust_isactive=True).first()
+            if not cust_obj:
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer ID does not exist!!",'error': True} 
+                return Response(data=result, status=status.HTTP_400_BAD_REQUEST)  
+            h_ids = list(set(TNC_Header.objects.filter(cust_code=cust_obj.cust_code).order_by('-pk').values_list('tncno', flat=True).distinct()))
+            
+            queryset = TNC_Detail.objects.filter(tncno__in=h_ids,
+            receipt_date__date__gte=from_date,receipt_date__date__lte=to_date).order_by('-pk')
+
+            
+            full_tot = queryset.count()
+            page= request.GET.get('page',1)
+            limit = request.GET.get('limit',12)
+           
+
+            paginator = Paginator(queryset, limit)
+            total_page = paginator.num_pages
+
+            try:
+                queryset = paginator.page(page)
+            except (EmptyPage, InvalidPage):
+                queryset = paginator.page(total_page) # last page
+
+            serializer = TNC_DetailSerializer(queryset, many=True, context={'request': self.request})
+            result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
+                'data': {'meta': {'pagination': {"per_page":limit,"current_page":page,
+                "total":full_tot,"total_pages":total_page}}, 
+                'dataList': serializer.data}}
+            
+          
+            return Response(result, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+            
     
     @transaction.atomic
     @action(methods=['post'], detail=False, permission_classes=[IsAuthenticated & authenticated_only],

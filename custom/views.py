@@ -1727,7 +1727,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                     dict_v['price'] = "{:.2f}".format(float(dict_v['price']))
                     dict_v['total_price'] = "{:.2f}".format(float(dict_v['total_price']))
                     dict_v['discount_price'] = "{:.2f}".format(float(dict_v['discount_price']))
-                    dict_v['item_class'] = stock_obj.Item_Classid.itm_desc
+                    dict_v['item_class'] = stock_obj.Item_Classid.itm_desc if stock_obj and stock_obj.Item_Classid else "" 
                     dict_v['sales_staff'] =   ','.join([v.display_name for v in cartobj.sales_staff.all() if v])
                     dict_v['service_staff'] = ','.join([v.display_name for v in cartobj.service_staff.all() if v])
                     # dict_v['tax'] = "{:.2f}".format(float(dict_v['tax']))
@@ -2605,7 +2605,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                     val['price'] = "{:.2f}".format(float(val['price']))
                     val['total_price'] = "{:.2f}".format(float(val['total_price']))
                     val['discount_price'] = "{:.2f}".format(float(val['discount_price']))
-                    val['item_class'] = stock_obj.Item_Classid.itm_desc
+                    val['item_class'] = stock_obj.Item_Classid.itm_desc if stock_obj and stock_obj.Item_Classid else ""
                     val['sales_staff'] = ''
                     val['service_staff'] = ''
                     # val['tax'] = "{:.2f}".format(float(val['tax']))
@@ -3015,7 +3015,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                         val['price'] = "{:.2f}".format(float(val['price']))
                         val['total_price'] = "{:.2f}".format(float(val['total_price']))
                         val['discount_price'] = "{:.2f}".format(float(val['discount_price']))
-                        val['item_class'] = stock_obj.Item_Classid.itm_desc
+                        val['item_class'] = stock_obj.Item_Classid.itm_desc if stock_obj and stock_obj.Item_Classid else ""
                         val['sales_staff'] = ''
                         val['service_staff'] = ''
                         # val['tax'] = "{:.2f}".format(float(val['tax']))
@@ -3836,7 +3836,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                             val['price'] = "{:.2f}".format(float(val['price']))
                             val['total_price'] = "{:.2f}".format(float(val['total_price']))
                             val['discount_price'] = "{:.2f}".format(float(val['discount_price']))
-                            val['item_class'] = stock_obj.Item_Classid.itm_desc
+                            val['item_class'] = stock_obj.Item_Classid.itm_desc if stock_obj and stock_obj.Item_Classid else ""
                             val['sales_staff'] = ''
                             val['service_staff'] = ''
                             # val['tax'] = "{:.2f}".format(float(val['tax']))

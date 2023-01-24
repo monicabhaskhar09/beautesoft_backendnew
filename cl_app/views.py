@@ -5410,7 +5410,7 @@ class ReversalListViewset(viewsets.ModelViewSet):
                                 tamount = queryset[0].unit_amount
                                 balance = acc_ids.balance
                                 outstanding = outstanding - queryset[0].unit_amount
-                                total = 0
+                                total += 0
                             elif queryset[0].unit_amount > outstanding and outstanding > 0:
                                 tamount = queryset[0].unit_amount 
                                 remaining = queryset[0].unit_amount - outstanding
@@ -5574,11 +5574,13 @@ class ReversalListViewset(viewsets.ModelViewSet):
                         # print(queryset[0].unit_amount,"queryset[0].unit_amount")
 
                         if acc_ids.outstanding >= queryset[0].unit_amount:
+                            # print("iff")
                             tamount = queryset[0].unit_amount
                             balance = acc_ids.balance
                             outstanding = acc_ids.outstanding - queryset[0].unit_amount
-                            total = 0
+                            total += 0
                         elif queryset[0].unit_amount > acc_ids.outstanding and acc_ids.outstanding > 0:
+                            # print("elif")
                             tamount = queryset[0].unit_amount 
                             remaining = queryset[0].unit_amount - acc_ids.outstanding
                             if remaining > 0:
@@ -5586,6 +5588,7 @@ class ReversalListViewset(viewsets.ModelViewSet):
                                 total += remaining
                             outstanding = 0    
                         else:
+                            # print("else")
                             if queryset[0].unit_amount > 0 and acc_ids.outstanding == 0:
                                 tamount = queryset[0].unit_amount
                                 outstanding = acc_ids.outstanding

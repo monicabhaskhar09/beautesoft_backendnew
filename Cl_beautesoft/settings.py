@@ -128,10 +128,11 @@ WSGI_APPLICATION = 'Cl_beautesoft.wsgi.application'
 # }
 
 #microsoft sql local server
+# healspahq_backup9
 DATABASES = {
     'default': {
         'ENGINE': 'sql_server.pyodbc',
-        'NAME': 'healspahq_backup9',
+        'NAME': 'jybeauty',
         'HOST': 'localhost',
         'PORT': '1433',
         'USER': 'sa',
