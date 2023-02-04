@@ -15,6 +15,7 @@ router.register(r'webconsultationreferralhdr', views.WebConsultation_Referral_Hd
 router.register(r'transactioncustomer', views.TransactionCustomerViewset, basename='transactioncustomer')
 router.register(r'tncmaster', views.TNC_MasterViewset, basename='tncmaster')
 router.register(r'webquestionmultichoice', views.WebConsultationQuestionMultichoiceViewset, basename='webquestionmultichoice')
+router.register(r'webquestionsubquestions', views.WebConsultation_Questionsub_questionsViewset, basename='webquestionsubquestions')
 
 
 urlpatterns = [

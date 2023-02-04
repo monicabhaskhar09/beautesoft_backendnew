@@ -7,21 +7,24 @@ from .serializers import (WebConsultationHdrSerializer,WebConsultationDtlSeriali
 WebConsultation_AnalysisResultSerializer,WebConsultation_ReferralSerializer,
 WebConsultation_Referral_HdrSerializer,TransactionCustomerSerializer,
 TransactionPosDaudSerializer,TNCMasterSerializer,WebConsultationQuestionMultichoiceSerializer,
-TNC_DetailSerializer)
+TNC_HeaderSerializer,TNC_DetailformSerializer,WebConsultationQuestionsub_questionsSerializer)
 from .models import (WebConsultation_Hdr,WebConsultation_Dtl,WebConsultation_Question,WebConsultation_AnalysisResult,
 WebConsultation_Referral,WebConsultation_Referral_Hdr,TNC_Master,TNC_Header,TNC_Detail,
-WebConsultation_QuestionMultichoice)
+WebConsultation_QuestionMultichoice,WebConsultation_Questionsub_questions)
 from cl_table.models import (Fmspw,Employee,ControlNo,Customer,PosHaud,PosDaud)
 from rest_framework import status,viewsets,mixins
 from rest_framework.response import Response
 from custom.views import response, get_client_ip, round_calc
 from cl_app.utils import general_error_response
 from django.db import transaction, connection
-from datetime import date, timedelta, datetime
+from datetime import timedelta
+import datetime
+from datetime import date, timedelta
 from cl_app.models import ItemSitelist
 from django.db.models import Q
 from rest_framework.decorators import action
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator, InvalidPage
+from Cl_beautesoft.settings import SMS_ACCOUNT_SID, SMS_AUTH_TOKEN, SMS_SENDER, SITE_ROOT
 
 # Create your views here.
 
@@ -139,7 +142,7 @@ class WebConsultationHdrViewset(viewsets.ModelViewSet):
                     k = serializer.save(cust_code=cust_obj.cust_code,
                     consultant_code=emp_obj.emp_code,doc_no=doc_no,
                     site_code=site.itemsite_code,site_codeid=site,
-                    doc_date=date.today())
+                    doc_date=date.today(),isactive=True)
                     if k.pk:
                         control_obj.control_no = int(control_obj.control_no) + 1
                         control_obj.save()
@@ -434,6 +437,197 @@ class WebConsultationDtlViewset(viewsets.ModelViewSet):
         except WebConsultation_Dtl.DoesNotExist:
             raise Exception('WebConsultation_Dtl Does not Exist') 
 
+class WebConsultation_Questionsub_questionsViewset(viewsets.ModelViewSet):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = WebConsultation_Questionsub_questions.objects.filter().order_by('-pk')
+    serializer_class = WebConsultationQuestionsub_questionsSerializer
+
+    def get_queryset(self):
+        fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+        site = fmspw[0].loginsite
+        questionid = self.request.GET.get('questionid',None)
+            
+        if not questionid:
+            raise Exception('Please give questionid') 
+
+        q_ids = WebConsultation_Question.objects.filter(id=questionid)  
+        if not q_ids:
+            raise Exception('WebConsultation_Question ID does not') 
+
+        
+        queryset = WebConsultation_Questionsub_questions.objects.filter(questionid__pk=questionid).order_by('-pk')
+       
+        return queryset
+
+    def list(self, request):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+            site = fmspw[0].loginsite
+            serializer_class = WebConsultationQuestionsub_questionsSerializer
+            
+            queryset = self.filter_queryset(self.get_queryset())
+
+            total = len(queryset)
+            state = status.HTTP_200_OK
+            message = "Listed Succesfully"
+            error = False
+            data = None
+            result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+            return Response(result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+
+    @transaction.atomic
+    def create(self, request):
+        try:
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+                site = fmspw[0].loginsite
+
+                if not 'questionid' in request.data or not request.data['questionid']:
+                    raise Exception('Please give questionid!!.') 
+
+                if not 'options' in request.data or not request.data['options']:
+                    raise Exception('Please give options!!.') 
+                
+                if not 'sub_question_english' in request.data or not request.data['sub_question_english']:
+                    raise Exception('Please give sub question english!!.') 
+                
+                if not 'sub_question_chinese' in request.data or not request.data['sub_question_chinese']:
+                    raise Exception('Please give sub question chinese!!.') 
+                
+
+                check_ids = WebConsultation_Questionsub_questions.objects.filter(questionid__pk=request.data['questionid'],
+                sub_question_english=request.data['sub_question_english']).order_by('-pk')
+                if check_ids:
+                    msg = "Already record there for this {0} and questionid!!".format(str(request.data['sub_question_english']))
+                    raise Exception(msg) 
+                    
+
+                serializer = WebConsultationQuestionsub_questionsSerializer(data=request.data)
+                if serializer.is_valid():
+                    
+                    k = serializer.save()
+                    
+                    result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully",
+                    'error': False}
+                    return Response(result, status=status.HTTP_201_CREATED)
+                
+
+                data = serializer.errors
+
+                if 'non_field_errors' in data:
+                    message = data['non_field_errors'][0]
+                else:
+                    first_key = list(data.keys())[0]
+                    message = str(first_key)+":  "+str(data[first_key][0])
+
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":message,
+                'error': True, 'data': serializer.errors}
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+    
+    @transaction.atomic
+    def partial_update(self, request, pk=None):
+        try:
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+                site = fmspw.loginsite
+                ref = self.get_object(pk)
+                if not 'questionid' in request.data or not request.data['questionid']:
+                    raise Exception('Please give questionid!!.') 
+
+                if not 'options' in request.data or not request.data['options']:
+                    raise Exception('Please give options!!.') 
+                
+                if not 'sub_question_english' in request.data or not request.data['sub_question_english']:
+                    raise Exception('Please give sub question english!!.') 
+                
+                if not 'sub_question_chinese' in request.data or not request.data['sub_question_chinese']:
+                    raise Exception('Please give sub question chinese!!.') 
+                
+               
+                check_ids = WebConsultation_Questionsub_questions.objects.filter(~Q(pk=ref.pk)).filter(questionid__pk=request.data['questionid'],
+                sub_question_english=request.data['sub_question_english']).order_by('-pk')
+                if check_ids:
+                    msg = "Already record there for this {0} and questionid!!".format(str(request.data['sub_question_english']))
+                    raise Exception(msg) 
+                    
+                serializer = self.get_serializer(ref, data=request.data, partial=True)
+                if serializer.is_valid():
+                
+                    serializer.save()
+                    
+                    result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",'error': False}
+                    return Response(result, status=status.HTTP_200_OK)
+
+                
+                data = serializer.errors
+
+                if 'non_field_errors' in data:
+                    message = data['non_field_errors'][0]
+                else:
+                    first_key = list(data.keys())[0]
+                    message = str(first_key)+":  "+str(data[first_key][0])
+
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":message,
+                'error': True, 'data': serializer.errors}
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)   
+    
+    def retrieve(self, request, pk=None):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+            site = fmspw.loginsite
+            ref = self.get_object(pk)
+            serializer = WebConsultationQuestionsub_questionsSerializer(ref, context={'request': self.request})
+            result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
+            'data': serializer.data}
+            return Response(data=result, status=status.HTTP_200_OK)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message) 
+
+
+   
+    def destroy(self, request, pk=None):
+        try:
+            ref = self.get_object(pk)
+            serializer = WebConsultationQuestionsub_questionsSerializer(ref, data=request.data ,partial=True)
+            state = status.HTTP_204_NO_CONTENT
+            if serializer.is_valid():
+                ref.delete()
+                result = {'status': status.HTTP_200_OK,"message":"Deleted Succesfully",'error': False}
+                return Response(result, status=status.HTTP_200_OK)
+            
+            # print(serializer.errors,"jj")
+            result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",
+            'error': True,'data': serializer.errors }
+            return Response(result, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)          
+
+
+    def get_object(self, pk):
+        try:
+            return WebConsultation_Questionsub_questions.objects.get(pk=pk)
+        except WebConsultation_Questionsub_questions.DoesNotExist:
+            raise Exception('WebConsultation Question subquestions Does not Exist') 
+        
+    
+
+
+
 class WebConsultationQuestionMultichoiceViewset(viewsets.ModelViewSet):
     authentication_classes = [ExpiringTokenAuthentication]
     permission_classes = [IsAuthenticated & authenticated_only]
@@ -447,8 +641,13 @@ class WebConsultationQuestionMultichoiceViewset(viewsets.ModelViewSet):
             
         if not questionid:
             raise Exception('Please give questionid') 
+
+        q_ids = WebConsultation_Question.objects.filter(id=questionid)  
+        if not q_ids:
+            raise Exception('WebConsultation_Question ID does not') 
+    
         
-        queryset = WebConsultation_QuestionMultichoice.objects.filter(questionid=questionid).order_by('-pk')
+        queryset = WebConsultation_QuestionMultichoice.objects.filter(questionid__pk=questionid).order_by('-pk')
        
         return queryset
 
@@ -667,6 +866,7 @@ class WebConsultationQuestionViewset(viewsets.ModelViewSet):
                 requestData = request.data
                 itemsite_ids = requestData.pop('itemsite_ids')
                 multichoice_ids = requestData.pop('multichoice_ids')
+                sub_questions = requestData.pop('sub_questions')
                 # print(itemsite_ids,"itemsite_ids")
                 res = str(itemsite_ids).split(',')
                 # print(res,"res")
@@ -699,6 +899,16 @@ class WebConsultationQuestionViewset(viewsets.ModelViewSet):
                                 if not check_ids:
                                     c = WebConsultation_QuestionMultichoice(questionid=k,choice=j['choice'])
                                     c.save()
+
+                        if sub_questions != []:
+                            for l in sub_questions:
+                                checkids = WebConsultation_Questionsub_questions.objects.filter(questionid__pk=k.pk,
+                                sub_question_english=l['sub_question_english']).order_by('-pk')
+                                if not checkids:
+                                    s = WebConsultation_Questionsub_questions(questionid=k,
+                                    options=l['options'],sub_question_english=l['sub_question_english'],
+                                    sub_question_chinese=l['sub_question_chinese'])
+                                    s.save()            
 
                         result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully",
                         'error': False}
@@ -1483,10 +1693,10 @@ class TransactionCustomerViewset(viewsets.ModelViewSet):
             haud_ids = list(set(PosHaud.objects.filter(isvoid=False,ItemSite_Codeid__pk=site.pk,
             sa_transacno_type__in=['Receipt','Non Sales'],sa_custnoid=cust_obj,
             sa_date__date__gte=from_date,sa_date__date__lte=to_date).filter(~Q(sa_transacno_ref__in=d_ids)).order_by('-pk').values_list('sa_transacno', flat=True).distinct()))
-            print(haud_ids,"haud_ids") 
+            # print(haud_ids,"haud_ids") 
             
-            queryset = PosDaud.objects.filter(sa_transacno__in=haud_ids,record_detail_type__in=['SERVICE','PACKAGE'])    
-            print(queryset,"queryset")
+            queryset = PosDaud.objects.filter(sa_transacno__in=haud_ids,record_detail_type__in=['SERVICE','PACKAGE']).order_by('-pk')    
+            # print(queryset,"queryset")
             
             full_tot = queryset.count()
             page= request.GET.get('page',1)
@@ -1535,10 +1745,10 @@ class TransactionCustomerViewset(viewsets.ModelViewSet):
             if not cust_obj:
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer ID does not exist!!",'error': True} 
                 return Response(data=result, status=status.HTTP_400_BAD_REQUEST)  
-            h_ids = list(set(TNC_Header.objects.filter(cust_code=cust_obj.cust_code).order_by('-pk').values_list('tncno', flat=True).distinct()))
-            
-            queryset = TNC_Detail.objects.filter(tncno__in=h_ids,
-            receipt_date__date__gte=from_date,receipt_date__date__lte=to_date).order_by('-pk')
+            queryset = TNC_Header.objects.filter(cust_code=cust_obj.cust_code,
+            site_code=site.itemsite_code,sign_date__date__gte=from_date,
+            sign_date__date__lte=to_date).order_by('-pk')
+            # queryset = TNC_Detail.objects.filter(tncno__in=h_ids).order_by('-pk')
 
             
             full_tot = queryset.count()
@@ -1554,7 +1764,7 @@ class TransactionCustomerViewset(viewsets.ModelViewSet):
             except (EmptyPage, InvalidPage):
                 queryset = paginator.page(total_page) # last page
 
-            serializer = TNC_DetailSerializer(queryset, many=True, context={'request': self.request})
+            serializer = TNC_HeaderSerializer(queryset, many=True, context={'request': self.request})
             result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
                 'data': {'meta': {'pagination': {"per_page":limit,"current_page":page,
                 "total":full_tot,"total_pages":total_page}}, 
@@ -1566,7 +1776,71 @@ class TransactionCustomerViewset(viewsets.ModelViewSet):
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)
+
+    @action(methods=['get'], detail=False, permission_classes=[IsAuthenticated & authenticated_only],
+    authentication_classes=[TokenAuthentication])
+    def listtncformdetails(self, request):
+        try: 
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+            site = fmspw[0].loginsite 
+            tncno = self.request.GET.get('tncno',None)
+            if not tncno:
+                raise Exception('Please give tncno') 
             
+            queryset = TNC_Detail.objects.filter(tncno=tncno).order_by('-pk')
+            tnchdr = TNC_Header.objects.filter(tncno=tncno).order_by('-pk').first()
+            if not queryset or not tnchdr:
+                raise Exception('TNC_Detail or TNC_Header does not exist!!') 
+            serializer = TNC_DetailformSerializer(queryset, many=True, context={'request': self.request})
+            
+            
+            client_name = ''
+            if tnchdr and tnchdr.cust_code:
+                cust_obj = Customer.objects.filter(cust_code=tnchdr.cust_code,cust_isactive=True).first()
+                if cust_obj and cust_obj.cust_name:
+                    client_name = cust_obj.cust_name
+
+            consultant_name = ''
+            if tnchdr and tnchdr.consultant_code:
+                emp_obj = Employee.objects.filter(emp_code=tnchdr.consultant_code,
+                emp_isactive=True).first()
+                if emp_obj and emp_obj.display_name:
+                    consultant_name = emp_obj.display_name
+         
+            sign_date = ""
+            if tnchdr and tnchdr.sign_date:
+                splt = str(tnchdr.sign_date).split(" ") 
+                sign_date = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d-%m-%Y")
+            
+            signature1 = ""
+            if tnchdr and tnchdr.signature1:
+                signature1 = str(SITE_ROOT)+str(tnchdr.signature1)
+
+            signature2 = ""
+            if tnchdr and tnchdr.signature2:
+                signature2 = str(SITE_ROOT)+str(tnchdr.signature2)
+    
+
+            header_data = {
+                'client_code': tnchdr.cust_code if tnchdr and tnchdr.cust_code else "",
+                'consultant_code': tnchdr.consultant_code if tnchdr and tnchdr.consultant_code else "",
+                'client_name': client_name,'consultant_name':consultant_name,'sign_date':sign_date,
+                'client_signature1' : signature1,'consultant_signature2' : signature2,
+                }
+            
+            result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
+            'header_data': header_data, 'data': serializer.data}
+            
+            return Response(result, status=status.HTTP_200_OK)
+ 
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+ 
+
+
+
     
     @transaction.atomic
     @action(methods=['post'], detail=False, permission_classes=[IsAuthenticated & authenticated_only],

@@ -20,7 +20,8 @@ TreatmentHistorySerializer,StockUsageSerializer,StockUsageProductSerializer,Trea
 StockUsageMemoSerializer,TreatmentfaceSerializer,SiteApptSettingSerializer,HolditemAccListSerializer,
 PodhaudSerializer,CustomerAccountSerializer,TreatmentUsageListSerializer,TreatmentUsageStockSerializer,
 ItemDivSerializer,ProductPurchaseSerializer,TransactionInvoiceSerializer,TransactionManualInvoiceSerializer,
-TreatmentPackageDoneListSerializer,VoucherPromoSerializer,SessionTmpItemHelperSerializer)
+TreatmentPackageDoneListSerializer,VoucherPromoSerializer,SessionTmpItemHelperSerializer,
+TreatmentPackgeSerializer)
 from cl_table.serializers import PostaudSerializer, TmpItemHelperSerializer
 from .models import (SiteGroup, ItemSitelist, ReverseTrmtReason, VoidReason,TreatmentUsage,UsageMemo,
 Treatmentface,Usagelevel,priceChangeLog,TmpTreatmentSession,VoucherPromo,SmsProcessLog,
@@ -5599,9 +5600,9 @@ class ReversalListViewset(viewsets.ModelViewSet):
                         description=desc,ref_no=j.treatment_parentcode,type='CANCEL',amount=-float("{:.2f}".format(float(tamount))) if tamount else 0,
                         balance="{:.2f}".format(float(balance)),User_Nameid=fmspw,user_name=fmspw.pw_userlogin,ref_transacno=j.sa_transacno,
                         sa_transacno="",qty=1,outstanding="{:.2f}".format(float(outstanding)) if acc_ids and acc_ids.outstanding is not None and acc_ids.outstanding > 0 else 0,deposit=None,treatment_parentcode=j.treatment_parentcode,
-                        treatment_code=None,sa_status="VT",cas_name=fmspw.pw_userlogin,sa_staffno=acc_ids.sa_staffno,sa_staffname=acc_ids.sa_staffname,
-                        next_paydate=None,hasduedate=0,dt_lineno=j.dt_lineno,Site_Codeid=site,
-                        site_code=j.site_code,treat_code=j.treatment_parentcode)
+                        sa_status="VT",cas_name=fmspw.pw_userlogin,sa_staffno=acc_ids.sa_staffno,sa_staffname=acc_ids.sa_staffname,
+                        dt_lineno=j.dt_lineno,Site_Codeid=site,
+                        site_code=j.site_code)
                         treatacc.save()
                         treatacc.sa_date = today_date
                         treatacc.save()
@@ -6595,11 +6596,10 @@ class VoidViewset(viewsets.ModelViewSet):
                         pay_status=t.pay_status,pay_actamt=-t.pay_actamt,ItemSIte_Codeid=t.ItemSIte_Codeid,
                         itemsite_code=t.itemsite_code,paychange=t.paychange,dt_lineno=t.dt_lineno,
                         pay_gst_amt_collect=-t.pay_gst_amt_collect,pay_gst=-t.pay_gst,posdaudlineno=t.posdaudlineno,
-                        posdaudlineamountassign=t.posdaudlineamountassign,posdaudlineamountused=t.posdaudlineamountused,
-                        voucher_name=t.voucher_name,billed_by=t.billed_by,subtotal=-t.subtotal,tax=-t.tax,
+                        billed_by=t.billed_by,subtotal=-t.subtotal,tax=-t.tax,
                         discount_amt=-t.discount_amt,billable_amount=-t.billable_amount,credit_debit=t.credit_debit,
                         points=t.points,prepaid=t.prepaid,pay_premise=t.pay_premise,is_voucher=t.is_voucher,
-                        voucher_no=t.voucher_no,voucher_amt=t.voucher_amt)
+                        )
                         taud.save()
                         taud.sa_date = cart_date
                         taud.save()
@@ -6756,25 +6756,22 @@ class VoidViewset(viewsets.ModelViewSet):
                         dt_amt=-float("{:.2f}".format(float(d.dt_amt))),dt_qty=-d.dt_qty,dt_discamt=-d.dt_discamt if float(d.dt_discamt) > 0.0 else d.dt_discamt,
                         dt_discpercent=-d.dt_discpercent if float(d.dt_discpercent) > 0.0 else d.dt_discpercent,
                         dt_discdesc=d.dt_discdesc,dt_discno=d.dt_discno,dt_remark=d.dt_remark,dt_Staffnoid=d.dt_Staffnoid,
-                        dt_staffno=d.dt_staffno,dt_staffname=d.dt_staffname,dt_reason=d.dt_reason,dt_discuser="",
+                        dt_staffno=d.dt_staffno,dt_staffname=d.dt_staffname,dt_discuser="",
                         dt_combocode=d.dt_combocode,ItemSite_Codeid=d.ItemSite_Codeid,itemsite_code=d.itemsite_code,
-                        dt_lineno=d.dt_lineno,dt_stockupdate=d.dt_stockupdate,dt_stockremark=d.dt_stockremark,
-                        dt_uom=d.dt_uom,isfoc=d.isfoc,item_remarks=None,next_payment=None,next_appt=None,
-                        dt_transacamt="{:.2f}".format(float(d.dt_transacamt)),dt_deposit=-float("{:.2f}".format(float(d.dt_deposit))) if d.dt_deposit else 0,appt_time=None,hold_item_out=d.hold_item_out,
-                        issue_date=d.issue_date,hold_item=d.hold_item,holditemqty=d.holditemqty,st_ref_treatmentcode='',
+                        dt_lineno=d.dt_lineno,
+                        dt_uom=d.dt_uom,isfoc=d.isfoc,item_remarks=None,
+                        dt_transacamt="{:.2f}".format(float(d.dt_transacamt)),dt_deposit=-float("{:.2f}".format(float(d.dt_deposit))) if d.dt_deposit else 0,
+                        holditemqty=d.holditemqty,st_ref_treatmentcode='',
                         item_status_code=d.item_status_code,first_trmt_done=d.first_trmt_done,first_trmt_done_staff_code=d.first_trmt_done_staff_code,
                         first_trmt_done_staff_name=d.first_trmt_done_staff_name,record_detail_type=d.record_detail_type,
                         trmt_done_staff_code=d.trmt_done_staff_code,trmt_done_staff_name=d.trmt_done_staff_name,
                         trmt_done_id=d.trmt_done_id,trmt_done_type=d.trmt_done_type,topup_service_trmt_code=d.topup_service_trmt_code,
                         topup_product_treat_code=d.topup_product_treat_code,topup_prepaid_trans_code=d.topup_prepaid_trans_code,
-                        topup_prepaid_type_code=d.topup_prepaid_type_code,voucher_link_cust=d.voucher_link_cust,
-                        voucher_no=d.voucher_no,update_prepaid_bonus=d.update_prepaid_bonus,deduct_commission=d.deduct_commission,
-                        deduct_comm_refline=d.deduct_comm_refline,gst_amt_collect=-float("{:.2f}".format(float(d.gst_amt_collect))) if d.gst_amt_collect else 0,
-                        topup_prepaid_pos_trans_lineno=d.topup_prepaid_pos_trans_lineno,open_pp_uid_ref=None,compound_code=d.compound_code,
-                        topup_outstanding=topup_outstanding if topup_outstanding is not None and topup_outstanding > 0 else 0,t1_tax_code=d.t1_tax_code,t1_tax_amt=d.t1_tax_amt,
-                        t2_tax_code=d.t2_tax_code,t2_tax_amt=d.t2_tax_amt,dt_grossamt=d.dt_grossamt,dt_topup_old_outs_amt=d.dt_topup_old_outs_amt,
-                        dt_topup_new_outs_amt=d.dt_topup_new_outs_amt,dt_td_tax_amt=d.dt_td_tax_amt,earnedpoints=d.earnedpoints,
-                        earnedtype=d.earnedtype,redeempoints=d.redeempoints,redeemtype=d.redeemtype,itemcart=cart_obj,
+                        topup_prepaid_type_code=d.topup_prepaid_type_code,
+                        gst_amt_collect=-float("{:.2f}".format(float(d.gst_amt_collect))) if d.gst_amt_collect else 0,
+                        topup_prepaid_pos_trans_lineno=d.topup_prepaid_pos_trans_lineno,
+                        topup_outstanding=topup_outstanding if topup_outstanding is not None and topup_outstanding > 0 else 0,
+                        itemcart=cart_obj,
                         staffs=daud_staffs)
                         
                         daud.save()
@@ -6794,9 +6791,8 @@ class VoidViewset(viewsets.ModelViewSet):
                                         itmp = ItemHelper(item_code=hlp.item_code,item_name=hlp.item_name,line_no=hlp.line_no,
                                         sa_transacno=hlp.sa_transacno,amount=-hlp.amount,helper_name=hlp.helper_name,
                                         helper_code=hlp.helper_code,site_code=hlp.site_code,share_amt=-hlp.share_amt,
-                                        helper_transacno=sa_transacno,system_remark=hlp.system_remark,
-                                        wp1=hlp.wp1,wp2=hlp.wp2,wp3=hlp.wp3,td_type_code=hlp.td_type_code,
-                                        td_type_short_desc=hlp.td_type_short_desc,times=hlp.times,
+                                        helper_transacno=sa_transacno,
+                                        wp1=hlp.wp1,wp2=hlp.wp2,wp3=hlp.wp3,times=hlp.times,
                                         treatment_no=hlp.treatment_no)
                                         itmp.save()
                                         ItemHelper.objects.filter(id=itmp.id).update(sa_date= date.today())
@@ -7057,10 +7053,10 @@ class VoidViewset(viewsets.ModelViewSet):
                                     balance="{:.2f}".format(float(balance)),user_name=ac.user_name,User_Nameid=ac.User_Nameid,
                                     ref_transacno=ac.ref_transacno,sa_transacno=sa_transacno,qty=-ac.qty,
                                     outstanding="{:.2f}".format(float(outstanding)) if outstanding is not None and outstanding > 0 else 0,deposit=-float("{:.2f}".format(float(ac.deposit))) if ac.deposit else 0,treatment_parentcode=ac.treatment_parentcode,
-                                    treatment_code=ac.treatment_code,sa_status="VT",cas_name=ac.cas_name,sa_staffno=ac.sa_staffno,
-                                    sa_staffname=ac.sa_staffname,next_paydate=ac.next_paydate,hasduedate=ac.hasduedate,
-                                    dt_lineno=ac.dt_lineno,lpackage=ac.lpackage,package_code=ac.package_code,Site_Codeid=ac.Site_Codeid,
-                                    site_code=ac.site_code,treat_code=ac.treat_code,focreason=ac.focreason,itemcart=cart_obj)
+                                    sa_status="VT",cas_name=ac.cas_name,sa_staffno=ac.sa_staffno,
+                                    sa_staffname=ac.sa_staffname,
+                                    dt_lineno=ac.dt_lineno,package_code=ac.package_code,Site_Codeid=ac.Site_Codeid,
+                                    site_code=ac.site_code,itemcart=cart_obj)
                                     trt.save()
                                     trt.sa_date = cart_date
                                     trt.save()
@@ -7126,9 +7122,8 @@ class VoidViewset(viewsets.ModelViewSet):
                                         itmp = ItemHelper(item_code=hlp.item_code,item_name=hlp.item_name,line_no=hlp.line_no,
                                         sa_transacno=hlp.sa_transacno,amount=-hlp.amount,helper_name=hlp.helper_name,
                                         helper_code=hlp.helper_code,site_code=hlp.site_code,share_amt=-hlp.share_amt,
-                                        helper_transacno=sa_transacno,system_remark=hlp.system_remark,
-                                        wp1=hlp.wp1,wp2=hlp.wp2,wp3=hlp.wp3,td_type_code=hlp.td_type_code,
-                                        td_type_short_desc=hlp.td_type_short_desc,times=hlp.times,
+                                        helper_transacno=sa_transacno,
+                                        wp1=hlp.wp1,wp2=hlp.wp2,wp3=hlp.wp3,times=hlp.times,
                                         treatment_no=hlp.treatment_no)
                                         itmp.save()
                                         ItemHelper.objects.filter(id=itmp.id).update(sa_date= date.today())
@@ -7233,10 +7228,10 @@ class VoidViewset(viewsets.ModelViewSet):
                                     balance="{:.2f}".format(float(olacc_ids.balance + abs(sa.amount))),user_name=sa.user_name,User_Nameid=sa.User_Nameid,
                                     ref_transacno=sa.ref_transacno,sa_transacno=sa_transacno,qty=sa.qty,
                                     outstanding="{:.2f}".format(float(olacc_ids.outstanding)) if olacc_ids and olacc_ids.outstanding is not None and olacc_ids.outstanding > 0 else 0,deposit=-float("{:.2f}".format(float(sa.deposit))) if sa.deposit else 0,treatment_parentcode=sa.treatment_parentcode,
-                                    treatment_code=sa.treatment_code,sa_status="SA",cas_name=fmspw[0].pw_userlogin,sa_staffno=sa.sa_staffno,
-                                    sa_staffname=sa.sa_staffname,next_paydate=sa.next_paydate,hasduedate=sa.hasduedate,
-                                    dt_lineno=sa.dt_lineno,lpackage=sa.lpackage,package_code=sa.package_code,Site_Codeid=sa.Site_Codeid,
-                                    site_code=sa.site_code,treat_code=sa.treat_code,focreason=sa.focreason,itemcart=cart_obj)
+                                    sa_status="SA",cas_name=fmspw[0].pw_userlogin,sa_staffno=sa.sa_staffno,
+                                    sa_staffname=sa.sa_staffname,
+                                    dt_lineno=sa.dt_lineno,package_code=sa.package_code,Site_Codeid=sa.Site_Codeid,
+                                    site_code=sa.site_code,itemcart=cart_obj)
                                     tretac.save()
                                     tretac.sa_date = cart_date
                                     tretac.save()
@@ -7258,18 +7253,17 @@ class VoidViewset(viewsets.ModelViewSet):
                                                         
                                                             treatids = Treatment(treatment_code=treatment_coder,course=searcids.course,times=times_ve,
                                                             treatment_no=times_ve,price=searcids.totalprice,treatment_date=date.today(),
-                                                            next_appt=ct.next_appt,cust_name=ct.cust_name,Cust_Codeid=ct.Cust_Codeid,
+                                                            cust_name=ct.cust_name,Cust_Codeid=ct.Cust_Codeid,
                                                             cust_code=ct.cust_code,status="Open",unit_amount=0,
                                                             Item_Codeid=searcids.Item_Codeid,item_code=str(searcids.Item_Codeid.item_code)+"0000",treatment_parentcode=ct.treatment_parentcode,
-                                                            prescription=ct.prescription,allergy=ct.allergy,sa_transacno=ct.sa_transacno,
-                                                            sa_status=ct.sa_status,appt_time=ct.appt_time,
-                                                            remarks=ct.remarks,duration=ct.duration,hold_item=ct.hold_item,
-                                                            dt_lineno=ct.dt_lineno,expiry=ct.expiry,lpackage=ct.lpackage,package_code=ct.package_code,
+                                                            sa_transacno=ct.sa_transacno,
+                                                            sa_status=ct.sa_status,
+                                                            remarks=ct.remarks,duration=ct.duration,
+                                                            dt_lineno=ct.dt_lineno,expiry=ct.expiry,package_code=ct.package_code,
                                                             Site_Codeid=ct.Site_Codeid,site_code=ct.site_code,type=ct.type,treatment_limit_times=ct.treatment_limit_times,
-                                                            treatment_history_last_modify=ct.treatment_history_last_modify,
                                                             service_itembarcode=ct.service_itembarcode,isfoc=ct.isfoc,Trmt_Room_Codeid=ct.Trmt_Room_Codeid,
                                                             trmt_room_code=ct.trmt_room_code,trmt_is_auto_proportion=ct.trmt_is_auto_proportion,
-                                                            smsout=ct.smsout,emailout=ct.emailout,treatment_account=ct.treatment_account)
+                                                            treatment_account=ct.treatment_account)
                                                             treatids.save()
                                                             treatids.treatment_date = date.today()
                                                             treatids.save()
@@ -7503,19 +7497,19 @@ class VoidViewset(viewsets.ModelViewSet):
                     PosHaud.objects.filter(pk=h.pk).update(isvoid=True,void_refno=sa_transacno)
                     total_outstanding = h.total_outstanding + h.sa_transacamt
                     haud = PosHaud(cas_name=fmspw[0].pw_userlogin,sa_transacno=sa_transacno,sa_status="VT",
-                    sa_remark=h.sa_remark,sa_totamt=-float("{:.2f}".format(float(h.sa_totamt))),sa_totqty=-h.sa_totqty,sa_totdisc=-float("{:.2f}".format(float(h.sa_totdisc))) if h.sa_totdisc else 0,
-                    sa_totgst=-float("{:.2f}".format(float(h.sa_totgst))) if h.sa_totgst else None,sa_totservice=h.sa_totservice if h.sa_totservice else None,sa_amtret=h.sa_amtret if h.sa_amtret else None,sa_staffnoid=h.sa_staffnoid,
+                    sa_totamt=-float("{:.2f}".format(float(h.sa_totamt))),sa_totqty=-h.sa_totqty,sa_totdisc=-float("{:.2f}".format(float(h.sa_totdisc))) if h.sa_totdisc else 0,
+                    sa_totgst=-float("{:.2f}".format(float(h.sa_totgst))) if h.sa_totgst else None,sa_staffnoid=h.sa_staffnoid,
                     sa_staffno=h.sa_staffno,sa_staffname=h.sa_staffname,sa_custnoid=h.sa_custnoid,sa_custno=h.sa_custno,
-                    sa_custname=h.sa_custname,sa_reason=None,sa_discuser=h.sa_discuser,sa_discno=h.sa_discno,
-                    sa_discdesc=h.sa_discdesc,sa_discvalue=h.sa_discvalue,sa_discamt=-float("{:.2f}".format(float(h.sa_discamt))) if h.sa_discamt else 0,sa_disctotal=-float("{:.2f}".format(float(h.sa_disctotal))) if h.sa_disctotal else 0,
-                    ItemSite_Codeid=h.ItemSite_Codeid,itemsite_code=h.itemsite_code,sa_cardno=h.sa_cardno,seat_no=h.seat_no,
-                    sa_depositamt=-h.sa_depositamt,sa_chargeamt=None,isvoid=True,void_refno=h.sa_transacno,
-                    payment_remarks=h.payment_remarks,next_payment=h.next_payment,next_appt=h.next_appt,
-                    sa_transacamt=h.sa_transacamt,appt_time=h.appt_time,hold_item=h.hold_item,sa_discecard=h.sa_discecard,
-                    holditemqty=h.holditemqty,walkin=h.walkin,cust_sig=h.cust_sig,sa_round="{:.2f}".format(float(h.sa_round)) if h.sa_round else None,
+                    sa_custname=h.sa_custname,sa_discuser=h.sa_discuser,
+                    sa_discamt=-float("{:.2f}".format(float(h.sa_discamt))) if h.sa_discamt else 0,sa_disctotal=-float("{:.2f}".format(float(h.sa_disctotal))) if h.sa_disctotal else 0,
+                    ItemSite_Codeid=h.ItemSite_Codeid,itemsite_code=h.itemsite_code,
+                    sa_depositamt=-h.sa_depositamt,isvoid=True,void_refno=h.sa_transacno,
+                    payment_remarks=h.payment_remarks,
+                    sa_transacamt=h.sa_transacamt,
+                    holditemqty=h.holditemqty,walkin=h.walkin,sa_round="{:.2f}".format(float(h.sa_round)) if h.sa_round else None,
                     total_outstanding="{:.2f}".format(float(total_outstanding)) if total_outstanding is not None and total_outstanding > 0 else 0,trans_user_login=h.trans_user_login,
                     trans_user_loginid=h.trans_user_loginid,sa_transacno_ref=sa_transacno_ref,
-                    sa_transacno_type='Void Transaction',cust_sig_path=h.cust_sig_path,sa_transacno_title="VOID",
+                    sa_transacno_type='Void Transaction',sa_transacno_title="VOID",
                     issuestrans_user_login=h.trans_user_login,trans_remark=void_obj[0].reason_desc if void_obj and void_obj[0].reason_desc else None)
                     haud.save()
                     haud.sa_date = cart_date 
@@ -7675,11 +7669,10 @@ class VoidViewset(viewsets.ModelViewSet):
                         pay_amtcurr=ta.pay_amtcurr,pay_rem1=ta.pay_rem1,pay_rem2=ta.pay_rem2,pay_rem3=ta.pay_rem3,pay_rem4=ta.pay_rem4,
                         pay_status=ta.pay_status,pay_actamt=ta.pay_actamt,ItemSIte_Codeid=ta.ItemSIte_Codeid,
                         itemsite_code=ta.itemsite_code,paychange=ta.paychange,dt_lineno=ta.dt_lineno,pay_gst_amt_collect=ta.pay_gst_amt_collect,
-                        pay_gst=ta.pay_gst,posdaudlineno=ta.posdaudlineno,posdaudlineamountassign=ta.posdaudlineamountassign,
-                        posdaudlineamountused=ta.posdaudlineamountused,voucher_name=ta.voucher_name,pp_bal=ta.pp_bal,
+                        pay_gst=ta.pay_gst,posdaudlineno=ta.posdaudlineno,
                         billed_by=ta.billed_by,subtotal=ta.subtotal,tax=ta.tax,discount_amt=ta.discount_amt,
                         billable_amount=ta.billable_amount,credit_debit=ta.credit_debit,points=ta.points,prepaid=ta.prepaid,
-                        pay_premise=ta.pay_premise,is_voucher=ta.is_voucher,voucher_no=ta.voucher_no,voucher_amt=ta.voucher_amt)
+                        pay_premise=ta.pay_premise,is_voucher=ta.is_voucher,)
                     
                         taud.save()
                         taud.sa_date = cart_date 
@@ -7720,25 +7713,22 @@ class VoidViewset(viewsets.ModelViewSet):
                         dt_qty=-da.dt_qty,dt_discamt=-da.dt_discamt if float(da.dt_discamt) > 0.0 else da.dt_discamt, 
                         dt_discpercent=-da.dt_discpercent if float(da.dt_discpercent) > 0.0 else da.dt_discpercent,dt_discdesc=da.dt_discdesc,
                         dt_discno=da.dt_discno,dt_remark=da.dt_remark,dt_Staffnoid=da.dt_Staffnoid,dt_staffno=da.dt_staffno,
-                        dt_staffname=da.dt_staffname,dt_reason=da.dt_reason,dt_discuser=da.dt_discuser,dt_combocode=da.dt_combocode,
+                        dt_staffname=da.dt_staffname,dt_discuser=da.dt_discuser,dt_combocode=da.dt_combocode,
                         ItemSite_Codeid=da.ItemSite_Codeid,itemsite_code=da.itemsite_code,dt_lineno=da.dt_lineno,
-                        dt_stockupdate=da.dt_stockupdate,dt_stockremark=da.dt_stockremark,dt_uom=da.dt_uom,isfoc=da.isfoc,
-                        item_remarks=da.item_remarks,next_payment=da.next_payment,next_appt=da.next_appt,dt_transacamt="{:.2f}".format(float(da.dt_transacamt)),
-                        dt_deposit=-float("{:.2f}".format(float(da.dt_deposit))) if da.dt_deposit else 0,appt_time=da.appt_time,hold_item_out=da.hold_item_out,issue_date=da.issue_date,
-                        hold_item=da.hold_item,holditemqty=da.holditemqty,st_ref_treatmentcode=da.st_ref_treatmentcode,
+                        dt_uom=da.dt_uom,isfoc=da.isfoc,
+                        item_remarks=da.item_remarks,dt_transacamt="{:.2f}".format(float(da.dt_transacamt)),
+                        dt_deposit=-float("{:.2f}".format(float(da.dt_deposit))) if da.dt_deposit else 0,
+                        holditemqty=da.holditemqty,st_ref_treatmentcode=da.st_ref_treatmentcode,
                         item_status_code=da.item_status_code,first_trmt_done=da.first_trmt_done,
                         first_trmt_done_staff_code=da.first_trmt_done_staff_code,first_trmt_done_staff_name=da.first_trmt_done_staff_name,
                         record_detail_type=da.record_detail_type,trmt_done_staff_code=da.trmt_done_staff_code,trmt_done_staff_name=da.trmt_done_staff_name,
                         trmt_done_id=da.trmt_done_id,trmt_done_type=da.trmt_done_type,topup_service_trmt_code=da.topup_service_trmt_code,
                         topup_product_treat_code=da.topup_product_treat_code,topup_prepaid_trans_code=da.topup_prepaid_trans_code,
-                        topup_prepaid_type_code=da.topup_prepaid_type_code,voucher_link_cust=da.voucher_link_cust,
-                        voucher_no=da.voucher_no,update_prepaid_bonus=da.update_prepaid_bonus,deduct_commission=da.deduct_commission,
-                        deduct_comm_refline=da.deduct_comm_refline,gst_amt_collect=-float("{:.2f}".format(float(da.gst_amt_collect))) if da.gst_amt_collect else 0,
-                        topup_prepaid_pos_trans_lineno=da.topup_prepaid_pos_trans_lineno,open_pp_uid_ref=None,compound_code=da.compound_code,
-                        topup_outstanding=da.topup_outstanding if da and da.topup_outstanding is not None and da.topup_outstanding > 0 else 0 ,t1_tax_code=da.t1_tax_code,t1_tax_amt=da.t1_tax_amt,
-                        t2_tax_code=da.t2_tax_code,t2_tax_amt=da.t2_tax_amt,dt_grossamt=da.dt_grossamt,dt_topup_old_outs_amt=da.dt_topup_old_outs_amt,
-                        dt_topup_new_outs_amt=da.dt_topup_new_outs_amt,dt_td_tax_amt=da.dt_td_tax_amt,earnedpoints=da.earnedpoints,
-                        earnedtype=da.earnedtype,redeempoints=da.redeempoints,redeemtype=da.redeemtype,itemcart=cart_obj,
+                        topup_prepaid_type_code=da.topup_prepaid_type_code,
+                        gst_amt_collect=-float("{:.2f}".format(float(da.gst_amt_collect))) if da.gst_amt_collect else 0,
+                        topup_prepaid_pos_trans_lineno=da.topup_prepaid_pos_trans_lineno,
+                        topup_outstanding=da.topup_outstanding if da and da.topup_outstanding is not None and da.topup_outstanding > 0 else 0 ,
+                        itemcart=cart_obj,
                         staffs="/"+" "+ service)
                         daud.save()
                         daud.sa_date = cart_date 
@@ -7803,9 +7793,8 @@ class VoidViewset(viewsets.ModelViewSet):
                                         tmphlp = ItemHelper(item_code=hlp.item_code,item_name=hlp.item_name,line_no=hlp.line_no,
                                         sa_transacno=hlp.sa_transacno,amount=-float("{:.2f}".format(float(hlp.amount))) if hlp.amount else 0,helper_name=hlp.helper_name,
                                         helper_code=hlp.helper_code,site_code=hlp.site_code,share_amt=-hlp.share_amt,
-                                        helper_transacno=sa_transacno,system_remark=hlp.system_remark,
-                                        wp1=hlp.wp1,wp2=hlp.wp2,wp3=hlp.wp3,td_type_code=hlp.td_type_code,
-                                        td_type_short_desc=hlp.td_type_short_desc,times=hlp.times,
+                                        helper_transacno=sa_transacno,
+                                        wp1=hlp.wp1,wp2=hlp.wp2,wp3=hlp.wp3,times=hlp.times,
                                         treatment_no=hlp.treatment_no)
                                         tmphlp.save()
                                         ItemHelper.objects.filter(id=tmphlp.id).update(sa_date= date.today())
@@ -7905,10 +7894,10 @@ class VoidViewset(viewsets.ModelViewSet):
                                     balance="{:.2f}".format(float(olacc_ids.balance + abs(sa.amount))),user_name=sa.user_name,User_Nameid=sa.User_Nameid,
                                     ref_transacno=sa.ref_transacno,sa_transacno=sa_transacno,qty=sa.qty,
                                     outstanding="{:.2f}".format(float(olacc_ids.outstanding)) if olacc_ids and olacc_ids.outstanding is not None and olacc_ids.outstanding > 0 else 0,deposit=-float("{:.2f}".format(float(sa.deposit))) if sa.deposit else 0,treatment_parentcode=sa.treatment_parentcode,
-                                    treatment_code=sa.treatment_code,sa_status="SA",cas_name=fmspw[0].pw_userlogin,sa_staffno=sa.sa_staffno,
-                                    sa_staffname=sa.sa_staffname,next_paydate=sa.next_paydate,hasduedate=sa.hasduedate,
-                                    dt_lineno=sa.dt_lineno,lpackage=sa.lpackage,package_code=sa.package_code,Site_Codeid=sa.Site_Codeid,
-                                    site_code=sa.site_code,treat_code=sa.treat_code,focreason=sa.focreason,itemcart=cart_obj)
+                                    sa_status="SA",cas_name=fmspw[0].pw_userlogin,sa_staffno=sa.sa_staffno,
+                                    sa_staffname=sa.sa_staffname,
+                                    dt_lineno=sa.dt_lineno,package_code=sa.package_code,Site_Codeid=sa.Site_Codeid,
+                                    site_code=sa.site_code,itemcart=cart_obj)
                                     acttr.save()
                                     acttr.sa_date = cart_date
                                     acttr.save()
@@ -7931,18 +7920,17 @@ class VoidViewset(viewsets.ModelViewSet):
                                                         
                                                             treatids = Treatment(treatment_code=treatment_coder,course=searcids.course,times=times_ve,
                                                             treatment_no=times_ve,price=searcids.totalprice,treatment_date=date.today(),
-                                                            next_appt=ct.next_appt,cust_name=ct.cust_name,Cust_Codeid=ct.Cust_Codeid,
+                                                            cust_name=ct.cust_name,Cust_Codeid=ct.Cust_Codeid,
                                                             cust_code=ct.cust_code,status="Open",unit_amount=0,
                                                             Item_Codeid=searcids.Item_Codeid,item_code=str(searcids.Item_Codeid.item_code)+"0000",treatment_parentcode=ct.treatment_parentcode,
-                                                            prescription=ct.prescription,allergy=ct.allergy,sa_transacno=ct.sa_transacno,
-                                                            sa_status=ct.sa_status,appt_time=ct.appt_time,
-                                                            remarks=ct.remarks,duration=ct.duration,hold_item=ct.hold_item,
-                                                            dt_lineno=ct.dt_lineno,expiry=ct.expiry,lpackage=ct.lpackage,package_code=ct.package_code,
+                                                            sa_transacno=ct.sa_transacno,
+                                                            sa_status=ct.sa_status,
+                                                            remarks=ct.remarks,duration=ct.duration,
+                                                            dt_lineno=ct.dt_lineno,expiry=ct.expiry,package_code=ct.package_code,
                                                             Site_Codeid=ct.Site_Codeid,site_code=ct.site_code,type=ct.type,treatment_limit_times=ct.treatment_limit_times,
-                                                            treatment_history_last_modify=ct.treatment_history_last_modify,
                                                             service_itembarcode=ct.service_itembarcode,isfoc=ct.isfoc,Trmt_Room_Codeid=ct.Trmt_Room_Codeid,
                                                             trmt_room_code=ct.trmt_room_code,trmt_is_auto_proportion=ct.trmt_is_auto_proportion,
-                                                            smsout=ct.smsout,emailout=ct.emailout,treatment_account=ct.treatment_account)
+                                                            treatment_account=ct.treatment_account)
                                                             treatids.save()
                                                             treatids.treatment_date = date.today()
                                                             treatids.save()
@@ -7999,19 +7987,19 @@ class VoidViewset(viewsets.ModelViewSet):
                     # void_obj[0].reason_desc if void_obj else None
                     PosHaud.objects.filter(pk=h.pk).update(isvoid=True,void_refno=sa_transacno)
                     haud = PosHaud(cas_name=fmspw[0].pw_userlogin,sa_transacno=sa_transacno,sa_status="VT",
-                    sa_remark=h.sa_remark,sa_totamt="{:.2f}".format(float(h.sa_totamt)),sa_totqty=h.sa_totqty,sa_totdisc="{:.2f}".format(float(h.sa_totdisc)) if h.sa_totdisc else 0,
-                    sa_totgst="{:.2f}".format(float(h.sa_totgst)) if h.sa_totgst else 0,sa_totservice="{:.2f}".format(float(h.sa_totservice)) if h.sa_totservice else 0,sa_amtret="{:.2f}".format(float(h.sa_amtret)) if h.sa_amtret else 0 ,sa_staffnoid=h.sa_staffnoid,
+                    sa_totamt="{:.2f}".format(float(h.sa_totamt)),sa_totqty=h.sa_totqty,sa_totdisc="{:.2f}".format(float(h.sa_totdisc)) if h.sa_totdisc else 0,
+                    sa_totgst="{:.2f}".format(float(h.sa_totgst)) if h.sa_totgst else 0,sa_staffnoid=h.sa_staffnoid,
                     sa_staffno=h.sa_staffno,sa_staffname=h.sa_staffname,sa_custnoid=h.sa_custnoid,sa_custno=h.sa_custno,
-                    sa_custname=h.sa_custname,sa_reason=None,sa_discuser=h.sa_discuser,sa_discno=h.sa_discno,
-                    sa_discdesc=h.sa_discdesc,sa_discvalue=h.sa_discvalue,sa_discamt="{:.2f}".format(float(h.sa_discamt)) if h.sa_discamt else 0,sa_disctotal="{:.2f}".format(float(h.sa_disctotal)) if h.sa_disctotal else 0,
-                    ItemSite_Codeid=h.ItemSite_Codeid,itemsite_code=h.itemsite_code,sa_cardno=h.sa_cardno,seat_no=h.seat_no,
-                    sa_depositamt="{:.2f}".format(float(h.sa_depositamt)) if h.sa_depositamt else 0,sa_chargeamt=None,isvoid=True,void_refno=h.sa_transacno,
-                    payment_remarks=h.payment_remarks,next_payment=h.next_payment,next_appt=h.next_appt,
-                    sa_transacamt="{:.2f}".format(float(h.sa_transacamt)) if h.sa_transacamt else 0,appt_time=h.appt_time,hold_item=h.hold_item,sa_discecard=h.sa_discecard,
-                    holditemqty=h.holditemqty,walkin=h.walkin,cust_sig=h.cust_sig,sa_round="{:.2f}".format(float(h.sa_round)) if h.sa_round else 0,
+                    sa_custname=h.sa_custname,sa_discuser=h.sa_discuser,
+                    sa_discamt="{:.2f}".format(float(h.sa_discamt)) if h.sa_discamt else 0,sa_disctotal="{:.2f}".format(float(h.sa_disctotal)) if h.sa_disctotal else 0,
+                    ItemSite_Codeid=h.ItemSite_Codeid,itemsite_code=h.itemsite_code,
+                    sa_depositamt="{:.2f}".format(float(h.sa_depositamt)) if h.sa_depositamt else 0,isvoid=True,void_refno=h.sa_transacno,
+                    payment_remarks=h.payment_remarks,
+                    sa_transacamt="{:.2f}".format(float(h.sa_transacamt)) if h.sa_transacamt else 0,
+                    holditemqty=h.holditemqty,walkin=h.walkin,sa_round="{:.2f}".format(float(h.sa_round)) if h.sa_round else 0,
                     total_outstanding="{:.2f}".format(float(h.total_outstanding)) if h and h.total_outstanding is not None and h.total_outstanding > 0 else 0,trans_user_login=h.trans_user_login,
                     trans_user_loginid=h.trans_user_loginid,sa_transacno_ref=sa_transacno_ref,
-                    sa_transacno_type='Void Transaction',cust_sig_path=h.cust_sig_path,sa_transacno_title="VOID",
+                    sa_transacno_type='Void Transaction',sa_transacno_title="VOID",
                     issuestrans_user_login=fmspw[0].pw_userlogin,trans_remark=void_obj[0].reason_desc if void_obj and void_obj[0].reason_desc else None)
                     haud.save()
                     haud.sa_date = cart_date
@@ -8329,7 +8317,7 @@ class TreatmentAccListViewset(viewsets.ModelViewSet):
     serializer_class = TreatmentAccSerializer
 
     def list(self, request):
-        try:
+        # try:
             now = timezone.now()
             print(str(now.hour) + '  ' +  str(now.minute) + '  ' +  str(now.second),"Start hour, minute, second\n")
         
@@ -8377,11 +8365,20 @@ class TreatmentAccListViewset(viewsets.ModelViewSet):
             
             # print(queryset,"queryset 77")
             if queryset:
+                trb_ids = queryset.aggregate(balance=Coalesce(Sum('balance'), 0),outstanding=Coalesce(Sum('outstanding'), 0)) 
                 full_tot = queryset.count()
-                try:
-                    limit = int(request.GET.get("limit",12))
-                except:
-                    limit = 8
+                print(full_tot,"full_tot")
+                limit = self.request.GET.get('limit',None)
+                if not limit:
+                    limit = full_tot
+                
+                print(limit,"limit")
+                # try:
+                #     limit = int(request.GET.get("limit",12))
+                # except:
+                #     # limit = 8
+                #     limit = full_tot
+                     
                 try:
                     page = int(request.GET.get("page",1))
                 except:
@@ -8394,86 +8391,88 @@ class TreatmentAccListViewset(viewsets.ModelViewSet):
                     queryset = paginator.page(page)
                 except (EmptyPage, InvalidPage):
                     queryset = paginator.page(total_page) # last page
+                
+                serializer = TreatmentPackgeSerializer(queryset, many=True, context={'request': self.request})
 
-                lst = []; id_lst = []; balance = 0; outstanding = 0
-                for data in queryset:
-                    dic = {}
-                    trobj = TreatmentAccount.objects.filter(treatment_parentcode=data.treatment_parentcode,
-                    sa_transacno=data.sa_transacno,type='Deposit').first()
-                    #open_trmids = Treatment.objects.filter(cust_code=trobj.cust_code,treatment_parentcode=trobj.treatment_parentcode,
-                    #site_code=site.itemsite_code,sa_transacno=trobj.ref_transacno,status='Open').count()
-                    open_trmids = Treatment.objects.filter(cust_code=trobj.cust_code,treatment_parentcode=trobj.treatment_parentcode,
-                    sa_transacno=trobj.ref_transacno,status='Open').count()
-                    # print(open_trmids,"open_trmids")
+                # lst = []; id_lst = []; balance = 0; outstanding = 0
+                # for data in queryset:
+                #     dic = {}
+                #     trobj = TreatmentAccount.objects.filter(treatment_parentcode=data.treatment_parentcode,
+                #     sa_transacno=data.sa_transacno,type='Deposit').first()
+                #     #open_trmids = Treatment.objects.filter(cust_code=trobj.cust_code,treatment_parentcode=trobj.treatment_parentcode,
+                #     #site_code=site.itemsite_code,sa_transacno=trobj.ref_transacno,status='Open').count()
+                #     open_trmids = Treatment.objects.filter(cust_code=trobj.cust_code,treatment_parentcode=trobj.treatment_parentcode,
+                #     sa_transacno=trobj.ref_transacno,status='Open').count()
+                #     # print(open_trmids,"open_trmids")
                     
-                    dic['qty'] = trobj.qty
-                    dic['id'] = trobj.pk
-                    dic['treatment_parentcode'] = trobj.treatment_parentcode
+                #     dic['qty'] = trobj.qty
+                #     dic['id'] = trobj.pk
+                #     dic['treatment_parentcode'] = trobj.treatment_parentcode
                     
-                    # trmids = Treatment.objects.filter(treatment_account__pk=trobj.pk,site_code=site.itemsite_code).only('treatment_account').first()
-                    #trmids = Treatment.objects.filter(treatment_parentcode=trobj.treatment_parentcode,
-                    #site_code=site.itemsite_code).only('treatment_parentcode').first()
-                    trmids = Treatment.objects.filter(treatment_parentcode=trobj.treatment_parentcode).only('treatment_parentcode').order_by('-pk').first()
+                #     # trmids = Treatment.objects.filter(treatment_account__pk=trobj.pk,site_code=site.itemsite_code).only('treatment_account').first()
+                #     #trmids = Treatment.objects.filter(treatment_parentcode=trobj.treatment_parentcode,
+                #     #site_code=site.itemsite_code).only('treatment_parentcode').first()
+                #     trmids = Treatment.objects.filter(treatment_parentcode=trobj.treatment_parentcode).only('treatment_parentcode').order_by('-pk').first()
 
                     
-                    dic['balance_qty'] = open_trmids
+                #     dic['balance_qty'] = open_trmids
 
 
-                    if data.id not in id_lst:
-                        id_lst.append(data.id)
+                #     if data.id not in id_lst:
+                #         id_lst.append(data.id)
                     
-                    # pos_haud = PosHaud.objects.filter(sa_custno=cust_obj.cust_code,
-                    # sa_transacno=trobj.sa_transacno,sa_transacno_type='Receipt',
-                    # itemsite_code=fmspw.loginsite.itemsite_code).only('sa_custno','sa_transacno','sa_transacno_type').order_by('pk').first()
-                    # sa_transacno_type__in=['Receipt','NON SALES']
+                #     # pos_haud = PosHaud.objects.filter(sa_custno=cust_obj.cust_code,
+                #     # sa_transacno=trobj.sa_transacno,sa_transacno_type='Receipt',
+                #     # itemsite_code=fmspw.loginsite.itemsite_code).only('sa_custno','sa_transacno','sa_transacno_type').order_by('pk').first()
+                #     # sa_transacno_type__in=['Receipt','NON SALES']
 
-                    #pos_haud = PosHaud.objects.filter(sa_custno=cust_obj.cust_code,
-                    #sa_transacno=trobj.sa_transacno,itemsite_code=fmspw.loginsite.itemsite_code
-                    #).only('sa_custno','sa_transacno').order_by('pk').first()
-                    pos_haud = PosHaud.objects.filter(sa_custno=cust_obj.cust_code,
-                    sa_transacno=trobj.sa_transacno
-                    ).only('sa_custno','sa_transacno').order_by('pk').first()
+                #     #pos_haud = PosHaud.objects.filter(sa_custno=cust_obj.cust_code,
+                #     #sa_transacno=trobj.sa_transacno,itemsite_code=fmspw.loginsite.itemsite_code
+                #     #).only('sa_custno','sa_transacno').order_by('pk').first()
+                #     pos_haud = PosHaud.objects.filter(sa_custno=cust_obj.cust_code,
+                #     sa_transacno=trobj.sa_transacno
+                #     ).only('sa_custno','sa_transacno').order_by('pk').first()
                     
-                    if pos_haud:
-                        dic['transaction'] = pos_haud.sa_transacno_ref if pos_haud.sa_transacno_ref else ""
-                        if pos_haud.sa_date:
-                            splt = str(pos_haud.sa_date).split(" ")
-                            dtime = str(pos_haud.sa_time).split(" ")
-                            time = dtime[1].split(":")
+                #     if pos_haud:
+                #         dic['transaction'] = pos_haud.sa_transacno_ref if pos_haud.sa_transacno_ref else ""
+                #         if pos_haud.sa_date:
+                #             splt = str(pos_haud.sa_date).split(" ")
+                #             dtime = str(pos_haud.sa_time).split(" ")
+                #             time = dtime[1].split(":")
 
-                            time_data = time[0]+":"+time[1]
+                #             time_data = time[0]+":"+time[1]
                     
-                            dic['sa_date'] = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d-%m-%Y")+" "+str(time_data)
+                #             dic['sa_date'] = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d-%m-%Y")+" "+str(time_data)
                         
-                        dic['description'] = ""
-                        if trmids:
-                            if trmids.course:
-                                dic['description'] = trmids.course 
+                #         dic['description'] = ""
+                #         if trmids:
+                #             if trmids.course:
+                #                 dic['description'] = trmids.course 
                                 
-                        sumacc_ids = TreatmentAccount.objects.filter(ref_transacno=trobj.sa_transacno,
-                        treatment_parentcode=trobj.treatment_parentcode,
-                        type__in=('Deposit', 'Top Up')).only('ref_transacno','treatment_parentcode','site_code','type').order_by('pk').aggregate(Sum('deposit'))
-                        if sumacc_ids:
-                            dic["payment"] = "{:.2f}".format(float(sumacc_ids['deposit__sum']))
-                        else:
-                            dic["payment"] = "0.00"
+                #         sumacc_ids = TreatmentAccount.objects.filter(ref_transacno=trobj.sa_transacno,
+                #         treatment_parentcode=trobj.treatment_parentcode,
+                #         type__in=('Deposit', 'Top Up')).only('ref_transacno','treatment_parentcode','site_code','type').order_by('pk').aggregate(Sum('deposit'))
+                #         if sumacc_ids:
+                #             dic["payment"] = "{:.2f}".format(float(sumacc_ids['deposit__sum']))
+                #         else:
+                #             dic["payment"] = "0.00"
 
-                        acc_ids = TreatmentAccount.objects.filter(ref_transacno=trobj.sa_transacno,
-                        treatment_parentcode=trobj.treatment_parentcode
-                        ).only('ref_transacno','treatment_parentcode','site_code').order_by('-sa_date','-sa_time','-id').first()
-                        if acc_ids.balance:
-                            dic["balance"] = "{:.2f}".format(float(acc_ids.balance))
-                            balance += acc_ids.balance
-                        else:
-                            dic["balance"] = "0.00"
+                #         acc_ids = TreatmentAccount.objects.filter(ref_transacno=trobj.sa_transacno,
+                #         treatment_parentcode=trobj.treatment_parentcode
+                #         ).only('ref_transacno','treatment_parentcode','site_code').order_by('-sa_date','-sa_time','-id').first()
+                #         if acc_ids.balance:
+                #             dic["balance"] = "{:.2f}".format(float(acc_ids.balance))
+                #             balance += acc_ids.balance
+                #         else:
+                #             dic["balance"] = "0.00"
 
-                        if acc_ids.outstanding:   
-                            dic["outstanding"] = "{:.2f}".format(float(acc_ids.outstanding))
-                            outstanding += acc_ids.outstanding
-                        else:
-                            dic["outstanding"] = "0.00"
+                #         if acc_ids.outstanding:   
+                #             dic["outstanding"] = "{:.2f}".format(float(acc_ids.outstanding))
+                #             outstanding += acc_ids.outstanding
+                #         else:
+                #             dic["outstanding"] = "0.00"
 
-                        lst.append(dic)
+                #         lst.append(dic)
                 
             
                 current_date = datetime.datetime.strptime(str(date.today()), "%Y-%m-%d").strftime("%d-%m-%Y")
@@ -8489,9 +8488,12 @@ class TreatmentAccListViewset(viewsets.ModelViewSet):
                     # logo = "http://"+request.META['HTTP_HOST']+title.logo_pic.url
                     logo = str(SITE_ROOT) + str(title.logo_pic)
 
-
-                header_data = {"balance" : "{:.2f}".format(float(balance)),
-                "outstanding" : "{:.2f}".format(float(outstanding)), "treatment_count" : len(id_lst),
+                
+                
+                header_data = {"balance" : "{:.2f}".format(float(trb_ids['balance'])),
+                "outstanding" : "{:.2f}".format(float(trb_ids['outstanding'])), 
+                # "treatment_count" : len(id_lst),
+                "treatment_count" : len(serializer.data),
                 'year':self.request.GET.get('year'),'logo':logo,'date':current_date+" "+time_data,
                 'cust_name': cust_obj.cust_code +" "+ cust_obj.cust_name,'issued': fmspw.pw_userlogin,
                 'name': title.trans_h1 if title and title.trans_h1 else '', 
@@ -8506,16 +8508,16 @@ class TreatmentAccListViewset(viewsets.ModelViewSet):
                 result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
                 'header_data':header_data, 
                 'data': {'meta': {'pagination': {"per_page":limit,"current_page":page,
-                "total":full_tot,"total_pages":total_page}}, 'dataList': lst}}
+                "total":full_tot,"total_pages":total_page}}, 'dataList': serializer.data}}
                 return Response(data=result, status=status.HTTP_200_OK)
             else:
-                serializer = self.get_serializer()
+                # serializer = self.get_serializer()
                 result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
                 return Response(data=result, status=status.HTTP_200_OK)
     
-        except Exception as e:
-            invalid_message = str(e)
-            return general_error_response(invalid_message)
+        # except Exception as e:
+        #     invalid_message = str(e)
+        #     return general_error_response(invalid_message)
 
 
 
@@ -9721,13 +9723,13 @@ class PrepaidAccListViewset(viewsets.ModelViewSet):
                 # queryset = PrepaidAccount.objects.filter(site_code=site.itemsite_code,cust_code=cust_obj.cust_code,
                 # sa_status__in=['DEPOSIT','SA']).only('site_code','cust_code','sa_status').order_by('pk')
                 queryset = PrepaidAccount.objects.filter(cust_code=cust_obj.cust_code,
-                sa_status__in=['DEPOSIT']).only('site_code','cust_code','sa_status').order_by('-pk','-sa_date')
+                sa_status__in=['DEPOSIT']).exclude(sa_status='VT').only('site_code','cust_code','sa_status').order_by('-pk','-sa_date')
 
             else:
                 # queryset = PrepaidAccount.objects.filter(site_code=site.itemsite_code,cust_code=cust_obj.cust_code,
                 # sa_status__in=['DEPOSIT','SA'],remain__gt=0).only('site_code','cust_code','sa_status').order_by('pk')
                 queryset = PrepaidAccount.objects.filter(cust_code=cust_obj.cust_code,
-                status=True,remain__gt=0).only('site_code','cust_code','sa_status').order_by('-pk','-sa_date')
+                status=True,remain__gt=0).exclude(sa_status='VT').only('site_code','cust_code','sa_status').order_by('-pk','-sa_date')
 
 
             if queryset:

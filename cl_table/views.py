@@ -25,7 +25,7 @@ from .models import (Gender, Employee, Fmspw, Attendance2, Customer, Images, Tre
                      MrRewardItemType,CustomerPoint,TreatmentDuration,Smsreceivelog,TreatmentProtocol,CustomerTitle,CustomerPointDtl,
                      ItemDiv,Tempcustsign,CustomerDocument,TreatmentPackage,Tmptreatment,CustLogAudit,ContactPerson,
                      ItemFlexiservice,termsandcondition,Dayendconfirmlog,Participants,ProjectDocument,
-                     MGMPolicyCloud,CustomerReferral,sitelistip)
+                     MGMPolicyCloud,CustomerReferral,sitelistip,CustomerExtended)
 from cl_app.models import ItemSitelist, SiteGroup, LoggedInUser,TmpTreatmentSession
 from custom.models import Room,ItemCart,VoucherRecord,EmpLevel,PosPackagedeposit,payModeChangeLog,ProjectModel
 from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializer, Attendance2Serializer,
@@ -2283,6 +2283,13 @@ class CountryAPI(generics.ListAPIView):
 
 
 def schedulemonth_time(self, date, emp, site, start, end, type_v, appt, sc_value):
+    if site and site.showallsitebooking == True:
+        site_ids = list(set(ItemSitelist.objects.filter(itemsite_isactive=True,
+        showallsitebooking=True).values_list('itemsite_code', flat=True).distinct()))
+    else:
+        site_ids = [site.itemsite_code]
+    
+    print(site_ids,"site_ids")
     if type_v == "Edit":
         pre_start = get_in_val(self, appt.appt_fr_time)
         pre_end = get_in_val(self, appt.appt_to_time)
@@ -2296,210 +2303,210 @@ def schedulemonth_time(self, date, emp, site, start, end, type_v, appt, sc_value
             # print(pre_start,"pre_start")
             if pre_end > "07:00" and pre_start < "07:30":
                 month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                if month:
-                    ScheduleMonth.objects.filter(pk=month.pk).update(time07=False)
+                site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time07=False)
+                # if month:
+                #     ScheduleMonth.objects.filter(pk=month.pk).update(time07=False)
 
             if pre_end > "07:30" and pre_start < "08:00":
                 month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                if month:
-                    ScheduleMonth.objects.filter(pk=month.pk).update(time0730=False)   
+                site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time0730=False) 
+                # if month:
+                #     ScheduleMonth.objects.filter(pk=month.pk).update(time0730=False)   
 
             if pre_end > "08:00" and pre_start < "08:30":
                 month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                if month:
-                    ScheduleMonth.objects.filter(pk=month.pk).update(time08=False) 
+                site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time08=False)
+                # if month:
+                #     ScheduleMonth.objects.filter(pk=month.pk).update(time08=False) 
 
             if pre_end > "08:30" and pre_start < "09:00":
                 month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                if month:
-                    ScheduleMonth.objects.filter(pk=month.pk).update(time0830=False) 
+                site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time0830=False) 
+                # if month:
+                #     ScheduleMonth.objects.filter(pk=month.pk).update(time0830=False) 
 
             if pre_end > "09:00" and pre_start < "09:30":
                 month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                if month:
-                    ScheduleMonth.objects.filter(pk=month.pk).update(time09=False) 
+                site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time09=False)
+                # if month:
+                #     ScheduleMonth.objects.filter(pk=month.pk).update(time09=False) 
                 
 
             if pre_end > "09:30" and pre_start < "10:00":
                 month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                if month:
-                    ScheduleMonth.objects.filter(pk=month.pk).update(time0930=False) 
+                site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time0930=False) 
+                # if month:
+                #     ScheduleMonth.objects.filter(pk=month.pk).update(time0930=False) 
 
             if pre_end > "10:00" and pre_start < "10:30":
                 month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                if month:
-                    ScheduleMonth.objects.filter(pk=month.pk).update(time10=False)
+                site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time10=False)
+                # if month:
+                #     ScheduleMonth.objects.filter(pk=month.pk).update(time10=False)
                     
 
             if pre_end > "10:30" and pre_start < "11:00":
                 month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                if month:
-                    ScheduleMonth.objects.filter(pk=month.pk).update(time1030=False)  
+                site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time1030=False)
+                # if month:
+                #     ScheduleMonth.objects.filter(pk=month.pk).update(time1030=False)  
 
             if pre_end > "11:00" and pre_start < "11:30":
                 month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                if month:
-                    ScheduleMonth.objects.filter(pk=month.pk).update(time11=False)
+                site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time11=False)
+                # if month:
+                #     ScheduleMonth.objects.filter(pk=month.pk).update(time11=False)
 
             if pre_end > "11:30" and pre_start < "12:00":
                 month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                if month:
-                    ScheduleMonth.objects.filter(pk=month.pk).update(time1130=False) 
+                site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time1130=False)
+                # if month:
+                #     ScheduleMonth.objects.filter(pk=month.pk).update(time1130=False) 
 
         
             if pre_end > "12:00" and pre_start < "12:30":
                 month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                if month:
-                    ScheduleMonth.objects.filter(pk=month.pk).update(time12=False)  
+                site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time12=False)
+                # if month:
+                #     ScheduleMonth.objects.filter(pk=month.pk).update(time12=False)  
 
             if pre_end > "12:30" and pre_start < "13:00":
                 month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                if month:
-                    ScheduleMonth.objects.filter(pk=month.pk).update(time1230=False) 
+                site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time1230=False) 
+                # if month:
+                #     ScheduleMonth.objects.filter(pk=month.pk).update(time1230=False) 
 
             if pre_end > "13:00" and pre_start < "13:30":
                 month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                if month:
-                    ScheduleMonth.objects.filter(pk=month.pk).update(time13=False)    
+                site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time13=False) 
+                # if month:
+                #     ScheduleMonth.objects.filter(pk=month.pk).update(time13=False)    
 
             if pre_end > "13:30" and pre_start < "14:00":
                 month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                if month:
-                    ScheduleMonth.objects.filter(pk=month.pk).update(time1330=False)  
+                site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time1330=False)  
+                # if month:
+                #     ScheduleMonth.objects.filter(pk=month.pk).update(time1330=False)  
 
             if pre_end > "14:00" and pre_start < "14:30":
                 month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                if month:
-                    ScheduleMonth.objects.filter(pk=month.pk).update(time14=False)  
+                site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time14=False)
+                # if month:
+                #     ScheduleMonth.objects.filter(pk=month.pk).update(time14=False)  
 
             if pre_end > "14:30" and pre_start < "15:00":
                 month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                if month:
-                    ScheduleMonth.objects.filter(pk=month.pk).update(time1430=False)   
+                site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time1430=False)
+                # if month:
+                #     ScheduleMonth.objects.filter(pk=month.pk).update(time1430=False)   
 
             if pre_end > "15:00" and pre_start < "15:30":
                 month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                if month:
-                    ScheduleMonth.objects.filter(pk=month.pk).update(time15=False) 
+                site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time15=False)
+                # if month:
+                #     ScheduleMonth.objects.filter(pk=month.pk).update(time15=False) 
 
             if pre_end > "15:30" and pre_start < "16:00":
                 month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                if month:
-                    ScheduleMonth.objects.filter(pk=month.pk).update(time1530=False)                                                                                                                              
+                site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time1530=False) 
+                # if month:
+                #     ScheduleMonth.objects.filter(pk=month.pk).update(time1530=False)                                                                                                                              
 
             if pre_end > "16:00" and pre_start < "16:30":
                 month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                if month:
-                    ScheduleMonth.objects.filter(pk=month.pk).update(time16=False) 
+                site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time16=False)
+                # if month:
+                #     ScheduleMonth.objects.filter(pk=month.pk).update(time16=False) 
 
             if pre_end > "16:30" and pre_start < "17:00":
                 month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                if month:
-                    ScheduleMonth.objects.filter(pk=month.pk).update(time1630=False)  
+                site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time1630=False) 
+                # if month:
+                #     ScheduleMonth.objects.filter(pk=month.pk).update(time1630=False)  
 
             if pre_end > "17:00" and pre_start < "17:30":
                 month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                if month:
-                    ScheduleMonth.objects.filter(pk=month.pk).update(time17=False)  
+                site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time17=False)
+                # if month:
+                #     ScheduleMonth.objects.filter(pk=month.pk).update(time17=False)  
 
             if pre_end > "17:30" and pre_start < "18:00":
                 month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                if month:
-                    ScheduleMonth.objects.filter(pk=month.pk).update(time1730=False) 
+                site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time1730=False) 
+                # if month:
+                #     ScheduleMonth.objects.filter(pk=month.pk).update(time1730=False) 
 
             if pre_end > "18:00" and pre_start < "18:30":
                 month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                if month:
-                    ScheduleMonth.objects.filter(pk=month.pk).update(time18=False) 
+                site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time18=False)
+                # if month:
+                #     ScheduleMonth.objects.filter(pk=month.pk).update(time18=False) 
 
             if pre_end > "18:30" and pre_start < "19:00":
                 month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                if month:
-                    ScheduleMonth.objects.filter(pk=month.pk).update(time1830=False)   
+                site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time1830=False)  
+                # if month:
+                #     ScheduleMonth.objects.filter(pk=month.pk).update(time1830=False)   
 
             if pre_end > "19:00" and pre_start < "19:30":
                 month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                if month:
-                    ScheduleMonth.objects.filter(pk=month.pk).update(time19=False) 
+                site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time19=False)
+                # if month:
+                #     ScheduleMonth.objects.filter(pk=month.pk).update(time19=False) 
 
             if pre_end > "19:30" and pre_start < "20:00":
                 month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                if month:
-                    ScheduleMonth.objects.filter(pk=month.pk).update(time1930=False)   
+                site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time1930=False)
+                # if month:
+                #     ScheduleMonth.objects.filter(pk=month.pk).update(time1930=False)   
 
             if pre_end > "20:00" and pre_start < "20:30":
                 month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                if month:
-                    ScheduleMonth.objects.filter(pk=month.pk).update(time20=False) 
+                site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time20=False)
+                # if month:
+                #     ScheduleMonth.objects.filter(pk=month.pk).update(time20=False) 
 
             if pre_end > "20:30" and pre_start < "21:00":
                 month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                if month:
-                    ScheduleMonth.objects.filter(pk=month.pk).update(time2030=False)   
+                site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time2030=False)
+                # if month:
+                #     ScheduleMonth.objects.filter(pk=month.pk).update(time2030=False)   
 
             if pre_end > "21:00" and pre_start < "21:30":
                 month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                if month:
-                    ScheduleMonth.objects.filter(pk=month.pk).update(time21=False)  
+                site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time21=False)
+                # if month:
+                #     ScheduleMonth.objects.filter(pk=month.pk).update(time21=False)  
 
             if pre_end > "21:30" and pre_start < "22:00":
                 month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                if month:
-                    ScheduleMonth.objects.filter(pk=month.pk).update(time2130=False) 
+                site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time2130=False) 
+                # if month:
+                #     ScheduleMonth.objects.filter(pk=month.pk).update(time2130=False) 
 
             if pre_end > "22:00" and pre_start < "22:30":
                 month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                if month:
-                    ScheduleMonth.objects.filter(pk=month.pk).update(time22=False)   
+                site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time22=False) 
+                # if month:
+                #     ScheduleMonth.objects.filter(pk=month.pk).update(time22=False)   
 
             if pre_end > "22:30" and pre_start < "23:00":
                 month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                if month:
-                    ScheduleMonth.objects.filter(pk=month.pk).update(time2230=False)
+                site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time2230=False)
+                # if month:
+                #     ScheduleMonth.objects.filter(pk=month.pk).update(time2230=False)
 
             if pre_end > "23:00" and pre_start < "23:30":
                 month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                if month:
-                    ScheduleMonth.objects.filter(pk=month.pk).update(time23=False) 
+                site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time23=False) 
+                # if month:
+                #     ScheduleMonth.objects.filter(pk=month.pk).update(time23=False) 
 
             if pre_end > "23:30" and pre_start < "24:00":
                 month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                if month:
-                    ScheduleMonth.objects.filter(pk=month.pk).update(time2330=False) 
+                site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time2330=False)
+                # if month:
+                #     ScheduleMonth.objects.filter(pk=month.pk).update(time2330=False) 
 
             if check_ids:
                 for i in check_ids:
@@ -2507,419 +2514,419 @@ def schedulemonth_time(self, date, emp, site, start, end, type_v, appt, sc_value
                     end_time = get_in_val(self, i.appt_to_time)
                     if end_time > "07:00" and start_time < "07:30":
                         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                        if month:
-                            ScheduleMonth.objects.filter(pk=month.pk).update(time07=sc_value)
+                        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time07=sc_value)
+                        # if month:
+                        #     ScheduleMonth.objects.filter(pk=month.pk).update(time07=sc_value)
 
                     if end_time > "07:30" and start_time < "08:00":
                         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                        if month:
-                            ScheduleMonth.objects.filter(pk=month.pk).update(time0730=sc_value)   
+                        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time0730=sc_value) 
+                        # if month:
+                        #     ScheduleMonth.objects.filter(pk=month.pk).update(time0730=sc_value)   
 
                     if end_time > "08:00" and start_time < "08:30":
                         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                        if month:
-                            ScheduleMonth.objects.filter(pk=month.pk).update(time08=sc_value) 
+                        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time08=sc_value) 
+                        # if month:
+                        #     ScheduleMonth.objects.filter(pk=month.pk).update(time08=sc_value) 
 
                     if end_time > "08:30" and start_time < "09:00":
                         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                        if month:
-                            ScheduleMonth.objects.filter(pk=month.pk).update(time0830=sc_value) 
+                        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time0830=sc_value) 
+                        # if month:
+                        #     ScheduleMonth.objects.filter(pk=month.pk).update(time0830=sc_value) 
 
                     if end_time > "09:00" and start_time < "09:30":
                         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                        if month:
-                            ScheduleMonth.objects.filter(pk=month.pk).update(time09=sc_value) 
+                        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time09=sc_value) 
+                        # if month:
+                        #     ScheduleMonth.objects.filter(pk=month.pk).update(time09=sc_value) 
                         
 
                     if end_time > "09:30" and start_time < "10:00":
                         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                        if month:
-                            ScheduleMonth.objects.filter(pk=month.pk).update(time0930=sc_value) 
+                        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time0930=sc_value) 
+                        # if month:
+                        #     ScheduleMonth.objects.filter(pk=month.pk).update(time0930=sc_value) 
 
                     if end_time > "10:00" and start_time < "10:30":
                         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                        if month:
-                            ScheduleMonth.objects.filter(pk=month.pk).update(time10=sc_value)
+                        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time10=sc_value)
+                        # if month:
+                        #     ScheduleMonth.objects.filter(pk=month.pk).update(time10=sc_value)
                             
 
                     if end_time > "10:30" and start_time < "11:00":
                         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                        if month:
-                            ScheduleMonth.objects.filter(pk=month.pk).update(time1030=sc_value)  
+                        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time1030=sc_value)  
+                        # if month:
+                        #     ScheduleMonth.objects.filter(pk=month.pk).update(time1030=sc_value)  
 
                     if end_time > "11:00" and start_time < "11:30":
                         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                        if month:
-                            ScheduleMonth.objects.filter(pk=month.pk).update(time11=sc_value)
+                        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time11=sc_value)
+                        # if month:
+                        #     ScheduleMonth.objects.filter(pk=month.pk).update(time11=sc_value)
 
                     if end_time > "11:30" and start_time < "12:00":
                         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                        if month:
-                            ScheduleMonth.objects.filter(pk=month.pk).update(time1130=sc_value) 
+                        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time1130=sc_value) 
+                        # if month:
+                        #     ScheduleMonth.objects.filter(pk=month.pk).update(time1130=sc_value) 
 
                 
                     if end_time > "12:00" and start_time < "12:30":
                         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                        if month:
-                            ScheduleMonth.objects.filter(pk=month.pk).update(time12=sc_value)  
+                        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time12=sc_value) 
+                        # if month:
+                        #     ScheduleMonth.objects.filter(pk=month.pk).update(time12=sc_value)  
 
                     if end_time > "12:30" and start_time < "13:00":
                         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                        if month:
-                            ScheduleMonth.objects.filter(pk=month.pk).update(time1230=sc_value) 
+                        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time1230=sc_value) 
+                        # if month:
+                        #     ScheduleMonth.objects.filter(pk=month.pk).update(time1230=sc_value) 
 
                     if end_time > "13:00" and start_time < "13:30":
                         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                        if month:
-                            ScheduleMonth.objects.filter(pk=month.pk).update(time13=sc_value)    
+                        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time13=sc_value) 
+                        # if month:
+                        #     ScheduleMonth.objects.filter(pk=month.pk).update(time13=sc_value)    
 
                     if end_time > "13:30" and start_time < "14:00":
                         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                        if month:
-                            ScheduleMonth.objects.filter(pk=month.pk).update(time1330=sc_value)  
+                        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time1330=sc_value)  
+                        # if month:
+                        #     ScheduleMonth.objects.filter(pk=month.pk).update(time1330=sc_value)  
 
                     if end_time > "14:00" and start_time < "14:30":
                         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                        if month:
-                            ScheduleMonth.objects.filter(pk=month.pk).update(time14=sc_value)  
+                        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time14=sc_value)
+                        # if month:
+                        #     ScheduleMonth.objects.filter(pk=month.pk).update(time14=sc_value)  
 
                     if end_time > "14:30" and start_time < "15:00":
                         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                        if month:
-                            ScheduleMonth.objects.filter(pk=month.pk).update(time1430=sc_value)   
+                        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time1430=sc_value) 
+                        # if month:
+                        #     ScheduleMonth.objects.filter(pk=month.pk).update(time1430=sc_value)   
 
                     if end_time > "15:00" and start_time < "15:30":
                         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                        if month:
-                            ScheduleMonth.objects.filter(pk=month.pk).update(time15=sc_value) 
+                        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time15=sc_value)
+                        # if month:
+                        #     ScheduleMonth.objects.filter(pk=month.pk).update(time15=sc_value) 
 
                     if end_time > "15:30" and start_time < "16:00":
                         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                        if month:
-                            ScheduleMonth.objects.filter(pk=month.pk).update(time1530=sc_value)                                                                                                                              
+                        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time1530=sc_value)
+                        # if month:
+                        #     ScheduleMonth.objects.filter(pk=month.pk).update(time1530=sc_value)                                                                                                                              
 
                     if end_time > "16:00" and start_time < "16:30":
                         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                        if month:
-                            ScheduleMonth.objects.filter(pk=month.pk).update(time16=sc_value) 
+                        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time16=sc_value) 
+                        # if month:
+                        #     ScheduleMonth.objects.filter(pk=month.pk).update(time16=sc_value) 
 
                     if end_time > "16:30" and start_time < "17:00":
                         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                        if month:
-                            ScheduleMonth.objects.filter(pk=month.pk).update(time1630=sc_value)  
+                        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time1630=sc_value) 
+                        # if month:
+                        #     ScheduleMonth.objects.filter(pk=month.pk).update(time1630=sc_value)  
 
                     if end_time > "17:00" and start_time < "17:30":
                         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                        if month:
-                            ScheduleMonth.objects.filter(pk=month.pk).update(time17=sc_value)  
+                        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time17=sc_value)  
+                        # if month:
+                        #     ScheduleMonth.objects.filter(pk=month.pk).update(time17=sc_value)  
 
                     if end_time > "17:30" and start_time < "18:00":
                         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                        if month:
-                            ScheduleMonth.objects.filter(pk=month.pk).update(time1730=sc_value) 
+                        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time1730=sc_value) 
+                        # if month:
+                        #     ScheduleMonth.objects.filter(pk=month.pk).update(time1730=sc_value) 
 
                     if end_time > "18:00" and start_time < "18:30":
                         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                        if month:
-                            ScheduleMonth.objects.filter(pk=month.pk).update(time18=sc_value) 
+                        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time18=sc_value)
+                        # if month:
+                        #     ScheduleMonth.objects.filter(pk=month.pk).update(time18=sc_value) 
 
                     if end_time > "18:30" and start_time < "19:00":
                         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                        if month:
-                            ScheduleMonth.objects.filter(pk=month.pk).update(time1830=sc_value)   
+                        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time1830=sc_value) 
+                        # if month:
+                        #     ScheduleMonth.objects.filter(pk=month.pk).update(time1830=sc_value)   
 
                     if end_time > "19:00" and start_time < "19:30":
                         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                        if month:
-                            ScheduleMonth.objects.filter(pk=month.pk).update(time19=sc_value) 
+                        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time19=sc_value)
+                        # if month:
+                        #     ScheduleMonth.objects.filter(pk=month.pk).update(time19=sc_value) 
 
                     if end_time > "19:30" and start_time < "20:00":
                         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                        if month:
-                            ScheduleMonth.objects.filter(pk=month.pk).update(time1930=sc_value)   
+                        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time1930=sc_value) 
+                        # if month:
+                        #     ScheduleMonth.objects.filter(pk=month.pk).update(time1930=sc_value)   
 
                     if end_time > "20:00" and start_time < "20:30":
                         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                        if month:
-                            ScheduleMonth.objects.filter(pk=month.pk).update(time20=sc_value) 
+                        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time20=sc_value)
+                        # if month:
+                        #     ScheduleMonth.objects.filter(pk=month.pk).update(time20=sc_value) 
 
                     if end_time > "20:30" and start_time < "21:00":
                         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                        if month:
-                            ScheduleMonth.objects.filter(pk=month.pk).update(time2030=sc_value)   
+                        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time2030=sc_value)  
+                        # if month:
+                        #     ScheduleMonth.objects.filter(pk=month.pk).update(time2030=sc_value)   
 
                     if end_time > "21:00" and start_time < "21:30":
                         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                        if month:
-                            ScheduleMonth.objects.filter(pk=month.pk).update(time21=sc_value)  
+                        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time21=sc_value)  
+                        # if month:
+                        #     ScheduleMonth.objects.filter(pk=month.pk).update(time21=sc_value)  
 
                     if end_time > "21:30" and start_time <= "22:00":
                         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                        if month:
-                            ScheduleMonth.objects.filter(pk=month.pk).update(time2130=sc_value) 
+                        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time2130=sc_value) 
+                        # if month:
+                        #     ScheduleMonth.objects.filter(pk=month.pk).update(time2130=sc_value) 
 
                     if end_time > "22:00" and start_time < "22:30":
                         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                        if month:
-                            ScheduleMonth.objects.filter(pk=month.pk).update(time22=sc_value)   
+                        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time22=sc_value) 
+                        # if month:
+                        #     ScheduleMonth.objects.filter(pk=month.pk).update(time22=sc_value)   
 
                     if end_time > "22:30" and start_time < "23:00":
                         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                        if month:
-                            ScheduleMonth.objects.filter(pk=month.pk).update(time2230=sc_value)
+                        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time2230=sc_value)
+                        # if month:
+                        #     ScheduleMonth.objects.filter(pk=month.pk).update(time2230=sc_value)
 
                     if end_time > "23:00" and start_time < "23:30":
                         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                        if month:
-                            ScheduleMonth.objects.filter(pk=month.pk).update(time23=sc_value) 
+                        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time23=sc_value) 
+                        # if month:
+                        #     ScheduleMonth.objects.filter(pk=month.pk).update(time23=sc_value) 
 
                     if end_time > "23:30" and start_time < "24:00":
                         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=pre_emp.pk,
-                        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-                        if month:
-                            ScheduleMonth.objects.filter(pk=month.pk).update(time2330=sc_value) 
+                        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time2330=sc_value)
+                        # if month:
+                        #     ScheduleMonth.objects.filter(pk=month.pk).update(time2330=sc_value) 
                     
             
     if end > "07:00" and start < "07:30":
         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=emp.pk,
-        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-        if month:
-            ScheduleMonth.objects.filter(pk=month.pk).update(time07=sc_value)
+        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time07=sc_value)
+        # if month:
+        #     ScheduleMonth.objects.filter(pk=month.pk).update(time07=sc_value)
 
     if end > "07:30" and start < "08:00":
         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=emp.pk,
-        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-        if month:
-            ScheduleMonth.objects.filter(pk=month.pk).update(time0730=sc_value)   
+        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time0730=sc_value) 
+        # if month:
+        #     ScheduleMonth.objects.filter(pk=month.pk).update(time0730=sc_value)   
 
     if end > "08:00" and start < "08:30":
         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=emp.pk,
-        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-        if month:
-            ScheduleMonth.objects.filter(pk=month.pk).update(time08=sc_value) 
+        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time08=sc_value) 
+        # if month:
+        #     ScheduleMonth.objects.filter(pk=month.pk).update(time08=sc_value) 
 
     if end > "08:30" and start < "09:00":
         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=emp.pk,
-        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-        if month:
-            ScheduleMonth.objects.filter(pk=month.pk).update(time0830=sc_value) 
+        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time0830=sc_value) 
+        # if month:
+        #     ScheduleMonth.objects.filter(pk=month.pk).update(time0830=sc_value) 
 
     if end > "09:00" and start < "09:30":
         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=emp.pk,
-        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-        if month:
-            ScheduleMonth.objects.filter(pk=month.pk).update(time09=sc_value) 
+        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time09=sc_value) 
+        # if month:
+        #     ScheduleMonth.objects.filter(pk=month.pk).update(time09=sc_value) 
           
 
     if end > "09:30" and start < "10:00":
         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=emp.pk,
-        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-        if month:
-            ScheduleMonth.objects.filter(pk=month.pk).update(time0930=sc_value) 
+        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time0930=sc_value) 
+        # if month:
+        #     ScheduleMonth.objects.filter(pk=month.pk).update(time0930=sc_value) 
 
 
     if end > "10:00" and start < "10:30":
         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=emp.pk,
-        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-        if month:
-            ScheduleMonth.objects.filter(pk=month.pk).update(time10=sc_value)
+        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time10=sc_value)
+        # if month:
+        #     ScheduleMonth.objects.filter(pk=month.pk).update(time10=sc_value)
              
 
     if end > "10:30" and start < "11:00":
         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=emp.pk,
-        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-        if month:
-            ScheduleMonth.objects.filter(pk=month.pk).update(time1030=sc_value)  
+        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time1030=sc_value) 
+        # if month:
+        #     ScheduleMonth.objects.filter(pk=month.pk).update(time1030=sc_value)  
 
     if end > "11:00" and start < "11:30":
         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=emp.pk,
-        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
+        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time11=sc_value)
         if month:
             ScheduleMonth.objects.filter(pk=month.pk).update(time11=sc_value)
 
     if end > "11:30" and start < "12:00":
         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=emp.pk,
-        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-        if month:
-            ScheduleMonth.objects.filter(pk=month.pk).update(time1130=sc_value) 
+        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time1130=sc_value) 
+        # if month:
+        #     ScheduleMonth.objects.filter(pk=month.pk).update(time1130=sc_value) 
 
   
     if end > "12:00" and start < "12:30":
         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=emp.pk,
-        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-        if month:
-            ScheduleMonth.objects.filter(pk=month.pk).update(time12=sc_value)  
+        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time12=sc_value) 
+        # if month:
+        #     ScheduleMonth.objects.filter(pk=month.pk).update(time12=sc_value)  
 
     if end > "12:30" and start < "13:00":
         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=emp.pk,
-        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-        if month:
-            ScheduleMonth.objects.filter(pk=month.pk).update(time1230=sc_value) 
+        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time1230=sc_value) 
+        # if month:
+        #     ScheduleMonth.objects.filter(pk=month.pk).update(time1230=sc_value) 
 
     if end > "13:00" and start < "13:30":
         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=emp.pk,
-        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-        if month:
-            ScheduleMonth.objects.filter(pk=month.pk).update(time13=sc_value)    
+        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time13=sc_value)
+        # if month:
+        #     ScheduleMonth.objects.filter(pk=month.pk).update(time13=sc_value)    
 
     if end > "13:30" and start < "14:00":
         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=emp.pk,
-        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-        if month:
-            ScheduleMonth.objects.filter(pk=month.pk).update(time1330=sc_value)  
+        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time1330=sc_value)
+        # if month:
+        #     ScheduleMonth.objects.filter(pk=month.pk).update(time1330=sc_value)  
 
     if end > "14:00" and start < "14:30":
         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=emp.pk,
-        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-        if month:
-            ScheduleMonth.objects.filter(pk=month.pk).update(time14=sc_value)  
+        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time14=sc_value) 
+        # if month:
+        #     ScheduleMonth.objects.filter(pk=month.pk).update(time14=sc_value)  
 
     if end > "14:30" and start < "15:00":
         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=emp.pk,
-        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-        if month:
-            ScheduleMonth.objects.filter(pk=month.pk).update(time1430=sc_value)   
+        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time1430=sc_value)   
+        # if month:
+        #     ScheduleMonth.objects.filter(pk=month.pk).update(time1430=sc_value)   
 
     if end > "15:00" and start < "15:30":
         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=emp.pk,
-        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-        if month:
-            ScheduleMonth.objects.filter(pk=month.pk).update(time15=sc_value) 
+        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time15=sc_value) 
+        # if month:
+        #     ScheduleMonth.objects.filter(pk=month.pk).update(time15=sc_value) 
 
     if end > "15:30" and start < "16:00":
         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=emp.pk,
-        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-        if month:
-            ScheduleMonth.objects.filter(pk=month.pk).update(time1530=sc_value)                                                                                                                              
+        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time1530=sc_value) 
+        # if month:
+        #     ScheduleMonth.objects.filter(pk=month.pk).update(time1530=sc_value)                                                                                                                              
 
     if end > "16:00" and start < "16:30":
         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=emp.pk,
-        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-        if month:
-            ScheduleMonth.objects.filter(pk=month.pk).update(time16=sc_value) 
+        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time16=sc_value) 
+        # if month:
+        #     ScheduleMonth.objects.filter(pk=month.pk).update(time16=sc_value) 
 
     if end > "16:30" and start < "17:00":
         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=emp.pk,
-        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-        if month:
-            ScheduleMonth.objects.filter(pk=month.pk).update(time1630=sc_value)  
+        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time1630=sc_value) 
+        # if month:
+        #     ScheduleMonth.objects.filter(pk=month.pk).update(time1630=sc_value)  
 
     if end > "17:00" and start < "17:30":
         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=emp.pk,
-        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-        if month:
-            ScheduleMonth.objects.filter(pk=month.pk).update(time17=sc_value)  
+        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time17=sc_value)  
+        # if month:
+        #     ScheduleMonth.objects.filter(pk=month.pk).update(time17=sc_value)  
 
     if end > "17:30" and start < "18:00":
         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=emp.pk,
-        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-        if month:
-            ScheduleMonth.objects.filter(pk=month.pk).update(time1730=sc_value) 
+        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time1730=sc_value) 
+        # if month:
+        #     ScheduleMonth.objects.filter(pk=month.pk).update(time1730=sc_value) 
 
     if end > "18:00" and start < "18:30":
         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=emp.pk,
-        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-        if month:
-            ScheduleMonth.objects.filter(pk=month.pk).update(time18=sc_value) 
+        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time18=sc_value)
+        # if month:
+        #     ScheduleMonth.objects.filter(pk=month.pk).update(time18=sc_value) 
 
     if end > "18:30" and start < "19:00":
         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=emp.pk,
-        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-        if month:
-            ScheduleMonth.objects.filter(pk=month.pk).update(time1830=sc_value)   
+        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time1830=sc_value)  
+        # if month:
+        #     ScheduleMonth.objects.filter(pk=month.pk).update(time1830=sc_value)   
 
     if end > "19:00" and start < "19:30":
         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=emp.pk,
-        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-        if month:
-            ScheduleMonth.objects.filter(pk=month.pk).update(time19=sc_value) 
+        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time19=sc_value)
+        # if month:
+        #     ScheduleMonth.objects.filter(pk=month.pk).update(time19=sc_value) 
 
     if end > "19:30" and start < "20:00":
         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=emp.pk,
-        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-        if month:
-            ScheduleMonth.objects.filter(pk=month.pk).update(time1930=sc_value)   
+        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time1930=sc_value)  
+        # if month:
+        #     ScheduleMonth.objects.filter(pk=month.pk).update(time1930=sc_value)   
 
     if end > "20:00" and start < "20:30":
         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=emp.pk,
-        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-        if month:
-            ScheduleMonth.objects.filter(pk=month.pk).update(time20=sc_value) 
+        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time20=sc_value)
+        # if month:
+        #     ScheduleMonth.objects.filter(pk=month.pk).update(time20=sc_value) 
 
     if end > "20:30" and start < "21:00":
         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=emp.pk,
-        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-        if month:
-            ScheduleMonth.objects.filter(pk=month.pk).update(time2030=sc_value)   
+        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time2030=sc_value) 
+        # if month:
+        #     ScheduleMonth.objects.filter(pk=month.pk).update(time2030=sc_value)   
 
     if end > "21:00" and start < "21:30":
         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=emp.pk,
-        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-        if month:
-            ScheduleMonth.objects.filter(pk=month.pk).update(time21=sc_value)  
+        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time21=sc_value) 
+        # if month:
+        #     ScheduleMonth.objects.filter(pk=month.pk).update(time21=sc_value)  
 
     if end > "21:30" and start <= "22:00":
         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=emp.pk,
-        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-        if month:
-            ScheduleMonth.objects.filter(pk=month.pk).update(time2130=sc_value) 
+        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time2130=sc_value) 
+        # if month:
+        #     ScheduleMonth.objects.filter(pk=month.pk).update(time2130=sc_value) 
 
     if end > "22:00" and start < "22:30":
         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=emp.pk,
-        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-        if month:
-            ScheduleMonth.objects.filter(pk=month.pk).update(time22=sc_value)   
+        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time22=sc_value) 
+        # if month:
+        #     ScheduleMonth.objects.filter(pk=month.pk).update(time22=sc_value)   
 
     if end > "22:30" and start < "23:00":
         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=emp.pk,
-        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-        if month:
-            ScheduleMonth.objects.filter(pk=month.pk).update(time2230=sc_value)
+        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time2230=sc_value)
+        # if month:
+        #     ScheduleMonth.objects.filter(pk=month.pk).update(time2230=sc_value)
 
     if end > "23:00" and start < "23:30":
         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=emp.pk,
-        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-        if month:
-            ScheduleMonth.objects.filter(pk=month.pk).update(time23=sc_value) 
+        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time23=sc_value) 
+        # if month:
+        #     ScheduleMonth.objects.filter(pk=month.pk).update(time23=sc_value) 
 
     if end > "23:30" and start < "24:00":
         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=emp.pk,
-        site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
-        if month:
-            ScheduleMonth.objects.filter(pk=month.pk).update(time2330=sc_value) 
+        site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time2330=sc_value) 
+        # if month:
+        #     ScheduleMonth.objects.filter(pk=month.pk).update(time2330=sc_value) 
                  
     return True        
 
@@ -4297,11 +4304,11 @@ class AppointmentResourcesViewset(viewsets.ModelViewSet):
                 sc_time =  schedulemonth_time(self, request.data['appt_date'], emp_obj, site, request.data['start_time'], request.data['end_time'], dr_type, appobj, sc_value)
                 
                 trmtt_ids = False
-                if appobj.treatmentcode and appobj.sa_transacno:
-                    #trmtt_ids = Treatment.objects.filter(treatment_code=app.treatmentcode,
-                    #sa_transacno=appobj.sa_transacno,site_code=site.itemsite_code).first()
-                    trmtt_ids = Treatment.objects.filter(treatment_code=appobj.treatmentcode,
-                    sa_transacno=appobj.sa_transacno).first()
+                # if appobj.treatmentcode and appobj.sa_transacno:
+                #     #trmtt_ids = Treatment.objects.filter(treatment_code=app.treatmentcode,
+                #     #sa_transacno=appobj.sa_transacno,site_code=site.itemsite_code).first()
+                #     trmtt_ids = Treatment.objects.filter(treatment_code=appobj.treatmentcode,
+                #     sa_transacno=appobj.sa_transacno).first()
                  
                 if 'appt_date' in request.data and request.data['appt_date']:
                     if not request.data['appt_date'] is None:
@@ -5223,11 +5230,11 @@ class AppointmentEditViewset(viewsets.ModelViewSet):
                         #    return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
                         trmtt_ids = False
-                        if appt_obj.treatmentcode and appt_obj.sa_transacno:
-                            #trmtt_ids = Treatment.objects.filter(treatment_code=app.treatmentcode,
-                            #sa_transacno=appt_obj.sa_transacno,site_code=site.itemsite_code).first()
-                            trmtt_ids = Treatment.objects.filter(treatment_code=appt_obj.treatmentcode,
-                            sa_transacno=appt_obj.sa_transacno).first()
+                        # if appt_obj.treatmentcode and appt_obj.sa_transacno:
+                        #     #trmtt_ids = Treatment.objects.filter(treatment_code=app.treatmentcode,
+                        #     #sa_transacno=appt_obj.sa_transacno,site_code=site.itemsite_code).first()
+                        #     trmtt_ids = Treatment.objects.filter(treatment_code=appt_obj.treatmentcode,
+                        #     sa_transacno=appt_obj.sa_transacno).first()
                         
                         if 'appt_date' in appt and appt['appt_date']:
                             if not appt['appt_date'] is None:
@@ -7626,7 +7633,8 @@ class UsersList(APIView):
 
     def get(self, request, format=None):
         try:
-            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True).order_by('-pk').first()
+            fmspw = Fmspw.objects.filter(user=self.request.user
+            ,pw_isactive=True).order_by('-pk').first()
 
             price_setup = Systemsetup.objects.filter(title='showChangePrice',
             value_name='showChangePrice',isactive=True).first()
@@ -7725,16 +7733,25 @@ class UsersList(APIView):
                 controlsite = cosystem_setup.value_data 
             else:
                 controlsite = ""   
-            
+
+            # t = ItemSitelist._meta.get_fields() 
+            # print(t,"t")
+            # print(fmspw,fmspw.pk,"fmspw")
+            # print(fmspw.loginsite,"fmspw.loginsite")
+            # print(fmspw.loginsite.service_sel,"fmspw.loginsite.service_sel")
+
             token = Token.objects.filter(user=self.request.user).first()
+
             data = {'username':self.request.user.username,'token':token.key,
-            'role_code': fmspw.LEVEL_ItmIDid.role_code if fmspw.LEVEL_ItmIDid.role_code else "",
-            'role':fmspw.LEVEL_ItmIDid.level_name,'level_code': fmspw.LEVEL_ItmIDid.level_code,
-            'branch': fmspw.loginsite.itemsite_desc if fmspw.loginsite else "",
-            'service_sel': fmspw.loginsite.service_sel, 'service_text': fmspw.loginsite.service_text,
+            'role_code': fmspw.LEVEL_ItmIDid.role_code if fmspw.LEVEL_ItmIDid and fmspw.LEVEL_ItmIDid.role_code else "",
+            'role':fmspw.LEVEL_ItmIDid.level_name if fmspw.LEVEL_ItmIDid and fmspw.LEVEL_ItmIDid.level_name else "",
+            'level_code': fmspw.LEVEL_ItmIDid.level_code if fmspw.LEVEL_ItmIDid and fmspw.LEVEL_ItmIDid.level_code else "",
+            'branch': fmspw.loginsite.itemsite_desc if fmspw.loginsite and fmspw.loginsite.itemsite_desc else "",
+            'service_sel': fmspw.loginsite.service_sel if fmspw.loginsite and fmspw.loginsite.service_sel else "",
+            'service_text': fmspw.loginsite.service_text if fmspw.loginsite and fmspw.loginsite.service_text else "",
             'site_code': fmspw.loginsite.itemsite_code if fmspw.loginsite and fmspw.loginsite.itemsite_code else "",
-            'sitePhone': fmspw.loginsite.itemsite_phone1,
-            'default_loginid': fmspw.Emp_Codeid.pk,
+            'sitePhone': fmspw.loginsite.itemsite_phone1 if fmspw.loginsite and fmspw.loginsite.itemsite_phone1 else "",
+            'default_loginid': fmspw.Emp_Codeid.pk if fmspw.Emp_Codeid else "",
             'showChangePrice': True if price_setup and price_setup.value_data == 'True' else False,
             'showChangePayMode': True if paymode_setup and paymode_setup.value_data == 'True' else False,
             'showChangeDate' :  True if date_setup and date_setup.value_data == 'True' else False,
@@ -8183,7 +8200,8 @@ class postaudViewset(viewsets.ModelViewSet):
 
             if cust_obj:
                 value['cust_noid'] = cust_obj.pk
-                value['cust_stripeid'] = cust_obj.stripe_id if cust_obj and cust_obj.stripe_id else None
+                ex_ids = CustomerExtended.objects.filter(cust_codeid__pk=cust_obj.pk).first()
+                value['cust_stripeid'] = ex_ids.stripe_id if ex_ids and ex_ids.stripe_id else None
 
 
             result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False,
@@ -14538,6 +14556,7 @@ class DayEndListAPIView(generics.ListAPIView,generics.CreateAPIView):
                                 'paid': "{:.2f}".format(c.dt_deposit),'outstanding': "{:.2f}".format(c.dt_transacamt - c.dt_deposit)}
                                 sal_det_lst.append(voc_val)
                             elif c.record_detail_type == 'PACKAGE':
+                                ps_amount = 0; ps_balance = 0
                                 packhdrids = PackageHdr.objects.filter(code=c.dt_itemno[:-4]).first()
                                 if packhdrids:
                                     packdtlids = PackageDtl.objects.filter(package_code=packhdrids.code,isactive=True)
@@ -14554,47 +14573,91 @@ class DayEndListAPIView(generics.ListAPIView,generics.CreateAPIView):
                                                     pa_trasac = p.price * p.qty
                                                     pa_deposit = p.deposit_amt
                                                     if int(itm_stock.item_div) == 3:
-                                                        ptracc_ids = TreatmentAccount.objects.filter(sa_transacno=d.sa_transacno,
-                                                        dt_lineno=c.dt_lineno,type__in=['Deposit','Top Up','Sales']).order_by('-pk').first()
+                                                        ptracc_ids = list(set(TreatmentAccount.objects.filter(sa_transacno=d.sa_transacno,
+                                                        dt_lineno=c.dt_lineno,cust_code=d.sa_custno).values_list('treatment_parentcode', flat=True).distinct()))
                                                         if ptracc_ids:
-                                                            s_val = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
-                                                            'desc':pad.description,'qty':pad.qty,
-                                                            'amt': "{:.2f}".format(abs(ptracc_ids.amount)) if ptracc_ids.amount else "0.00",
-                                                            'balance': "{:.2f}".format(abs(ptracc_ids.balance)) if ptracc_ids.balance else "0.00",
-                                                            'satransac_ref' : d.sa_transacno_ref,'amount': "{:.2f}".format(pa_trasac),
-                                                            'paid': "{:.2f}".format(pa_deposit),'outstanding': "{:.2f}".format((pa_trasac) - pa_deposit)}
-                                                            sal_det_lst.append(s_val)
-                                                    elif int(itm_stock.item_div) == 1:
-                                                        pdeacc_ids = DepositAccount.objects.filter(sa_transacno=d.sa_transacno,
-                                                        dt_lineno=c.dt_lineno,type__in=['Deposit','Top Up']).order_by('-pk').first()
-                                                        if pdeacc_ids:
-                                                            r_val = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
-                                                            'desc':pad.description,'qty':pad.qty,
-                                                            'amt': "{:.2f}".format(abs(pdeacc_ids.amount)) if pdeacc_ids.amount else "0.00",
-                                                            'balance': "{:.2f}".format(abs(pdeacc_ids.balance)) if pdeacc_ids.balance else "0.00",
-                                                            'satransac_ref' : d.sa_transacno_ref,'amount': "{:.2f}".format(pa_trasac),
-                                                            'paid': "{:.2f}".format(pa_deposit),'outstanding': "{:.2f}".format((pa_trasac) - pa_deposit)}
-                                                            sal_det_lst.append(r_val) 
-                                                    elif int(itm_stock.item_div) == 5:
-                                                        prep_acc_ids = PrepaidAccount.objects.filter(pp_no=d.sa_transacno,
-                                                        line_no=c.dt_lineno,sa_status__in=['DEPOSIT','TOPUP','SA']).order_by('-pk').first()
-                                                        if prep_acc_ids:
-                                                            pr_val = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
-                                                            'desc':pad.description,'qty':pad.qty,
-                                                            'amt': "{:.2f}".format(prep_acc_ids.pp_total) if prep_acc_ids.pp_total else "0.00",
-                                                            'balance': "{:.2f}".format(prep_acc_ids.remain) if prep_acc_ids.remain else "0.00",
-                                                            'satransac_ref' : d.sa_transacno_ref,'amount': "{:.2f}".format(pa_trasac),
-                                                            'paid': "{:.2f}".format(pa_deposit),'outstanding': "{:.2f}".format((pa_trasac) - pa_deposit)}
-                                                            sal_det_lst.append(pr_val)
-                                                    elif int(itm_stock.item_div) == 4: 
-                                                        vo_val = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
-                                                        'desc':pad.description,'qty':pad.qty,
-                                                        'amt': "{:.2f}".format(pad.ttl_uprice) if pad.ttl_uprice else "0.00",
-                                                        'balance': "",'satransac_ref' : d.sa_transacno_ref,
-                                                        'amount': "{:.2f}".format(pa_trasac),
-                                                        'paid': "{:.2f}".format(pa_deposit),'outstanding': "{:.2f}".format((pa_trasac) - pa_deposit)}
-                                                        sal_det_lst.append(vo_val)
+                                                            for ps in ptracc_ids:
+                                                                psaccids = TreatmentAccount.objects.filter(ref_transacno=d.sa_transacno,
+                                                                treatment_parentcode=ps).order_by('-sa_date','-sa_time','-id').first()
+                                                                if psaccids and psaccids.amount >= 0:
+                                                                    ps_amount += psaccids.amount
+                                                                if psaccids and psaccids.balance >= 0:
+                                                                    ps_balance += psaccids.balance
 
+                                                            # ptracc_ids = TreatmentAccount.objects.filter(sa_transacno=d.sa_transacno,
+                                                            # dt_lineno=c.dt_lineno,type__in=['Deposit','Top Up','Sales']).order_by('-pk').first()
+                                                            # if ptracc_ids:   
+                                                            #     s_val = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
+                                                            #     'desc':pad.description,'qty':pad.qty,
+                                                            #     'amt': "{:.2f}".format(abs(ptracc_ids.amount)) if ptracc_ids.amount else "0.00",
+                                                            #     'balance': "{:.2f}".format(abs(ptracc_ids.balance)) if ptracc_ids.balance else "0.00",
+                                                            #     'satransac_ref' : d.sa_transacno_ref,'amount': "{:.2f}".format(pa_trasac),
+                                                            #     'paid': "{:.2f}".format(pa_deposit),'outstanding': "{:.2f}".format((pa_trasac) - pa_deposit)}
+                                                            #     sal_det_lst.append(s_val)
+
+                                                    elif int(itm_stock.item_div) == 1:
+                                                        psdep_acc = DepositAccount.objects.filter(cust_code=d.sa_custno,
+                                                        type='Deposit',sa_transacno=d.sa_transacno,dt_lineno=c.dt_lineno).only('cust_code','type').order_by('pk')
+                                                        if psdep_acc:
+                                                            for pdst in psdep_acc:
+                                                                pdeacc_ids = DepositAccount.objects.filter(sa_transacno=d.sa_transacno,
+                                                                    treat_code=pdst.treat_code).order_by('-sa_date','-sa_time','-id').first()
+                                                                if pdeacc_ids and pdeacc_ids.amount >= 0:
+                                                                    ps_amount += pdeacc_ids.amount
+                                                                if pdeacc_ids and pdeacc_ids.balance >= 0:
+                                                                    ps_balance += pdeacc_ids.balance
+    
+                   
+                                                        # pdeacc_ids = DepositAccount.objects.filter(sa_transacno=d.sa_transacno,
+                                                        # dt_lineno=c.dt_lineno,type__in=['Deposit','Top Up']).order_by('-pk').first()
+                                                        # if pdeacc_ids:
+                                                        #     r_val = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
+                                                        #     'desc':pad.description,'qty':pad.qty,
+                                                        #     'amt': "{:.2f}".format(abs(pdeacc_ids.amount)) if pdeacc_ids.amount else "0.00",
+                                                        #     'balance': "{:.2f}".format(abs(pdeacc_ids.balance)) if pdeacc_ids.balance else "0.00",
+                                                        #     'satransac_ref' : d.sa_transacno_ref,'amount': "{:.2f}".format(pa_trasac),
+                                                        #     'paid': "{:.2f}".format(pa_deposit),'outstanding': "{:.2f}".format((pa_trasac) - pa_deposit)}
+                                                        #     sal_det_lst.append(r_val) 
+
+                                                    elif int(itm_stock.item_div) == 5:
+                                                        lst_preacc_ids = PrepaidAccount.objects.filter(pp_no=d.sa_transacno,
+                                                        status=True,line_no=c.dt_lineno,package_code_lineno=pad.line_no).order_by('-pk').only('pp_no','status','line_no').first()
+                                                        if lst_preacc_ids and lst_preacc_ids.pp_total >= 0:
+                                                            ps_amount += lst_preacc_ids.pp_total
+                                                        if lst_preacc_ids and lst_preacc_ids.remain >= 0:
+                                                            ps_balance += lst_preacc_ids.remain
+
+
+                                                        # prep_acc_ids = PrepaidAccount.objects.filter(pp_no=d.sa_transacno,
+                                                        # line_no=c.dt_lineno,sa_status__in=['DEPOSIT','TOPUP','SA']).order_by('-pk').first()
+                                                        # if prep_acc_ids:
+                                                        #     pr_val = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
+                                                        #     'desc':pad.description,'qty':pad.qty,
+                                                        #     'amt': "{:.2f}".format(prep_acc_ids.pp_total) if prep_acc_ids.pp_total else "0.00",
+                                                        #     'balance': "{:.2f}".format(prep_acc_ids.remain) if prep_acc_ids.remain else "0.00",
+                                                        #     'satransac_ref' : d.sa_transacno_ref,'amount': "{:.2f}".format(pa_trasac),
+                                                        #     'paid': "{:.2f}".format(pa_deposit),'outstanding': "{:.2f}".format((pa_trasac) - pa_deposit)}
+                                                        #     sal_det_lst.append(pr_val)
+
+                                                    elif int(itm_stock.item_div) == 4: 
+                                                        ps_amount += pad.ttl_uprice
+
+                                                        # vo_val = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
+                                                        # 'desc':pad.description,'qty':pad.qty,
+                                                        # 'amt': "{:.2f}".format(pad.ttl_uprice) if pad.ttl_uprice else "0.00",
+                                                        # 'balance': "",'satransac_ref' : d.sa_transacno_ref,
+                                                        # 'amount': "{:.2f}".format(pa_trasac),
+                                                        # 'paid': "{:.2f}".format(pa_deposit),'outstanding': "{:.2f}".format((pa_trasac) - pa_deposit)}
+                                                        # sal_det_lst.append(vo_val)
+
+
+                                d_val = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
+                                    'desc':c.dt_itemdesc,'qty':c.dt_qty,
+                                    'amt': "{:.2f}".format(abs(ps_amount)) if ps_amount else "0.00",
+                                    'balance': "{:.2f}".format(abs(ps_balance)) if ps_balance else "0.00",
+                                    'satransac_ref' : d.sa_transacno_ref,'amount': "{:.2f}".format(c.dt_transacamt),
+                                    'paid': "{:.2f}".format(c.dt_deposit),'outstanding': "{:.2f}".format(c.dt_transacamt - c.dt_deposit)}
+                                sal_det_lst.append(d_val)  
                 
 
 
@@ -17774,6 +17837,11 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
                                 mobile_phone=req['mobile_phone'],email=req['email'],
                                 customer_id=k) 
                                 cp.save()
+                        
+                        checkex_ids = CustomerExtended.objects.filter(cust_codeid__pk=k.pk)
+                        if not checkex_ids:
+                            CustomerExtended(cust_code=cus_code,cust_codeid=k,cust_name=k.cust_name).save()
+
 
                     if 'referredbyid' in request.data and request.data['referredbyid']:
                         ref_ids = CustomerReferral.objects.filter(cust_id__pk=k.pk,Site_Codeid__pk=site.pk)
@@ -17950,6 +18018,12 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
                     CustLogAudit(customer_id=customer,cust_code=customer.cust_code,
                     username=fmspw.pw_userlogin,
                     user_loginid=fmspw,updated_at=timezone.now()).save()
+
+                    checkex_ids = CustomerExtended.objects.filter(cust_codeid__pk=customer.pk)
+                    if not checkex_ids:
+                        CustomerExtended(cust_code=customer.cust_code,cust_codeid=customer,
+                        cust_name=customer.cust_name).save()
+
 
                     if 'referredbyid' in request.data and request.data['referredbyid']:
                         ref_ids = CustomerReferral.objects.filter(cust_id__pk=customer.pk,Site_Codeid__pk=site.pk)
@@ -20946,10 +21020,10 @@ class StripeCustomerCreateAPIView(GenericAPIView):
                     customer = stripe.Customer.create(name=customer_name,
                     email=email,phone=phone)
                     extra_msg = "Customer Created Succesfully"
-
-                    if cust_obj:
-                        cust_obj.stripe_id = customer.id
-                        cust_obj.save()
+                    ex_ids = CustomerExtended.objects.filter(cust_codeid__pk=cust_obj.pk).first()    
+                    if ex_ids:
+                        ex_ids.stripe_id = customer.id
+                        ex_ids.save()
 
                 else:
                     customer = customer_data[0]

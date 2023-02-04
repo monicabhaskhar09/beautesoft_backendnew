@@ -1273,13 +1273,14 @@ def sa_transacno_update(self, site, fmspw):
     haudre = PosTaud.objects.filter(ItemSIte_Codeid__pk=site.pk).values('sa_transacno').distinct().order_by('-pk','-sa_transacno')[:2]
     # print(haudre,"haudre")
     haudfinal = list(set([r['sa_transacno'] for r in haudre]))
-    # print(haudfinal,"haudfinal")
+    print(haudfinal,"haudfinal")
     code_site = site.itemsite_code
     prefix_s = sacontrol_obj.control_prefix
 
     slst = []
     if haudfinal != []:
         for fh in haudfinal:
+            print(fh,"fh")
             # Yoonus remove MC1 and Mc2
             fhstr = fh.replace("MC1","")
             fhstr = fh.replace("MC2","")
@@ -1290,16 +1291,17 @@ def sa_transacno_update(self, site, fmspw):
 
             #fhstr = int(fh[silicon:])
             fhstr = int(fhstr[silicon:])
+            print(fhstr,"fhstr")
             # fhstr = fh.replace(prefix_s,"")
             # fhnew_str = fhstr.replace(code_site, "")
             slst.append(fhstr)
             slst.sort(reverse=True)
 
-        # print(slst,"slst")
+        print(slst,"slst")
         # r_lst = ''.join(i for i in slst[0] if i.isdigit())
         sa_id = int(slst[0]) + 1
         # sa_id = int(slst[0][-6:]) + 1
-        # print(sa_id,"sa_id")
+        print(sa_id,"sa_id")
         
         sacontrol_obj.control_no = str(sa_id)
         sacontrol_obj.save() 
@@ -1313,7 +1315,7 @@ class itemCartViewset(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], name='Check')
     def Check(self, request):
-        try:
+        # try:
             if str(self.request.GET.get('cust_noid',None)) == "undefined":
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please select customer!!",'error': True} 
                 return Response(result, status=status.HTTP_400_BAD_REQUEST)         
@@ -1447,9 +1449,9 @@ class itemCartViewset(viewsets.ModelViewSet):
                 result = {'status': status.HTTP_204_NO_CONTENT,"message":"Listed Succesfully",'error': False, 
                 'data': [],'cart_id': ""}
             return Response(data=result, status=status.HTTP_200_OK)
-        except Exception as e:
-          invalid_message = str(e)
-          return general_error_response(invalid_message)     
+        # except Exception as e:
+        #   invalid_message = str(e)
+        #   return general_error_response(invalid_message)     
         
     def get_queryset(self):
         global type_ex
@@ -6969,23 +6971,33 @@ class SmtpSettingsViewset(viewsets.ModelViewSet):
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)
-
+    
+    @transaction.atomic
     def create(self, request):
         try:
-            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
-            site = fmspw[0].loginsite
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+                site = fmspw[0].loginsite
 
-            serializer = SmtpSettingsSerializer(data=request.data)
-            if serializer.is_valid():
-                siteobj = ItemSitelist.objects.filter(pk=request.data['site_codeid'],itemsite_isactive=True).first()
-                serializer.save(site_codeid=siteobj,site_code=siteobj.itemsite_code)
-                result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully",
-                'error': False}
-                return Response(result, status=status.HTTP_201_CREATED)
-            
-            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Invalid Input",
-            'error': True, 'data': serializer.errors}
-            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                serializer = SmtpSettingsSerializer(data=request.data)
+                if serializer.is_valid():
+                    siteobj = ItemSitelist.objects.filter(pk=request.data['site_codeid'],itemsite_isactive=True).first()
+                    serializer.save(site_codeid=siteobj,site_code=siteobj.itemsite_code)
+                    result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully",
+                    'error': False}
+                    return Response(result, status=status.HTTP_201_CREATED)
+                
+                data = serializer.errors
+
+                if 'non_field_errors' in data:
+                    message = data['non_field_errors'][0]
+                else:
+                    first_key = list(data.keys())[0]
+                    message = str(first_key)+":  "+str(data[first_key][0])
+
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":message,
+                'error': True, 'data': serializer.errors}
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
         except Exception as e:
             invalid_message = str(e)
@@ -7010,6 +7022,35 @@ class SmtpSettingsViewset(viewsets.ModelViewSet):
             invalid_message = str(e)
             return general_error_response(invalid_message) 
     
+    @transaction.atomic
+    def update(self, request, pk=None):
+        try:
+            with transaction.atomic():
+                smtp = self.get_object(pk)
+                serializer = SmtpSettingsSerializer(smtp, data=request.data)
+                if serializer.is_valid():
+                    serializer.save()
+                    result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",
+                    'error': False}
+                    return Response(result, status=status.HTTP_200_OK)
+                
+
+                data = serializer.errors
+
+                if 'non_field_errors' in data:
+                    message = data['non_field_errors'][0]
+                else:
+                    first_key = list(data.keys())[0]
+                    message = str(first_key)+":  "+str(data[first_key][0])
+
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":message,
+                'error': True, 'data': serializer.errors}
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)    
+
     
     def partial_update(self, request, pk=None):
         try:
@@ -7029,7 +7070,8 @@ class SmtpSettingsViewset(viewsets.ModelViewSet):
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)   
-
+    
+    
 
     def destroy(self, request, pk=None):
         smtp = self.get_object(pk)

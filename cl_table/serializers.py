@@ -136,16 +136,19 @@ class CustomerSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source='pk',required=False)
     gender = serializers.CharField(source='Cust_sexesid.itm_name',required=False)
     site_name = serializers.CharField(source='Site_Codeid.itemsite_desc',required=False)
-
+    # last_visit = serializers.DateTimeField(source='customerextend.last_visit',required=False)
+    # upcoming_appointments = serializers.CharField(source='customerextend.upcoming_appointments',required=False)
+    
+    
     class Meta:
+        # 'last_visit','upcoming_appointments',
         model = Customer
-        fields = ['id','cust_code','cust_name','cust_address','Site_Codeid','site_name','site_code','last_visit',
-        'upcoming_appointments','cust_dob','cust_phone2','Cust_sexesid','gender','cust_email','prepaid_card',
-        'cust_nric','cust_country','cust_state','cust_postcode','cust_language','cust_source','emergencycontact',
-        'cardno1','cardno2','cardno3','cardno4','cardno5','cust_class','cust_title','cust_phone1',
-        'creditnote','voucher_available','oustanding_payment','cust_refer','custallowsendsms','cust_maillist','cust_corporate']
-        read_only_fields = ('cust_isactive','created_at', 'updated_at','last_visit','upcoming_appointments',
-        'Site_Code','cust_code','ProneToComplain') 
+        fields = ['id','cust_code','cust_name','cust_address','Site_Codeid','site_name','site_code','cust_dob','cust_phone2','Cust_sexesid','gender','cust_email','prepaid_card',
+        'cust_nric','cust_postcode','cust_source',
+        'cust_class','cust_title','cust_phone1',
+        'creditnote','voucher_available','oustanding_payment','cust_refer','custallowsendsms','cust_maillist','cust_corporate',
+        ]
+        read_only_fields = ('cust_isactive','Site_Code','cust_code') 
         extra_kwargs = {'cust_name': {'required': True},'cust_address':{'required': True}} 
 
 
@@ -243,9 +246,9 @@ class CustomerdetailSerializer(serializers.ModelSerializer):
         fmspw = Fmspw.objects.filter(user=request.user, pw_isactive=True)
         site = fmspw[0].loginsite
        
-        if obj.cust_img:
-            # cust_img = ip+str(obj.cust_img.url)
-            cust_img = ip+str(obj.cust_img)
+        # if obj.cust_img:
+        #     # cust_img = ip+str(obj.cust_img.url)
+        #     cust_img = ip+str(obj.cust_img)
 
         if obj.cust_dob:
             cust_dob = datetime.datetime.strptime(str(obj.cust_dob), "%Y-%m-%d").strftime("%d-%m-%Y")
@@ -263,21 +266,21 @@ class CustomerdetailSerializer(serializers.ModelSerializer):
         
         appointment = "{0} appointments (upcoming)".format(str(appt_ids))        
 
-        tropen_ids = Treatment.objects.filter(cust_code=obj.cust_code,status="Open"
-        ).only('cust_code','status').count()
-        print(tropen_ids,"tropen_ids")
+        # tropen_ids = Treatment.objects.filter(cust_code=obj.cust_code,status="Open"
+        # ).only('cust_code','status').count()
+        # print(tropen_ids,"tropen_ids")
 
         tr_open_ids = TreatmentPackage.objects.filter(cust_code=obj.cust_code, open_session__gt=0
         ).only('cust_code','open_session').order_by('pk').aggregate(amount=Coalesce(Sum('open_session'), 0))
-        print(tr_open_ids,"tr_open_ids")
+        # print(tr_open_ids,"tr_open_ids")
 
-        packagew_ids = Treatment.objects.filter(cust_code=obj.cust_code,status="Open").values('treatment_parentcode',
-        ).order_by('treatment_parentcode').annotate(total=Count('treatment_parentcode'))
-        print(packagew_ids,"packagew_ids")
+        # packagew_ids = Treatment.objects.filter(cust_code=obj.cust_code,status="Open").values('treatment_parentcode',
+        # ).order_by('treatment_parentcode').annotate(total=Count('treatment_parentcode'))
+        # print(packagew_ids,"packagew_ids")
 
         package_ids = TreatmentPackage.objects.filter(cust_code=obj.cust_code, open_session__gt=0).values('treatment_parentcode',
         ).order_by('treatment_parentcode').annotate(total=Count('treatment_parentcode'))
-        print(package_ids,"package_ids")
+        # print(package_ids,"package_ids")
         if package_ids:
             package = len(package_ids)
         else:
@@ -287,9 +290,9 @@ class CustomerdetailSerializer(serializers.ModelSerializer):
         tr_balance = 0.0 ; tr_outstanding = 0.0
 
         tracc = list(set(TreatmentAccount.objects.filter(cust_code=obj.cust_code,type='Deposit').exclude(sa_status="VOID").only('cust_code','type').order_by('pk').values_list('treatment_parentcode', flat=True).distinct()))
-        print(tracc,"tracc")
+        # print(tracc,"tracc")
         if tracc:
-            trb_ids = TreatmentPackage.objects.filter(treatment_parentcode__in=tracc).aggregate(balance=Coalesce(Sum('balance'), 0),outstanding=Coalesce(Sum('outstanding'), 0))
+            trb_ids = TreatmentPackage.objects.filter(treatment_parentcode__in=tracc,open_session__gt=0).aggregate(balance=Coalesce(Sum('balance'), 0),outstanding=Coalesce(Sum('outstanding'), 0))
             if trb_ids:
                 tr_balance = trb_ids['balance']
                 tr_outstanding = trb_ids['outstanding']
@@ -1532,6 +1535,8 @@ class StaffsAppointmentSerializer(serializers.ModelSerializer):
         return mapped_object
     
 
+
+
 class PayGroupSerializer(serializers.ModelSerializer):
     
     class Meta:
@@ -1540,12 +1545,13 @@ class PayGroupSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super(PayGroupSerializer, self).to_representation(instance)
-        pic = ""
-        if instance.picturelocation:
-            pic = str(SITE_ROOT)+str(instance.picturelocation)
-        
+        pic = str(instance.picturelocation) if instance.picturelocation else ""
+    #    pic = ""
+    #    if instance.picturelocation:
+    #        pic = str(SITE_ROOT)+str(instance.picturelocation)
+    #    
         data['picturelocation'] = pic
-        return data      
+        return data             
 
 class PaytableSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source='pk',required=False)
@@ -2787,23 +2793,25 @@ class CustomerPlusnewSerializer(serializers.ModelSerializer):
     site_name = serializers.CharField(source='Site_Codeid.itemsite_desc',required=False)
     class_name = serializers.CharField(source='Cust_Classid.class_desc',required=False)
     custClass = CustomerClassSerializer(source="Cust_Classid",read_only=True)
-
+    # last_visit = serializers.DateTimeField(source='customerextend.last_visit',required=False) 
+    # upcoming_appointments = serializers.CharField(source='customerextend.upcoming_appointments',required=False)
 
     class Meta:
+        # 'last_visit','upcoming_appointments',
         model = Customer
-        fields = ['id','cust_code','cust_name','cust_address','Site_Codeid','site_name','site_code','last_visit',
+        fields = ['id','cust_code','cust_name','cust_address','Site_Codeid','site_name','site_code',
                   'custClass', 'class_name', 'Cust_Classid', 'cust_joindate','Cust_Sourceid','cust_nric',
-                  'upcoming_appointments','cust_dob','cust_phone2','cust_phone1','Cust_sexesid',
+                  'cust_dob','cust_phone2','cust_phone1','Cust_sexesid',
                   'gender', 'cust_postcode','sgn_unitno','sgn_block','sgn_street', 'Cust_titleid',
                   'cust_remark','cust_source',
-                  'cust_email', 'cardno1','cardno2','cardno3','cardno4','cardno5','phone4','cust_phoneo','cust_therapist_id',
+                  'cust_email', 'phone4','cust_phoneo','cust_therapist_id',
                   'cust_consultant_id','cust_address1','cust_address2','cust_address3',
                   'prepaid_card','cust_occupation', 'creditnote','voucher_available','oustanding_payment','cust_refer',
                   'custallowsendsms','cust_maillist','cust_title','cust_sexes','cust_class','cust_corporate',
                   'referredby_id','cust_referby_code','cust_nationality','cust_race','cust_marital',
-                  'is_pregnant','estimated_deliverydate','no_of_weeks_pregnant','no_of_children']
-        read_only_fields = ('cust_isactive','created_at', 'updated_at','last_visit','upcoming_appointments',
-        'Site_Code','cust_code','ProneToComplain')
+                  'is_pregnant','estimated_deliverydate','no_of_weeks_pregnant','no_of_children',
+                  ]
+        read_only_fields = ('cust_isactive','Site_Code','cust_code')
         extra_kwargs = {'cust_name': {'required': True},'cust_phone2': {'required': False},}
     
 
@@ -2832,8 +2840,8 @@ class CustomerPlusSerializer(serializers.ModelSerializer):
     class_name = serializers.CharField(source='Cust_Classid.class_desc',required=False)
     custClass = CustomerClassSerializer(source="Cust_Classid",read_only=True)
     masked_nric = serializers.SerializerMethodField()
-
-    
+    # last_visit = serializers.DateTimeField(source='customerextend.last_visit',required=False) 
+    # upcoming_appointments = serializers.CharField(source='customerextend.upcoming_appointments',required=False)
 
     def get_masked_nric(self,obj):
         _nric = obj.cust_nric if obj.cust_nric else ""
@@ -2905,20 +2913,20 @@ class CustomerPlusSerializer(serializers.ModelSerializer):
         return data
 
     class Meta:
+        # 'last_visit','upcoming_appointments',
         model = Customer
-        fields = ['id','cust_code','cust_name','cust_address','Site_Codeid','site_name','site_code','last_visit',
+        fields = ['id','cust_code','cust_name','cust_address','Site_Codeid','site_name','site_code',
                   'custClass', 'class_name', 'Cust_Classid', 'cust_joindate','Cust_Sourceid','cust_nric',
-                  'upcoming_appointments','cust_dob','cust_phone2','cust_phone1','Cust_sexesid',
+                  'cust_dob','cust_phone2','cust_phone1','Cust_sexesid',
                   'gender', 'cust_postcode','sgn_unitno','sgn_block','sgn_street', 'Cust_titleid',
                   'masked_nric','cust_remark','cust_source',
-                  'cust_email', 'cardno1','cardno2','cardno3','cardno4','cardno5','phone4','cust_phoneo','cust_therapist_id',
+                  'cust_email', 'phone4','cust_phoneo','cust_therapist_id',
                   'cust_consultant_id','cust_address1','cust_address2','cust_address3',
                   'prepaid_card','cust_occupation', 'creditnote','voucher_available','oustanding_payment','cust_refer',
                   'custallowsendsms','cust_maillist','cust_title','cust_sexes','cust_class','cust_corporate',
                   'referredby_id','cust_referby_code','cust_nationality','cust_race','cust_marital',
                   'is_pregnant','estimated_deliverydate','no_of_weeks_pregnant','no_of_children']
-        read_only_fields = ('cust_isactive','created_at', 'updated_at','last_visit','upcoming_appointments',
-        'Site_Code','cust_code','ProneToComplain')
+        read_only_fields = ('cust_isactive','Site_Code','cust_code')
         extra_kwargs = {'cust_name': {'required': True},'cust_phone2': {'required': False},}
 
 

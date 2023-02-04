@@ -21,6 +21,7 @@ class WebConsultation_Hdr(models.Model):
     consultant_code = models.CharField(db_column='Consultant_Code', max_length=50, null=True, blank=True)  # Field name made lowercase.
     emp_codeid   = models.ForeignKey('cl_table.Employee', on_delete=models.PROTECT, null=True) #, null=True
     updated_at = models.DateTimeField(auto_now=True, null=True)
+    signature = models.ImageField(db_column='Signature', blank=True, null=True,upload_to='img')  # Field name made lowercase.
 
     class Meta:
         db_table = 'WebConsultation_Hdr'
@@ -56,6 +57,7 @@ class WebConsultation_Question(models.Model):
     question_others = models.CharField(db_column='QuestionOthers', max_length=500, blank=True, null=True)
     site_ids = models.ManyToManyField('cl_app.ItemSitelist',blank=True)
     question_text = models.CharField(db_column='QuestionText',max_length=500,  blank=True, null=True)  # Field name made lowercase.
+    option_type = models.IntegerField(db_column='option_type', blank=True, null=True)  # Field name made lowercase.
 
     class Meta:
         db_table = 'WebConsultation_Question'
@@ -73,6 +75,20 @@ class WebConsultation_QuestionMultichoice(models.Model):
 
     def __str__(self):
         return str(self.choice)   
+
+class WebConsultation_Questionsub_questions(models.Model):
+    id = models.AutoField(db_column='ID',primary_key=True)
+    questionid   = models.ForeignKey('cl_ipad.WebConsultation_Question', on_delete=models.PROTECT, null=True) #, null=True
+    options = models.CharField(db_column='options', max_length=100, blank=True, null=True)
+    sub_question_english = models.CharField(db_column='sub_question_english', max_length=500, blank=True, null=True)
+    sub_question_chinese = models.CharField(db_column='sub_question_chinese', max_length=500, blank=True, null=True)
+
+    class Meta:
+        db_table = 'WebConsultation_Questionsub_questions'
+
+    def __str__(self):
+        return str(self.sub_question_english)   
+
 
 
 class WebConsultation_AnalysisResult(models.Model):

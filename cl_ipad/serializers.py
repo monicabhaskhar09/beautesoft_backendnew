@@ -1,8 +1,9 @@
 from rest_framework import serializers
 from .models import (WebConsultation_Hdr,WebConsultation_Dtl,WebConsultation_Question,
 WebConsultation_AnalysisResult,WebConsultation_Referral,WebConsultation_Referral_Hdr,TNC_Master,
-WebConsultation_QuestionMultichoice)
+WebConsultation_QuestionMultichoice,TNC_Detail,TNC_Header,WebConsultation_Questionsub_questions)
 from cl_table.models import (Customer, PosDaud,PosHaud)
+import datetime
 
 class WebConsultationHdrSerializer(serializers.ModelSerializer):
     
@@ -43,6 +44,11 @@ class WebConsultationQuestionSerializer(serializers.ModelSerializer):
         cho_ids = WebConsultation_QuestionMultichoice.objects.filter(questionid__pk=obj.pk).values('id','questionid','choice')
         data['multichoices'] = cho_ids
 
+        qcho_ids = WebConsultation_Questionsub_questions.objects.filter(questionid__pk=obj.pk).values('id','questionid',
+        'options','sub_question_english','sub_question_chinese')
+        data['sub_questions'] = qcho_ids
+
+
         return data               
 
 class WebConsultationQuestionMultichoiceSerializer(serializers.ModelSerializer):
@@ -50,6 +56,12 @@ class WebConsultationQuestionMultichoiceSerializer(serializers.ModelSerializer):
     class Meta:
         model = WebConsultation_QuestionMultichoice
         fields = '__all__'
+
+class WebConsultationQuestionsub_questionsSerializer(serializers.ModelSerializer):
+    
+    class Meta:
+        model = WebConsultation_Questionsub_questions
+        fields = '__all__'        
 
 class WebConsultation_AnalysisResultSerializer(serializers.ModelSerializer):
     
@@ -92,7 +104,8 @@ class TransactionPosDaudSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = PosDaud
-        fields = ['id','sa_date','dt_itemdesc','dt_transacamt','dt_qty'] 
+        fields = ['id','sa_date','dt_itemdesc','dt_transacamt',
+        'dt_qty','dt_staffno','dt_staffname','sa_transacno'] 
     
     def to_representation(self, instance):
        
@@ -110,10 +123,53 @@ class TNCMasterSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class TNC_DetailSerializer(serializers.ModelSerializer):
+    
+ 
+    class Meta:
+        model = TNC_Detail
+        fields = ['id','receiptno','package'] 
+
+
+class TNC_HeaderSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source='pk',required=False)
-    sa_date = serializers.DateTimeField(format="%d-%m-%Y",required=False)
     
     class Meta:
-        model = PosDaud
-        fields = ['id','tncno','receipt_date','receiptno','package'] 
+        model = TNC_Header
+        fields = ['id','tncno'] 
+
+    def to_representation(self, instance):
+       
+        data = super(TNC_HeaderSerializer, self).to_representation(instance)
+        
+        data['tncno'] = instance.tncno if instance and instance.tncno else ""
+        sign_date = ""
+        if instance and instance.sign_date:
+            splt = str(instance.sign_date).split(" ") 
+            sign_date = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d-%m-%Y")
+
+        data['sign_date'] = sign_date
+        d_ids = TNC_Detail.objects.filter(tncno=instance.tncno)
+        serializer = TNC_DetailSerializer(d_ids, many=True) 
+        data['tnc_detail'] =  serializer.data
+
+        return data 
+
+class TNC_DetailformSerializer(serializers.ModelSerializer):
+    receipt_date = serializers.DateTimeField(format="%d-%m-%Y",required=False)
+
     
+ 
+    class Meta:
+        model = TNC_Detail
+        fields = ['id','receipt_date','receiptno','package'] 
+
+    def to_representation(self, instance):
+       
+        data = super(TNC_DetailformSerializer, self).to_representation(instance)
+        
+       
+        data['amount'] =  "{:.2f}".format(float(instance.amount)) if instance.amount else "0.00"
+        haud_ids = PosHaud.objects.filter(sa_transacno_ref=instance.receiptno).first()
+        data['invoice_no'] = haud_ids.sa_transacno if haud_ids and haud_ids.sa_transacno else ""
+
+        return data 

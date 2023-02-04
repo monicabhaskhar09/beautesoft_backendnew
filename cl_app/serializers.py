@@ -189,7 +189,7 @@ class VoidSerializer(serializers.ModelSerializer):
     class Meta:
         model = PosHaud
         fields = ['id','sa_transacno_ref','sa_custno','sa_custname','sa_date','sa_status',
-        'void_refno','payment_remarks','sa_reason','is_current','itemsite_code','is_allow']
+        'void_refno','payment_remarks','is_current','itemsite_code','is_allow']
     
     
 
@@ -225,6 +225,89 @@ class VoidReasonSerializer(serializers.ModelSerializer):
     class Meta:
         model = VoidReason
         fields = ['id','reason_desc']
+
+
+class TreatmentPackgeSerializer(serializers.ModelSerializer):
+
+    qty = serializers.IntegerField(source='treatment_no',required=False)
+    id = serializers.IntegerField(source='treatment_accountid.pk',required=False)
+    balance_qty = serializers.IntegerField(source='open_session',required=False)
+    transaction = serializers.CharField(source='sa_transacno_ref',required=False)
+    description = serializers.CharField(source='course',required=False)
+    # payment = serializers.SerializerMethodField() 
+    sa_date = serializers.DateTimeField(source='treatment_date',format="%d-%m-%Y %H:%M:%S",required=False)
+
+
+
+    # def get_payment(self, obj):
+        
+    #     sumacc_ids = TreatmentAccount.objects.filter(ref_transacno=obj.sa_transacno,
+    #     treatment_parentcode=obj.treatment_parentcode,
+    #     type__in=('Deposit', 'Top Up')).only('ref_transacno','treatment_parentcode').order_by('pk').aggregate(Sum('deposit'))
+    #     if sumacc_ids['deposit__sum'] > 0:
+    #         payment = "{:.2f}".format(float(sumacc_ids['deposit__sum']))
+    #     else:
+    #         payment = "0.00"
+  
+    #     return payment      
+    
+    # def get_sa_date(self, obj):
+        
+    #     pos_haud = PosHaud.objects.filter(sa_custno=obj.cust_code,
+    #     sa_transacno=obj.sa_transacno
+    #     ).only('sa_custno','sa_transacno').order_by('pk').first()
+        
+    #     sa_date = ""
+    #     if pos_haud:
+    #         if pos_haud.sa_date:
+    #             splt = str(pos_haud.sa_date).split(" ")
+    #             dtime = str(pos_haud.sa_time).split(" ")
+    #             time = dtime[1].split(":")
+
+    #             time_data = time[0]+":"+time[1]
+        
+    #             sa_date = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d-%m-%Y")+" "+str(time_data)
+            
+    #     return sa_date      
+    
+   
+    class Meta:
+        model = TreatmentPackage
+        fields = ['id','qty','balance_qty','transaction','treatment_parentcode',
+        'description','balance','outstanding','sa_date']
+       
+
+    def to_representation(self, instance):
+        data = super(TreatmentPackgeSerializer, self).to_representation(instance)
+        sumacc_ids = TreatmentAccount.objects.filter(ref_transacno=instance.sa_transacno,
+        treatment_parentcode=instance.treatment_parentcode,
+        type__in=('Deposit', 'Top Up')).only('ref_transacno','treatment_parentcode').order_by('pk').aggregate(Sum('deposit'))
+        if sumacc_ids['deposit__sum'] > 0:
+            data["payment"] = "{:.2f}".format(float(sumacc_ids['deposit__sum']))
+        else:
+            data["payment"] = "0.00"
+
+        data["balance"] = "{:.2f}".format(float(instance.balance)) if instance.balance else "0.00" 
+        data["outstanding"] = "{:.2f}".format(float(instance.outstanding)) if instance.outstanding else "0.00"     
+        # pos_haud = PosHaud.objects.filter(sa_custno=instance.cust_code,
+        # sa_transacno=instance.sa_transacno
+        # ).only('sa_custno','sa_transacno').order_by('pk').first()
+        
+        # data['sa_date'] = ""
+        # if pos_haud:
+        #     if pos_haud.sa_date:
+        #         splt = str(pos_haud.sa_date).split(" ")
+        #         dtime = str(pos_haud.sa_time).split(" ")
+        #         time = dtime[1].split(":")
+
+        #         time_data = time[0]+":"+time[1]
+        
+        #         data['sa_date'] = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d-%m-%Y")+" "+str(time_data)
+            
+        
+        return data 
+    
+    
 
 class TreatmentAccSerializer(serializers.ModelSerializer):
 
