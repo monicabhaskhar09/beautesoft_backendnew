@@ -20,7 +20,8 @@ router.register(r'webquestionsubquestions', views.WebConsultation_Questionsub_qu
 
 urlpatterns = [
     path('api/', include(router.urls)),
-    # path('api/login', views.UserLoginAPIView.as_view(), name='login'),
+    path('api/clientdetails/', views.ClientDetailsListAPIView.as_view(), name='clientdetails'),
+
    
 
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

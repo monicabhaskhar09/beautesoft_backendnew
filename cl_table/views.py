@@ -25,7 +25,8 @@ from .models import (Gender, Employee, Fmspw, Attendance2, Customer, Images, Tre
                      MrRewardItemType,CustomerPoint,TreatmentDuration,Smsreceivelog,TreatmentProtocol,CustomerTitle,CustomerPointDtl,
                      ItemDiv,Tempcustsign,CustomerDocument,TreatmentPackage,Tmptreatment,CustLogAudit,ContactPerson,
                      ItemFlexiservice,termsandcondition,Dayendconfirmlog,Participants,ProjectDocument,
-                     MGMPolicyCloud,CustomerReferral,sitelistip,CustomerExtended)
+                     MGMPolicyCloud,CustomerReferral,sitelistip,CustomerExtended,DisplayCatalog,
+                     DisplayItem)
 from cl_app.models import ItemSitelist, SiteGroup, LoggedInUser,TmpTreatmentSession
 from custom.models import Room,ItemCart,VoucherRecord,EmpLevel,PosPackagedeposit,payModeChangeLog,ProjectModel
 from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializer, Attendance2Serializer,
@@ -64,7 +65,8 @@ from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializ
                           FmspwSerializernew,GenderSerializer,CustomerPlusnewSerializer,ContactPersonSerializer,
                           ItemFlexiserviceSerializer,termsandconditionSerializer,ParticipantsSerializer,ProjectDocumentSerializer,
                           Custphone2Serializer,DayendconfirmlogSerializer,CustomerPointAccountSerializer,
-                          MGMPolicyCloudSerializer,CustomerReferralSerializer,SitelistipSerializer)
+                          MGMPolicyCloudSerializer,CustomerReferralSerializer,SitelistipSerializer,
+                          DisplayCatalogSerializer,DisplayItemSerializer,DisplayItemStockSerializer)
 from datetime import date, timedelta, datetime
 import datetime
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
@@ -14518,9 +14520,9 @@ class DayEndListAPIView(generics.ListAPIView,generics.CreateAPIView):
                                     if acc_ids:    
                                         d_val = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
                                         'desc':c.dt_itemdesc,'qty':c.dt_qty,
-                                        'amt': "{:.2f}".format(abs(acc_ids.amount)) if acc_ids.amount else "0.00",
+                                        'amount': "{:.2f}".format(abs(acc_ids.amount)) if acc_ids.amount else "0.00",
                                         'balance': "{:.2f}".format(abs(acc_ids.balance)) if acc_ids.balance else "0.00",
-                                        'satransac_ref' : d.sa_transacno_ref,'amount': "{:.2f}".format(c.dt_transacamt),
+                                        'satransac_ref' : d.sa_transacno_ref,'amt': "{:.2f}".format(c.dt_transacamt),
                                         'paid': "{:.2f}".format(c.dt_deposit),'outstanding': "{:.2f}".format(c.dt_transacamt - c.dt_deposit)}
                                         sal_det_lst.append(d_val)
                             elif c.record_detail_type == 'PRODUCT': 
@@ -14532,9 +14534,9 @@ class DayEndListAPIView(generics.ListAPIView,generics.CreateAPIView):
                                     if dpacc_ids: 
                                         deval = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
                                         'desc':c.dt_itemdesc,'qty':c.dt_qty,
-                                        'amt': "{:.2f}".format(abs(dpacc_ids.amount)) if dpacc_ids.amount else "0.00",
+                                        'amount': "{:.2f}".format(abs(dpacc_ids.amount)) if dpacc_ids.amount else "0.00",
                                         'balance': "{:.2f}".format(abs(dpacc_ids.balance)) if dpacc_ids.balance else "0.00",
-                                        'satransac_ref' : d.sa_transacno_ref,'amount': "{:.2f}".format(c.dt_transacamt),
+                                        'satransac_ref' : d.sa_transacno_ref,'amt': "{:.2f}".format(c.dt_transacamt),
                                         'paid': "{:.2f}".format(c.dt_deposit),'outstanding': "{:.2f}".format(c.dt_transacamt - c.dt_deposit)}
                                         sal_det_lst.append(deval)
                             elif c.record_detail_type == 'PREPAID':
@@ -14543,16 +14545,16 @@ class DayEndListAPIView(generics.ListAPIView,generics.CreateAPIView):
                                 if pracc_ids:
                                     prval = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
                                     'desc':c.dt_itemdesc,'qty':c.dt_qty,
-                                    'amt': "{:.2f}".format(pracc_ids.pp_total) if pracc_ids.pp_total else "0.00",
+                                    'amount': "{:.2f}".format(pracc_ids.pp_total) if pracc_ids.pp_total else "0.00",
                                     'balance': "{:.2f}".format(pracc_ids.remain) if pracc_ids.remain else "0.00",
-                                    'satransac_ref' : d.sa_transacno_ref,'amount': "{:.2f}".format(c.dt_transacamt),
+                                    'satransac_ref' : d.sa_transacno_ref,'amt': "{:.2f}".format(c.dt_transacamt),
                                     'paid': "{:.2f}".format(c.dt_deposit),'outstanding': "{:.2f}".format(c.dt_transacamt - c.dt_deposit)}
                                     sal_det_lst.append(prval)
                             elif c.record_detail_type == 'VOUCHER':
                                 voc_val = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
                                 'desc':c.dt_itemdesc,'qty':c.dt_qty,
-                                'amt': "{:.2f}".format(c.dt_amt) if c.dt_amt else "0.00",'balance': "",
-                                'satransac_ref' : d.sa_transacno_ref,'amount': "{:.2f}".format(c.dt_transacamt),
+                                'amount': "{:.2f}".format(c.dt_amt) if c.dt_amt else "0.00",'balance': "",
+                                'satransac_ref' : d.sa_transacno_ref,'amt': "{:.2f}".format(c.dt_transacamt),
                                 'paid': "{:.2f}".format(c.dt_deposit),'outstanding': "{:.2f}".format(c.dt_transacamt - c.dt_deposit)}
                                 sal_det_lst.append(voc_val)
                             elif c.record_detail_type == 'PACKAGE':
@@ -14561,7 +14563,39 @@ class DayEndListAPIView(generics.ListAPIView,generics.CreateAPIView):
                                 if packhdrids:
                                     packdtlids = PackageDtl.objects.filter(package_code=packhdrids.code,isactive=True)
                                     if packdtlids:
+
+                                        ptracc_ids = list(set(TreatmentAccount.objects.filter(sa_transacno=d.sa_transacno,
+                                        dt_lineno=c.dt_lineno,cust_code=d.sa_custno).values_list('treatment_parentcode', flat=True).distinct()))
+                                        # print(ptracc_ids,"ptracc_ids")
+                                        if ptracc_ids:
+                                            for ps in ptracc_ids:
+                                                psaccids = TreatmentAccount.objects.filter(ref_transacno=d.sa_transacno,
+                                                treatment_parentcode=ps).order_by('-sa_date','-sa_time','-id').first()
+                                                # print(psaccids,psaccids.pk,"psaccids")
+                                                if psaccids and psaccids.amount >= 0:
+                                                    # print(psaccids.amount,"psaccids.amount")
+                                                    ps_amount += psaccids.amount
+                                                if psaccids and psaccids.balance >= 0:
+                                                    # print(psaccids.balance,"psaccids.balance")
+                                                    ps_balance += psaccids.balance
+
+                                        psdep_acc = DepositAccount.objects.filter(cust_code=d.sa_custno,
+                                        type='Deposit',sa_transacno=d.sa_transacno,dt_lineno=c.dt_lineno).only('cust_code','type').order_by('pk')
+                                        if psdep_acc:
+                                            for pdst in psdep_acc:
+                                                pdeacc_ids = DepositAccount.objects.filter(sa_transacno=d.sa_transacno,
+                                                    treat_code=pdst.treat_code).order_by('-sa_date','-sa_time','-id').first()
+                                                # print(pdeacc_ids,pdeacc_ids.pk,"jj")
+                                                if pdeacc_ids and pdeacc_ids.amount >= 0:
+                                                    ps_amount += pdeacc_ids.amount
+                                                    # print(pdeacc_ids.amount,"pdeacc_ids.amount")
+                                                if pdeacc_ids and pdeacc_ids.balance >= 0:
+                                                    ps_balance += pdeacc_ids.balance
+                                                    # print(pdeacc_ids.balance,"pdeacc_ids.balance")
+
+
                                         for pad in packdtlids:
+                                            # print(pad,"pad")
                                             packdtlcode = str(pad.code)
                                             itmcode = packdtlcode[:-4]
                                             itm_stock = Stock.objects.filter(item_code=itmcode).first()
@@ -14572,42 +14606,24 @@ class DayEndListAPIView(generics.ListAPIView,generics.CreateAPIView):
                                                     p = pos_ids.first()
                                                     pa_trasac = p.price * p.qty
                                                     pa_deposit = p.deposit_amt
-                                                    if int(itm_stock.item_div) == 3:
-                                                        ptracc_ids = list(set(TreatmentAccount.objects.filter(sa_transacno=d.sa_transacno,
-                                                        dt_lineno=c.dt_lineno,cust_code=d.sa_custno).values_list('treatment_parentcode', flat=True).distinct()))
-                                                        if ptracc_ids:
-                                                            for ps in ptracc_ids:
-                                                                psaccids = TreatmentAccount.objects.filter(ref_transacno=d.sa_transacno,
-                                                                treatment_parentcode=ps).order_by('-sa_date','-sa_time','-id').first()
-                                                                if psaccids and psaccids.amount >= 0:
-                                                                    ps_amount += psaccids.amount
-                                                                if psaccids and psaccids.balance >= 0:
-                                                                    ps_balance += psaccids.balance
 
-                                                            # ptracc_ids = TreatmentAccount.objects.filter(sa_transacno=d.sa_transacno,
-                                                            # dt_lineno=c.dt_lineno,type__in=['Deposit','Top Up','Sales']).order_by('-pk').first()
-                                                            # if ptracc_ids:   
-                                                            #     s_val = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
-                                                            #     'desc':pad.description,'qty':pad.qty,
-                                                            #     'amt': "{:.2f}".format(abs(ptracc_ids.amount)) if ptracc_ids.amount else "0.00",
-                                                            #     'balance': "{:.2f}".format(abs(ptracc_ids.balance)) if ptracc_ids.balance else "0.00",
-                                                            #     'satransac_ref' : d.sa_transacno_ref,'amount': "{:.2f}".format(pa_trasac),
-                                                            #     'paid': "{:.2f}".format(pa_deposit),'outstanding': "{:.2f}".format((pa_trasac) - pa_deposit)}
-                                                            #     sal_det_lst.append(s_val)
+                                                    # if int(itm_stock.item_div) == 3:
 
-                                                    elif int(itm_stock.item_div) == 1:
-                                                        psdep_acc = DepositAccount.objects.filter(cust_code=d.sa_custno,
-                                                        type='Deposit',sa_transacno=d.sa_transacno,dt_lineno=c.dt_lineno).only('cust_code','type').order_by('pk')
-                                                        if psdep_acc:
-                                                            for pdst in psdep_acc:
-                                                                pdeacc_ids = DepositAccount.objects.filter(sa_transacno=d.sa_transacno,
-                                                                    treat_code=pdst.treat_code).order_by('-sa_date','-sa_time','-id').first()
-                                                                if pdeacc_ids and pdeacc_ids.amount >= 0:
-                                                                    ps_amount += pdeacc_ids.amount
-                                                                if pdeacc_ids and pdeacc_ids.balance >= 0:
-                                                                    ps_balance += pdeacc_ids.balance
-    
-                   
+                                                        
+                                                        # ptracc_ids = TreatmentAccount.objects.filter(sa_transacno=d.sa_transacno,
+                                                        # dt_lineno=c.dt_lineno,type__in=['Deposit','Top Up','Sales']).order_by('-pk').first()
+                                                        # if ptracc_ids:
+                                                        #     s_val = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
+                                                        #     'desc':pad.description,'qty':pad.qty,
+                                                        #     'amt': "{:.2f}".format(abs(ptracc_ids.amount)) if ptracc_ids.amount else "0.00",
+                                                        #     'balance': "{:.2f}".format(abs(ptracc_ids.balance)) if ptracc_ids.balance else "0.00",
+                                                        #     'satransac_ref' : d.sa_transacno_ref,'amount': "{:.2f}".format(pa_trasac),
+                                                        #     'paid': "{:.2f}".format(pa_deposit),'outstanding': "{:.2f}".format((pa_trasac) - pa_deposit)}
+                                                        #     sal_det_lst.append(s_val)
+
+                                                    # elif int(itm_stock.item_div) == 1:
+
+                                                       
                                                         # pdeacc_ids = DepositAccount.objects.filter(sa_transacno=d.sa_transacno,
                                                         # dt_lineno=c.dt_lineno,type__in=['Deposit','Top Up']).order_by('-pk').first()
                                                         # if pdeacc_ids:
@@ -14619,14 +14635,14 @@ class DayEndListAPIView(generics.ListAPIView,generics.CreateAPIView):
                                                         #     'paid': "{:.2f}".format(pa_deposit),'outstanding': "{:.2f}".format((pa_trasac) - pa_deposit)}
                                                         #     sal_det_lst.append(r_val) 
 
-                                                    elif int(itm_stock.item_div) == 5:
+                                                    if int(itm_stock.item_div) == 5:
                                                         lst_preacc_ids = PrepaidAccount.objects.filter(pp_no=d.sa_transacno,
                                                         status=True,line_no=c.dt_lineno,package_code_lineno=pad.line_no).order_by('-pk').only('pp_no','status','line_no').first()
+                                                        # print(lst_preacc_ids,lst_preacc_ids.pk,"kk")
                                                         if lst_preacc_ids and lst_preacc_ids.pp_total >= 0:
-                                                            ps_amount += lst_preacc_ids.pp_total
+                                                            ps_amount += lst_preacc_ids.pp_amt
                                                         if lst_preacc_ids and lst_preacc_ids.remain >= 0:
                                                             ps_balance += lst_preacc_ids.remain
-
 
                                                         # prep_acc_ids = PrepaidAccount.objects.filter(pp_no=d.sa_transacno,
                                                         # line_no=c.dt_lineno,sa_status__in=['DEPOSIT','TOPUP','SA']).order_by('-pk').first()
@@ -14638,10 +14654,10 @@ class DayEndListAPIView(generics.ListAPIView,generics.CreateAPIView):
                                                         #     'satransac_ref' : d.sa_transacno_ref,'amount': "{:.2f}".format(pa_trasac),
                                                         #     'paid': "{:.2f}".format(pa_deposit),'outstanding': "{:.2f}".format((pa_trasac) - pa_deposit)}
                                                         #     sal_det_lst.append(pr_val)
-
                                                     elif int(itm_stock.item_div) == 4: 
-                                                        ps_amount += pad.ttl_uprice
-
+                                                        
+                                                        ps_amount += pad.price * pad.qty
+                                                        # print(pad.price * pad.qty,"pad.price")
                                                         # vo_val = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
                                                         # 'desc':pad.description,'qty':pad.qty,
                                                         # 'amt': "{:.2f}".format(pad.ttl_uprice) if pad.ttl_uprice else "0.00",
@@ -14650,12 +14666,11 @@ class DayEndListAPIView(generics.ListAPIView,generics.CreateAPIView):
                                                         # 'paid': "{:.2f}".format(pa_deposit),'outstanding': "{:.2f}".format((pa_trasac) - pa_deposit)}
                                                         # sal_det_lst.append(vo_val)
 
-
                                 d_val = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
                                     'desc':c.dt_itemdesc,'qty':c.dt_qty,
-                                    'amt': "{:.2f}".format(abs(ps_amount)) if ps_amount else "0.00",
+                                    'amount': "{:.2f}".format(abs(ps_amount)) if ps_amount else "0.00",
                                     'balance': "{:.2f}".format(abs(ps_balance)) if ps_balance else "0.00",
-                                    'satransac_ref' : d.sa_transacno_ref,'amount': "{:.2f}".format(c.dt_transacamt),
+                                    'satransac_ref' : d.sa_transacno_ref,'amt': "{:.2f}".format(c.dt_transacamt),
                                     'paid': "{:.2f}".format(c.dt_deposit),'outstanding': "{:.2f}".format(c.dt_transacamt - c.dt_deposit)}
                                 sal_det_lst.append(d_val)  
                 
@@ -15343,9 +15358,9 @@ class DayEndListAPIView(generics.ListAPIView,generics.CreateAPIView):
                                         if acc_ids:    
                                             d_val = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
                                             'desc':c.dt_itemdesc,'qty':c.dt_qty,
-                                            'amt': "{:.2f}".format(abs(acc_ids.amount)) if acc_ids.amount else "0.00",
+                                            'amount': "{:.2f}".format(abs(acc_ids.amount)) if acc_ids.amount else "0.00",
                                             'balance': "{:.2f}".format(abs(acc_ids.balance)) if acc_ids.balance else "0.00",
-                                            'satransac_ref' : d.sa_transacno_ref,'amount': "{:.2f}".format(c.dt_transacamt),
+                                            'satransac_ref' : d.sa_transacno_ref,'amt': "{:.2f}".format(c.dt_transacamt),
                                             'paid': "{:.2f}".format(c.dt_deposit),'outstanding': "{:.2f}".format(c.dt_transacamt - c.dt_deposit)}
                                             sal_det_lst.append(d_val)
                                 elif c.record_detail_type == 'PRODUCT': 
@@ -15357,9 +15372,9 @@ class DayEndListAPIView(generics.ListAPIView,generics.CreateAPIView):
                                         if dpacc_ids: 
                                             deval = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
                                             'desc':c.dt_itemdesc,'qty':c.dt_qty,
-                                            'amt': "{:.2f}".format(abs(dpacc_ids.amount)) if dpacc_ids.amount else "0.00",
+                                            'amount': "{:.2f}".format(abs(dpacc_ids.amount)) if dpacc_ids.amount else "0.00",
                                             'balance': "{:.2f}".format(abs(dpacc_ids.balance)) if dpacc_ids.balance else "0.00",
-                                            'satransac_ref' : d.sa_transacno_ref,'amount': "{:.2f}".format(c.dt_transacamt),
+                                            'satransac_ref' : d.sa_transacno_ref,'amt': "{:.2f}".format(c.dt_transacamt),
                                             'paid': "{:.2f}".format(c.dt_deposit),'outstanding': "{:.2f}".format(c.dt_transacamt - c.dt_deposit)}
                                             sal_det_lst.append(deval)
                                 elif c.record_detail_type == 'PREPAID':
@@ -15368,24 +15383,57 @@ class DayEndListAPIView(generics.ListAPIView,generics.CreateAPIView):
                                     if pracc_ids:
                                         prval = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
                                         'desc':c.dt_itemdesc,'qty':c.dt_qty,
-                                        'amt': "{:.2f}".format(pracc_ids.pp_total) if pracc_ids.pp_total else "0.00",
+                                        'amount': "{:.2f}".format(pracc_ids.pp_total) if pracc_ids.pp_total else "0.00",
                                         'balance': "{:.2f}".format(pracc_ids.remain) if pracc_ids.remain else "0.00",
-                                        'satransac_ref' : d.sa_transacno_ref,'amount': "{:.2f}".format(c.dt_transacamt),
+                                        'satransac_ref' : d.sa_transacno_ref,'amt': "{:.2f}".format(c.dt_transacamt),
                                         'paid': "{:.2f}".format(c.dt_deposit),'outstanding': "{:.2f}".format(c.dt_transacamt - c.dt_deposit)}
                                         sal_det_lst.append(prval)
                                 elif c.record_detail_type == 'VOUCHER':
                                     voc_val = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
                                     'desc':c.dt_itemdesc,'qty':c.dt_qty,
-                                    'amt': "{:.2f}".format(c.dt_amt) if c.dt_amt else "0.00",'balance': "",
-                                    'satransac_ref' : d.sa_transacno_ref,'amount': "{:.2f}".format(c.dt_transacamt),
+                                    'amount': "{:.2f}".format(c.dt_amt) if c.dt_amt else "0.00",'balance': "",
+                                    'satransac_ref' : d.sa_transacno_ref,'amt': "{:.2f}".format(c.dt_transacamt),
                                     'paid': "{:.2f}".format(c.dt_deposit),'outstanding': "{:.2f}".format(c.dt_transacamt - c.dt_deposit)}
                                     sal_det_lst.append(voc_val)
                                 elif c.record_detail_type == 'PACKAGE':
+                                    ps_amount = 0; ps_balance = 0
                                     packhdrids = PackageHdr.objects.filter(code=c.dt_itemno[:-4]).first()
                                     if packhdrids:
                                         packdtlids = PackageDtl.objects.filter(package_code=packhdrids.code,isactive=True)
                                         if packdtlids:
+
+                                            ptracc_ids = list(set(TreatmentAccount.objects.filter(sa_transacno=d.sa_transacno,
+                                            dt_lineno=c.dt_lineno,cust_code=d.sa_custno).values_list('treatment_parentcode', flat=True).distinct()))
+                                            # print(ptracc_ids,"ptracc_ids")
+                                            if ptracc_ids:
+                                                for ps in ptracc_ids:
+                                                    psaccids = TreatmentAccount.objects.filter(ref_transacno=d.sa_transacno,
+                                                    treatment_parentcode=ps).order_by('-sa_date','-sa_time','-id').first()
+                                                    # print(psaccids,psaccids.pk,"psaccids")
+                                                    if psaccids and psaccids.amount >= 0:
+                                                        # print(psaccids.amount,"psaccids.amount")
+                                                        ps_amount += psaccids.amount
+                                                    if psaccids and psaccids.balance >= 0:
+                                                        # print(psaccids.balance,"psaccids.balance")
+                                                        ps_balance += psaccids.balance
+
+                                            psdep_acc = DepositAccount.objects.filter(cust_code=d.sa_custno,
+                                            type='Deposit',sa_transacno=d.sa_transacno,dt_lineno=c.dt_lineno).only('cust_code','type').order_by('pk')
+                                            if psdep_acc:
+                                                for pdst in psdep_acc:
+                                                    pdeacc_ids = DepositAccount.objects.filter(sa_transacno=d.sa_transacno,
+                                                        treat_code=pdst.treat_code).order_by('-sa_date','-sa_time','-id').first()
+                                                    # print(pdeacc_ids,pdeacc_ids.pk,"jj")
+                                                    if pdeacc_ids and pdeacc_ids.amount >= 0:
+                                                        ps_amount += pdeacc_ids.amount
+                                                        # print(pdeacc_ids.amount,"pdeacc_ids.amount")
+                                                    if pdeacc_ids and pdeacc_ids.balance >= 0:
+                                                        ps_balance += pdeacc_ids.balance
+                                                        # print(pdeacc_ids.balance,"pdeacc_ids.balance")
+
+
                                             for pad in packdtlids:
+                                                # print(pad,"pad")
                                                 packdtlcode = str(pad.code)
                                                 itmcode = packdtlcode[:-4]
                                                 itm_stock = Stock.objects.filter(item_code=itmcode).first()
@@ -15396,49 +15444,75 @@ class DayEndListAPIView(generics.ListAPIView,generics.CreateAPIView):
                                                         p = pos_ids.first()
                                                         pa_trasac = p.price * p.qty
                                                         pa_deposit = p.deposit_amt
-                                                        if int(itm_stock.item_div) == 3:
-                                                            ptracc_ids = TreatmentAccount.objects.filter(sa_transacno=d.sa_transacno,
-                                                            dt_lineno=c.dt_lineno,type__in=['Deposit','Top Up','Sales']).order_by('-pk').first()
-                                                            if ptracc_ids:
-                                                                s_val = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
-                                                                'desc':pad.description,'qty':pad.qty,
-                                                                'amt': "{:.2f}".format(abs(ptracc_ids.amount)) if ptracc_ids.amount else "0.00",
-                                                                'balance': "{:.2f}".format(abs(ptracc_ids.balance)) if ptracc_ids.balance else "0.00",
-                                                                'satransac_ref' : d.sa_transacno_ref,'amount': "{:.2f}".format(pa_trasac),
-                                                                'paid': "{:.2f}".format(pa_deposit),'outstanding': "{:.2f}".format((pa_trasac) - pa_deposit)}
-                                                                sal_det_lst.append(s_val)
-                                                        elif int(itm_stock.item_div) == 1:
-                                                            pdeacc_ids = DepositAccount.objects.filter(sa_transacno=d.sa_transacno,
-                                                            dt_lineno=c.dt_lineno,type__in=['Deposit','Top Up']).order_by('-pk').first()
-                                                            if pdeacc_ids:
-                                                                r_val = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
-                                                                'desc':pad.description,'qty':pad.qty,
-                                                                'amt': "{:.2f}".format(abs(pdeacc_ids.amount)) if pdeacc_ids.amount else "0.00",
-                                                                'balance': "{:.2f}".format(abs(pdeacc_ids.balance)) if pdeacc_ids.balance else "0.00",
-                                                                'satransac_ref' : d.sa_transacno_ref,'amount': "{:.2f}".format(pa_trasac),
-                                                                'paid': "{:.2f}".format(pa_deposit),'outstanding': "{:.2f}".format((pa_trasac) - pa_deposit)}
-                                                                sal_det_lst.append(r_val) 
-                                                        elif int(itm_stock.item_div) == 5:
-                                                            prep_acc_ids = PrepaidAccount.objects.filter(pp_no=d.sa_transacno,
-                                                            line_no=c.dt_lineno,sa_status__in=['DEPOSIT','TOPUP','SA']).order_by('-pk').first()
-                                                            if prep_acc_ids:
-                                                                pr_val = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
-                                                                'desc':pad.description,'qty':pad.qty,
-                                                                'amt': "{:.2f}".format(prep_acc_ids.pp_total) if prep_acc_ids.pp_total else "0.00",
-                                                                'balance': "{:.2f}".format(prep_acc_ids.remain) if prep_acc_ids.remain else "0.00",
-                                                                'satransac_ref' : d.sa_transacno_ref,'amount': "{:.2f}".format(pa_trasac),
-                                                                'paid': "{:.2f}".format(pa_deposit),'outstanding': "{:.2f}".format((pa_trasac) - pa_deposit)}
-                                                                sal_det_lst.append(pr_val)
-                                                        elif int(itm_stock.item_div) == 4: 
-                                                            vo_val = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
-                                                            'desc':pad.description,'qty':pad.qty,
-                                                            'amt': "{:.2f}".format(pad.ttl_uprice) if pad.ttl_uprice else "0.00",
-                                                            'balance': "",'satransac_ref' : d.sa_transacno_ref,
-                                                            'amount': "{:.2f}".format(pa_trasac),
-                                                            'paid': "{:.2f}".format(pa_deposit),'outstanding': "{:.2f}".format((pa_trasac) - pa_deposit)}
-                                                            sal_det_lst.append(vo_val)
 
+                                                        # if int(itm_stock.item_div) == 3:
+
+                                                            
+                                                            # ptracc_ids = TreatmentAccount.objects.filter(sa_transacno=d.sa_transacno,
+                                                            # dt_lineno=c.dt_lineno,type__in=['Deposit','Top Up','Sales']).order_by('-pk').first()
+                                                            # if ptracc_ids:
+                                                            #     s_val = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
+                                                            #     'desc':pad.description,'qty':pad.qty,
+                                                            #     'amt': "{:.2f}".format(abs(ptracc_ids.amount)) if ptracc_ids.amount else "0.00",
+                                                            #     'balance': "{:.2f}".format(abs(ptracc_ids.balance)) if ptracc_ids.balance else "0.00",
+                                                            #     'satransac_ref' : d.sa_transacno_ref,'amount': "{:.2f}".format(pa_trasac),
+                                                            #     'paid': "{:.2f}".format(pa_deposit),'outstanding': "{:.2f}".format((pa_trasac) - pa_deposit)}
+                                                            #     sal_det_lst.append(s_val)
+
+                                                        # elif int(itm_stock.item_div) == 1:
+
+                                                        
+                                                            # pdeacc_ids = DepositAccount.objects.filter(sa_transacno=d.sa_transacno,
+                                                            # dt_lineno=c.dt_lineno,type__in=['Deposit','Top Up']).order_by('-pk').first()
+                                                            # if pdeacc_ids:
+                                                            #     r_val = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
+                                                            #     'desc':pad.description,'qty':pad.qty,
+                                                            #     'amt': "{:.2f}".format(abs(pdeacc_ids.amount)) if pdeacc_ids.amount else "0.00",
+                                                            #     'balance': "{:.2f}".format(abs(pdeacc_ids.balance)) if pdeacc_ids.balance else "0.00",
+                                                            #     'satransac_ref' : d.sa_transacno_ref,'amount': "{:.2f}".format(pa_trasac),
+                                                            #     'paid': "{:.2f}".format(pa_deposit),'outstanding': "{:.2f}".format((pa_trasac) - pa_deposit)}
+                                                            #     sal_det_lst.append(r_val) 
+
+                                                        if int(itm_stock.item_div) == 5:
+                                                            lst_preacc_ids = PrepaidAccount.objects.filter(pp_no=d.sa_transacno,
+                                                            status=True,line_no=c.dt_lineno,package_code_lineno=pad.line_no).order_by('-pk').only('pp_no','status','line_no').first()
+                                                            # print(lst_preacc_ids,lst_preacc_ids.pk,"kk")
+                                                            if lst_preacc_ids and lst_preacc_ids.pp_total >= 0:
+                                                                ps_amount += lst_preacc_ids.pp_amt
+                                                            if lst_preacc_ids and lst_preacc_ids.remain >= 0:
+                                                                ps_balance += lst_preacc_ids.remain
+
+                                                            # prep_acc_ids = PrepaidAccount.objects.filter(pp_no=d.sa_transacno,
+                                                            # line_no=c.dt_lineno,sa_status__in=['DEPOSIT','TOPUP','SA']).order_by('-pk').first()
+                                                            # if prep_acc_ids:
+                                                            #     pr_val = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
+                                                            #     'desc':pad.description,'qty':pad.qty,
+                                                            #     'amt': "{:.2f}".format(prep_acc_ids.pp_total) if prep_acc_ids.pp_total else "0.00",
+                                                            #     'balance': "{:.2f}".format(prep_acc_ids.remain) if prep_acc_ids.remain else "0.00",
+                                                            #     'satransac_ref' : d.sa_transacno_ref,'amount': "{:.2f}".format(pa_trasac),
+                                                            #     'paid': "{:.2f}".format(pa_deposit),'outstanding': "{:.2f}".format((pa_trasac) - pa_deposit)}
+                                                            #     sal_det_lst.append(pr_val)
+                                                        elif int(itm_stock.item_div) == 4: 
+                                                            
+                                                            ps_amount += pad.price * pad.qty
+                                                            # print(pad.price * pad.qty,"pad.price")
+                                                            # vo_val = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
+                                                            # 'desc':pad.description,'qty':pad.qty,
+                                                            # 'amt': "{:.2f}".format(pad.ttl_uprice) if pad.ttl_uprice else "0.00",
+                                                            # 'balance': "",'satransac_ref' : d.sa_transacno_ref,
+                                                            # 'amount': "{:.2f}".format(pa_trasac),
+                                                            # 'paid': "{:.2f}".format(pa_deposit),'outstanding': "{:.2f}".format((pa_trasac) - pa_deposit)}
+                                                            # sal_det_lst.append(vo_val)
+
+                                    d_val = {'cust_code':d.sa_custno,'cust_name': d.sa_custname,
+                                        'desc':c.dt_itemdesc,'qty':c.dt_qty,
+                                        'amount': "{:.2f}".format(abs(ps_amount)) if ps_amount else "0.00",
+                                        'balance': "{:.2f}".format(abs(ps_balance)) if ps_balance else "0.00",
+                                        'satransac_ref' : d.sa_transacno_ref,'amt': "{:.2f}".format(c.dt_transacamt),
+                                        'paid': "{:.2f}".format(c.dt_deposit),'outstanding': "{:.2f}".format(c.dt_transacamt - c.dt_deposit)}
+                                    sal_det_lst.append(d_val)  
                     
+                        
 
 
                         
@@ -23947,3 +24021,306 @@ class SitelistipViewset(viewsets.ModelViewSet):
             return sitelistip.objects.get(pk=pk)
         except sitelistip.DoesNotExist:
             raise Exception('sitelistip Does not Exist') 
+
+class DisplayCatalogViewset(viewsets.ModelViewSet):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = DisplayCatalog.objects.filter(isactive=True).order_by('-pk')
+    serializer_class = DisplayCatalogSerializer
+
+    def get_queryset(self):
+        fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+        site = fmspw[0].loginsite
+        queryset = DisplayCatalog.objects.filter(isactive=True).order_by('-pk')
+       
+        return queryset
+
+    def list(self, request):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+            site = fmspw[0].loginsite
+            serializer_class = DisplayCatalogSerializer
+            
+            queryset = self.filter_queryset(self.get_queryset())
+
+            total = len(queryset)
+            state = status.HTTP_200_OK
+            message = "Listed Succesfully"
+            error = False
+            data = None
+            result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+            return Response(result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+
+    
+    @action(methods=['get'], detail=False, permission_classes=[IsAuthenticated & authenticated_only],
+    authentication_classes=[TokenAuthentication])
+    def view(self, request): 
+        try:
+          
+            queryset = DisplayCatalog.objects.filter(isactive=True, parent_code="").order_by('-pk')
+
+            print(len(queryset),"queryset")
+              
+            final  = [] 
+            if queryset:
+                level1 = "Level 1"; 
+
+                for i in queryset:
+                    l1_lst = []
+
+                    level1_ids =  DisplayCatalog.objects.filter(isactive=True,
+                    parent_code=i.menu_code).order_by('-pk')
+
+                    level2 = "Level 2" ; 
+
+                    for j in level1_ids:
+                        l2_lst = []
+
+
+                        level2_ids = DisplayCatalog.objects.filter(isactive=True,
+                        parent_code=j.menu_code).order_by('-pk')
+
+                        level3 = "Level 3" ; 
+
+                        for k in level2_ids:
+                            l3_lst = []
+
+                            level3_ids = DisplayCatalog.objects.filter(isactive=True,
+                            parent_code=k.menu_code).order_by('-pk')
+
+                            level4 = "Level 4" ;
+
+                            for l in level3_ids:
+                                l4_lst = []
+                                level4_ids = DisplayCatalog.objects.filter(isactive=True,
+                                parent_code=l.menu_code).order_by('-pk')
+
+                                level5 = "Level 5" ;
+
+                                for m in level4_ids:
+                                    l5_lst = []
+
+                                    level5_ids = DisplayCatalog.objects.filter(isactive=True,
+                                    parent_code=m.menu_code).order_by('-pk')
+
+                                    level6 = "Level 6" ;
+
+                                    val5 = {'menuCode': m.menu_code,'menuDescription': m.menu_description, 
+                                    'parentCode': m.parent_code,'bgcolor': m.bgcolor,'seqnumber': m.seqnumber,
+                                    'image': str(SITE_ROOT) + str(m.imagepath) if m.imagepath else "" ,'child': l5_lst}
+                                    l4_lst.append(val5)
+
+
+                                val4 = {'menuCode': l.menu_code,'menuDescription': l.menu_description, 
+                                'parentCode': l.parent_code,'bgcolor': l.bgcolor,'seqnumber': l.seqnumber,
+                                'image': str(SITE_ROOT) + str(l.imagepath) if l.imagepath else "" , 'child': l4_lst}
+                                l3_lst.append(val4)
+
+
+                            val3 = {'menuCode': k.menu_code,'menuDescription': k.menu_description, 
+                            'parentCode': k.parent_code,'bgcolor': k.bgcolor,'seqnumber': k.seqnumber,
+                            'image': str(SITE_ROOT) + str(k.imagepath) if k.imagepath else "" , 'child': l3_lst}
+                            l2_lst.append(val3)
+
+
+                        val2 =  {'menuCode': j.menu_code,'menuDescription': j.menu_description, 
+                        'parentCode': j.parent_code,'bgcolor': j.bgcolor,'seqnumber': j.seqnumber,
+                        'image': str(SITE_ROOT) + str(j.imagepath) if j.imagepath else "" , 'child': l2_lst}
+                        l1_lst.append(val2)
+
+
+                    val1 = {'menuCode':  i.menu_code,'menuDescription': i.menu_description,
+                    'parentCode': i.parent_code,'bgcolor': i.bgcolor,'seqnumber': i.seqnumber,
+                    'image': str(SITE_ROOT) + str(i.imagepath) if i.imagepath else "" ,  'child': l1_lst}
+                    final.append(val1)
+
+            
+
+
+            result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully ",
+            'error': False, 'data': final}
+            return Response(data=result, status=status.HTTP_200_OK)
+        except Exception as e:
+           invalid_message = str(e)
+           return general_error_response(invalid_message) 
+  
+
+    @transaction.atomic
+    def create(self, request):
+        try:
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+                site = fmspw[0].loginsite
+
+                if not 'menu_code' in request.data or not request.data['menu_code']:
+                    raise Exception('Please give menu code!!.') 
+
+                if not 'parent_code' in request.data or not request.data['parent_code']:
+                    raise Exception('Please give parent code!!.')
+
+                if not 'menu_description' in request.data or not request.data['menu_description']:
+                    raise Exception('Please give menudescription!!.')
+                
+                check_ids = DisplayCatalog.objects.filter(menu_code=request.data['menu_code'])
+                if check_ids:
+                    msg = "{0} already this record exist active / inactive!!".format(str(request.data['menu_code']))
+                    raise Exception(msg) 
+                    
+
+                serializer = DisplayCatalogSerializer(data=request.data)
+                if serializer.is_valid():
+                    
+                    k = serializer.save(isactive=True)
+                   
+                    result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully",
+                    'error': False}
+                    return Response(result, status=status.HTTP_201_CREATED)
+                
+
+                data = serializer.errors
+
+                if 'non_field_errors' in data:
+                    message = data['non_field_errors'][0]
+                else:
+                    first_key = list(data.keys())[0]
+                    message = str(first_key)+":  "+str(data[first_key][0])
+
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":message,
+                'error': True, 'data': serializer.errors}
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+    
+    @transaction.atomic
+    def partial_update(self, request, pk=None):
+        try:
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+                site = fmspw.loginsite
+                ref = self.get_object(pk)
+                if not 'menu_code' in request.data or not request.data['menu_code']:
+                    raise Exception('Please give menu code!!.') 
+
+                if not 'parent_code' in request.data or not request.data['parent_code']:
+                    raise Exception('Please give parent code!!.')
+
+                if not 'menu_description' in request.data or not request.data['menu_description']:
+                    raise Exception('Please give menudescription!!.')
+                
+                check_ids = DisplayCatalog.objects.filter(~Q(pk=ref.pk)).filter(menu_code=request.data['menu_code']).order_by('-pk')
+                if check_ids:
+                    msg = "{0} already this record exist active/inactive!!".format(str(request.data['menu_code']))
+                    raise Exception(msg) 
+                    
+                serializer = self.get_serializer(ref, data=request.data, partial=True)
+                if serializer.is_valid():
+                
+                    serializer.save()
+                    
+                    result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",'error': False}
+                    return Response(result, status=status.HTTP_200_OK)
+
+                
+                data = serializer.errors
+
+                if 'non_field_errors' in data:
+                    message = data['non_field_errors'][0]
+                else:
+                    first_key = list(data.keys())[0]
+                    message = str(first_key)+":  "+str(data[first_key][0])
+
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":message,
+                'error': True, 'data': serializer.errors}
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)   
+    
+    def retrieve(self, request, pk=None):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+            site = fmspw.loginsite
+            ref = self.get_object(pk)
+            serializer = DisplayCatalogSerializer(ref, context={'request': self.request})
+            result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
+            'data': serializer.data}
+            return Response(data=result, status=status.HTTP_200_OK)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message) 
+
+
+   
+    def destroy(self, request, pk=None):
+        try:
+            request.data["isactive"] = False
+            ref = self.get_object(pk)
+            serializer = DisplayCatalogSerializer(ref, data=request.data ,partial=True)
+            state = status.HTTP_204_NO_CONTENT
+            if serializer.is_valid():
+                serializer.save()
+                result = {'status': status.HTTP_200_OK,"message":"Deleted Succesfully",'error': False}
+                return Response(result, status=status.HTTP_200_OK)
+            
+            # print(serializer.errors,"jj")
+            result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",
+            'error': True,'data': serializer.errors }
+            return Response(result, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)          
+
+
+    def get_object(self, pk):
+        try:
+            return DisplayCatalog.objects.get(pk=pk)
+        except DisplayCatalog.DoesNotExist:
+            raise Exception('DisplayCatalog Does not Exist') 
+        
+class DisplayItemViewset(viewsets.ModelViewSet):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = []
+    serializer_class = DisplayItemStockSerializer
+
+    def get_queryset(self):
+        fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+        site = fmspw[0].loginsite
+        menucode = self.request.GET.get('menucode',None)
+
+        queryset = list(set(DisplayItem.objects.filter(menu_code=menucode).order_by('-pk').values_list('stockid', flat=True).distinct()))
+        squeryset = Stock.objects.filter(item_isactive=True,pk__in=queryset).order_by('item_name')
+        return squeryset
+
+    def list(self, request):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+            site = fmspw[0].loginsite
+
+            menucode = request.GET.get('menucode',None)
+            if not menucode:
+                raise Exception('Please give Menucode!!') 
+
+            serializer_class = DisplayItemStockSerializer
+            
+            queryset = self.filter_queryset(self.get_queryset())
+
+            total = len(queryset)
+            state = status.HTTP_200_OK
+            message = "Listed Succesfully"
+            error = False
+            data = None
+            result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+            return Response(result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+
+

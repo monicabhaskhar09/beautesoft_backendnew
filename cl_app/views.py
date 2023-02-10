@@ -1176,7 +1176,7 @@ class CatalogSearchViewset(viewsets.ModelViewSet):
         return queryset
                         
     def list(self, request, *args, **kwargs):
-        # try:
+        try:
             qs = self.request.GET.get('search',None)
            
             fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
@@ -1259,7 +1259,7 @@ class CatalogSearchViewset(viewsets.ModelViewSet):
             n_lst = []
             if lst == []:
                 batchso_ids = ItemBatchSno.objects.filter(batch_sno__icontains=qs,
-                availability=True)
+                availability=True,site_code=site.itemsite_code)
                 if batchso_ids:
                     for b in batchso_ids:
                         a = b.item_code
@@ -1334,9 +1334,9 @@ class CatalogSearchViewset(viewsets.ModelViewSet):
             
 
             return Response(result, status=status.HTTP_200_OK) 
-        # except Exception as e:
-        #     invalid_message = str(e)
-        #     return general_error_response(invalid_message)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
                            
 
     def get_object(self, pk):
@@ -4115,12 +4115,14 @@ class SessionTmpItemHelperViewset(viewsets.ModelViewSet):
                 # print(acc_ids.balance,"acc_ids") 
                 trids = t_ids.aggregate(amount=Coalesce(Sum('unit_amount'), 0))
                 if acc_ids and acc_ids.balance:
-                    acc_balance = float("{:.2f}".format(acc_ids.balance))
+                    # acc_balance = float("{:.2f}".format(acc_ids.balance))
+                    acc_balance = acc_ids.balance
                 else:
                     acc_balance = 0
                     
                 if trids['amount'] and trids['amount'] > 0:
-                    tr_unitamt = float("{:.2f}".format(trids['amount']))
+                    # tr_unitamt = float("{:.2f}".format(trids['amount']))
+                    tr_unitamt = trids['amount']
                     if acc_balance < tr_unitamt:
                         system_setup = Systemsetup.objects.filter(title='Treatment',value_name='Allow layaway',value_data='FALSE',isactive=True).first()
                         if system_setup: 
@@ -4414,12 +4416,14 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                 treatment_parentcode=t_ids[0].treatment_parentcode).order_by('-sa_date','-sa_time','-id').first()
                 trids = t_ids.aggregate(amount=Coalesce(Sum('unit_amount'), 0))
                 if acc_ids and acc_ids.balance:
-                    acc_balance = float("{:.2f}".format(acc_ids.balance))
+                    # acc_balance = float("{:.2f}".format(acc_ids.balance))
+                    acc_balance = acc_ids.balance
                 else:
                     acc_balance = 0
 
                 if trids['amount'] and float(trids['amount']) > 0:
-                    tr_unitamt = float("{:.2f}".format(trids['amount']))
+                    # tr_unitamt = float("{:.2f}".format(trids['amount']))
+                    tr_unitamt = trids['amount']
                     if acc_balance < tr_unitamt:
                         system_setup = Systemsetup.objects.filter(title='Treatment',value_name='Allow layaway',value_data='FALSE',isactive=True).first()
                         if system_setup:
@@ -4547,12 +4551,14 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                 # print(acc_ids.balance,"acc_ids") 
                 trids = t_ids.aggregate(amount=Coalesce(Sum('unit_amount'), 0))
                 if acc_ids and acc_ids.balance:
-                    acc_balance = float("{:.2f}".format(acc_ids.balance))
+                    # acc_balance = float("{:.2f}".format(acc_ids.balance))
+                    acc_balance = acc_ids.balance
                 else:
                     acc_balance = 0
                     
                 if trids['amount'] and trids['amount'] > 0:
-                    tr_unitamt = float("{:.2f}".format(trids['amount']))
+                    # tr_unitamt = float("{:.2f}".format(trids['amount']))
+                    tr_unitamt = trids['amount']
                     if acc_balance < tr_unitamt:
                         system_setup = Systemsetup.objects.filter(title='Treatment',value_name='Allow layaway',value_data='FALSE',isactive=True).first()
                         if system_setup: 
@@ -7315,6 +7321,14 @@ class VoidViewset(viewsets.ModelViewSet):
                            
                         elif int(d.itemcart.itemcodeid.item_div) == 1:
                             if d.itemcart.type == 'Deposit':
+
+                                if d.itemcart.batch_sno:
+                                    batchso_ids = ItemBatchSno.objects.filter(batch_sno__icontains=d.itemcart.batch_sno,
+                                    availability=False,site_code=d.itemsite_code).first()
+                                    if batchso_ids:
+                                        batchso_ids.availability = True
+                                        batchso_ids.save()
+                                    
                             
                                 dacc_ids = DepositAccount.objects.filter(sa_transacno=haudobj.sa_transacno,sa_status='SA',type='Deposit',
                                 cust_code=haudobj.sa_custno,dt_lineno=d.dt_lineno)
@@ -8317,7 +8331,7 @@ class TreatmentAccListViewset(viewsets.ModelViewSet):
     serializer_class = TreatmentAccSerializer
 
     def list(self, request):
-        # try:
+        try:
             now = timezone.now()
             print(str(now.hour) + '  ' +  str(now.minute) + '  ' +  str(now.second),"Start hour, minute, second\n")
         
@@ -8367,12 +8381,12 @@ class TreatmentAccListViewset(viewsets.ModelViewSet):
             if queryset:
                 trb_ids = queryset.aggregate(balance=Coalesce(Sum('balance'), 0),outstanding=Coalesce(Sum('outstanding'), 0)) 
                 full_tot = queryset.count()
-                print(full_tot,"full_tot")
+                # print(full_tot,"full_tot")
                 limit = self.request.GET.get('limit',None)
                 if not limit:
                     limit = full_tot
                 
-                print(limit,"limit")
+                # print(limit,"limit")
                 # try:
                 #     limit = int(request.GET.get("limit",12))
                 # except:
@@ -8515,9 +8529,9 @@ class TreatmentAccListViewset(viewsets.ModelViewSet):
                 result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
                 return Response(data=result, status=status.HTTP_200_OK)
     
-        # except Exception as e:
-        #     invalid_message = str(e)
-        #     return general_error_response(invalid_message)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
 
 
 

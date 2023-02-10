@@ -1097,7 +1097,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                     if c.batch_sno:
                         dtl.dt_itemdesc = dtl.dt_itemdesc+" "+"SN-"+str(c.batch_sno)
                         batchso_ids = ItemBatchSno.objects.filter(batch_sno__icontains=c.batch_sno,
-                        availability=True).first()
+                        availability=True,site_code=site.itemsite_code).first()
                         if batchso_ids and batchso_ids.exp_date:
                             dx_split = str(batchso_ids.exp_date).split(" ")
                             exp_rdate = datetime.datetime.strptime(str(dx_split[0]), '%Y-%m-%d').strftime("%d/%m/%Y")
@@ -2725,7 +2725,7 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
             amount=amount,balance="{:.2f}".format(float(Balance)),User_Nameid=fmspw,
             user_name=fmspw.pw_userlogin,ref_transacno=c.treatment.sa_transacno if c.treatment.sa_transacno else None,sa_transacno=sa_transacno,
             qty=c.quantity if c.quantity else None,outstanding="{:.2f}".format(float(acc_ids.outstanding)) if acc_ids and acc_ids.outstanding is not None and acc_ids.outstanding > 0 else 0.0,deposit=0,
-            treatment_parentcode=c.treatment.treatment_parentcode if c.treatment.treatment_parentcode else '',treatment_code="",sa_status="SA",
+            treatment_parentcode=c.treatment.treatment_parentcode if c.treatment.treatment_parentcode else '',sa_status="SA",
             cas_name=fmspw.pw_userlogin,sa_staffno=service_staff.emp_code if service_staff.emp_code else '',
             sa_staffname=service_staff.display_name if service_staff.display_name else '',dt_lineno=c.lineno,
             Site_Codeid=site,site_code=site.itemsite_code,itemcart=c)

@@ -2251,7 +2251,8 @@ class Paytable(models.Model):
     qr_code = models.ImageField(upload_to='img', blank=True, null=True)
     paykey = models.IntegerField(db_column='paykey', default=0,blank=True, null=True)  # Field name made lowercase.
     pay_is_rounding = models.BooleanField(db_column='Pay_Is_Rounding',default=False,blank=True, null=True)  # Field name made lowercase.
-    
+    paytypeimage = models.ImageField(upload_to='img', blank=True, null=True)
+
     class Meta:
         db_table = 'PAYTABLE'
     
@@ -4303,3 +4304,26 @@ class Item_MembershipPrice(models.Model):
     class Meta:
         db_table = 'Item_MembershipPrice'
         unique_together = (('item_code', 'class_code'),)
+
+class DisplayCatalog(models.Model):
+    id = models.AutoField(db_column='id', primary_key=True)
+    menu_code = models.CharField(db_column='menuCode', max_length=80) 
+    parent_code = models.CharField(db_column='parentCode', max_length=80 , blank=True, null=True) 
+    menu_description = models.CharField(db_column='menuDescription', max_length=300, blank=True, null=True)  # Field name made lowercase.
+    bgcolor = models.CharField(db_column='bgColor', max_length=80 , blank=True, null=True) 
+    imagepath = models.ImageField(db_column='imagePath', blank=True, null=True,upload_to='img')  # Field name made lowercase.
+    seqnumber = models.IntegerField(db_column='seqNumber',blank=True, null=True)  # Field name made lowercase.
+    isactive = models.BooleanField(db_column='isActive',default=True)  # Field name made lowercase.
+
+    class Meta:
+        db_table = 'DisplayCatalog'
+        unique_together = (('menu_code'),)
+
+class DisplayItem(models.Model):
+    id = models.AutoField(db_column='id', primary_key=True)
+    menu_code = models.CharField(db_column='menuCode', max_length=10) 
+    stockid = models.IntegerField(db_column='stockId',blank=True, null=True)  # Field name made lowercase.
+    
+    class Meta:
+        db_table = 'displayItem'
+        unique_together = (('menu_code', 'stockid'),)

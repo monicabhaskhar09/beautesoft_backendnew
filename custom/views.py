@@ -1273,14 +1273,14 @@ def sa_transacno_update(self, site, fmspw):
     haudre = PosTaud.objects.filter(ItemSIte_Codeid__pk=site.pk).values('sa_transacno').distinct().order_by('-pk','-sa_transacno')[:2]
     # print(haudre,"haudre")
     haudfinal = list(set([r['sa_transacno'] for r in haudre]))
-    print(haudfinal,"haudfinal")
+    # print(haudfinal,"haudfinal")
     code_site = site.itemsite_code
     prefix_s = sacontrol_obj.control_prefix
 
     slst = []
     if haudfinal != []:
         for fh in haudfinal:
-            print(fh,"fh")
+            # print(fh,"fh")
             # Yoonus remove MC1 and Mc2
             fhstr = fh.replace("MC1","")
             fhstr = fh.replace("MC2","")
@@ -1291,17 +1291,17 @@ def sa_transacno_update(self, site, fmspw):
 
             #fhstr = int(fh[silicon:])
             fhstr = int(fhstr[silicon:])
-            print(fhstr,"fhstr")
+            # print(fhstr,"fhstr")
             # fhstr = fh.replace(prefix_s,"")
             # fhnew_str = fhstr.replace(code_site, "")
             slst.append(fhstr)
             slst.sort(reverse=True)
 
-        print(slst,"slst")
+        # print(slst,"slst")
         # r_lst = ''.join(i for i in slst[0] if i.isdigit())
         sa_id = int(slst[0]) + 1
         # sa_id = int(slst[0][-6:]) + 1
-        print(sa_id,"sa_id")
+        # print(sa_id,"sa_id")
         
         sacontrol_obj.control_no = str(sa_id)
         sacontrol_obj.save() 
@@ -1903,8 +1903,8 @@ class itemCartViewset(viewsets.ModelViewSet):
                 if not enterdeposit >= 0:
                     raise Exception('Please Enter Deposit !!') 
 
-                enter_deposit = float("{:.2f}".format(float(enterdeposit)))
-                total_transac = float("{:.2f}".format(sum([i.trans_amt for i in queryset]) ))
+                enter_deposit = float(enterdeposit)
+                total_transac = sum([i.trans_amt for i in queryset])
                 if enter_deposit >= total_transac:
                     raise Exception('Please Enter Valid Deposit, Entered Deposit Should not be greater than Total Transac Amount !!') 
 
@@ -2214,7 +2214,19 @@ class itemCartViewset(viewsets.ModelViewSet):
                     if lst[0] != (cust_obj.pk):
                         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"This Item Cart ID already one customer id is there",'error': True} 
                         return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                
+                if 'batch_sno' in req and req['batch_sno']:
+                    bcag_ids = ItemCart.objects.filter(isactive=True,cart_date=cart_date,
+                    is_payment=False,sitecode=site.itemsite_code,
+                    batch_sno=req['batch_sno']).exclude(type__in=type_ex).order_by('-pk')  
+                    if bcag_ids:
+                        bmessage = "This Retail Serial No {0} already scanned and added into cart creation".format(str(req['batch_sno']))
+                        result = {'status': status.HTTP_400_BAD_REQUEST,
+                        "message":bmessage,'error': True} 
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                
 
+                
                 if serializer.is_valid():
                     # if int(stock_obj.Item_Divid.itm_code) == 1 and stock_obj.Item_Divid.itm_desc == 'RETAIL PRODUCT' and stock_obj.Item_Divid.itm_isactive == True:
                     # carttype = False
@@ -7413,7 +7425,8 @@ class ChangeStaffViewset(viewsets.ModelViewSet):
                                         line_no=itemcart.lineno,sa_transacno=itemcart.treatment.sa_transacno,amount=cl.unit_amount,
                                         helper_name=h.helper_name,helper_code=h.helper_code,sa_date=poshaud_v.sa_date,
                                         site_code=site.itemsite_code,share_amt="{:.2f}".format(float(share_amt)),helper_transacno=sa_transacno,
-                                        wp1=wp1,wp2=0.0,wp3=0.0,percent=h.percent,work_amt="{:.2f}".format(float(h.work_amt)) if h.work_amt else h.work_amt,times=h.times,treatment_no=h.treatment_no)
+                                        wp1=wp1,wp2=0.0,wp3=0.0,percent=h.percent,work_amt="{:.2f}".format(float(h.work_amt)) if h.work_amt else h.work_amt,
+                                        session=h.session,times=h.times,treatment_no=h.treatment_no)
                                         helper.save()
                                         helper.sa_date = date.today()
                                         helper.save()
@@ -7526,7 +7539,7 @@ class ChangeStaffViewset(viewsets.ModelViewSet):
                                 dt_lineno=itemcart.lineno,salescommpoints=sale.salescommpoints)
                                 multi.save()
                             
-                            sales = ""
+                            sales = "";service=""
                             if itemcart.sales_staff.all():
                                 for i in itemcart.sales_staff.all():
                                     if sales == "":
@@ -8987,7 +9000,7 @@ class CourseTmpItemHelperViewset(viewsets.ModelViewSet):
             if not cart_obj:
                 raise Exception("Please Give Valid Cart ID")
 
-            deposit = float("{:.2f}".format(float(request.GET.get('deposit',None)))) if request.GET.get('deposit',None) else None
+            deposit = float(request.GET.get('deposit',None)) if request.GET.get('deposit',None) else None
             if not deposit:
                 raise Exception("Please Give Cart Deposit")
 
@@ -9011,7 +9024,7 @@ class CourseTmpItemHelperViewset(viewsets.ModelViewSet):
                 return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
             
 
-            amount = float("{:.2f}".format(sum([i.unit_amount for i in tmp_treatids])))
+            amount = sum([i.unit_amount for i in tmp_treatids])
               
             if amount > float(deposit):
                 system_setup = Systemsetup.objects.filter(title='Treatment',value_name='Allow layaway',value_data='FALSE',isactive=True).first()
@@ -9105,7 +9118,7 @@ class CourseTmpItemHelperViewset(viewsets.ModelViewSet):
             if not cart_obj:
                 raise Exception("Please Give Valid Cart ID")
 
-            deposit = float("{:.2f}".format(float(request.GET.get('deposit',None)))) if request.GET.get('deposit',None) else None
+            deposit = float(request.GET.get('deposit',None)) if request.GET.get('deposit',None) else None
             if not deposit:
                 raise Exception("Please Give Cart Deposit")
 
@@ -9126,7 +9139,7 @@ class CourseTmpItemHelperViewset(viewsets.ModelViewSet):
                 if done > int(qty):
                     raise Exception("Item Cart Done Session Should not be greater than Cart quantity!!")
 
-            amount = float("{:.2f}".format(sum([i.unit_amount for i in tmp_treatids])))
+            amount = sum([i.unit_amount for i in tmp_treatids])
 
             if amount > float(deposit):
                 system_setup = Systemsetup.objects.filter(title='Treatment',value_name='Allow layaway',value_data='FALSE',isactive=True).first()
@@ -9478,7 +9491,7 @@ class CourseTmpItemHelperViewset(viewsets.ModelViewSet):
             if not cart_obj:
                 raise Exception("Please Give Valid Cart ID")
 
-            deposit = float("{:.2f}".format(float(request.GET.get('deposit',None)))) if request.GET.get('deposit',None) else None
+            deposit = float(request.GET.get('deposit',None)) if request.GET.get('deposit',None) else None
             if not deposit:
                 raise Exception("Please Give Valid Deposit")
 
@@ -9500,7 +9513,7 @@ class CourseTmpItemHelperViewset(viewsets.ModelViewSet):
                 if done > int(qty):
                     raise Exception("Item Cart Done Session Should not be greater than Cart quantity!!")
 
-            amount = float("{:.2f}".format(sum([i.unit_amount for i in tmp_treatids])))
+            amount = sum([i.unit_amount for i in tmp_treatids])
 
             if amount > float(deposit):
                 system_setup = Systemsetup.objects.filter(title='Treatment',value_name='Allow layaway',value_data='FALSE',isactive=True).first()
@@ -9791,7 +9804,7 @@ class PackageServiceTmpItemHelperViewset(viewsets.ModelViewSet):
             
 
             trasac = posobj.price * posobj.qty
-            deposit = float("{:.2f}".format(posobj.deposit_amt))
+            deposit = posobj.deposit_amt
 
             qty = posobj.qty
             if qty:
@@ -9799,7 +9812,7 @@ class PackageServiceTmpItemHelperViewset(viewsets.ModelViewSet):
                     raise Exception("Done Session Should not be greater than Package Details quantity!!")
 
 
-            amount = float("{:.2f}".format(trasac / qty))
+            amount = float(trasac / qty)
               
             if amount > float(deposit):
                 system_setup = Systemsetup.objects.filter(title='Treatment',value_name='Allow layaway',value_data='FALSE',isactive=True).first()
@@ -9885,11 +9898,11 @@ class PackageServiceTmpItemHelperViewset(viewsets.ModelViewSet):
                 raise Exception("Item Cart ID does not exist")
 
             trasac = posobj.price * posobj.qty
-            deposit = float("{:.2f}".format(posobj.deposit_amt))
+            deposit = float(posobj.deposit_amt)
 
             qty = posobj.qty
 
-            amount = float("{:.2f}".format(trasac / qty))
+            amount = float(trasac / qty)
 
             if amount > float(deposit):
                 system_setup = Systemsetup.objects.filter(title='Treatment',value_name='Allow layaway',value_data='FALSE',isactive=True).first()
@@ -10226,12 +10239,12 @@ class PackageServiceTmpItemHelperViewset(viewsets.ModelViewSet):
                 raise Exception("Item Cart ID does not exist")
 
             trasac = posobj.price * posobj.qty
-            deposit =  float("{:.2f}".format(posobj.deposit_amt))
+            deposit =  float(posobj.deposit_amt)
 
 
             qty = posobj.qty
 
-            amount = float("{:.2f}".format(trasac / qty))
+            amount = float(trasac / qty)
 
             if amount > float(deposit):
                 system_setup = Systemsetup.objects.filter(title='Treatment',value_name='Allow layaway',value_data='FALSE',isactive=True).first()
@@ -10865,8 +10878,8 @@ class AddRemoveSalesStaffViewset(viewsets.ModelViewSet):
 
                                         tmpp_treatids = Tmptreatment.objects.filter(itemcart=cartobj).order_by('pk')[0]
                                         if tmpp_treatids:
-                                            amount = float("{:.2f}".format(tmpp_treatids.unit_amount))
-                                            deposit = float("{:.2f}".format(cartobj.deposit))
+                                            amount = float(tmpp_treatids.unit_amount)
+                                            deposit = float(cartobj.deposit)
 
                                             if amount > float(deposit):
                                                 system_setup = Systemsetup.objects.filter(title='Treatment',value_name='Allow layaway',value_data='FALSE',isactive=True).first()
@@ -11066,12 +11079,14 @@ class AddRemoveSalesStaffViewset(viewsets.ModelViewSet):
                                     trids = t_ids.aggregate(amount=Coalesce(Sum('unit_amount'), 0))
 
                                     if acc_ids and acc_ids.balance:
-                                        acc_balance = float("{:.2f}".format(acc_ids.balance))
+                                        # acc_balance = float("{:.2f}".format(acc_ids.balance))
+                                        acc_balance = acc_ids.balance
                                     else:
                                         acc_balance = 0
                     
                                     if trids['amount'] and trids['amount'] > 0:
-                                        tr_unitamt = float("{:.2f}".format(trids['amount']))
+                                        # tr_unitamt = float("{:.2f}".format(trids['amount']))
+                                        tr_unitamt = trids['amount']
                                         if acc_balance < tr_unitamt:
                                             system_setup = Systemsetup.objects.filter(title='Treatment',value_name='Allow layaway',value_data='FALSE',isactive=True).first()
                                             if system_setup: 

@@ -8,7 +8,8 @@ DailysalesdataDetail, DailysalesdataSummary,Holditemdetail,PrepaidAccount,Credit
 DepositAccount, CustomerPoint, MrRewardItemType,Smsreceivelog,Systemsetup,TreatmentProtocol,
 CustomerTitle,ItemDiv,Tempcustsign,CustomerDocument,TreatmentPackage,ContactPerson,ItemFlexiservice,
 termsandcondition,Participants,ProjectDocument,Dayendconfirmlog,CustomerPointDtl,
-CustomerReferral,MGMPolicyCloud,sitelistip)
+CustomerReferral,MGMPolicyCloud,sitelistip,DisplayCatalog,DisplayItem,ItemUomprice,ItemUom,
+ItemBatch)
 from cl_app.models import ItemSitelist, SiteGroup
 from custom.models import EmpLevel,Room,VoucherRecord
 from django.contrib.auth.models import User
@@ -1560,7 +1561,7 @@ class PaytableSerializer(serializers.ModelSerializer):
     class Meta:
         model = Paytable
         fields = ['id','pay_code','pay_description','pay_groupid','pay_group_name',
-        'gt_group','qr_code','paykey','pay_is_rounding']
+        'gt_group','qr_code','paykey','pay_is_rounding','paytypeimage']
 
 class PostaudSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source='pk',required=False)
@@ -3459,3 +3460,68 @@ class SitelistipSerializer(serializers.ModelSerializer):
     class Meta:
         model = sitelistip
         fields = ['id','isactive','siteid','ip']         
+
+class DisplayCatalogSerializer(serializers.ModelSerializer):
+    
+    class Meta:
+        model = DisplayCatalog
+        fields = '__all__'
+
+class DisplayItemSerializer(serializers.ModelSerializer):
+    
+    class Meta:
+        model = DisplayItem
+        fields = '__all__'
+
+class DisplayItemStockSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='pk',required=False)
+
+    class Meta:
+        model = Stock
+        fields = ['id','item_name','item_desc','item_div','item_type',
+        'Stock_PIC','item_price','prepaid_value','redeempoints','item_code']
+    
+    def to_representation(self, instance):
+        request = self.context['request']
+        fmspw = Fmspw.objects.filter(user=request.user, pw_isactive=True).order_by('-pk')
+        site = fmspw[0].loginsite
+
+
+        data = super(DisplayItemStockSerializer, self).to_representation(instance)
+        data['item_price'] = ""
+        if instance.item_price:
+            data['item_price'] = "{:.2f}".format(float(instance.item_price)) 
+        data['prepaid_value'] = "{:.2f}".format(float(instance.prepaid_value)) if instance.prepaid_value else "0.00"
+        data['redeempoints'] = int(instance.redeempoints) if instance.redeempoints else ""
+        
+        if instance.item_div == "1":
+            stock = instance
+            
+            uomlst = []
+            
+            itemuomprice = ItemUomprice.objects.filter(isactive=True, item_code=stock.item_code).order_by('id')
+            for i in itemuomprice:
+                itemuom = ItemUom.objects.filter(uom_isactive=True,uom_code=i.item_uom).order_by('id').first()
+                if itemuom:
+                    itemuom_id = int(itemuom.id)
+                    itemuom_desc = itemuom.uom_desc
+
+                    batch = ItemBatch.objects.filter(item_code=stock.item_code,site_code=site.itemsite_code,
+                    uom=itemuom.uom_code).order_by('-pk').last()
+
+                    uom = {
+                            "itemuomprice_id": int(i.id),
+                            "item_uom": i.item_uom,
+                            "uom_desc": i.uom_desc,
+                            "item_price": "{:.2f}".format(float(i.item_price)),
+                            "itemuom_id": itemuom_id, 
+                            "itemuom_desc" : itemuom_desc,
+                            "onhand_qty": int(batch.qty) if batch else 0
+                            }
+                    uomlst.append(uom)
+            
+        
+            if uomlst != []:
+                data.update({'uomprice': uomlst}) 
+
+        return data 

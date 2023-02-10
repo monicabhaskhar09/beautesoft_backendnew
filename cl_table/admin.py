@@ -11,7 +11,7 @@ MenuSecuritylevellist, Skillstaff, CustomerFormControl, RewardPolicy, RedeemPoli
 Multilanguage, MultiLanguageWord, Language,TreatmentDuration,ItemStocklist,Smsreceivelog,
 TreatmentProtocol,CustomerPointDtl,CustomerPoint,PackageAuditingLog,Tempcustsign,ItemFlexiservice,
 StudioWork,CustomerReferral,MGMPolicyCloud,ExchangeDtl,sitelistip,termsandcondition,
-ItemBatchSno,Item_MembershipPrice)
+ItemBatchSno,Item_MembershipPrice,DisplayCatalog)
 from cl_app.models import ItemSitelist, SiteGroup
 
 # # Register your models here.
@@ -105,3 +105,4 @@ admin.site.register(sitelistip)
 admin.site.register(termsandcondition)
 admin.site.register(ItemBatchSno)
 admin.site.register(Item_MembershipPrice)
+admin.site.register(DisplayCatalog)

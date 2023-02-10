@@ -11,7 +11,7 @@ TNC_HeaderSerializer,TNC_DetailformSerializer,WebConsultationQuestionsub_questio
 from .models import (WebConsultation_Hdr,WebConsultation_Dtl,WebConsultation_Question,WebConsultation_AnalysisResult,
 WebConsultation_Referral,WebConsultation_Referral_Hdr,TNC_Master,TNC_Header,TNC_Detail,
 WebConsultation_QuestionMultichoice,WebConsultation_Questionsub_questions)
-from cl_table.models import (Fmspw,Employee,ControlNo,Customer,PosHaud,PosDaud)
+from cl_table.models import (Fmspw,Employee,ControlNo,Customer,PosHaud,PosDaud,Title)
 from rest_framework import status,viewsets,mixins
 from rest_framework.response import Response
 from custom.views import response, get_client_ip, round_calc
@@ -25,6 +25,7 @@ from django.db.models import Q
 from rest_framework.decorators import action
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator, InvalidPage
 from Cl_beautesoft.settings import SMS_ACCOUNT_SID, SMS_AUTH_TOKEN, SMS_SENDER, SITE_ROOT
+from rest_framework.generics import GenericAPIView, CreateAPIView
 
 # Create your views here.
 
@@ -314,18 +315,30 @@ class WebConsultationDtlViewset(viewsets.ModelViewSet):
                     # print(reqt,"reqt")
                     serializer = WebConsultationDtlSerializer(data=reqt)
                     if serializer.is_valid():
+                        sub_questions = reqt.pop('sub_questions')
                         if not 'doc_no' in reqt or not reqt['doc_no']:
                             raise Exception('Please give doc_no!!.') 
-
+ 
                         if not 'question_number' in reqt or not reqt['question_number']:
                             raise Exception('Please give question_number!!.') 
-                        if not 'answer' in reqt or reqt['answer'] is None:
-                            raise Exception('Please give answer!!.') 
+
+                        if sub_questions == []:    
+                            if not 'answer' in reqt or reqt['answer'] is None:
+                                raise Exception('Please give answer!!.') 
 
                         check_ids = WebConsultation_Dtl.objects.filter(doc_no=reqt['doc_no'],
                         question_number=reqt['question_number']).order_by('-pk')
                         if not check_ids:
                             k = serializer.save()
+
+                        
+                        for i in sub_questions:
+                            sobj = WebConsultation_Questionsub_questions.objects.filter(pk=i['id']).first()
+                            if sobj:
+                                sobj.answer = i['answer']
+                                sobj.answer_text = i['answer_text']
+                                sobj.save()
+    
                     else:
                         data = serializer.errors
 
@@ -1631,7 +1644,7 @@ class TransactionCustomerViewset(viewsets.ModelViewSet):
             queryset = queryset.filter(Q(sa_custnoid__cust_name__icontains=q) | 
             Q(sa_custnoid__cust_code__icontains=q) |
             Q(sa_custnoid__cust_nric__icontains=q) | Q(sa_custnoid__cust_joindate__date__icontains=q) )
-            print(queryset,"queryset gg")
+            # print(queryset,"queryset gg")
         
         query = list(set(queryset.values_list('sa_custnoid', flat=True).distinct()))
         if not from_date and not to_date:
@@ -1641,7 +1654,7 @@ class TransactionCustomerViewset(viewsets.ModelViewSet):
                 # queryset = queryset.filter(sa_date__date__gte=from_date,sa_date__date__lte=to_date).values('sa_custnoid','sa_custname','sa_custno','sa_custnoid__cust_joindate','sa_custnoid__cust_nric').distinct().order_by('sa_custnoid')
                 query = list(set(queryset.filter(sa_date__date__gte=from_date,sa_date__date__lte=to_date).values_list('sa_custnoid', flat=True).distinct()))
             
-        print(query,"query")
+        # print(query,"query")
         cust_ids = Customer.objects.filter(cust_isactive=True,pk__in=query).order_by('-pk')
         return cust_ids
 
@@ -2077,4 +2090,33 @@ class TNC_MasterViewset(viewsets.ModelViewSet):
             return TNC_Master.objects.get(pk=pk)
         except TNC_Master.DoesNotExist:
             raise Exception('TNC_Master Does not Exist') 
+    
+
+class ClientDetailsListAPIView(GenericAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+          
+    
+    def get(self, request):
+        try:    
+            fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+            site = fmspw.loginsite
+            title = Title.objects.filter(product_license=site.itemsite_code).first()
+            logo = ""
+            if title and title.logo_pic:
+                logo = str(SITE_ROOT) + str(title.logo_pic)
+            
+            val = {'company_name': title.comp_title1 if title and title.comp_title1 else '',
+            'client_name': title.trans_h1 if title and title.trans_h1 else '',
+            'logo' : logo, 'address': title.trans_h2 if title and title.trans_h2 else '', 
+            'sequoia_logo': str(SITE_ROOT) + 'img/beautesoftlogo.png'}
+            result = {'status': status.HTTP_200_OK , "message": "Listed Succesfully",
+            'error': False,'data': val}
+        
+
+            return Response(result, status=status.HTTP_200_OK)
+    
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)          
     
