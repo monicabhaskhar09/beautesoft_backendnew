@@ -1282,12 +1282,19 @@ def sa_transacno_update(self, site, fmspw):
         for fh in haudfinal:
             # print(fh,"fh")
             # Yoonus remove MC1 and Mc2
-            fhstr = fh.replace("MC1","")
-            fhstr = fh.replace("MC2","")
-            fhstr = fh.replace("T1","")
-            fhstr = fh.replace("T2","")
-            fhstr = fh.replace("T3","")
+            fhstr = fh    
 
+            if 'MC1' in fh:
+                fhstr = fh.replace("MC1","")
+            if 'MC2' in fh:
+                fhstr = fh.replace("MC2","")
+            if 'T1' in fh:
+                fhstr = fh.replace("T1","")
+            if 'T2' in fh:      
+                fhstr = fh.replace("T2","")
+            if 'T3' in fh: 
+                fhstr = fh.replace("T3","")
+            # print(fhstr,"fhstr 1")
 
             #fhstr = int(fh[silicon:])
             fhstr = int(fhstr[silicon:])
@@ -1305,7 +1312,36 @@ def sa_transacno_update(self, site, fmspw):
         
         sacontrol_obj.control_no = str(sa_id)
         sacontrol_obj.save() 
-    return True                   
+    return True    
+
+def update_multistaff_salesamt(queryset):
+    for itemcart in queryset:
+        ratio = 0.0; salescommpoints = 0; salesamt = 0.0
+        if itemcart.sales_staff.all().count() > 0:
+            count = itemcart.sales_staff.all().count()
+            if itemcart.ratio:
+                ratio = float(itemcart.ratio) / float(count)
+            salesamt = float(itemcart.deposit) / float(count)
+            if itemcart.itemcodeid.salescommpoints and float(itemcart.itemcodeid.salescommpoints) > 0.0:
+                salescommpoints = float(itemcart.itemcodeid.salescommpoints) / float(count)
+
+
+        for i in itemcart.sales_staff.all():
+            mul_ids = Tmpmultistaff.objects.filter(emp_id__pk=i.pk,
+            itemcart__pk=itemcart.pk)
+            if not mul_ids:
+                tmpmulti = Tmpmultistaff(item_code=itemcart.itemcodeid.item_code,
+                emp_code=i.emp_code,ratio=ratio,
+                salesamt="{:.2f}".format(float(salesamt)),type=None,isdelete=False,role=1,
+                dt_lineno=itemcart.lineno,itemcart=itemcart,emp_id=i,salescommpoints=salescommpoints)
+                tmpmulti.save()
+                
+                itemcart.multistaff_ids.add(tmpmulti.pk)
+            else:
+                mul_ids[0].ratio = ratio
+                mul_ids[0].salesamt = "{:.2f}".format(float(salesamt))
+                mul_ids[0].salescommpoints = salescommpoints
+                mul_ids[0].save()               
 
 class itemCartViewset(viewsets.ModelViewSet):
     authentication_classes = [ExpiringTokenAuthentication]
@@ -1315,7 +1351,7 @@ class itemCartViewset(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], name='Check')
     def Check(self, request):
-        # try:
+        try:
             if str(self.request.GET.get('cust_noid',None)) == "undefined":
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please select customer!!",'error': True} 
                 return Response(result, status=status.HTTP_400_BAD_REQUEST)         
@@ -1449,9 +1485,9 @@ class itemCartViewset(viewsets.ModelViewSet):
                 result = {'status': status.HTTP_204_NO_CONTENT,"message":"Listed Succesfully",'error': False, 
                 'data': [],'cart_id': ""}
             return Response(data=result, status=status.HTTP_200_OK)
-        # except Exception as e:
-        #   invalid_message = str(e)
-        #   return general_error_response(invalid_message)     
+        except Exception as e:
+          invalid_message = str(e)
+          return general_error_response(invalid_message)     
         
     def get_queryset(self):
         global type_ex
@@ -3475,52 +3511,53 @@ class itemCartViewset(viewsets.ModelViewSet):
             with transaction.atomic():
                 global type_ex
                 cartdate = timezone.now().date()
+                fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+                site = fmspw[0].loginsite  
                 for idx, req in enumerate(request.data, start=1):
                     cust_obj = Customer.objects.filter(pk=req['cust_noid'],cust_isactive=True).first()
                     if not cust_obj:
                         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer ID does not exist!!",'error': True} 
                         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
-                    fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+                     
                 
-                    site = fmspw[0].loginsite    
-
-                # tmp_ids = TmpItemHelper.objects.filter(treatment__Cust_Codeid__pk=cust_obj.pk,
-                # site_code=site.itemsite_code,created_at__date=cartdate,line_no__isnull=True)   
-                # # print(tmp_ids,"tmp_ids")
-                # if not tmp_ids:
-                #     result = {'status': status.HTTP_400_BAD_REQUEST,
-                #     "message":"TmpItemHelper ID does not exist!!",'error': True} 
-                #     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-
-                # parent_ids = list(set(tmp_ids.values_list('treatment__treatment_parentcode', flat=True).distinct()))
-                # # print(parent_ids,"parent_ids")
-                
-                # request.data.clear()
-                # # print(request.data,"request.data")
-                # for p in parent_ids:
-                #     ttmp_ids = TmpItemHelper.objects.filter(treatment__Cust_Codeid__pk=cust_obj.pk,
-                #     site_code=site.itemsite_code,created_at__date=cartdate,line_no__isnull=True,treatment__treatment_parentcode=p).order_by('-treatment').values_list('treatment', flat=True).distinct()
-                #     # print(ttmp_ids,"ttmp_ids gg")
-                #     v = list(ttmp_ids)
-                #     # print(v,"v")
-                #     if v != []:
-                #         trmtobj = Treatment.objects.filter(pk=v[0]).first()
-                    
-                #         val = {
-                #                 "cust_noid": cust_obj.pk,
-                #                 "cart_date" : cartdate,
-                #                 "itemcodeid": trmtobj.Item_Codeid.pk,
-                #                 "price" : trmtobj.unit_amount,
-                #                 "item_uom" : None,
-                #                 "treatment_account" : trmtobj.treatment_account.pk,
-                #                 "treatment": v,
-                #                 "ori_stockid" : None
-                #             }
-                #         request.data.append(val)    
-                # print(request.data,"request.data")
                
+                tmp_ids = TmpItemHelper.objects.filter(treatment__Cust_Codeid__pk=cust_obj.pk,
+                site_code=site.itemsite_code,created_at__date=cartdate,line_no__isnull=True)   
+                # print(tmp_ids,"tmp_ids")
+                if not tmp_ids:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,
+                    "message":"TmpItemHelper ID does not exist!!",'error': True} 
+                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
+                parent_ids = list(set(tmp_ids.values_list('treatment__treatment_parentcode', flat=True).distinct()))
+                # print(parent_ids,"parent_ids")
                 
+                request.data.clear()
+                # print(request.data,"request.data")
+                for p in parent_ids:
+                    ttmp_ids = TmpItemHelper.objects.filter(treatment__Cust_Codeid__pk=cust_obj.pk,
+                    site_code=site.itemsite_code,created_at__date=cartdate,line_no__isnull=True,treatment__treatment_parentcode=p).order_by('-treatment').values_list('treatment', flat=True).distinct()
+                    # print(ttmp_ids,"ttmp_ids gg")
+                    v = list(ttmp_ids)
+                    # print(v,"v")
+                    if v != []:
+                        trmtobj = Treatment.objects.filter(pk=v[0]).first()
+                    
+                        val = {
+                                "cust_noid": cust_obj.pk,
+                                "cart_date" : cartdate,
+                                "itemcodeid": trmtobj.Item_Codeid.pk,
+                                "price" : trmtobj.unit_amount,
+                                "item_uom" : None,
+                                "treatment_account" : trmtobj.treatment_account.pk,
+                                "treatment": v,
+                                "ori_stockid" : None
+                            }
+                        request.data.append(val)    
+                print(request.data,"request.data")
+            
+                    
                
                     
                 
@@ -4061,15 +4098,16 @@ class itemCartViewset(viewsets.ModelViewSet):
                             ).update(price="{:.2f}".format(float(price)),unit_amount="{:.2f}".format(float(d_price)),trmt_is_auto_proportion=True)
                             
                             l_ids = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True).order_by('pk').last()
-
-                            Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True).order_by('pk'
-                            ).exclude(pk=l_ids.pk).update(price=0,unit_amount="{:.2f}".format(float(d_price)),trmt_is_auto_proportion=True)
                             
-                            amt = "{:.2f}".format(float(d_price))   
-                            lval = float(price) - (float(amt) * (number -1))
+                            if l_ids:
+                                Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True).order_by('pk'
+                                ).exclude(pk=l_ids.pk).update(price=0,unit_amount="{:.2f}".format(float(d_price)),trmt_is_auto_proportion=True)
+                                
+                                amt = "{:.2f}".format(float(d_price))   
+                                lval = float(price) - (float(amt) * (number -1))
 
-                            Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True,pk=l_ids.pk).order_by('pk'
-                            ).update(price=0,unit_amount="{:.2f}".format(float(lval)),trmt_is_auto_proportion=True)
+                                Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True,pk=l_ids.pk).order_by('pk'
+                                ).update(price=0,unit_amount="{:.2f}".format(float(lval)),trmt_is_auto_proportion=True)
 
 
 
@@ -4266,16 +4304,17 @@ class itemCartViewset(viewsets.ModelViewSet):
                                     l_ids = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True).order_by('pk').last()
 
                                     Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk'
-                                    ).exclude(pk=l_ids.pk).update(price="{:.2f}".format(float(price)),unit_amount="{:.2f}".format(float(d_price)),trmt_is_auto_proportion=True)
+                                    ).update(price="{:.2f}".format(float(price)),unit_amount="{:.2f}".format(float(d_price)),trmt_is_auto_proportion=True)
 
-                                    Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True).order_by('pk'
-                                    ).update(price=0,unit_amount="{:.2f}".format(float(d_price)),trmt_is_auto_proportion=True)
-                                    
-                                    amt = "{:.2f}".format(float(d_price))   
-                                    lval = price - (float(amt) * (number -1))
+                                    if l_ids: 
+                                        Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True).order_by('pk'
+                                        ).exclude(pk=l_ids.pk).update(price=0,unit_amount="{:.2f}".format(float(d_price)),trmt_is_auto_proportion=True)
+                                        
+                                        amt = "{:.2f}".format(float(d_price))   
+                                        lval = price - (float(amt) * (number -1))
 
-                                    Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True,pk=l_ids.pk).order_by('pk'
-                                    ).update(price=0,unit_amount="{:.2f}".format(float(lval)),trmt_is_auto_proportion=True)
+                                        Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True,pk=l_ids.pk).order_by('pk'
+                                        ).update(price=0,unit_amount="{:.2f}".format(float(lval)),trmt_is_auto_proportion=True)
 
 
 
@@ -4763,6 +4802,9 @@ class itemCartViewset(viewsets.ModelViewSet):
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)     
+
+
+    
                 
 
     @action(methods=['post'], detail=False, permission_classes=[IsAuthenticated & authenticated_only],
@@ -4962,6 +5004,7 @@ class itemCartViewset(viewsets.ModelViewSet):
 
                         
 
+                update_multistaff_salesamt(queryset) 
                 result = {'status': status.HTTP_200_OK,"message":"Addtional Discount and Net Amount Updated Succesfully",'error': False}
                 return Response(result, status=status.HTTP_200_OK)
                 # except Exception as e:
@@ -5017,6 +5060,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                         posdisc.save()
                         cp.pos_disc.add(posdisc.id)  
                 
+                update_multistaff_salesamt(queryset)  
                 result = {'status': status.HTTP_200_OK,"message":"Addtional Discount Updated Succesfully",'error': False}
                 return Response(result, status=status.HTTP_200_OK)    
             else:
@@ -5055,6 +5099,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                             posdisc_a.save()
                             ca.pos_disc.add(posdisc_a.id)  
 
+                    update_multistaff_salesamt(queryset)  
                     result = {'status': status.HTTP_200_OK,"message":"Addtional Discount Updated Succesfully",'error': False}
                     return Response(result, status=status.HTTP_200_OK)
             
@@ -8107,7 +8152,7 @@ class CartServiceCourseViewset(viewsets.ModelViewSet):
 
 
     def partial_update(self, request, pk=None):
-        # try:
+        try:
             fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
             site = fmspw.loginsite
             log_emp = fmspw.Emp_Codeid
@@ -8198,9 +8243,9 @@ class CartServiceCourseViewset(viewsets.ModelViewSet):
             result = {'status': status.HTTP_204_NO_CONTENT,"message":serializer.errors,'error': True}
             return Response(result, status=status.HTTP_200_OK)  
 
-        # except Exception as e:
-        #     invalid_message = str(e)
-        #     return general_error_response(invalid_message)     
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)     
         
         
 
@@ -11021,8 +11066,8 @@ class AddRemoveSalesStaffViewset(viewsets.ModelViewSet):
                                                 new_remark=new_remark,appt_fr_time=appt_fr_time,appt_to_time=appt_to_time,
                                                 add_duration=add_duration,workcommpoints=workcommpoints,session=session)
                                                 temph.save()
-                                                # cartobj.helper_ids.add(temph.id)
-                                                # cartobj.service_staff.add(helper_obj.pk) 
+                                                cartobj.helper_ids.add(temph.id)
+                                                cartobj.service_staff.add(helper_obj.pk) 
                                                 tmp.append(temph.id)
 
                                                 ItemCart.objects.filter(id=cartobj.id).update(sessiondone=1)      

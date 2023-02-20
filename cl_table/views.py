@@ -5924,7 +5924,7 @@ class AppointmentSortAPIView(generics.ListCreateAPIView):
         sc_system_obj = Systemsetup.objects.filter(title='Workschedule',
         value_name='Workschedule',isactive=True).first()
 
-        if fmspw[0].flgappt == True: 
+        # if fmspw[0].flgappt == True: 
             #Therapist
             # if emp.show_in_appt == True:
             #     site_list = EmpSitelist.objects.filter(Emp_Codeid=emp,Site_Codeid__pk=site.pk,isactive=True)
@@ -5945,21 +5945,21 @@ class AppointmentSortAPIView(generics.ListCreateAPIView):
                         
             # #manager -> Therapist,Consultant staffs as Resources
             # elif emp.show_in_appt == False:
-            emp_siteids = EmpSitelist.objects.filter(Site_Codeid__pk=site.pk,isactive=True)
-            staffs = list(set([e.Emp_Codeid.pk for e in emp_siteids if e.Emp_Codeid and e.Emp_Codeid.emp_isactive == True]))
-            emp_queryset = Employee.objects.filter(pk__in=staffs,emp_isactive=True,
-            show_in_appt=True) 
-            if sc_system_obj and sc_system_obj.value_data == 'True':
-                staffs_f = list(set([e.pk for e in emp_queryset if e.pk and e.emp_isactive == True]))
-                month = ScheduleMonth.objects.filter(itm_date=date,Emp_Codeid__pk__in=staffs_f,
-                site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007'))
-                final = list(set([e.Emp_Codeid.pk for e in month if e.Emp_Codeid]))
-                queryset = Employee.objects.filter(pk__in=final,emp_isactive=True,
-                show_in_appt=True).order_by('emp_seq_webappt')
-            else:
-                if sc_system_obj and sc_system_obj.value_data == 'False': 
-                    queryset = Employee.objects.filter(pk__in=staffs,emp_isactive=True,
-                    show_in_appt=True).order_by('emp_seq_webappt')     
+        emp_siteids = EmpSitelist.objects.filter(Site_Codeid__pk=site.pk,isactive=True)
+        staffs = list(set([e.Emp_Codeid.pk for e in emp_siteids if e.Emp_Codeid and e.Emp_Codeid.emp_isactive == True]))
+        emp_queryset = Employee.objects.filter(pk__in=staffs,emp_isactive=True,
+        show_in_appt=True) 
+        if sc_system_obj and sc_system_obj.value_data == 'True':
+            staffs_f = list(set([e.pk for e in emp_queryset if e.pk and e.emp_isactive == True]))
+            month = ScheduleMonth.objects.filter(itm_date=date,Emp_Codeid__pk__in=staffs_f,
+            site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007'))
+            final = list(set([e.Emp_Codeid.pk for e in month if e.Emp_Codeid]))
+            queryset = Employee.objects.filter(pk__in=final,emp_isactive=True,
+            show_in_appt=True).order_by('emp_seq_webappt')
+        else:
+            if sc_system_obj and sc_system_obj.value_data == 'False': 
+                queryset = Employee.objects.filter(pk__in=staffs,emp_isactive=True,
+                show_in_appt=True).order_by('emp_seq_webappt')     
         
         return queryset
    
@@ -7715,6 +7715,15 @@ class UsersList(APIView):
             value_name='quickPrint',isactive=True).first()
             updisc_setup = Systemsetup.objects.filter(title='showUnitPriceDiscOnView',
             value_name='showUnitPriceDiscOnView',isactive=True).first()
+
+            refer_setup = Systemsetup.objects.filter(title='UpdateCustCodeToCustRefer',
+            value_name='UpdateCustCodeToCustRefer',isactive=True).first()
+            userswitch_setup = Systemsetup.objects.filter(title='userswitch',
+            value_name='userswitch',isactive=True).first()
+            poolsharing_setup = Systemsetup.objects.filter(title='PoolSharing',
+            value_name='PoolSharing',isactive=True).first()
+        
+       
        
     
     
@@ -7742,12 +7751,30 @@ class UsersList(APIView):
             # print(fmspw.loginsite,"fmspw.loginsite")
             # print(fmspw.loginsite.service_sel,"fmspw.loginsite.service_sel")
 
+            empsite_ids = list(set(EmpSitelist.objects.filter(Site_Codeid__pk=fmspw.loginsite.pk,
+            isactive=True,Emp_Codeid__emp_isactive=True).order_by('-pk').values_list('Emp_Codeid', flat=True).distinct()))
+            ufmspw_ids = Fmspw.objects.filter(Emp_Codeid__pk__in=empsite_ids,pw_isactive=True).filter(~Q(pk=fmspw.pk)).values('pw_id','pw_userlogin')
+
+            emp_ids = EmpSitelist.objects.filter(emp_code=fmspw.Emp_Codeid.emp_code,isactive=True)
+            # print(emp_ids,"empids")
+            emp_lst = list(set([e.Site_Codeid.pk for e in emp_ids if e.Site_Codeid]))
+            # print(emp_lst,"emp_lst")
+            sites = []
+            itemsites = ItemSitelist.objects.filter(pk__in=emp_lst,itemsite_isactive=True).order_by('pk')
+            if itemsites:
+                for d in itemsites:
+                   val = {'id': d.itemsite_id, 'itemsite_code': d.itemsite_code, 'itemsite_desc': d.itemsite_desc}
+                   sites.append(val)
+
             token = Token.objects.filter(user=self.request.user).first()
 
             data = {'username':self.request.user.username,'token':token.key,
             'role_code': fmspw.LEVEL_ItmIDid.role_code if fmspw.LEVEL_ItmIDid and fmspw.LEVEL_ItmIDid.role_code else "",
             'role':fmspw.LEVEL_ItmIDid.level_name if fmspw.LEVEL_ItmIDid and fmspw.LEVEL_ItmIDid.level_name else "",
             'level_code': fmspw.LEVEL_ItmIDid.level_code if fmspw.LEVEL_ItmIDid and fmspw.LEVEL_ItmIDid.level_code else "",
+            'logined_siteid' : fmspw.loginsite.pk if fmspw.loginsite else "",
+            'switch_sites' : sites,
+            'switch_users': ufmspw_ids,
             'branch': fmspw.loginsite.itemsite_desc if fmspw.loginsite and fmspw.loginsite.itemsite_desc else "",
             'service_sel': fmspw.loginsite.service_sel if fmspw.loginsite and fmspw.loginsite.service_sel else "",
             'service_text': fmspw.loginsite.service_text if fmspw.loginsite and fmspw.loginsite.service_text else "",
@@ -7812,6 +7839,9 @@ class UsersList(APIView):
             'autotdforalacarte' : True if autotdfor_setup and autotdfor_setup.value_data == 'True' else False, 
             'quickprint': True if quickprint_setup and quickprint_setup.value_data == 'True' else False,
             'show_unitpricedisconview': True if updisc_setup and updisc_setup.value_data == 'True' else False,  
+            'updatecustcodetocustrefer': True if refer_setup and refer_setup.value_data == 'True' else False,  
+            'userswitch' : True if userswitch_setup and userswitch_setup.value_data == 'True' else False,  
+            'poolsharing' : True if poolsharing_setup and poolsharing_setup.value_data == 'True' else False,  
             }
 
 
@@ -17870,7 +17900,12 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
                             source = sou_obj.source_code
 
                     if not 'custallowsendsms' in request.data or request.data['custallowsendsms'] == None:
-                        allowsendsms = True
+                        allowsendsms = False
+                        custallowsendsms_setup = Systemsetup.objects.filter(title='custallowsendsms',
+                        value_name='custallowsendsms',isactive=True).first()
+                        if custallowsendsms_setup and custallowsendsms_setup.value_data == 'True':
+                            allowsendsms = True
+
                     else:
                         if 'custallowsendsms' in request.data and request.data['custallowsendsms']:
                             allowsendsms = request.data['custallowsendsms']
@@ -17887,6 +17922,10 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
                                         estimated_deliverydate=request.data['estimated_deliverydate'] if 'estimated_deliverydate' in request.data and request.data['estimated_deliverydate'] else None,
                                         no_of_weeks_pregnant=request.data['no_of_weeks_pregnant'] if 'no_of_weeks_pregnant' in request.data and request.data['no_of_weeks_pregnant'] else None,
                                         no_of_children=request.data['no_of_children'] if 'no_of_children' in request.data and request.data['no_of_children'] else None,
+                                        cust_postcode=request.data['cust_postcode'] if 'cust_postcode' in request.data and request.data['cust_postcode'] else None,
+                                        sgn_unitno=request.data['sgn_unitno'] if 'sgn_unitno' in request.data and request.data['sgn_unitno'] else None,
+                                        sgn_block=request.data['sgn_block'] if 'sgn_block' in request.data and request.data['sgn_block'] else None,
+                                        sgn_street=request.data['sgn_street'] if 'sgn_street' in request.data and request.data['sgn_street'] else None,
                                         )
 
                     if 'cust_corporate' in request.data and request.data['cust_corporate']:
@@ -17929,12 +17968,20 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
                                 k.cust_referby_code = custref_obj.cust_code
                                 k.save()           
 
+                    crefer_setup = Systemsetup.objects.filter(title='UpdateCustCodeToCustRefer',
+                    value_name='UpdateCustCodeToCustRefer',isactive=True).first()
+                    if crefer_setup and crefer_setup.value_data == 'True':
+                        if 'cust_refer' in request.data and not request.data['cust_refer']:
+                            k.cust_refer = cus_code
+                            k.save()
+
                     state = status.HTTP_201_CREATED
-                    message = "Created Succesfully "
+                    message = "Created Succesfully"
                     error = False
                     data = serializer.data
                     result = response(self, request, queryset, total, state, message, error, serializer_class, data,
                                     action=self.action)
+                   
                     return Response(result, status=status.HTTP_201_CREATED)
 
                 error = True
@@ -18079,6 +18126,10 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
                     estimated_deliverydate=request.data['estimated_deliverydate'] if 'estimated_deliverydate' in request.data and request.data['estimated_deliverydate'] else None,
                     no_of_weeks_pregnant=request.data['no_of_weeks_pregnant'] if 'no_of_weeks_pregnant' in request.data and request.data['no_of_weeks_pregnant'] else None,
                     no_of_children=request.data['no_of_children'] if 'no_of_children' in request.data and request.data['no_of_children'] else None,
+                    cust_postcode=request.data['cust_postcode'] if 'cust_postcode' in request.data and request.data['cust_postcode'] else customer.cust_postcode,
+                    sgn_unitno=request.data['sgn_unitno'] if 'sgn_unitno' in request.data and request.data['sgn_unitno'] else customer.sgn_unitno,
+                    sgn_block=request.data['sgn_block'] if 'sgn_block' in request.data and request.data['sgn_block'] else customer.sgn_block,
+                    sgn_street=request.data['sgn_street'] if 'sgn_street' in request.data and request.data['sgn_street'] else customer.sgn_street,
                     )
 
                     if 'cust_corporate' in requestData and requestData['cust_corporate']:

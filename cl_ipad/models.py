@@ -36,7 +36,8 @@ class WebConsultation_Dtl(models.Model):
     question_number = models.CharField(db_column='questionNumber', max_length=10, null=True, blank=True)  # Field name made lowercase.
     answer = models.IntegerField(db_column='answer', null=True, blank=True)  # Field name made lowercase.
     answer_text = models.CharField(db_column='answerText', max_length=200, null=True, blank=True)  # Field name made lowercase.
-    
+    subquestion_number = models.CharField(db_column='subquestionNumber', max_length=10, null=True, blank=True)  # Field name made lowercase.
+
     class Meta:
         db_table = 'WebConsultation_Dtl'
 
@@ -82,9 +83,7 @@ class WebConsultation_Questionsub_questions(models.Model):
     options = models.CharField(db_column='options', max_length=100, blank=True, null=True)
     sub_question_english = models.CharField(db_column='sub_question_english', max_length=500, blank=True, null=True)
     sub_question_chinese = models.CharField(db_column='sub_question_chinese', max_length=500, blank=True, null=True)
-    answer = models.IntegerField(db_column='answer', null=True, blank=True)  # Field name made lowercase.
-    answer_text = models.CharField(db_column='answerText', max_length=200, null=True, blank=True)  # Field name made lowercase.
-    
+   
 
     class Meta:
         db_table = 'WebConsultation_Questionsub_questions'

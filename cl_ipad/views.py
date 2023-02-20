@@ -7,7 +7,9 @@ from .serializers import (WebConsultationHdrSerializer,WebConsultationDtlSeriali
 WebConsultation_AnalysisResultSerializer,WebConsultation_ReferralSerializer,
 WebConsultation_Referral_HdrSerializer,TransactionCustomerSerializer,
 TransactionPosDaudSerializer,TNCMasterSerializer,WebConsultationQuestionMultichoiceSerializer,
-TNC_HeaderSerializer,TNC_DetailformSerializer,WebConsultationQuestionsub_questionsSerializer)
+TNC_HeaderSerializer,TNC_DetailformSerializer,WebConsultationQuestionsub_questionsSerializer,
+WebConsultationQuestionprintSerializer,WebConsultation_AnalysisResultprintSerializer,
+WebConsultation_ReferralprintSerializer,WebConsultation_Referral_HdrprintSerializer)
 from .models import (WebConsultation_Hdr,WebConsultation_Dtl,WebConsultation_Question,WebConsultation_AnalysisResult,
 WebConsultation_Referral,WebConsultation_Referral_Hdr,TNC_Master,TNC_Header,TNC_Detail,
 WebConsultation_QuestionMultichoice,WebConsultation_Questionsub_questions)
@@ -315,29 +317,25 @@ class WebConsultationDtlViewset(viewsets.ModelViewSet):
                     # print(reqt,"reqt")
                     serializer = WebConsultationDtlSerializer(data=reqt)
                     if serializer.is_valid():
-                        sub_questions = reqt.pop('sub_questions')
                         if not 'doc_no' in reqt or not reqt['doc_no']:
                             raise Exception('Please give doc_no!!.') 
  
                         if not 'question_number' in reqt or not reqt['question_number']:
                             raise Exception('Please give question_number!!.') 
 
-                        if sub_questions == []:    
-                            if not 'answer' in reqt or reqt['answer'] is None:
-                                raise Exception('Please give answer!!.') 
-
-                        check_ids = WebConsultation_Dtl.objects.filter(doc_no=reqt['doc_no'],
-                        question_number=reqt['question_number']).order_by('-pk')
+                        if not 'answer' in reqt or reqt['answer'] is None:
+                            raise Exception('Please give answer!!.') 
+                        
+                        check_ids = False
+                        if 'subquestion_number' in reqt and reqt['subquestion_number']:
+                            check_ids = WebConsultation_Dtl.objects.filter(doc_no=reqt['doc_no'],
+                            question_number=reqt['question_number'],subquestion_number=reqt['subquestion_number']).order_by('-pk')
+                        else:
+                            check_ids = WebConsultation_Dtl.objects.filter(doc_no=reqt['doc_no'],
+                            question_number=reqt['question_number']).order_by('-pk')
                         if not check_ids:
                             k = serializer.save()
 
-                        
-                        for i in sub_questions:
-                            sobj = WebConsultation_Questionsub_questions.objects.filter(pk=i['id']).first()
-                            if sobj:
-                                sobj.answer = i['answer']
-                                sobj.answer_text = i['answer_text']
-                                sobj.save()
     
                     else:
                         data = serializer.errors
@@ -377,11 +375,11 @@ class WebConsultationDtlViewset(viewsets.ModelViewSet):
                     raise Exception('Please give answer!!.') 
 
                 
-                check_ids = WebConsultation_Dtl.objects.filter(~Q(pk=ref.pk)).filter(doc_no=ref.doc_no,
-                question_number=request.data['question_number']).order_by('-pk')
-                if check_ids:
-                    msg = "WebConsultation Dtl {0} already record exist !!".format(str(ref.doc_no))
-                    raise Exception(msg) 
+                # check_ids = WebConsultation_Dtl.objects.filter(~Q(pk=ref.pk)).filter(doc_no=ref.doc_no,
+                # question_number=request.data['question_number']).order_by('-pk')
+                # if check_ids:
+                #     msg = "WebConsultation Dtl {0} already record exist !!".format(str(ref.doc_no))
+                #     raise Exception(msg) 
                     
                 serializer = self.get_serializer(ref, data=request.data, partial=True)
                 if serializer.is_valid():
@@ -1252,7 +1250,14 @@ class WebConsultation_ReferralViewset(viewsets.ModelViewSet):
     def get_queryset(self):
         fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
         site = fmspw[0].loginsite
-        queryset = WebConsultation_Referral.objects.filter(isactive=True,site_code=site.itemsite_code).order_by('-pk')
+        doc_no = self.request.GET.get('doc_no',None)
+            
+        if not doc_no:
+            raise Exception('Please give doc_no') 
+        
+       
+        queryset = WebConsultation_Referral.objects.filter(isactive=True,
+        doc_no=doc_no).order_by('-pk')
        
         return queryset      
 
@@ -1442,8 +1447,13 @@ class WebConsultation_Referral_HdrViewset(viewsets.ModelViewSet):
     def get_queryset(self):
         fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
         site = fmspw[0].loginsite
+        doc_no = self.request.GET.get('doc_no',None)
+            
+        if not doc_no:
+            raise Exception('Please give doc_no') 
+        
         queryset = WebConsultation_Referral_Hdr.objects.filter(isactive=True,
-        site_code=site.itemsite_code).order_by('-pk')
+        doc_no=doc_no).order_by('-pk')
        
         return queryset      
 
@@ -1500,7 +1510,7 @@ class WebConsultation_Referral_HdrViewset(viewsets.ModelViewSet):
                     
                     k = serializer.save(isactive=True,
                     site_code=site.itemsite_code,
-                    create_date=date.today())
+                    create_date=date.today(),create_by=fmspw[0].pw_userlogin)
                     
                     result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully",
                     'error': False}
@@ -1553,7 +1563,7 @@ class WebConsultation_Referral_HdrViewset(viewsets.ModelViewSet):
                 serializer = self.get_serializer(ref, data=request.data, partial=True)
                 if serializer.is_valid():
                 
-                    serializer.save(last_updatedate=date.today())
+                    serializer.save(last_updatedate=date.today(),last_updateby=fmspw.pw_userlogin)
                     
                     result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",'error': False}
                     return Response(result, status=status.HTTP_200_OK)
@@ -1864,9 +1874,11 @@ class TransactionCustomerViewset(viewsets.ModelViewSet):
                 fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
                 site = fmspw[0].loginsite
 
-                if self.request.data.get('daud_ids',None) is None:
-                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give PosDaud ids",'error': True}
+                if not self.request.data.get('daud_ids',None):
+                    result = {'status': status.HTTP_400_BAD_REQUEST,
+                    "message":"Please Select Atleast Any 1 Package",'error': True}
                     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
 
                 daud_ids =  request.data['daud_ids'].split(',')
                 posdaud_ids =  PosDaud.objects.filter(pk__in=daud_ids)  
@@ -2119,4 +2131,89 @@ class ClientDetailsListAPIView(GenericAPIView):
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)          
+
+
+class WebConsultationPrintListAPIView(GenericAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+          
+    
+    def get(self, request):
+        try:    
+            fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+            site = fmspw.loginsite
+            doc_no = self.request.GET.get('doc_no',None)
+            if not doc_no:
+                raise Exception('Please give doc_no') 
+
+            webhdr_obj = WebConsultation_Hdr.objects.filter(doc_no=doc_no).first()  
+            if not webhdr_obj:
+                raise Exception('WebConsultation Hdr ID Doesnt exist!!') 
+            
+            doc_date = ""
+            if webhdr_obj and webhdr_obj.doc_date:
+                splt = str(webhdr_obj.doc_date).split(" ") 
+                doc_date = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d/%m/%Y")
+            
+            cust_obj = Customer.objects.filter(cust_isactive=True,
+            pk=webhdr_obj.cust_codeid.pk).only('cust_isactive').order_by('-pk').first()        
+            if not cust_obj:
+                raise Exception('Customer ID Does not exist!!.') 
+            
+            signature = ""
+            if webhdr_obj and webhdr_obj.signature:
+                signature = str(SITE_ROOT)+str(webhdr_obj.signature)
+
+            val = {'date' : doc_date,
+            'consultant': webhdr_obj.emp_codeid.display_name if webhdr_obj.emp_codeid and webhdr_obj.emp_codeid.display_name else "",
+            'site': webhdr_obj.site_codeid.itemsite_desc +" ("+ webhdr_obj.site_codeid.itemsite_code +")" if webhdr_obj.site_codeid else "",
+            'signature': signature}
+            
+            cust_val = {'name': cust_obj.cust_name if cust_obj.cust_name else "",
+            'nric': cust_obj.cust_nric if cust_obj.cust_nric else "",
+            'contact_no': cust_obj.cust_phone2 if cust_obj.cust_phone2 else "", 
+            'birthday': cust_obj.cust_dob if cust_obj.cust_dob else "",
+            'occupation': cust_obj.cust_occupation if cust_obj.cust_occupation else "", 
+            'maritalStatus': cust_obj.cust_marital if cust_obj.cust_marital else "",
+            'address1' : cust_obj.sgn_block if cust_obj.sgn_block else "", 
+            'address2' : cust_obj.sgn_street if cust_obj.sgn_street else "",
+            'address3' : cust_obj.sgn_unitno if cust_obj.sgn_unitno else "", 
+            'address4' : cust_obj.cust_postcode if cust_obj.cust_postcode else "",
+            'sex' : cust_obj.Cust_sexesid.itm_name.strip() if cust_obj.Cust_sexesid else "",
+            'citizenship' : cust_obj.cust_nationality.strip() if cust_obj.cust_nationality else "",
+            'race': cust_obj.cust_race if cust_obj.cust_race else "",
+            'email': cust_obj.cust_email if cust_obj.cust_email else ""}
+
+
+            quest_ids = WebConsultation_Question.objects.filter(isactive=True)
+            qserializer = WebConsultationQuestionprintSerializer(quest_ids, many=True, context={'request': self.request})
+            
+            dtl_answerids = WebConsultation_Dtl.objects.filter(doc_no=doc_no).values('pk','question_number','answer','answer_text')
+
+            analysis_ids = WebConsultation_AnalysisResult.objects.filter(doc_no=doc_no).first()  
+            aserializer = WebConsultation_AnalysisResultprintSerializer(analysis_ids, context={'request': self.request})
+
+            refferal_ids = WebConsultation_Referral.objects.filter(doc_no=doc_no)
+            rserializer = WebConsultation_ReferralprintSerializer(refferal_ids, many=True, context={'request': self.request})
+
+            refferalhdr_ids = WebConsultation_Referral_Hdr.objects.filter(doc_no=doc_no).first() 
+            rhdrserializer = WebConsultation_Referral_HdrprintSerializer(refferalhdr_ids,context={'request': self.request}) 
+            
+            result = {'status': status.HTTP_200_OK , "message": "Listed Succesfully",
+            'error': False,'data': val,'customer_data': cust_val,
+            'question_data': qserializer.data,'answer_data': dtl_answerids,
+            'analysis_result': aserializer.data, 'referral_list': rserializer.data,
+            'referralhdr_list': rhdrserializer.data}
+        
+
+            return Response(result, status=status.HTTP_200_OK)
+    
+
+
+            
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)          
+
     

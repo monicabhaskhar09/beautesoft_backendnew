@@ -4,6 +4,7 @@ WebConsultation_AnalysisResult,WebConsultation_Referral,WebConsultation_Referral
 WebConsultation_QuestionMultichoice,TNC_Detail,TNC_Header,WebConsultation_Questionsub_questions)
 from cl_table.models import (Customer, PosDaud,PosHaud)
 import datetime
+from Cl_beautesoft.settings import SITE_ROOT
 
 class WebConsultationHdrSerializer(serializers.ModelSerializer):
     
@@ -173,3 +174,72 @@ class TNC_DetailformSerializer(serializers.ModelSerializer):
         data['invoice_no'] = haud_ids.sa_transacno if haud_ids and haud_ids.sa_transacno else ""
 
         return data 
+
+
+class WebConsultationQuestionprintSerializer(serializers.ModelSerializer):
+    
+    class Meta:
+        model = WebConsultation_Question
+        fields = '__all__'
+
+    def to_representation(self, obj):
+        data = super(WebConsultationQuestionprintSerializer, self).to_representation(obj)
+
+        data['item_site_desc'] = ""  
+        data['item_site_ids'] = ""
+        if obj.site_ids.filter().exists():
+            site_ids = obj.site_ids.filter()
+ 
+            data['item_site_ids'] =  [{'label': i.itemsite_code ,'value': i.pk} for i in site_ids if i.itemsite_code]
+            data['item_site_desc'] = ','.join([v.itemsite_code for v in site_ids if v.itemsite_code])
+        
+       
+        cho_ids = WebConsultation_QuestionMultichoice.objects.filter(questionid__pk=obj.pk).values('id','questionid','choice')
+        data['multichoices'] = cho_ids
+
+        qcho_ids = WebConsultation_Questionsub_questions.objects.filter(questionid__pk=obj.pk).values('id','questionid',
+        'options','sub_question_english','sub_question_chinese')
+        data['sub_questions'] = qcho_ids
+
+
+        return data           
+
+
+class WebConsultation_AnalysisResultprintSerializer(serializers.ModelSerializer):
+    
+    
+    class Meta:
+        model = WebConsultation_AnalysisResult
+        fields = '__all__' 
+
+class WebConsultation_ReferralprintSerializer(serializers.ModelSerializer):
+   
+    class Meta:
+        model = WebConsultation_Referral
+        fields = ['id','referral_name','referral_age','referral_contactno']         
+
+
+class WebConsultation_Referral_HdrprintSerializer(serializers.ModelSerializer):
+    
+   
+    class Meta:
+        model = WebConsultation_Referral_Hdr
+        fields = ['id','signature_img','welcomedoor_signatureimg']    
+
+    def to_representation(self, obj):
+        data = super(WebConsultation_Referral_HdrprintSerializer, self).to_representation(obj)
+        signature_img = ""
+        if obj and obj.signature_img:
+            signature_img = str(SITE_ROOT)+str(obj.signature_img)
+
+        data['signature_img'] = signature_img
+
+        welcomedoor_signatureimg = ""
+        if obj and obj.welcomedoor_signatureimg:
+            welcomedoor_signatureimg = str(SITE_ROOT)+str(obj.welcomedoor_signatureimg)
+
+        data['welcomedoor_signatureimg'] = welcomedoor_signatureimg
+
+
+        return data           
+                              

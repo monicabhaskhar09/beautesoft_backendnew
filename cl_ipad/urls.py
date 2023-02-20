@@ -21,6 +21,7 @@ router.register(r'webquestionsubquestions', views.WebConsultation_Questionsub_qu
 urlpatterns = [
     path('api/', include(router.urls)),
     path('api/clientdetails/', views.ClientDetailsListAPIView.as_view(), name='clientdetails'),
+    path('api/webconsultationprint/', views.WebConsultationPrintListAPIView.as_view(), name='webconsultationprint'),
 
    
 
