@@ -4861,7 +4861,7 @@ class AppointmentEditViewset(viewsets.ModelViewSet):
 
                         treat = {'appt_id': i.pk,'start_time':start_time,'end_time':end_time,'add_duration':add_duration,
                         'item_name': i.appt_remark,'item_id': i.Item_Codeid.pk if i.Item_Codeid else "",
-                        'item_text' : None,
+                        'item_text' : i.appt_remark,
                         'emp_name': i.emp_noid.display_name,'emp_id':i.emp_noid.pk,
                         'requesttherapist': i.requesttherapist,
                         'recur_qty': i.recurring_qty if i.recurring_qty else "",
@@ -11162,7 +11162,7 @@ class CustomerReceiptPrintList(generics.ListAPIView):
                     d['sales_staff'] = sales_staff
                     d['work_staff'] = work_staff
 
-                if d['isfoc'] == True:
+                if d['isfoc'] == True and d['holditemqty'] is None:
                     d['dt_itemdesc'] = d['dt_itemdesc']
                 elif d['dt_status'] == 'SA' and d['record_detail_type'] == "PACKAGE":
                     d['dt_itemdesc'] = d['dt_itemdesc']+"-"+str(packages)    
@@ -18135,6 +18135,11 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
                     if 'cust_corporate' in requestData and requestData['cust_corporate']:
                         customer.cust_corporate = requestData['cust_corporate']
                         customer.save()
+
+                    if request.data['cust_dob'] and request.data['cust_dob'] != str(date.today()):
+                        customer.dob_status = True
+                        customer.save()
+
                     state = status.HTTP_200_OK
                     message = "Updated Succesfully"
                     error = False
@@ -24111,9 +24116,10 @@ class DisplayCatalogViewset(viewsets.ModelViewSet):
     def view(self, request): 
         try:
           
-            queryset = DisplayCatalog.objects.filter(isactive=True, parent_code="").order_by('-pk')
+            queryset = DisplayCatalog.objects.filter(isactive=True, 
+            parent_code__isnull=True).order_by('-pk')
 
-            print(len(queryset),"queryset")
+            # print(len(queryset),"queryset")
               
             final  = [] 
             if queryset:
@@ -24248,7 +24254,7 @@ class DisplayCatalogViewset(viewsets.ModelViewSet):
             return general_error_response(invalid_message)
     
     @transaction.atomic
-    def partial_update(self, request, pk=None):
+    def update(self, request, pk=None):
         try:
             with transaction.atomic():
                 fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
@@ -24268,7 +24274,7 @@ class DisplayCatalogViewset(viewsets.ModelViewSet):
                     msg = "{0} already this record exist active/inactive!!".format(str(request.data['menu_code']))
                     raise Exception(msg) 
                     
-                serializer = self.get_serializer(ref, data=request.data, partial=True)
+                serializer = self.get_serializer(ref, data=request.data)
                 if serializer.is_valid():
                 
                     serializer.save()
@@ -24373,5 +24379,155 @@ class DisplayItemViewset(viewsets.ModelViewSet):
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)
+    
 
+    @transaction.atomic
+    def create(self, request):
+        try:
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+                site = fmspw[0].loginsite
+
+                if not 'menu_code' in request.data or not request.data['menu_code']:
+                    raise Exception('Please give menu code!!.') 
+
+                if not 'stockid' in request.data or not request.data['stockid']:
+                    raise Exception('Please give stockid!!.')
+
+               
+                check_ids = DisplayItem.objects.filter(menu_code=request.data['menu_code'],
+                stockid=request.data['stockid'])
+
+            
+                if check_ids:
+                    msg = "Menu code {0}, Stockid {1} already record exist !!".format(str(request.data['menu_code']),str(request.data['stockid']))
+                    raise Exception(msg)
+
+                scheck_ids = DisplayItem.objects.filter(stockid=request.data['stockid'])
+                if scheck_ids:
+                    msg = "Stockid {0} already record exist !!".format(str(request.data['stockid']))
+                    raise Exception(msg)
+     
+                    
+
+                serializer = DisplayItemSerializer(data=request.data)
+                if serializer.is_valid():
+                    
+                    k = serializer.save()
+                   
+                    result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully",
+                    'error': False}
+                    return Response(result, status=status.HTTP_201_CREATED)
+                
+
+                data = serializer.errors
+
+                if 'non_field_errors' in data:
+                    message = data['non_field_errors'][0]
+                else:
+                    first_key = list(data.keys())[0]
+                    message = str(first_key)+":  "+str(data[first_key][0])
+
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":message,
+                'error': True, 'data': serializer.errors}
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+    
+    @transaction.atomic
+    def update(self, request, pk=None):
+        try:
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+                site = fmspw.loginsite
+                ref = self.get_object(pk)
+                if not 'menu_code' in request.data or not request.data['menu_code']:
+                    raise Exception('Please give menu code!!.') 
+
+                
+                if not 'stockid' in request.data or not request.data['stockid']:
+                    raise Exception('Please give stockid!!.')
+
+                check_ids = DisplayItem.objects.filter(~Q(pk=ref.pk)).filter(menu_code=request.data['menu_code'],
+                stockid=request.data['stockid']).order_by('-pk')
+                if check_ids:
+                    msg = "Menu code {0}, Stockid {1} already record exist !!".format(str(request.data['menu_code']),str(request.data['stockid']))
+                    raise Exception(msg)
+
+                scheck_ids = DisplayItem.objects.filter(~Q(pk=ref.pk)).filter(
+                stockid=request.data['stockid']).order_by('-pk')
+                if scheck_ids:
+                    msg = "Stockid {0} already record exist !!".format(str(request.data['stockid']))
+                    raise Exception(msg) 
+                        
+                    
+                serializer = self.get_serializer(ref, data=request.data)
+                if serializer.is_valid():
+                
+                    serializer.save()
+                    
+                    result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",'error': False}
+                    return Response(result, status=status.HTTP_200_OK)
+
+                
+                data = serializer.errors
+
+                if 'non_field_errors' in data:
+                    message = data['non_field_errors'][0]
+                else:
+                    first_key = list(data.keys())[0]
+                    message = str(first_key)+":  "+str(data[first_key][0])
+
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":message,
+                'error': True, 'data': serializer.errors}
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)   
+
+    def retrieve(self, request, pk=None):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+            site = fmspw.loginsite
+            ref = self.get_object(pk)
+            serializer = DisplayItemSerializer(ref, context={'request': self.request})
+            result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
+            'data': serializer.data}
+            return Response(data=result, status=status.HTTP_200_OK)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message) 
+
+
+   
+    def destroy(self, request, pk=None):
+        try:
+            ref = self.get_object(pk)
+            serializer = DisplayItemSerializer(ref, data=request.data ,partial=True)
+            state = status.HTTP_204_NO_CONTENT
+            if serializer.is_valid():
+                ref.delete()
+                result = {'status': status.HTTP_200_OK,"message":"Deleted Succesfully",'error': False}
+                return Response(result, status=status.HTTP_200_OK)
+            
+            # print(serializer.errors,"jj")
+            result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",
+            'error': True,'data': serializer.errors }
+            return Response(result, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)          
+
+
+    def get_object(self, pk):
+        try:
+            return DisplayItem.objects.get(pk=pk)
+        except DisplayItem.DoesNotExist:
+            raise Exception('DisplayItem ID Does not Exist') 
+            
+    
 

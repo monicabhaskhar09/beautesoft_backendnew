@@ -46,8 +46,8 @@ class WebConsultationHdrViewset(viewsets.ModelViewSet):
         form_no = self.request.GET.get('form_no',None)
         consultant_id = self.request.GET.get('consultant_id',None)
             
-        if not cust_id:
-            raise Exception('Please give Customer ID!!') 
+        # if not cust_id:
+        #     raise Exception('Please give Customer ID!!') 
             
         queryset = WebConsultation_Hdr.objects.filter(isactive=True,site_codeid=site).order_by('-pk')
         if cust_id:
@@ -354,6 +354,54 @@ class WebConsultationDtlViewset(viewsets.ModelViewSet):
                 result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully",
                 'error': False}
                 return Response(result, status=status.HTTP_201_CREATED)
+            
+                
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+    
+    @transaction.atomic
+    @action(methods=['post'], detail=False, permission_classes=[IsAuthenticated & authenticated_only],
+    authentication_classes=[ExpiringTokenAuthentication])
+    def updatemulti(self, request): 
+        try:  
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+                site = fmspw[0].loginsite
+
+                for idx, reqt in enumerate(request.data):    
+                    # print(reqt,"reqt")
+                    if not 'id' in reqt or not reqt['id']:
+                        raise Exception('Please give id!!.') 
+
+                    if not 'answer' in reqt or reqt['answer'] is None:
+                        raise Exception('Please give answer!!.') 
+                
+                   
+                    ref = self.get_object(reqt['id'])
+                    serializer = WebConsultationDtlSerializer(ref, data=reqt, partial=True)
+                    if serializer.is_valid():
+                            
+                        serializer.save()
+
+    
+                    else:
+                        data = serializer.errors
+
+                        if 'non_field_errors' in data:
+                            message = data['non_field_errors'][0]
+                        else:
+                            first_key = list(data.keys())[0]
+                            message = str(first_key)+":  "+str(data[first_key][0])
+
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":message,
+                        'error': True, 'data': serializer.errors}
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+                      
+                result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",
+                'error': False}
+                return Response(result, status=status.HTTP_200_OK)
             
                 
         except Exception as e:
@@ -1068,7 +1116,15 @@ class WebConsultation_AnalysisResultViewset(viewsets.ModelViewSet):
     def get_queryset(self):
         fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
         site = fmspw[0].loginsite
-        queryset = WebConsultation_AnalysisResult.objects.filter(isactive=True,site_code=site.itemsite_code).order_by('-pk')
+        
+        doc_no = self.request.GET.get('doc_no',None)
+            
+        if not doc_no:
+            raise Exception('Please give doc_no') 
+        
+       
+        queryset = WebConsultation_AnalysisResult.objects.filter(isactive=True,
+        doc_no=doc_no).order_by('-pk')
        
         return queryset      
 
@@ -1109,7 +1165,12 @@ class WebConsultation_AnalysisResultViewset(viewsets.ModelViewSet):
 
                 if not 'cust_code' in request.data or not request.data['cust_code']:
                     raise Exception('Please give customer code!!.') 
-    
+                
+                dcheck_ids = WebConsultation_AnalysisResult.objects.filter(doc_no=request.data['doc_no']).order_by('-pk')
+                if dcheck_ids:
+                    msg = "Already record there for this doc no {0}!!".format(str(request.data['doc_no']))
+                    raise Exception(msg) 
+                    
 
                
                 check_ids = WebConsultation_AnalysisResult.objects.filter(site_code=site.itemsite_code,
@@ -2188,7 +2249,7 @@ class WebConsultationPrintListAPIView(GenericAPIView):
             quest_ids = WebConsultation_Question.objects.filter(isactive=True)
             qserializer = WebConsultationQuestionprintSerializer(quest_ids, many=True, context={'request': self.request})
             
-            dtl_answerids = WebConsultation_Dtl.objects.filter(doc_no=doc_no).values('pk','question_number','answer','answer_text')
+            dtl_answerids = WebConsultation_Dtl.objects.filter(doc_no=doc_no).values('pk','question_number','answer','answer_text','subquestion_number')
 
             analysis_ids = WebConsultation_AnalysisResult.objects.filter(doc_no=doc_no).first()  
             aserializer = WebConsultation_AnalysisResultprintSerializer(analysis_ids, context={'request': self.request})

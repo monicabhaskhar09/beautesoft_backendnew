@@ -59,6 +59,7 @@ class WebConsultation_Question(models.Model):
     site_ids = models.ManyToManyField('cl_app.ItemSitelist',blank=True)
     question_text = models.CharField(db_column='QuestionText',max_length=500,  blank=True, null=True)  # Field name made lowercase.
     option_type = models.IntegerField(db_column='option_type', blank=True, null=True)  # Field name made lowercase.
+    mandatory = models.BooleanField(db_column='Mandatory',default=False)
 
     class Meta:
         db_table = 'WebConsultation_Question'

@@ -276,10 +276,11 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
             #     multi.save()
                 # print(multi.id,"multi")
 
+            mdeposit = float(c.deposit) / float(c.multistaff_ids.all().count()) 
             for sale in c.multistaff_ids.all():
                 multi = Multistaff(sa_transacno=sa_transacno,item_code=str(c.itemcodeid.item_code)+"0000",
                 emp_code=sale.emp_code,ratio=sale.ratio,salesamt="{:.2f}".format(float(sale.salesamt)),type=None,isdelete=False,role=1,
-                dt_lineno=c.lineno,salescommpoints=sale.salescommpoints)
+                dt_lineno=c.lineno,salescommpoints=sale.salescommpoints,deposit="{:.2f}".format(float(mdeposit)))
                 multi.save()  
                 sale.sa_transacno = sa_transacno 
                 sale.save()
@@ -2250,11 +2251,12 @@ def invoice_topup(self, request, topup_ids,sa_transacno, cust_obj, outstanding, 
             #     dt_lineno=c.lineno)
             #     multi.save()
                 # print(multi.id,"multi")
-
+            
+            mdeposit = float(c.deposit) / float(c.multistaff_ids.all().count()) 
             for sale in c.multistaff_ids.all():
                 multi = Multistaff(sa_transacno=sa_transacno,item_code=str(c.itemcodeid.item_code)+"0000",
                 emp_code=sale.emp_code,ratio=sale.ratio,salesamt="{:.2f}".format(float(sale.salesamt)),type=None,isdelete=False,role=1,
-                dt_lineno=c.lineno,salescommpoints=sale.salescommpoints)
+                dt_lineno=c.lineno,salescommpoints=sale.salescommpoints,deposit="{:.2f}".format(float(mdeposit)))
                 multi.save()
                 sale.sa_transacno = sa_transacno 
                 sale.save()    
@@ -2350,6 +2352,11 @@ def invoice_topup(self, request, topup_ids,sa_transacno, cust_obj, outstanding, 
                 prepaidacc.sa_date = pay_date
                 prepaidacc.start_date = pay_date
                 prepaidacc.save()
+                pacc_ids = PrepaidAccountCondition.objects.filter(pp_no=c.prepaid_account.pp_no,
+                pos_daud_lineno=c.prepaid_account.line_no).only('pp_no','pos_daud_lineno').first()
+                if pacc_ids:                                
+                    acc = PrepaidAccountCondition.objects.filter(pk=pacc_ids.pk).update(remain=remain)
+
 
             totaldisc = c.discount_amt + c.additional_discountamt
             totalpercent = c.discount + c.additional_discount
@@ -2675,10 +2682,10 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
             if c.sales_staff.all().count() > 0:
                 count = c.sales_staff.all().count()
                 ratio = float(c.ratio) / float(count)
-
+            
             multi = Multistaff(sa_transacno=sa_transacno,item_code=str(c.itemcodeid.item_code)+"0000" if c.itemcodeid else None,
             emp_code=service_staff.emp_code if service_staff.emp_code else None,ratio=c.ratio if c.ratio else None,salesamt="{:.2f}".format(float(c.deposit)) if c.deposit else 0.0,type=None,isdelete=False,role=1,
-            dt_lineno=c.lineno if c.lineno else None)
+            dt_lineno=c.lineno if c.lineno else None,deposit="{:.2f}".format(float(c.deposit)) if c.deposit else 0.0)
             multi.save()
             # print(multi.id,"multi")
 
@@ -3635,11 +3642,12 @@ def invoice_exchange(self, request, exchange_ids, sa_transacno, cust_obj, outsta
             #     dt_lineno=c.lineno)
             #     multi.save()
                 # print(multi.id,"multi")
-
+            
+            mdeposit = float(c.deposit) / float(c.multistaff_ids.all().count()) 
             for sale in c.multistaff_ids.all():
                 multi = Multistaff(sa_transacno=sa_transacno,item_code=str(c.itemcodeid.item_code)+"0000",
                 emp_code=sale.emp_code,ratio=sale.ratio,salesamt="{:.2f}".format(float(sale.salesamt)),type=None,isdelete=False,role=1,
-                dt_lineno=c.lineno,salescommpoints=sale.salescommpoints)
+                dt_lineno=c.lineno,salescommpoints=sale.salescommpoints,deposit="{:.2f}".format(float(mdeposit)))
                 multi.save()  
                 sale.sa_transacno = sa_transacno 
                 sale.save()  

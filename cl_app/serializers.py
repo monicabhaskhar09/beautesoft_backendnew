@@ -556,7 +556,7 @@ class BillingSerializer(serializers.ModelSerializer):
         'paid_amount': str("{:.2f}".format(float(instance.sa_depositamt))) if instance.sa_depositamt else "0.00",
         'no_of_qty': instance.sa_totqty,'item':item,'no_of_lines': len(daud) if daud else 0,
         'new_date': "",'or':"NP15",'isvoid': instance.isvoid,'is_current':is_current,
-        'sales_amt': sales_amt}
+        'sales_amt': sales_amt,'itemsite_code': instance.itemsite_code}
        
         return mapped_object
 

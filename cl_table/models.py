@@ -444,7 +444,7 @@ class Treatment(models.Model):
     record_status = models.CharField(db_column='Record_Status',choices=RECORD_STATUS, max_length=10, blank=True, null=True)  # Field name made lowercase.
     # appt_time = models.DateTimeField(db_column='Appt_Time', blank=True, null=True)  # Field name made lowercase.
     remarks = models.CharField(db_column='Remarks', max_length=255, blank=True, null=True)  # Field name made lowercase.
-    # duration = models.IntegerField(db_column='Duration', blank=True, null=True)  # Field name made lowercase.
+    duration = models.IntegerField(db_column='Duration', blank=True, null=True)  # Field name made lowercase.
     # hold_item = models.CharField(db_column='Hold_Item', max_length=50, blank=True, null=True)  # Field name made lowercase.
     transaction_time = models.DateTimeField(db_column='Transaction_Time', blank=True, null=True)  # Field name made lowercase.
     dt_lineno = models.IntegerField(db_column='dt_LineNo', blank=True, null=True)  # Field name made lowercase.
@@ -948,7 +948,7 @@ class Customer(models.Model):
     # cust_activeyn = models.CharField(db_column='Cust_ActiveYN', max_length=255, blank=True, null=True)  # Field name made lowercase.
     cust_address2 = models.CharField(db_column='Cust_address2', max_length=255, blank=True, null=True)  # Field name made lowercase.
     cust_address3 = models.CharField(db_column='Cust_address3', max_length=255, blank=True, null=True)  # Field name made lowercase.
-    # dob_status = models.BooleanField(db_column='DOB_status',null=True)  # Field name made lowercase.
+    dob_status = models.BooleanField(db_column='DOB_status',null=True)  # Field name made lowercase.
     cust_dob = models.DateField(db_column='Cust_DOB', blank=True, null=True)  # Field name made lowercase.
     cust_marital = models.CharField(db_column='Cust_marital', max_length=255, blank=True, null=True)  # Field name made lowercase.
     cust_race = models.CharField(db_column='Cust_race', max_length=255, blank=True, null=True)  # Field name made lowercase.
@@ -1138,7 +1138,7 @@ class CustomerExtended(models.Model):
     cust_membershipused = models.DecimalField(db_column='Cust_MembershipUsed', max_digits=19, decimal_places=4, blank=True, null=True)  # Field name made lowercase.
     cust_membership = models.CharField(db_column='Cust_Membership', max_length=255, blank=True, null=True)  # Field name made lowercase.
     cust_activeyn = models.CharField(db_column='Cust_ActiveYN', max_length=255, blank=True, null=True)  # Field name made lowercase.
-    dob_status = models.BooleanField(db_column='DOB_status',null=True)  # Field name made lowercase.
+    # dob_status = models.BooleanField(db_column='DOB_status',null=True)  # Field name made lowercase.
     cust_religion = models.CharField(db_column='Cust_religion', max_length=255, blank=True, null=True)  # Field name made lowercase.
     cust_stylist = models.CharField(db_column='Cust_Stylist', max_length=255, blank=True, null=True)  # Field name made lowercase.
     cust_stylistname = models.CharField(db_column='Cust_Stylistname', max_length=255, blank=True, null=True)  # Field name made lowercase.
@@ -2027,6 +2027,8 @@ class Multistaff(models.Model):
     emp_code = models.CharField(db_column='Emp_Code', max_length=20, null=True)  # Field name made lowercase.
     ratio = models.FloatField(db_column='Ratio', null=True)  # Field name made lowercase.
     salesamt = models.FloatField(db_column='SalesAmt', null=True)  # Field name made lowercase.
+    deposit = models.FloatField(db_column='Deposit', null=True)  # Field name made lowercase.
+    gt1deposit = models.FloatField(db_column='GT1Deposit', null=True)  # Field name made lowercase.
     type = models.CharField(db_column='Type', max_length=20, null=True)  # Field name made lowercase.
     isdelete = models.BooleanField(db_column='IsDelete', null=True)  # Field name made lowercase.
     role = models.CharField(db_column='Role', max_length=50, null=True)  # Field name made lowercase.
@@ -3285,7 +3287,7 @@ class Appointment(models.Model):
     item_code = models.CharField(db_column='item_Code', max_length=20, blank=True, null=True)  # Field name made lowercase.
     # treatmentid = models.CharField(db_column='treatmentId', max_length=20, blank=True, null=True)  # Field name made lowercase.
     # smsforconfirm = models.BooleanField(db_column='smsForConfirm', blank=True, null=True)  # Field name made lowercase.
-    # treatmentcode = models.CharField(db_column='treatmentCode', max_length=40, blank=True, null=True)  # Field name made lowercase.
+    treatmentcode = models.CharField(db_column='treatmentCode', max_length=40, blank=True, null=True)  # Field name made lowercase.
     # handledon = models.DateTimeField(db_column='HandledOn', blank=True, null=True)  # Field name made lowercase.
     # isnotifiedonce = models.BooleanField(db_column='isNotifiedOnce', blank=True, null=True)  # Field name made lowercase.
     # isnotifiedtwice = models.BooleanField(db_column='isNotifiedTwice', blank=True, null=True)  # Field name made lowercase.

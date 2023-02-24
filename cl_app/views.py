@@ -1372,19 +1372,20 @@ class CatalogFavoritesViewset(viewsets.ModelViewSet):
         month = today.month
         fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
         site = fmspw[0].loginsite
-        daud_ids = PosDaud.objects.filter(ItemSite_Codeid__pk=site.pk,created_at__date__month=month,
-        dt_qty__gt = 0,dt_status='SA').only('itemsite_code','created_at','dt_qty','dt_status').order_by('-pk')
+        daud_ids = PosDaud.objects.filter(ItemSite_Codeid__pk=site.pk,sa_date__date__month=month,
+        dt_qty__gt = 0,dt_status='SA').filter(~Q(dt_itemnoid__isnull=True)).only('itemsite_code','dt_qty','dt_status').order_by('-pk')
         pro_lst = []
         for d in daud_ids:
-            daudids = PosDaud.objects.filter(ItemSite_Codeid__pk=site.pk,created_at__date__month=month,
-            dt_itemnoid=d.dt_itemnoid,dt_qty__gt = 0,dt_status='SA').only('itemsite_code','created_at','dt_itemnoid','dt_qty','dt_status').aggregate(Sum('dt_qty'))
-            qdaudids = PosDaud.objects.filter(ItemSite_Codeid__pk=site.pk,created_at__date__month=month,
-            dt_itemnoid=d.dt_itemnoid,dt_qty__gt = 0,dt_status='SA').only('itemsite_code','created_at','dt_itemnoid','dt_qty','dt_status').order_by('-pk')[:1]
+            daudids = PosDaud.objects.filter(ItemSite_Codeid__pk=site.pk,sa_date__date__month=month,
+            dt_itemnoid=d.dt_itemnoid,dt_qty__gt = 0,dt_status='SA').only('itemsite_code','dt_itemnoid','dt_qty','dt_status').aggregate(Sum('dt_qty'))
+            qdaudids = PosDaud.objects.filter(ItemSite_Codeid__pk=site.pk,sa_date__date__month=month,
+            dt_itemnoid=d.dt_itemnoid,dt_qty__gt = 0,dt_status='SA').only('itemsite_code','dt_itemnoid','dt_qty','dt_status').order_by('-pk')[:1]
            
             #client qty > 10 need to change later
             if float(daudids['dt_qty__sum']) > 1:
-                if d.dt_itemnoid.pk not in pro_lst:
-                    pro_lst.append(d.dt_itemnoid.pk)
+                if d.dt_itemnoid:
+                    if d.dt_itemnoid.pk not in pro_lst:
+                        pro_lst.append(d.dt_itemnoid.pk)
         
         if pro_lst != []:
             queryset = Stock.objects.filter(pk__in=pro_lst,item_isactive=True).order_by('pk')
@@ -7044,7 +7045,7 @@ class VoidViewset(viewsets.ModelViewSet):
                     for m in multi_ids:
                         multi =  Multistaff(sa_transacno=sa_transacno,item_code=m.item_code,emp_code=m.emp_code,
                         ratio=m.ratio,salesamt=-float("{:.2f}".format(float(m.salesamt))) if m.salesamt else 0,type=m.type,isdelete=m.isdelete,role=m.role,dt_lineno=m.dt_lineno,
-                        level_group_code=m.level_group_code) 
+                        level_group_code=m.level_group_code,deposit=-float("{:.2f}".format(float(m.deposit))) if m.deposit else 0) 
                         multi.save()
                     
                     for d in daud_ids:
@@ -7200,7 +7201,7 @@ class VoidViewset(viewsets.ModelViewSet):
                                 acc_ids = TreatmentAccount.objects.filter(sa_transacno=haudobj.sa_transacno,type='Deposit',
                                 cust_code=haudobj.sa_custno,dt_lineno=d.dt_lineno)
                                 for acc in acc_ids:
-                                    TreatmentAccount.objects.filter(pk=acc.pk).update(sa_status="VOID",updated_at=timezone.now())   
+                                    TreatmentAccount.objects.filter(pk=acc.pk).update(sa_status="VOID")   
                                 
                                 #treat_ids = Treatment.objects.filter(sa_transacno=haudobj.sa_transacno,
                                 #cust_code=haudobj.sa_custno,site_code=site.itemsite_code)
@@ -7216,7 +7217,7 @@ class VoidViewset(viewsets.ModelViewSet):
                                 sal_acc_ids = TreatmentAccount.objects.filter(sa_transacno=haudobj.sa_transacno,type='Sales',
                                 cust_code=haudobj.sa_custno,dt_lineno=d.dt_lineno)
                                 for sal in sal_acc_ids:
-                                    TreatmentAccount.objects.filter(pk=sal.pk).update(description=d.itemcart.itemcodeid.item_name,sa_status="VOID",updated_at=timezone.now())   
+                                    TreatmentAccount.objects.filter(pk=sal.pk).update(description=d.itemcart.itemcodeid.item_name,sa_status="VOID")   
                                     appt_ids = Appointment.objects.filter(sa_transacno=sal.ref_transacno,
                                     treatmentcode=sal.ref_no,itemsite_code=site.itemsite_code).update(appt_status="Cancelled")
                                     master_ids = Treatment_Master.objects.filter(sa_transacno=sal.ref_transacno,
@@ -8014,7 +8015,7 @@ class VoidViewset(viewsets.ModelViewSet):
                     for m in multi_ids:
                         multi =  Multistaff(sa_transacno=sa_transacno,item_code=m.item_code,emp_code=m.emp_code,
                         ratio=m.ratio,salesamt=-float("{:.2f}".format(float(m.salesamt))) if m.salesamt else 0,type=m.type,isdelete=m.isdelete,role=m.role,dt_lineno=m.dt_lineno,
-                        level_group_code=m.level_group_code) 
+                        level_group_code=m.level_group_code,deposit=-float("{:.2f}".format(float(m.deposit))) if m.deposit else 0) 
                         multi.save()
 
                     for da in daud_ids:
