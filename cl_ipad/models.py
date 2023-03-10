@@ -37,7 +37,9 @@ class WebConsultation_Dtl(models.Model):
     answer = models.IntegerField(db_column='answer', null=True, blank=True)  # Field name made lowercase.
     answer_text = models.CharField(db_column='answerText', max_length=200, null=True, blank=True)  # Field name made lowercase.
     subquestion_number = models.CharField(db_column='subquestionNumber', max_length=10, null=True, blank=True)  # Field name made lowercase.
-
+    image = models.ImageField(db_column='image', blank=True, null=True,upload_to='img')  # Field name made lowercase. 
+    pic_data1 = models.TextField(blank=True, null=True)
+    
     class Meta:
         db_table = 'WebConsultation_Dtl'
 
@@ -188,6 +190,10 @@ class TNC_Master(models.Model):
     isactive = models.BooleanField(db_column='isActive',default=True)
     english = models.CharField(db_column='English', max_length=2000, null=True, blank=True)  # Field name made lowercase.
     otherlanguage = models.CharField(db_column='OtherLanguage', max_length=2000, null=True, blank=True)  # Field name made lowercase.    
+    mandatory = models.BooleanField(db_column='Mandatory',null=True)
+    is_declaration = models.BooleanField(db_column='Declaration',null=True)
+    tnctext1 = models.CharField(db_column='Tnctext1', max_length=500, null=True, blank=True)  # Field name made lowercase.
+    tnctext2 = models.CharField(db_column='Tnctext2', max_length=500, null=True, blank=True)  # Field name made lowercase.
 
     class Meta:
         db_table = 'TNC_Master'

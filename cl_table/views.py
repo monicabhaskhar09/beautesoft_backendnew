@@ -26,7 +26,7 @@ from .models import (Gender, Employee, Fmspw, Attendance2, Customer, Images, Tre
                      ItemDiv,Tempcustsign,CustomerDocument,TreatmentPackage,Tmptreatment,CustLogAudit,ContactPerson,
                      ItemFlexiservice,termsandcondition,Dayendconfirmlog,Participants,ProjectDocument,
                      MGMPolicyCloud,CustomerReferral,sitelistip,CustomerExtended,DisplayCatalog,
-                     DisplayItem)
+                     DisplayItem,OutletRequestLog)
 from cl_app.models import ItemSitelist, SiteGroup, LoggedInUser,TmpTreatmentSession
 from custom.models import Room,ItemCart,VoucherRecord,EmpLevel,PosPackagedeposit,payModeChangeLog,ProjectModel
 from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializer, Attendance2Serializer,
@@ -66,7 +66,8 @@ from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializ
                           ItemFlexiserviceSerializer,termsandconditionSerializer,ParticipantsSerializer,ProjectDocumentSerializer,
                           Custphone2Serializer,DayendconfirmlogSerializer,CustomerPointAccountSerializer,
                           MGMPolicyCloudSerializer,CustomerReferralSerializer,SitelistipSerializer,
-                          DisplayCatalogSerializer,DisplayItemSerializer,DisplayItemStockSerializer)
+                          DisplayCatalogSerializer,DisplayItemSerializer,DisplayItemStockSerializer,
+                          DisplayItemlistSerializer,OutletRequestLogSerializer)
 from datetime import date, timedelta, datetime
 import datetime
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
@@ -133,7 +134,7 @@ from tablib import Dataset, Databook
 import xlrd
 import calendar 
 from cl_app.serializers import StockSerializer
-
+from django.utils.dateparse import parse_datetime
 type_ex = ['VT-Deposit','VT-Top Up','VT-Sales']
 
 # Create your views here .
@@ -7722,7 +7723,8 @@ class UsersList(APIView):
             value_name='userswitch',isactive=True).first()
             poolsharing_setup = Systemsetup.objects.filter(title='PoolSharing',
             value_name='PoolSharing',isactive=True).first()
-        
+            outletrestrict_setup = Systemsetup.objects.filter(title='Customeroutletrestrict',
+            value_name='Customeroutletrestrict',isactive=True).first()
        
        
     
@@ -7752,7 +7754,7 @@ class UsersList(APIView):
             # print(fmspw.loginsite.service_sel,"fmspw.loginsite.service_sel")
 
             empsite_ids = list(set(EmpSitelist.objects.filter(Site_Codeid__pk=fmspw.loginsite.pk,
-            isactive=True,Emp_Codeid__emp_isactive=True).order_by('-pk').values_list('Emp_Codeid', flat=True).distinct()))
+            isactive=True,Emp_Codeid__emp_isactive=True,Emp_Codeid__isdelete=False).order_by('-pk').values_list('Emp_Codeid', flat=True).distinct()))
             ufmspw_ids = Fmspw.objects.filter(Emp_Codeid__pk__in=empsite_ids,pw_isactive=True).filter(~Q(pk=fmspw.pk)).values('pw_id','pw_userlogin')
 
             emp_ids = EmpSitelist.objects.filter(emp_code=fmspw.Emp_Codeid.emp_code,isactive=True)
@@ -7842,6 +7844,7 @@ class UsersList(APIView):
             'updatecustcodetocustrefer': True if refer_setup and refer_setup.value_data == 'True' else False,  
             'userswitch' : True if userswitch_setup and userswitch_setup.value_data == 'True' else False,  
             'poolsharing' : True if poolsharing_setup and poolsharing_setup.value_data == 'True' else False,  
+            'customeroutletrestrict' : True if outletrestrict_setup and outletrestrict_setup.value_data == 'True' else False,  
             }
 
 
@@ -8276,7 +8279,8 @@ class postaudViewset(viewsets.ModelViewSet):
                     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Payment checkout is not possible",'error': True}
                     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
             
-            value = postaud_calculation(self, request, queryset)
+            paydate = datetime.datetime.strptime(str(poshaud_v.sa_date), "%Y-%m-%d %H:%M:%S").date()
+            value = postaud_calculation(self, request, queryset,paydate)
 
             postaud_v = PosTaud.objects.filter(sa_transacno=sa_transacno)
           
@@ -8331,7 +8335,8 @@ class postaudViewset(viewsets.ModelViewSet):
                         if sitegst.site_is_gst == False:
                             calcgst = 0    
 
-                value = postaud_calculation(self, request, queryset)
+                paydate = datetime.datetime.strptime(str(poshaud_v.sa_date), "%Y-%m-%d %H:%M:%S").date()  
+                value = postaud_calculation(self, request, queryset,paydate)
 
                 depotop_ids = queryset.filter(type__in=['Deposit','Top Up'])
                 sales_ids = queryset.filter(type='Sales')     
@@ -12931,7 +12936,22 @@ class CustApptAPI(generics.ListAPIView):
             queryset = Customer.objects.filter(cust_isactive=True).exclude(site_code__isnull=True).only('cust_isactive').order_by('-pk')
         else:
             queryset = Customer.objects.filter(cust_isactive=True,site_code=site.itemsite_code).only('cust_isactive').order_by('-pk')
-    
+        
+        asystem_setup = Systemsetup.objects.filter(title='Customeroutletrestrict',
+        value_name='Customeroutletrestrict',isactive=True).first()
+        if asystem_setup and asystem_setup.value_data == 'True':
+            queryset = Customer.objects.filter(cust_isactive=True,or_key=site.itemsite_code).only('cust_isactive').order_by('-pk')
+        else:
+            queryset = Customer.objects.filter(cust_isactive=True).exclude(site_code__isnull=True).only('cust_isactive').order_by('-pk')
+        
+        if self.request.GET.get('customeroutletrestrict',None) == '1':
+            if asystem_setup and asystem_setup.value_data == 'True':
+                queryset = Customer.objects.filter(cust_isactive=True).filter(~Q(or_key=site.itemsite_code),~Q(or_key__isnull=True)).only('cust_isactive').order_by('-pk')
+            else:
+                queryset = Customer.objects.objects.none()
+            
+
+
 
         q = self.request.GET.get('search',None)
         if q:
@@ -14767,10 +14787,11 @@ class DayEndListAPIView(generics.ListAPIView,generics.CreateAPIView):
                     if haud_id and haud_id.sa_custnoid:
                         # cust_obj = Customer.objects.filter(cust_code=i.cust_code,cust_isactive=True).order_by('-pk').first()
                         # if cust_obj:
+                        # times=i.times,treatment_no=i.treatment_no
                         helper_ids = ItemHelper.objects.filter(item_code=i.treatment_code,sa_transacno=i.sa_transacno,
-                        times=i.times,treatment_no=i.treatment_no).order_by('-pk')
+                        ).order_by('-pk')
                             
-                        done_outlet = ""
+                        done_outlet = ""; td_sa_transacno_ref = ""
                         # helperids = ItemHelper.objects.filter(item_code=i.treatment_code,
                         # sa_transacno=i.sa_transacno).order_by('-pk').first()
                         # print(helperids,"helperids")
@@ -14778,9 +14799,10 @@ class DayEndListAPIView(generics.ListAPIView,generics.CreateAPIView):
                             haudid = PosHaud.objects.filter(isvoid=False,sa_transacno=helper_ids[0].helper_transacno).order_by('-pk').first()
                             # print(haudid,"haudid")
                             if haudid:
+                                td_sa_transacno_ref = haudid.sa_transacno_ref
                                 done_outlet = haudid.itemsite_code
 
-                        td_vals = {'treatment_done':haud_id.sa_transacno_ref,'desc':i.course,
+                        td_vals = {'treatment_done':td_sa_transacno_ref,'desc':i.course,
                                 'amount': "{:.2f}".format(i.unit_amount),'cust_name': haud_id.sa_custnoid.cust_name,
                                 'cust_code': haud_id.sa_custnoid.cust_code,
                                 'cust_refer': haud_id.sa_custnoid.cust_refer if haud_id.sa_custnoid.cust_refer else '',
@@ -15606,10 +15628,11 @@ class DayEndListAPIView(generics.ListAPIView,generics.CreateAPIView):
                         if haud_id and haud_id.sa_custnoid:
                             # cust_obj = Customer.objects.filter(cust_code=i.cust_code,cust_isactive=True).order_by('-pk').first()
                             # if cust_obj:
+                            # times=i.times,treatment_no=i.treatment_no
                             helper_ids = ItemHelper.objects.filter(item_code=i.treatment_code,sa_transacno=i.sa_transacno,
-                            times=i.times,treatment_no=i.treatment_no).order_by('-pk')
+                            ).order_by('-pk')
                                 
-                            done_outlet = ""
+                            done_outlet = ""; td_sa_transacno_ref = ""
                             # helperids = ItemHelper.objects.filter(item_code=i.treatment_code,
                             # sa_transacno=i.sa_transacno).order_by('-pk').first()
                             # print(helperids,"helperids")
@@ -15617,9 +15640,10 @@ class DayEndListAPIView(generics.ListAPIView,generics.CreateAPIView):
                                 haudid = PosHaud.objects.filter(isvoid=False,sa_transacno=helper_ids[0].helper_transacno).order_by('-pk').first()
                                 # print(haudid,"haudid")
                                 if haudid:
+                                    td_sa_transacno_ref = haudid.sa_transacno_ref
                                     done_outlet = haudid.itemsite_code
 
-                            td_vals = {'treatment_done':haud_id.sa_transacno_ref,'desc':i.course,
+                            td_vals = {'treatment_done':td_sa_transacno_ref,'desc':i.course,
                                     'amount': "{:.2f}".format(i.unit_amount),'cust_name': haud_id.sa_custnoid.cust_name,
                                     'cust_code': haud_id.sa_custnoid.cust_code,
                                     'cust_refer': haud_id.sa_custnoid.cust_refer if haud_id.sa_custnoid.cust_refer else '',
@@ -17630,6 +17654,14 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
             queryset = Customer.objects.filter(cust_isactive=True).exclude(site_code__isnull=True).only('cust_isactive').order_by('-pk')
         else:
             queryset = Customer.objects.filter(cust_isactive=True,site_code=site.itemsite_code).only('cust_isactive').order_by('-pk')
+        
+        asystem_setup = Systemsetup.objects.filter(title='Customeroutletrestrict',
+        value_name='Customeroutletrestrict',isactive=True).first()
+        if asystem_setup and asystem_setup.value_data == 'True':
+            queryset = Customer.objects.filter(cust_isactive=True,or_key=site.itemsite_code).only('cust_isactive').order_by('-pk')
+        else:
+            queryset = Customer.objects.filter(cust_isactive=True).exclude(site_code__isnull=True).only('cust_isactive').order_by('-pk')
+        
 
         q = self.request.GET.get('search', None)
         value = self.request.GET.get('sortValue', None)
@@ -17926,7 +17958,7 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
                                         sgn_unitno=request.data['sgn_unitno'] if 'sgn_unitno' in request.data and request.data['sgn_unitno'] else None,
                                         sgn_block=request.data['sgn_block'] if 'sgn_block' in request.data and request.data['sgn_block'] else None,
                                         sgn_street=request.data['sgn_street'] if 'sgn_street' in request.data and request.data['sgn_street'] else None,
-                                        )
+                                        or_key=site.itemsite_code)
 
                     if 'cust_corporate' in request.data and request.data['cust_corporate']:
                         serializer.save(cust_corporate=request.data['cust_corporate'])
@@ -24081,13 +24113,13 @@ class SitelistipViewset(viewsets.ModelViewSet):
 class DisplayCatalogViewset(viewsets.ModelViewSet):
     authentication_classes = [ExpiringTokenAuthentication]
     permission_classes = [IsAuthenticated & authenticated_only]
-    queryset = DisplayCatalog.objects.filter(isactive=True).order_by('-pk')
+    queryset = DisplayCatalog.objects.filter(isactive=True).order_by('seqnumber')
     serializer_class = DisplayCatalogSerializer
 
     def get_queryset(self):
         fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
         site = fmspw[0].loginsite
-        queryset = DisplayCatalog.objects.filter(isactive=True).order_by('-pk')
+        queryset = DisplayCatalog.objects.filter(isactive=True).order_by('seqnumber')
        
         return queryset
 
@@ -24117,7 +24149,7 @@ class DisplayCatalogViewset(viewsets.ModelViewSet):
         try:
           
             queryset = DisplayCatalog.objects.filter(isactive=True, 
-            parent_code__isnull=True).order_by('-pk')
+            parent_code__isnull=True).order_by('seqnumber')
 
             # print(len(queryset),"queryset")
               
@@ -24129,7 +24161,7 @@ class DisplayCatalogViewset(viewsets.ModelViewSet):
                     l1_lst = []
 
                     level1_ids =  DisplayCatalog.objects.filter(isactive=True,
-                    parent_code=i.menu_code).order_by('-pk')
+                    parent_code=i.menu_code).order_by('seqnumber')
 
                     level2 = "Level 2" ; 
 
@@ -24138,7 +24170,7 @@ class DisplayCatalogViewset(viewsets.ModelViewSet):
 
 
                         level2_ids = DisplayCatalog.objects.filter(isactive=True,
-                        parent_code=j.menu_code).order_by('-pk')
+                        parent_code=j.menu_code).order_by('seqnumber')
 
                         level3 = "Level 3" ; 
 
@@ -24146,14 +24178,14 @@ class DisplayCatalogViewset(viewsets.ModelViewSet):
                             l3_lst = []
 
                             level3_ids = DisplayCatalog.objects.filter(isactive=True,
-                            parent_code=k.menu_code).order_by('-pk')
+                            parent_code=k.menu_code).order_by('seqnumber')
 
                             level4 = "Level 4" ;
 
                             for l in level3_ids:
                                 l4_lst = []
                                 level4_ids = DisplayCatalog.objects.filter(isactive=True,
-                                parent_code=l.menu_code).order_by('-pk')
+                                parent_code=l.menu_code).order_by('seqnumber')
 
                                 level5 = "Level 5" ;
 
@@ -24161,7 +24193,7 @@ class DisplayCatalogViewset(viewsets.ModelViewSet):
                                     l5_lst = []
 
                                     level5_ids = DisplayCatalog.objects.filter(isactive=True,
-                                    parent_code=m.menu_code).order_by('-pk')
+                                    parent_code=m.menu_code).order_by('seqnumber')
 
                                     level6 = "Level 6" ;
 
@@ -24215,8 +24247,8 @@ class DisplayCatalogViewset(viewsets.ModelViewSet):
                 if not 'menu_code' in request.data or not request.data['menu_code']:
                     raise Exception('Please give menu code!!.') 
 
-                if not 'parent_code' in request.data or not request.data['parent_code']:
-                    raise Exception('Please give parent code!!.')
+                # if not 'parent_code' in request.data or not request.data['parent_code']:
+                #     raise Exception('Please give parent code!!.')
 
                 if not 'menu_description' in request.data or not request.data['menu_description']:
                     raise Exception('Please give menudescription!!.')
@@ -24263,8 +24295,8 @@ class DisplayCatalogViewset(viewsets.ModelViewSet):
                 if not 'menu_code' in request.data or not request.data['menu_code']:
                     raise Exception('Please give menu code!!.') 
 
-                if not 'parent_code' in request.data or not request.data['parent_code']:
-                    raise Exception('Please give parent code!!.')
+                # if not 'parent_code' in request.data or not request.data['parent_code']:
+                #     raise Exception('Please give parent code!!.')
 
                 if not 'menu_description' in request.data or not request.data['menu_description']:
                     raise Exception('Please give menudescription!!.')
@@ -24345,15 +24377,31 @@ class DisplayItemViewset(viewsets.ModelViewSet):
     authentication_classes = [ExpiringTokenAuthentication]
     permission_classes = [IsAuthenticated & authenticated_only]
     queryset = []
-    serializer_class = DisplayItemStockSerializer
+    serializer_class = []
 
     def get_queryset(self):
         fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
         site = fmspw[0].loginsite
         menucode = self.request.GET.get('menucode',None)
 
-        queryset = list(set(DisplayItem.objects.filter(menu_code=menucode).order_by('-pk').values_list('stockid', flat=True).distinct()))
-        squeryset = Stock.objects.filter(item_isactive=True,pk__in=queryset).order_by('item_name')
+        queryset = list(set(DisplayItem.objects.filter(menu_code=menucode).values_list('stockid', flat=True).distinct()))
+        
+        systemids = Systemsetup.objects.filter(title='stockOrderBy',
+            value_name='stockOrderBy',isactive=True).first()
+
+
+        if systemids and systemids.value_data == 'item_name':
+            squeryset = Stock.objects.filter(item_isactive=True,pk__in=queryset).order_by('item_name') 
+        elif systemids and systemids.value_data == 'item_seq':
+            squeryset = Stock.objects.filter(item_isactive=True,pk__in=queryset).order_by('item_seq')
+        elif systemids and systemids.value_data == 'item_desc':
+            squeryset = Stock.objects.filter(item_isactive=True,pk__in=queryset).order_by('item_desc')
+        elif systemids and systemids.value_data == 'item_code':
+            squeryset = Stock.objects.filter(item_isactive=True,pk__in=queryset).order_by('item_code')
+        else:
+            squeryset = Stock.objects.filter(item_isactive=True,pk__in=queryset).order_by('item_name') 
+        
+        
         return squeryset
 
     def list(self, request):
@@ -24368,14 +24416,32 @@ class DisplayItemViewset(viewsets.ModelViewSet):
             serializer_class = DisplayItemStockSerializer
             
             queryset = self.filter_queryset(self.get_queryset())
+            page= request.GET.get('page',1)
+            limit = request.GET.get('limit',12)
+            full_tot = queryset.count()
+            paginator = Paginator(queryset, limit)
+            total_page = paginator.num_pages
 
-            total = len(queryset)
-            state = status.HTTP_200_OK
-            message = "Listed Succesfully"
-            error = False
-            data = None
-            result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
-            return Response(result, status=status.HTTP_200_OK) 
+            if int(page) > total_page:
+                result = {'status': status.HTTP_200_OK,"message":"No Content",'error': False, 
+                'data': {'meta': {'pagination': {"per_page":limit,"current_page":page,"total":full_tot,"total_pages":total_page}}, 
+                'dataList': []}}
+                return Response(result, status=status.HTTP_200_OK)
+
+            try:
+                queryset = paginator.page(page)
+            except (EmptyPage, InvalidPage):
+                queryset = paginator.page(total_page) # last page
+
+            
+            serializer = DisplayItemStockSerializer(queryset, many=True, context={'request': self.request,'menucode': menucode})
+            result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
+            'data': {'meta': {'pagination': {"per_page":limit,"current_page":page,"total":full_tot,"total_pages":total_page}}, 
+            'dataList': serializer.data}}
+            
+
+            return Response(result, status=status.HTTP_200_OK)
+
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)
@@ -24403,10 +24469,10 @@ class DisplayItemViewset(viewsets.ModelViewSet):
                     msg = "Menu code {0}, Stockid {1} already record exist !!".format(str(request.data['menu_code']),str(request.data['stockid']))
                     raise Exception(msg)
 
-                scheck_ids = DisplayItem.objects.filter(stockid=request.data['stockid'])
-                if scheck_ids:
-                    msg = "Stockid {0} already record exist !!".format(str(request.data['stockid']))
-                    raise Exception(msg)
+                # scheck_ids = DisplayItem.objects.filter(stockid=request.data['stockid'])
+                # if scheck_ids:
+                #     msg = "Stockid {0} already record exist !!".format(str(request.data['stockid']))
+                #     raise Exception(msg)
      
                     
 
@@ -24456,14 +24522,14 @@ class DisplayItemViewset(viewsets.ModelViewSet):
                     msg = "Menu code {0}, Stockid {1} already record exist !!".format(str(request.data['menu_code']),str(request.data['stockid']))
                     raise Exception(msg)
 
-                scheck_ids = DisplayItem.objects.filter(~Q(pk=ref.pk)).filter(
-                stockid=request.data['stockid']).order_by('-pk')
-                if scheck_ids:
-                    msg = "Stockid {0} already record exist !!".format(str(request.data['stockid']))
-                    raise Exception(msg) 
+                # scheck_ids = DisplayItem.objects.filter(~Q(pk=ref.pk)).filter(
+                # stockid=request.data['stockid']).order_by('-pk')
+                # if scheck_ids:
+                #     msg = "Stockid {0} already record exist !!".format(str(request.data['stockid']))
+                #     raise Exception(msg) 
                         
                     
-                serializer = self.get_serializer(ref, data=request.data)
+                serializer = DisplayItemSerializer(ref, data=request.data)
                 if serializer.is_valid():
                 
                     serializer.save()
@@ -24529,5 +24595,201 @@ class DisplayItemViewset(viewsets.ModelViewSet):
         except DisplayItem.DoesNotExist:
             raise Exception('DisplayItem ID Does not Exist') 
             
+
+class OutletRequestCustomerViewset(viewsets.ModelViewSet):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = []
+    serializer_class = []
+
+    def list(self, request):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+            site = fmspw[0].loginsite
+
+            given_date = request.GET.get('given_date',None)
+            if not given_date:
+                raise Exception('Please give date!!') 
+
+            total_ids = OutletRequestLog.objects.filter(log_date__date=given_date,
+            requesting_site=site.itemsite_code).order_by('-pk')
     
+
+            waiting_ids = OutletRequestLog.objects.filter(log_date__date=given_date,
+            requesting_site=site.itemsite_code,req_status='Waiting').order_by('-pk').count()
+
+            approved_ids = OutletRequestLog.objects.filter(log_date__date=given_date,
+            requesting_site=site.itemsite_code,req_status='Approved').order_by('-pk').count()
+
+            rejected_ids = OutletRequestLog.objects.filter(log_date__date=given_date,
+            requesting_site=site.itemsite_code,req_status='Rejected').order_by('-pk').count()
+
+            serializer = OutletRequestLogSerializer(total_ids, context={'request': self.request}, many=True) 
+            count_data = {'requests': total_ids.count(),'approved_count': approved_ids,
+            'rejected_count': rejected_ids,'pending_count': waiting_ids}
+            data = {'list_data':  serializer.data }
+            data.update(count_data)
+
+            result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
+            'data': data}
+            return Response(data=result, status=status.HTTP_200_OK)
+
+          
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+    
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated & authenticated_only],
+    authentication_classes=[TokenAuthentication])
+    def waitingloglist(self, request, pk=None):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+            site = fmspw[0].loginsite
+
+            given_date = request.GET.get('given_date',None)
+            if not given_date:
+                raise Exception('Please give date!!') 
+
+            waiting_ids = OutletRequestLog.objects.filter(log_date__date=given_date,
+            from_site=site.itemsite_code,req_status='Waiting').order_by('-pk')
+
+            serializer = OutletRequestLogSerializer(waiting_ids, context={'request': self.request}, many=True) 
+            
+            result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
+            'data': serializer.data}
+            return Response(data=result, status=status.HTTP_200_OK)
+
+        except Exception as e:
+           invalid_message = str(e)
+           return general_error_response(invalid_message)     
+    
+    @transaction.atomic
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated & authenticated_only],
+    authentication_classes=[TokenAuthentication])
+    def waitingapproval(self, request):
+        try:
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True).first()
+                
+                site = fmspw.loginsite
+
+                if not 'log_id' in request.data or not request.data['log_id']:
+                    raise Exception('Please give OutletRequestLog log_id !!.') 
+                
+                log_id = request.data['log_id']
+                log_obj = OutletRequestLog.objects.filter(pk=log_id).first()
+                if not log_obj:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"OutletRequestLog id Does't Exist!!",'error': True} 
+                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST) 
+
+                if not 'req_status' in request.data or not request.data['req_status']:
+                    raise Exception('Please give request status!!.') 
+
+                cust_obj = Customer.objects.filter(cust_code=log_obj.cust_code,cust_isactive=True).first()
+                if not cust_obj:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer id Does't Exist!!",'error': True} 
+                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST) 
+
+                
+                if request.data['req_status'] == "Approved":
+                
+                    cust_obj.or_key = log_obj.requesting_site
+                    cust_obj.save()
+                    log_obj.req_status = "Approved"
+                    log_obj.save()
+                    result = {'status': status.HTTP_200_OK,
+                    "message":"Customer {0} Transferred to this {1} outlet approved Succesfully".format(str(cust_obj.cust_name),str(log_obj.requesting_site)),
+                    'error': False}
+                    return Response(data=result, status=status.HTTP_200_OK)
+                elif request.data['req_status'] == "Rejected":
+                    log_obj.req_status = "Rejected"
+                    log_obj.save()
+                    result = {'status': status.HTTP_200_OK,
+                    "message":"Customer {0} Transferred to this {1} outlet is rejected".format(str(cust_obj.cust_name),str(log_obj.requesting_site)),
+                    'error': False}
+                    return Response(data=result, status=status.HTTP_200_OK) 
+                else:
+                    raise Exception('Please give request status Approved/Rejected!!.')
+
+        except Exception as e:
+           invalid_message = str(e)
+           return general_error_response(invalid_message)     
+     
+
+    @transaction.atomic
+    def create(self, request):
+        try:
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True).first()
+                site = fmspw.loginsite
+
+                if not 'cust_id' in request.data or not request.data['cust_id']:
+                    raise Exception('Please give Customer id!!.') 
+
+                cust_id = request.data['cust_id']
+                # if not 'site_id' in request.data or not request.data['site_id']:
+                #     raise Exception('Please give Site id!!.')
+                # site_id = request.data['site_id']
+                cust_obj = Customer.objects.filter(pk=cust_id,cust_isactive=True).first()
+                if not cust_obj:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer id Does't Exist!!",'error': True} 
+                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST) 
+                # site_obj = ItemSitelist.objects.filter(pk=site_id,itemsite_isactive=True).order_by('-pk').first()
+                # if not site_obj:
+                #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Site id Does't Exist!!",'error': True} 
+                #     return Response(data=result, status=status.HTTP_400_BAD_REQUEST) 
+                
+                haud_ids =  PosHaud.objects.filter(isvoid=False,sa_custno=cust_obj.cust_code,
+                itemsite_code=site.itemsite_code).order_by("-pk").first()
+
+                check_ids = OutletRequestLog.objects.filter(log_date__date=date.today(),
+                cust_code=cust_obj.cust_code,requesting_site=site.itemsite_code)
+                if check_ids:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,
+                    "message":"Already Customer Request created for this given site!!",'error': True} 
+                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST) 
+                
+                # print(date.today(),"date.today()")
+                asystem_setup = Systemsetup.objects.filter(title='outletrequestmanualrelease',
+                value_name='outletrequestmanualrelease',isactive=True).first()
+                if asystem_setup and asystem_setup.value_data == 'True':
+                    log =OutletRequestLog(log_date=date.today(),cust_code=cust_obj.cust_code,cust_name=cust_obj.cust_name,
+                    from_site=cust_obj.or_key,requesting_site=site.itemsite_code,
+                    last_transaction=haud_ids.sa_transacno if haud_ids and haud_ids.sa_transacno else "",
+                    request_by=fmspw.pw_userlogin,
+                    req_date=date.today(),req_status="Waiting",req_staff_code=fmspw.Emp_Codeid.emp_code)
+                    log.save()
+                    # print(log,"log")
+                    if haud_ids and haud_ids.sa_date:
+                        log.last_transaction_date = haud_ids.sa_date
+                        log.save()
+
+                    result = {'status': status.HTTP_200_OK,
+                    "message":"Your Customer Request has been forwarded to {0} outlet and Waiting for approval".format(str(site.itemsite_code)),
+                    'error': False}
+                    return Response(data=result, status=status.HTTP_200_OK)
+                    
+                else:
+                    log =OutletRequestLog(log_date=date.today(),cust_code=cust_obj.cust_code,cust_name=cust_obj.cust_name,
+                    from_site=cust_obj.or_key,requesting_site=site.itemsite_code,
+                    last_transaction=haud_ids.sa_transacno if haud_ids and haud_ids.sa_transacno else "",
+                    request_by=fmspw.pw_userlogin,
+                    req_date=date.today(),req_status="Auto",req_staff_code=fmspw.Emp_Codeid.emp_code)
+                    log.save()
+                    if haud_ids and haud_ids.sa_date:
+                        log.last_transaction_date = haud_ids.sa_date
+                        log.save()
+
+                    cust_obj.or_key = site.itemsite_code
+                    cust_obj.save()
+                    result = {'status': status.HTTP_200_OK,"message":"Customer Transferred to this {0} outlet".format(str(site.itemsite_code)),
+                    'error': False}
+                    return Response(data=result, status=status.HTTP_200_OK)
+                 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+    
+           
+
 

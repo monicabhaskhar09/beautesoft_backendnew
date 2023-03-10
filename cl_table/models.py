@@ -4329,3 +4329,20 @@ class DisplayItem(models.Model):
     class Meta:
         db_table = 'displayItem'
         unique_together = (('menu_code', 'stockid'),)
+
+class OutletRequestLog(models.Model):
+    id = models.AutoField(db_column='ID', primary_key=True)  # Field name made lowercase.
+    log_date = models.DateTimeField(db_column='Log_Date',blank=True, null=True)  # Field name made lowercase.
+    cust_code = models.CharField(db_column='Cust_Code', max_length=200, blank=True, null=True)  # Field name made lowercase.
+    cust_name = models.CharField(db_column='Cust_Name', max_length=200, blank=True, null=True)  # Field name made lowercase.
+    from_site = models.CharField(db_column='From_Site', max_length=200, blank=True, null=True)  # Field name made lowercase.
+    requesting_site = models.CharField(db_column='Requesting_Site', max_length=200, blank=True, null=True)  # Field name made lowercase.
+    last_transaction = models.CharField(db_column='Last_Transaction', max_length=200, blank=True, null=True)  # Field name made lowercase.
+    last_transaction_date = models.DateTimeField(db_column='Last_Transaction_Date',blank=True, null=True)  # Field name made lowercase.
+    request_by = models.CharField(db_column='Request_By', max_length=200, blank=True, null=True)  # Field name made lowercase.
+    req_date = models.DateTimeField(db_column='Req_Date', blank=True, null=True)  # Field name made lowercase.
+    req_status = models.CharField(db_column='Req_Status', max_length=20, blank=True, null=True)  # Field name made lowercase.
+    req_staff_code = models.CharField(db_column='Req_Staff_Code', max_length=20, blank=True, null=True)  # Field name made lowercase.
+   
+    class Meta:
+        db_table = 'Outlet_Request_Log'

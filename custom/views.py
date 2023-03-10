@@ -1419,7 +1419,7 @@ def create_tdstaff(cart,empobj,stock_obj,site):
         
             alemp_ids = TmpItemHelper.objects.filter(tmptreatment=trmt_obj,itemcart=cart,
             helper_code=helper_obj.emp_code,site_code=site.itemsite_code).order_by('pk')
-            print(alemp_ids,"alemp_ids")
+            # print(alemp_ids,"alemp_ids")
             # if alemp_ids:
             #     wmsg = "Cart line no {0}, {1} Work Staff Already created in TmpItemHelper table!! ".format(str(cart.lineno),str(helper_obj.display_name))
             #     raise Exception(wmsg)
@@ -1518,19 +1518,26 @@ def create_tdstaff(cart,empobj,stock_obj,site):
                 cart.service_staff.add(helper_obj.pk) 
                 tmp.append(temph.id)
 
-            ItemCart.objects.filter(id=cart.id).update(sessiondone=1)      
+            # ItemCart.objects.filter(id=cart.id).update(sessiondone=1)  
+            cart.sessiondone = 1
+            cart.save()    
 
             runx=1
             for h in TmpItemHelper.objects.filter(tmptreatment=trmt_obj,itemcart=cart).order_by('pk'):
                 # TmpItemHelper.objects.filter(id=h.id).update(wp1=wp1)
                 if runx == 1:
-                    TmpItemHelper.objects.filter(id=h.id).update(wp1=wp11)
+                    # TmpItemHelper.objects.filter(id=h.id).update(wp1=wp11)
+                    h.wp1 = wp11
                 if runx == 2:
-                    TmpItemHelper.objects.filter(id=h.id).update(wp1=wp12)
+                    # TmpItemHelper.objects.filter(id=h.id).update(wp1=wp12)
+                    h.wp1 = wp12
                 if runx == 3:
-                    TmpItemHelper.objects.filter(id=h.id).update(wp1=wp13)
+                    # TmpItemHelper.objects.filter(id=h.id).update(wp1=wp13)
+                    h.wp1 = wp13
                 if runx == 4:
-                    TmpItemHelper.objects.filter(id=h.id).update(wp1=wp14)
+                    # TmpItemHelper.objects.filter(id=h.id).update(wp1=wp14)
+                    h.wp1 = wp14
+                h.save()    
                 runx = runx + 1
             
 
@@ -1549,7 +1556,9 @@ def create_tdstaff(cart,empobj,stock_obj,site):
             if last_rec:
                 if scount > 1:
                     for j in TmpItemHelper.objects.filter(tmptreatment=trmt_obj,itemcart=cart).order_by('pk').exclude(pk=last_rec.pk):
-                        TmpItemHelper.objects.filter(id=j.id).update(wp1=c)
+                        # TmpItemHelper.objects.filter(id=j.id).update(wp1=c)
+                        j.wp1 = c
+                        j.save()
                     last_rec.wp1 = x   
                     last_rec.save()
                 else:
@@ -2034,7 +2043,8 @@ class itemCartViewset(viewsets.ModelViewSet):
                         dict_v['is_tcm'] = True
                     
                     if dict_v['type'] != "Exchange":
-                        subtotal += float(dict_v['total_price'])
+                        # float(dict_v['total_price'])
+                        subtotal += cartobj.total_price
                         if cartobj.free_sessions:
                             val = int(dict_v['quantity']) - int(cartobj.free_sessions)
                             discount_amt += float(dict_v['discount_amt']) * val
@@ -2043,15 +2053,18 @@ class itemCartViewset(viewsets.ModelViewSet):
 
                         additional_discountamt += float(dict_v['additional_discountamt'])
                         # print(additional_discountamt,"additional_discountamt")
-                        trans_amt += float(dict_v['trans_amt'])
+                        # float(dict_v['trans_amt'])
+                        trans_amt += cartobj.trans_amt
                         deposit_amt += float(dict_v['deposit'])
                         # tax += float(dict_v['tax'])
-                    
-                    balance += float(dict_v['deposit'])
+
+                    # float(dict_v['deposit'])
+                    balance += cartobj.deposit
 
                     dict_v['is_disc'] = False
                     if int(cartobj.itemcodeid.item_div) in [1,3] and cartobj.itemcodeid.item_type != 'PACKAGE' and cartobj.is_foc == False and cartobj.type == 'Deposit':
-                        dict_v['is_disc'] = True
+                        if not cartobj.service_staff.all():
+                            dict_v['is_disc'] = True
 
                     dict_v['is_course'] = False
                     if (cartobj.type == 'Deposit' and int(cartobj.itemcodeid.item_div) == 3 and cartobj.is_foc == False and cartobj.itemcodeid.item_type != 'PACKAGE'):
@@ -2114,19 +2127,19 @@ class itemCartViewset(viewsets.ModelViewSet):
                 
                        
                 # print(balance,"balance")
-                sub_total = "{:.2f}".format(float(subtotal))
+                # sub_total = "{:.2f}".format(float(subtotal))
                 # billable_amount = "{:.2f}".format(deposit_amt + float(round_calc(deposit_amt))) # round()
                 # print(round_calc(balance, site),"ll")
 
                 if rsub_systemids and rsub_systemids.value_data == 'True':
-                    billable_amount = "{:.2f}".format(float(round_calc(balance, site)[0])) # round()
+                    billable_amount = float(round_calc(balance, site)[0]) # round()
                 else:
                     billable_amount = balance
 
                 # print(billable_amount,"billable_amount")
                 total_disc = discount_amt + additional_discountamt
                 out_standing = trans_amt - balance
-                result = {'status': state,"message":message,'error': error, 'data':  lst,'subtotal':"{:.2f}".format(float(sub_total)),
+                result = {'status': state,"message":message,'error': error, 'data':  lst,'subtotal':"{:.2f}".format(float(subtotal)),
                 'discount': "{:.2f}".format(float(total_disc)),'trans_amt': "{:.2f}".format(float(trans_amt)),'deposit_amt':"{:.2f}".format(float(balance)),
                 'billable_amount': "{:.2f}".format(float(billable_amount)),'balance':"{:.2f}".format(float(balance)),
                 'exchange': exchange,'outstanding': "{:.2f}".format(float(out_standing))}
@@ -2895,10 +2908,9 @@ class itemCartViewset(viewsets.ModelViewSet):
                     
                     autotdfor_setup = Systemsetup.objects.filter(title='autoTDForAlacarte',
                     value_name='autoTDForAlacarte',isactive=True).first()
-                    if  cart.type == 'Deposit' and int(stock_obj.item_div) == 3 and stock_obj.item_type != 'PACKAGE' and autotdfor_setup and autotdfor_setup.value_data == 'True':
+                    if  cart.type == 'Deposit' and int(stock_obj.item_div) == 3 and stock_obj.item_type != 'PACKAGE' and autotdfor_setup and autotdfor_setup.value_data == 'True' and req['is_service'] == True:
                         empobj= fmspw[0].Emp_Codeid
                         tdf =create_tdstaff(cart,empobj,stock_obj,site)
-                        print(tdf,"tdf")
 
 
                     message = "Created Succesfully"
@@ -4433,7 +4445,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                             result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Discount is not greater than stock discount!!",'error': True} 
                             return Response(result, status=status.HTTP_400_BAD_REQUEST) 
 
-                        if float(request.data['discount']) > float(itemcart.price):
+                        if float(request.data['discount_amt']) > float(itemcart.price):
                             msg = "Discount is > {0} !".format(itemcart.price)
                             result = {'status': status.HTTP_400_BAD_REQUEST,"message":msg,'error': True} 
                             return Response(result, status=status.HTTP_400_BAD_REQUEST) 
@@ -11097,15 +11109,24 @@ class AddRemoveSalesStaffViewset(viewsets.ModelViewSet):
 
 
                                 if cartobj.multistaff_ids.all().count() == 1:
-                                    Tmpmultistaff.objects.filter(itemcart__pk=cartobj.pk).update(ratio="{:.2f}".format(float(ratio)),
-                                    salesamt="{:.2f}".format(float(salesamt)),salescommpoints=salescommpoints)
+                                    tm_ids =Tmpmultistaff.objects.filter(itemcart__pk=cartobj.pk)
+                                    for tm in tm_ids:
+                                        tm.ratio = "{:.2f}".format(float(ratio))
+                                        tm.salesamt = "{:.2f}".format(float(salesamt))
+                                        tm.salescommpoints = salescommpoints
+                                        tm.save()
+                                   
                                 else:
 
                                     last_id = Tmpmultistaff.objects.filter(itemcart__pk=cartobj.pk).order_by('pk').last()
                                     if last_id:    
-                                        Tmpmultistaff.objects.filter(itemcart__pk=cartobj.pk).exclude(pk=last_id.pk).update(ratio="{:.2f}".format(float(ratio)),
-                                        salesamt="{:.2f}".format(float(salesamt)),salescommpoints=salescommpoints)
-                                        
+                                        tmm_ids = Tmpmultistaff.objects.filter(itemcart__pk=cartobj.pk).exclude(pk=last_id.pk)
+                                        for tmm in tmm_ids:
+                                            tmm.ratio = "{:.2f}".format(float(ratio))
+                                            tmm.salesamt = "{:.2f}".format(float(salesamt))
+                                            tmm.salescommpoints = salescommpoints
+                                            tmm.save()
+                                       
                                         new_ratio = "{:.2f}".format(float(ratio))
                                         new_salesamt = "{:.2f}".format(float(salesamt))
                                         new_salspts = "{:.2f}".format(float(salescommpoints))
@@ -11123,8 +11144,13 @@ class AddRemoveSalesStaffViewset(viewsets.ModelViewSet):
                                         if stock_obj.salescommpoints and float(stock_obj.salescommpoints) > 0.0:
                                             newsalspts = float(stock_obj.salescommpoints) - tot_salespts
                                         
-                                        Tmpmultistaff.objects.filter(itemcart__pk=cartobj.pk,pk=last_id.pk).update(ratio="{:.2f}".format(float(newratio)),
-                                        salesamt="{:.2f}".format(float(newsalesamt)),salescommpoints=newsalspts)
+                                        ts_ids = Tmpmultistaff.objects.filter(itemcart__pk=cartobj.pk,pk=last_id.pk)
+                                        for ts in ts_ids:
+                                            ts.ratio = "{:.2f}".format(float(newratio))
+                                            ts.salesamt = "{:.2f}".format(float(newsalesamt))
+                                            ts.salescommpoints = newsalspts
+                                            ts.save()
+                                        
                             else:
                                 smsg = "Cart line no from top {0}, {1} Sales Staff Already created in Tmpmultistaff table!! ".format(str(idx),str(emp_obj.display_name))
                                 raise Exception(smsg)
@@ -11237,7 +11263,7 @@ class AddRemoveSalesStaffViewset(viewsets.ModelViewSet):
                                             
                                                 alemp_ids = TmpItemHelper.objects.filter(tmptreatment=trmt_obj,itemcart=cartobj,
                                                 helper_code=helper_obj.emp_code,site_code=site.itemsite_code).order_by('pk')
-                                                print(alemp_ids,"alemp_ids")
+                                                # print(alemp_ids,"alemp_ids")
                                                 if alemp_ids:
                                                     wmsg = "Cart line no {0}, {1} Work Staff Already created in TmpItemHelper table!! ".format(str(cartobj.lineno),str(helper_obj.display_name))
                                                     raise Exception(wmsg)
@@ -11331,24 +11357,30 @@ class AddRemoveSalesStaffViewset(viewsets.ModelViewSet):
                                                 new_remark=new_remark,appt_fr_time=appt_fr_time,appt_to_time=appt_to_time,
                                                 add_duration=add_duration,workcommpoints=workcommpoints,session=session)
                                                 temph.save()
-                                                print(temph.pk,"2222")
                                                 cartobj.helper_ids.add(temph.id)
                                                 cartobj.service_staff.add(helper_obj.pk) 
                                                 tmp.append(temph.id)
 
-                                                ItemCart.objects.filter(id=cartobj.id).update(sessiondone=1)      
+                                                # ItemCart.objects.filter(id=cartobj.id).update(sessiondone=1)  
+                                                cartobj.sessiondone = 1
+                                                cartobj.save()    
                                 
                                                 runx=1
                                                 for h in TmpItemHelper.objects.filter(tmptreatment=trmt_obj,itemcart=cartobj).order_by('pk'):
                                                     # TmpItemHelper.objects.filter(id=h.id).update(wp1=wp1)
                                                     if runx == 1:
-                                                        TmpItemHelper.objects.filter(id=h.id).update(wp1=wp11)
+                                                        # TmpItemHelper.objects.filter(id=h.id).update(wp1=wp11)
+                                                        h.wp1 = wp11
                                                     if runx == 2:
-                                                        TmpItemHelper.objects.filter(id=h.id).update(wp1=wp12)
+                                                        # TmpItemHelper.objects.filter(id=h.id).update(wp1=wp12)
+                                                        h.wp1 = wp12
                                                     if runx == 3:
-                                                        TmpItemHelper.objects.filter(id=h.id).update(wp1=wp13)
+                                                        # TmpItemHelper.objects.filter(id=h.id).update(wp1=wp13)
+                                                        h.wp1 = wp13
                                                     if runx == 4:
-                                                        TmpItemHelper.objects.filter(id=h.id).update(wp1=wp14)
+                                                        # TmpItemHelper.objects.filter(id=h.id).update(wp1=wp14)
+                                                        h.wp1 = wp14 
+                                                    h.save()    
                                                     runx = runx + 1
                                                 
 
@@ -11367,7 +11399,10 @@ class AddRemoveSalesStaffViewset(viewsets.ModelViewSet):
                                                 if last_rec:
                                                     if scount > 1:
                                                         for j in TmpItemHelper.objects.filter(tmptreatment=trmt_obj,itemcart=cartobj).order_by('pk').exclude(pk=last_rec.pk):
-                                                            TmpItemHelper.objects.filter(id=j.id).update(wp1=c)
+                                                            # TmpItemHelper.objects.filter(id=j.id).update(wp1=c)
+                                                            j.wp1 = c
+                                                            j.save()
+
                                                         last_rec.wp1 = x   
                                                         last_rec.save()
                                                     else:
@@ -11534,14 +11569,20 @@ class AddRemoveSalesStaffViewset(viewsets.ModelViewSet):
                                         for h in TmpItemHelper.objects.filter(treatment__pk=trmt_obj.pk).order_by('pk'):
                                             # TmpItemHelper.objects.filter(id=h.id).update(wp1=wp1)
                                             if runx == 1:
-                                                TmpItemHelper.objects.filter(id=h.id).update(wp1=wp11)
+                                                # TmpItemHelper.objects.filter(id=h.id).update(wp1=wp11)
+                                                h.wp1 = wp11
                                             if runx == 2:
-                                                TmpItemHelper.objects.filter(id=h.id).update(wp1=wp12)
+                                                # TmpItemHelper.objects.filter(id=h.id).update(wp1=wp12)
+                                                h.wp1 = wp12
                                             if runx == 3:
-                                                TmpItemHelper.objects.filter(id=h.id).update(wp1=wp13)
+                                                # TmpItemHelper.objects.filter(id=h.id).update(wp1=wp13)
+                                                h.wp1 = wp13
                                             if runx == 4:
-                                                TmpItemHelper.objects.filter(id=h.id).update(wp1=wp14)
+                                                # TmpItemHelper.objects.filter(id=h.id).update(wp1=wp14)
+                                                h.wp1 = wp14
+                                            h.save()    
                                             runx = runx + 1
+
 
 
                                         wp = float(workcommpoints) / float(count)
@@ -11551,7 +11592,10 @@ class AddRemoveSalesStaffViewset(viewsets.ModelViewSet):
                                         x = float(workcommpoints) -  (c * r)
                                         last_rec = TmpItemHelper.objects.filter(treatment__pk=trmt_obj.pk).order_by('pk').last()
                                         for j in TmpItemHelper.objects.filter(treatment__pk=trmt_obj.pk).order_by('pk').exclude(pk=last_rec.pk):
-                                            TmpItemHelper.objects.filter(id=j.id).update(wp1=c)
+                                            # TmpItemHelper.objects.filter(id=j.id).update(wp1=c)
+                                            j.wp1 = c
+                                            j.save()
+
                                         last_rec.wp1 = x   
                                         last_rec.save()    
 

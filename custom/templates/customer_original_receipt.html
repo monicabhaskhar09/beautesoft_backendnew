@@ -162,7 +162,7 @@ fix {
       <tr>
         <td>{{ forloop.counter }}</td>
 
-          {% if d.isfoc %}
+          {% if d.isfoc and d.holditemqty is None %}
             <td>{{ d.dt_itemdesc }}</td>
           {% elif d.dt_status == "SA" and d.record_detail_type == "TD" %}
             <td>{{ d.record_detail_type }}&#8209; {{ d.dt_itemdesc }}</td>

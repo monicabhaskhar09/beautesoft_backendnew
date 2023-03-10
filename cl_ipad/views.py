@@ -312,10 +312,12 @@ class WebConsultationDtlViewset(viewsets.ModelViewSet):
                 site = fmspw[0].loginsite
 
                 
-
+                # print(request.data,"request.data")
                 for idx, reqt in enumerate(request.data):    
                     # print(reqt,"reqt")
                     serializer = WebConsultationDtlSerializer(data=reqt)
+                    # print(serializer.is_valid())
+                    # print(serializer.errors)
                     if serializer.is_valid():
                         if not 'doc_no' in reqt or not reqt['doc_no']:
                             raise Exception('Please give doc_no!!.') 
@@ -2004,7 +2006,7 @@ class TNC_MasterViewset(viewsets.ModelViewSet):
     def get_queryset(self):
         fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
         site = fmspw[0].loginsite
-        queryset = TNC_Master.objects.filter(isactive=True).order_by('-pk')
+        queryset = TNC_Master.objects.filter(isactive=True).filter(~Q(is_declaration=True)).order_by('-pk')
        
         return queryset
 
@@ -2015,6 +2017,9 @@ class TNC_MasterViewset(viewsets.ModelViewSet):
             serializer_class = TNCMasterSerializer
             
             queryset = self.filter_queryset(self.get_queryset())
+            aqueryset = TNC_Master.objects.filter(isactive=True,is_declaration=True).order_by('-pk').values('mandatory',
+            'is_declaration','tnctext1','tnctext2','id')
+          
 
             total = len(queryset)
             state = status.HTTP_200_OK
@@ -2022,11 +2027,45 @@ class TNC_MasterViewset(viewsets.ModelViewSet):
             error = False
             data = None
             result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+            
+            result['declaration'] = aqueryset[0] if aqueryset else {}
             return Response(result, status=status.HTTP_200_OK) 
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)
     
+   
+    @transaction.atomic
+    @action(methods=['post'], detail=False, permission_classes=[IsAuthenticated & authenticated_only],
+    authentication_classes=[ExpiringTokenAuthentication])
+    def declarationupdate(self, request): 
+        try:  
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+                site = fmspw[0].loginsite
+                queryset = TNC_Master.objects.filter(isactive=True,is_declaration=True).order_by('-pk').first()
+                if not queryset:
+                    t = TNC_Master(is_declaration=True,mandatory=request.data['mandatory'],
+                    tnctext1=request.data['tnctext1'],tnctext2=request.data['tnctext2'])
+                    t.save()
+                    result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully",
+                    'error': False}
+                    return Response(result, status=status.HTTP_201_CREATED)
+                else:
+                    queryset.mandatory = request.data['mandatory']
+                    queryset.tnctext1 = request.data['tnctext1']
+                    queryset.tnctext2 = request.data['tnctext2']
+                    queryset.save()
+                    result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",'error': False}
+                    return Response(result, status=status.HTTP_200_OK)
+
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+    
+
+
     @transaction.atomic
     def create(self, request):
         try:

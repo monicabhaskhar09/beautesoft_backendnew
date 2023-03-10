@@ -169,7 +169,7 @@ fix {
       <tr>
         <td>{{ forloop.counter }}</td>
 
-          {% if d.isfoc %}
+          {% if d.isfoc and d.holditemqty is None %}
             <td>{{ d.dt_itemdesc }}</td>
           {% elif d.dt_status == "SA" and d.record_detail_type == "PACKAGE" %}
             <td>{{ d.dt_itemdesc }}&#8209; {{ packages }}</td>  

@@ -9,7 +9,7 @@ DepositAccount, CustomerPoint, MrRewardItemType,Smsreceivelog,Systemsetup,Treatm
 CustomerTitle,ItemDiv,Tempcustsign,CustomerDocument,TreatmentPackage,ContactPerson,ItemFlexiservice,
 termsandcondition,Participants,ProjectDocument,Dayendconfirmlog,CustomerPointDtl,
 CustomerReferral,MGMPolicyCloud,sitelistip,DisplayCatalog,DisplayItem,ItemUomprice,ItemUom,
-ItemBatch)
+ItemBatch,OutletRequestLog)
 from cl_app.models import ItemSitelist, SiteGroup
 from custom.models import EmpLevel,Room,VoucherRecord
 from django.contrib.auth.models import User
@@ -1869,7 +1869,7 @@ class CustApptSerializer(serializers.ModelSerializer):
         'cust_corporate': instance.cust_corporate,
         'contactperson': contactperson,
         'outstanding_amt': "{:.2f}".format(float(instance.outstanding_amt)) if instance.outstanding_amt else "0.00",
-        'cust_joindate':cust_joindate}
+        'cust_joindate':cust_joindate,'or_key':instance.or_key }
         return mapped_object    
 
    
@@ -3473,6 +3473,29 @@ class DisplayItemSerializer(serializers.ModelSerializer):
         model = DisplayItem
         fields = '__all__'
 
+
+class DisplayItemlistSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='stockid',required=False)
+    displayitem_id = serializers.IntegerField(source='pk',required=False)
+    
+    class Meta:
+        model = DisplayItem
+        fields = ['id','displayitem_id']
+
+    def to_representation(self, instance):
+        request = self.context['request']
+        fmspw = Fmspw.objects.filter(user=request.user, pw_isactive=True).order_by('-pk')
+        site = fmspw[0].loginsite
+
+
+        data = super(DisplayItemlistSerializer, self).to_representation(instance)
+        # print(data,"data")
+        stock_obj = Stock.objects.filter(item_isactive=True,pk=instance.stockid).order_by('-pk').first()
+        serializer = DisplayItemStockSerializer(stock_obj, context={'request': request})
+        # print(serializer.data,"serializer.data")
+        data.update(serializer.data)
+        return data     
+
 class DisplayItemStockSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source='pk',required=False)
 
@@ -3483,11 +3506,17 @@ class DisplayItemStockSerializer(serializers.ModelSerializer):
     
     def to_representation(self, instance):
         request = self.context['request']
+        menucode = self.context['menucode']
         fmspw = Fmspw.objects.filter(user=request.user, pw_isactive=True).order_by('-pk')
         site = fmspw[0].loginsite
 
+        disp_ids = DisplayItem.objects.filter(menu_code=menucode,stockid=instance.pk).first()
+        
+
 
         data = super(DisplayItemStockSerializer, self).to_representation(instance)
+
+        data['displayitem_id'] = disp_ids.pk if disp_ids else ""
         data['item_price'] = ""
         if instance.item_price:
             data['item_price'] = "{:.2f}".format(float(instance.item_price)) 
@@ -3525,3 +3554,26 @@ class DisplayItemStockSerializer(serializers.ModelSerializer):
                 data.update({'uomprice': uomlst}) 
 
         return data 
+
+class OutletRequestLogSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='pk',required=False)
+    log_date = serializers.DateTimeField(format="%d-%m-%Y",required=False)
+
+    class Meta:
+        model = OutletRequestLog
+        fields = ['id','log_date','cust_code','cust_name',
+        'from_site','requesting_site','req_status','request_by','req_staff_code']
+
+    def to_representation(self, instance):
+        data = super(OutletRequestLogSerializer, self).to_representation(instance)
+        cust_phone = ""
+        if instance.cust_code: 
+            cust_obj = Customer.objects.filter(cust_code=instance.cust_code,cust_isactive=True).first()
+            if cust_obj and cust_obj.cust_phone2:
+                cust_phone = cust_obj.cust_phone2
+
+        data['cust_phone'] = cust_phone        
+        return data 
+
+    
+            

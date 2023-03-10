@@ -23,6 +23,17 @@ class WebConsultationDtlSerializer(serializers.ModelSerializer):
         model = WebConsultation_Dtl
         fields = '__all__'
 
+    def to_representation(self, obj):
+        data = super(WebConsultationDtlSerializer, self).to_representation(obj)
+
+        image = ""
+        if obj.image:
+            image = str(SITE_ROOT)+str(obj.image)
+         
+        data['image'] = image
+
+        return data      
+
 
 class WebConsultationQuestionSerializer(serializers.ModelSerializer):
     
