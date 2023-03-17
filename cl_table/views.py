@@ -14777,7 +14777,7 @@ class DayEndListAPIView(generics.ListAPIView,generics.CreateAPIView):
                 # td_ids =  Treatment.objects.filter(status='Done',treatment_date__date=givendate,
                 # site_code=site.itemsite_code).order_by('-pk')  
                 td_ids =  Treatment.objects.filter(status='Done',treatment_date__date=givendate,
-                site_code=site.itemsite_code).order_by('-pk')
+                ).order_by('-pk')
                 for i in td_ids:
                     # print(i.treatment_code,i.sa_transacno,"i.treatment_code")
                     # haud_id = PosHaud.objects.filter(itemsite_code=site.itemsite_code,
@@ -14789,28 +14789,29 @@ class DayEndListAPIView(generics.ListAPIView,generics.CreateAPIView):
                         # if cust_obj:
                         # times=i.times,treatment_no=i.treatment_no
                         helper_ids = ItemHelper.objects.filter(item_code=i.treatment_code,sa_transacno=i.sa_transacno,
-                        ).order_by('-pk')
+                        site_code=site.itemsite_code).order_by('-pk')
                             
                         done_outlet = ""; td_sa_transacno_ref = ""
                         # helperids = ItemHelper.objects.filter(item_code=i.treatment_code,
                         # sa_transacno=i.sa_transacno).order_by('-pk').first()
                         # print(helperids,"helperids")
                         if helper_ids:
-                            haudid = PosHaud.objects.filter(isvoid=False,sa_transacno=helper_ids[0].helper_transacno).order_by('-pk').first()
+                            haudid = PosHaud.objects.filter(isvoid=False,
+                            sa_transacno=helper_ids[0].helper_transacno).order_by('-pk').first()
                             # print(haudid,"haudid")
                             if haudid:
                                 td_sa_transacno_ref = haudid.sa_transacno_ref
                                 done_outlet = haudid.itemsite_code
 
-                        td_vals = {'treatment_done':td_sa_transacno_ref,'desc':i.course,
-                                'amount': "{:.2f}".format(i.unit_amount),'cust_name': haud_id.sa_custnoid.cust_name,
-                                'cust_code': haud_id.sa_custnoid.cust_code,
-                                'cust_refer': haud_id.sa_custnoid.cust_refer if haud_id.sa_custnoid.cust_refer else '',
-                                'staff_name': ','.join(list(set([v.helper_name for v in helper_ids if v.helper_name]))),
-                                'buy_treatment_outlet': haud_id.itemsite_code,
-                                'treatmentdone_outlet': done_outlet,
-                                'treatment_code': i.treatment_code}
-                        tdlst.append(td_vals)
+                                td_vals = {'treatment_done':td_sa_transacno_ref,'desc':i.course,
+                                        'amount': "{:.2f}".format(i.unit_amount),'cust_name': haud_id.sa_custnoid.cust_name,
+                                        'cust_code': haud_id.sa_custnoid.cust_code,
+                                        'cust_refer': haud_id.sa_custnoid.cust_refer if haud_id.sa_custnoid.cust_refer else '',
+                                        'staff_name': ','.join(list(set([v.helper_name for v in helper_ids if v.helper_name]))),
+                                        'buy_treatment_outlet': haud_id.itemsite_code,
+                                        'treatmentdone_outlet': done_outlet,
+                                        'treatment_code': i.treatment_code}
+                                tdlst.append(td_vals)
 
 
 
@@ -15618,7 +15619,7 @@ class DayEndListAPIView(generics.ListAPIView,generics.CreateAPIView):
                     # td_ids =  Treatment.objects.filter(status='Done',treatment_date__date=givendate,
                     # site_code=site.itemsite_code).order_by('-pk')  
                     td_ids =  Treatment.objects.filter(status='Done',treatment_date__date=givendate,
-                    site_code=site.itemsite_code).order_by('-pk')
+                    ).order_by('-pk')
                     for i in td_ids:
                         # print(i.treatment_code,i.sa_transacno,"i.treatment_code")
                         # haud_id = PosHaud.objects.filter(itemsite_code=site.itemsite_code,
@@ -15630,28 +15631,29 @@ class DayEndListAPIView(generics.ListAPIView,generics.CreateAPIView):
                             # if cust_obj:
                             # times=i.times,treatment_no=i.treatment_no
                             helper_ids = ItemHelper.objects.filter(item_code=i.treatment_code,sa_transacno=i.sa_transacno,
-                            ).order_by('-pk')
+                            site_code=site.itemsite_code).order_by('-pk')
                                 
                             done_outlet = ""; td_sa_transacno_ref = ""
                             # helperids = ItemHelper.objects.filter(item_code=i.treatment_code,
                             # sa_transacno=i.sa_transacno).order_by('-pk').first()
                             # print(helperids,"helperids")
                             if helper_ids:
-                                haudid = PosHaud.objects.filter(isvoid=False,sa_transacno=helper_ids[0].helper_transacno).order_by('-pk').first()
+                                haudid = PosHaud.objects.filter(isvoid=False,sa_transacno=helper_ids[0].helper_transacno,
+                                ).order_by('-pk').first()
                                 # print(haudid,"haudid")
                                 if haudid:
                                     td_sa_transacno_ref = haudid.sa_transacno_ref
                                     done_outlet = haudid.itemsite_code
 
-                            td_vals = {'treatment_done':td_sa_transacno_ref,'desc':i.course,
-                                    'amount': "{:.2f}".format(i.unit_amount),'cust_name': haud_id.sa_custnoid.cust_name,
-                                    'cust_code': haud_id.sa_custnoid.cust_code,
-                                    'cust_refer': haud_id.sa_custnoid.cust_refer if haud_id.sa_custnoid.cust_refer else '',
-                                    'staff_name': ','.join(list(set([v.helper_name for v in helper_ids if v.helper_name]))),
-                                    'buy_treatment_outlet': haud_id.itemsite_code,
-                                    'treatmentdone_outlet': done_outlet,
-                                    'treatment_code': i.treatment_code}
-                            tdlst.append(td_vals)
+                                    td_vals = {'treatment_done':td_sa_transacno_ref,'desc':i.course,
+                                            'amount': "{:.2f}".format(i.unit_amount),'cust_name': haud_id.sa_custnoid.cust_name,
+                                            'cust_code': haud_id.sa_custnoid.cust_code,
+                                            'cust_refer': haud_id.sa_custnoid.cust_refer if haud_id.sa_custnoid.cust_refer else '',
+                                            'staff_name': ','.join(list(set([v.helper_name for v in helper_ids if v.helper_name]))),
+                                            'buy_treatment_outlet': haud_id.itemsite_code,
+                                            'treatmentdone_outlet': done_outlet,
+                                            'treatment_code': i.treatment_code}
+                                    tdlst.append(td_vals)
 
 
 
@@ -17963,7 +17965,21 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
                     if 'cust_corporate' in request.data and request.data['cust_corporate']:
                         serializer.save(cust_corporate=request.data['cust_corporate'])
                     
-                    if request.data['cust_dob'] and request.data['cust_dob'] != str(date.today()):
+                    custdob_setup = Systemsetup.objects.filter(title='CustomerDOB',
+                    value_name='CustomerDOB',isactive=True).first()
+                    if custdob_setup and custdob_setup.value_data == 'True':
+                        if 'cust_dob' in request.data and request.data['cust_dob']:
+                            custdob = datetime.datetime.strptime(str(request.data['cust_dob']), "%Y-%m-%d")
+                            cust_rem = calculate(custdob)
+                            if cust_rem > 18:
+                                k.cust_dob = request.data['cust_dob']
+                                k.save()
+                            else:
+                                k.cust_dob = None
+                                k.save()
+
+                    
+                    if k.cust_dob and k.cust_dob != str(date.today()):
                         k.dob_status = True
                         k.save()
                                                 

@@ -17,7 +17,12 @@ import datetime
 from cl_app.models import ItemSitelist
 from dateutil.relativedelta import relativedelta
 from Cl_beautesoft.settings import SITE_ROOT
+import math
 
+def truncate(f, n):
+    res = math.floor(f * 10 ** n) / 10 ** n
+    # val = numberWithoutRounding(res)
+    return res
 
 
 

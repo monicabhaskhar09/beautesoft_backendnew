@@ -25,6 +25,7 @@ from datetime import date
 from django.db.models.functions import Coalesce
 from Cl_beautesoft.settings import SITE_ROOT
 from .utils import code_generator
+import json
 
 def get_client_ip(request):
     # url = request.build_absolute_uri()

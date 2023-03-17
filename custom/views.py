@@ -45,7 +45,7 @@ TreatmentAccount, PosDaud, ItemDept, DepositAccount, PrepaidAccount, ItemDiv, Sy
 PackageHdr,PackageDtl,Paytable,Multistaff,ItemBatch,Stktrn,ItemUomprice,Holditemdetail,CreditNote,
 CustomerClass,ItemClass,Tmpmultistaff,Tmptreatment,ExchangeDtl,ItemUom,ItemHelper,PrepaidAccountCondition,
 City, State, Country, Stock,PayGroup,Tempcustsign,Item_MembershipPrice)
-from cl_app.models import ItemSitelist, SiteGroup, TmpTreatmentSession
+from cl_app.models import ItemSitelist, SiteGroup, TmpTreatmentSession,TmpItemHelperSession
 from cl_table.serializers import PostaudSerializer,StaffsAvailableSerializer,PosdaudSerializer,TmpItemHelperSerializer
 from datetime import date, timedelta, datetime
 import datetime
@@ -1596,7 +1596,148 @@ def update_multistaff_salesamt(queryset):
                 mul_ids[0].salesamt = "{:.2f}".format(float(salesamt))
                 mul_ids[0].salescommpoints = salescommpoints
                 mul_ids[0].save() 
-    return True                          
+    return True  
+
+def get_cartid(self, request, cust_obj):
+    global type_ex
+    fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+    site = fmspw[0].loginsite
+    cart_date = timezone.now().date()
+
+    empl = fmspw[0].Emp_Codeid
+    control_obj = ControlNo.objects.filter(control_description__iexact="ITEM CART",Site_Codeid__pk=fmspw[0].loginsite.pk).first()
+    if not control_obj:
+        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Item Cart Control No does not exist!!",'error': True} 
+        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
+    #cartre = ItemCart.objects.filter(sitecodeid=site).order_by('cart_id')
+    cartre = ItemCart.objects.filter(sitecodeid=site).order_by('-cart_id')[:2]
+    final = list(set([r.cart_id for r in cartre]))
+    code_site = site.itemsite_code
+    prefix = control_obj.control_prefix
+
+    silicon = 6
+    cosystem_setup = Systemsetup.objects.filter(title='ICControlnoslice',value_name='ICControlnoslice',isactive=True).first()
+    if cosystem_setup and cosystem_setup.value_data: 
+        silicon = int(cosystem_setup.value_data)
+
+
+    clst = []
+    if final != []:
+        for f in final:
+            fhstr = int(f[silicon:])
+            # newstr = f.replace(prefix,"")
+            # new_str = newstr.replace(code_site, "")
+            clst.append(fhstr)
+            clst.sort(reverse=True)
+
+        # print(clst,"clst")
+        cart_id = int(clst[0]) + 1
+        # print(clst[0][-6:],"clst[0][-6:] 66")
+        # cart_id = int(clst[0][-6:]) + 1
+        # print(cart_id,"cart_id")
+        
+        control_obj.control_no = str(cart_id)
+        control_obj.save()
+
+    savalue = sa_transacno_update(self, site, fmspw) 
+
+    scount = 1
+    while scount > 0:
+        queryset = ItemCart.objects.filter(cust_noid=cust_obj,cart_date=cart_date,
+        cart_status="Inprogress",isactive=True,is_payment=False,sitecode=site.itemsite_code).exclude(type__in=type_ex).order_by('lineno')    
+        lst = list(set([e.cart_id for e in queryset if e.cart_id]))
+        # cart_strv = ', '.join(lst)
+        # if len(lst) > 1:
+        #     msg = "Site {0},Cart IDS {1},Total Lines {2} This Customer will have more than one Cart ID in Inprogress status,Please check and delete Unwanted Cart ID!!".format(str(site.itemsite_code),str(cart_strv),str(len(queryset)))
+        #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":msg,'error': True} 
+        #     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+        
+        if lst != []:
+            cartc_ids = ItemCart.objects.filter(isactive=True,cart_date=cart_date,
+            cart_id__in=lst,cart_status="Completed",is_payment=True,sitecodeid=site).exclude(type__in=type_ex)
+            # print(cartc_ids,"cartc_ids") 
+            if cartc_ids:
+                inqueryset = ItemCart.objects.filter(cust_noid=cust_obj,cart_id__in=lst,cart_date=cart_date,
+                cart_status="Inprogress",isactive=True,is_payment=False,sitecodeid=site).exclude(type__in=type_ex).order_by('lineno')  
+                for j in inqueryset:
+                    j.cart_status = "Completed" 
+                    j.is_payment = True
+                    j.sa_transacno = cartc_ids[0].sa_transacno
+                    j.save()
+                scount += 1
+            else:
+                if len(lst) > 1:
+                    d_cartids = ItemCart.objects.filter(cart_id__in=lst,cart_date=cart_date,
+                    cart_status="Inprogress",isactive=True,is_payment=False,sitecode=site.itemsite_code).exclude(type__in=type_ex).order_by('lineno')  
+                    # checkd =list(set([x.pk for x in d_cartids if x.remark != None]))
+                    # if len(checkd) == d_cartids.count():
+                    #     raise Exception('TCM ItemCart Cant Delete !!') 
+
+                    check_e =list(set([x.pk for x in d_cartids if x.remark == None]))
+                    cartids = ItemCart.objects.filter(cart_id__in=lst,cart_date=cart_date,
+                    cart_status="Inprogress",isactive=True,is_payment=False,sitecode=site.itemsite_code,pk__in=check_e).exclude(type__in=type_ex,).order_by('lineno')    
+
+                    # if not cartids:
+                    #     raise Exception('Given Cart ID Does Not Exist') 
+
+                    if cartids:
+                        for instance in cartids:
+                            instance.isactive = False
+                            if instance.treatment:
+                                trs_ids =  TmpTreatmentSession.objects.filter(treatment_parentcode=instance.treatment.treatment_parentcode,
+                                created_at=date.today())
+                                if trs_ids:
+                                    trs_ids.delete() 
+
+                                tmpsearchhids = TmpItemHelperSession.objects.filter(treatment_parentcode=instance.treatment.treatment_parentcode,
+                                sa_date__date=date.today())
+                                if tmpsearchhids:
+                                    tmpsearchhids.delete()  
+
+                            
+                            TreatmentAccount.objects.filter(itemcart=instance).update(itemcart=None)
+                            PosDaud.objects.filter(itemcart=instance).update(itemcart=None)
+                            TmpItemHelper.objects.filter(itemcart=instance).delete()
+                            TmpItemHelper.objects.filter(treatment=instance.treatment).delete()
+                            PosPackagedeposit.objects.filter(itemcart=instance).delete()
+                            Tmpmultistaff.objects.filter(itemcart=instance).delete()
+                            Tmptreatment.objects.filter(itemcart=instance).delete()
+                            if instance.multi_treat.all().exists():
+                                for i in instance.multi_treat.all():
+                                    TmpItemHelper.objects.filter(treatment=i).delete()
+                                    Tmptreatment.objects.filter(treatment_id=i,status='Open').delete()
+
+                            instance.delete() 
+                            if instance.exchange_id:
+                                ExchangeDtl.objects.filter(exchange_no=instance.exchange_id.exchange_no,status=False).delete()    
+                            
+                        scount += 1 
+                scount = 0        
+        else:
+            scount = 0
+
+    if queryset:
+        return lst[0]
+    else:
+        return []
+
+def numberWithoutRounding(num, precision=2):
+    N =1
+    [beforeDecimal, afterDecimal] = str(num).split('.')
+    if len(afterDecimal) == 1:
+        test_string = str(num)
+        afterDecimal = float(test_string.ljust(N + len(test_string), '0'))
+    return beforeDecimal + '.' + afterDecimal
+
+
+def truncate(f, n):
+    res = math.floor(f * 10 ** n) / 10 ** n
+    # val = numberWithoutRounding(res)
+    return res
+
+
+       
 
 class itemCartViewset(viewsets.ModelViewSet):
     authentication_classes = [ExpiringTokenAuthentication]
@@ -1708,8 +1849,15 @@ class itemCartViewset(viewsets.ModelViewSet):
                                 for instance in cartids:
                                     instance.isactive = False
                                     if instance.treatment:
-                                        TmpTreatmentSession.objects.filter(treatment_parentcode=instance.treatment.treatment_parentcode,
-                                        created_at=date.today()).delete() 
+                                        trs_ids =  TmpTreatmentSession.objects.filter(treatment_parentcode=instance.treatment.treatment_parentcode,
+                                        created_at=date.today())
+                                        if trs_ids:
+                                            trs_ids.delete() 
+
+                                        tmpsearchhids = TmpItemHelperSession.objects.filter(treatment_parentcode=instance.treatment.treatment_parentcode,
+                                        sa_date__date=date.today())
+                                        if tmpsearchhids:
+                                            tmpsearchhids.delete()  
 
                                     
                                     TreatmentAccount.objects.filter(itemcart=instance).update(itemcart=None)
@@ -1903,17 +2051,24 @@ class itemCartViewset(viewsets.ModelViewSet):
             if queryset.filter(type='Exchange'):
                 exchange = True
 
+            # cart_ids = queryset.filter(~Q(type='Exchange'))  
+
+            # add_discountamt = sum([i.additional_discountamt for i in cart_ids])
+            # disc_priceamt = sum([i.discount_price for i in cart_ids])
+            # net_amountv = sum([i.trans_amt for i in cart_ids])
+            # deposit_amountv = sum([i.deposit for i in cart_ids])
 
             # gst = GstSetting.objects.filter(item_desc='GST',isactive=True).first()
             state = status.HTTP_200_OK
             message = "Listed Succesfully"
             error = False; subtotal = 0.0; discount = 0.0;discount_amt=0.0;additional_discountamt=0.0;
             trans_amt=0.0 ;deposit_amt =0.0; billable_amount=0.0;balance=0.0 
+            # trandisc = 0;discount_priceamt = 0; netamount = 0; depositamount = 0
             if queryset:
                 serializer = self.get_serializer(queryset, many=True)
                 data = serializer.data
                 lst = []
-                for d in data:
+                for idx, d in enumerate(data, start=1):
                     dict_v = dict(d)
                     cartobj = ItemCart.objects.filter(id=dict_v['id'],isactive=True,sitecode=site.itemsite_code).exclude(type__in=type_ex).first()  
                     stockobj = Stock.objects.filter(item_code=cartobj.itemcode).first()
@@ -2014,9 +2169,43 @@ class itemCartViewset(viewsets.ModelViewSet):
                         dict_v['is_unitprice'] = True
                     else:
                         dict_v['is_unitprice'] = False
-
-
+                    
                     tot_disc = dict_v['discount_amt'] + dict_v['additional_discountamt']
+                     
+                    # trdisc = truncate(tot_disc, 2)
+                    # trandisc += trdisc
+                    
+                    
+                    # discountprice = truncate(cartobj.discount_price, 2)
+                    # discount_priceamt += discountprice
+
+                    # trasacamt = truncate(cartobj.trans_amt, 2)
+                    # netamount += trasacamt
+                    # depoamount = truncate(cartobj.deposit, 2)
+                    # depositamount += depoamount
+
+
+                    # if len(data) == idx:
+                    #     if trandisc < add_discountamt:
+                    #         trem = round(add_discountamt - trandisc, 3)
+                    #         trdisc = truncate(trdisc + trem, 2)
+
+                    #     if discount_priceamt < disc_priceamt:
+                    #         direm = round(disc_priceamt - discount_priceamt, 3)
+                    #         discountprice = truncate(discountprice + direm, 2)
+
+                    #     if netamount < net_amountv :
+                    #         # round(2.673, 2)
+                    #         nrem = round(net_amountv - netamount, 3)
+                    #         trasacamt = truncate(trasacamt + nrem, 2)
+
+                    #     if depositamount < deposit_amountv :
+                    #         drem = round(deposit_amountv - depositamount, 3)
+                    #         depoamount = truncate(depoamount + drem, 2)
+                    
+
+
+                    
                     stock_obj = Stock.objects.filter(pk=dict_v['itemcodeid'])[0]
                     total_disc = dict_v['discount_amt'] + dict_v['additional_discountamt']
                     dict_v['price'] = "{:.2f}".format(float(dict_v['price']))
@@ -2142,7 +2331,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                 result = {'status': state,"message":message,'error': error, 'data':  lst,'subtotal':"{:.2f}".format(float(subtotal)),
                 'discount': "{:.2f}".format(float(total_disc)),'trans_amt': "{:.2f}".format(float(trans_amt)),'deposit_amt':"{:.2f}".format(float(balance)),
                 'billable_amount': "{:.2f}".format(float(billable_amount)),'balance':"{:.2f}".format(float(balance)),
-                'exchange': exchange,'outstanding': "{:.2f}".format(float(out_standing))}
+                'exchange': exchange,'outstanding': "{:.2f}".format(float(abs(out_standing)))}
             else:
                 serializer = self.get_serializer()
                 result = {'status': state,"message":message,'error': error, 'data': []}
@@ -2323,6 +2512,23 @@ class itemCartViewset(viewsets.ModelViewSet):
     def create(self, request):
         try:
             global type_ex
+            if not request.data:
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give Payload Data",'error': False}
+                return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
+            
+ 
+            if str(request.data[0]['cust_noid']) == "undefined":
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please select customer!!",'error': True} 
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)         
+            
+            cust_obj = Customer.objects.filter(pk=int(request.data[0]['cust_noid']),cust_isactive=True).first()
+            if not cust_obj:
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer ID does not exist!!",'error': True} 
+                return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
+            # cartvalue = get_cartid(self, request, cust_obj)
+
             for idx, req in enumerate(request.data, start=1):
                 serializer = self.get_serializer(data=req)
                 cart_date = timezone.now().date()
@@ -2388,11 +2594,7 @@ class itemCartViewset(viewsets.ModelViewSet):
 
                 site = fmspw[0].loginsite
 
-                cust_obj = Customer.objects.filter(pk=req['cust_noid'],cust_isactive=True).first()
-                if not cust_obj:
-                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer ID does not exist!!",'error': True} 
-                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-
+                
                 stock_obj = Stock.objects.filter(pk=req['itemcodeid']).first()
                 if not stock_obj:
                     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Stock ID does not exist!!",'error': True} 
@@ -2403,6 +2605,9 @@ class itemCartViewset(viewsets.ModelViewSet):
                 cart_lst = [];subtotal = 0.0; discount=0.0; billable_amount=0.0;trans_amt=0.0;deposit_amt = 0.0
 
                 cart_id = request.GET.get('cart_id',None)
+                # cart_id = cartvalue
+
+                # print(cart_id,"cart_id")
                 if cart_id:
                     cartchids = ItemCart.objects.filter(isactive=True,cart_date=cart_date,
                     cust_noid=cust_obj,cart_status="Inprogress",is_payment=False,sitecodeid=site).exclude(type__in=type_ex)  
@@ -2990,19 +3195,32 @@ class itemCartViewset(viewsets.ModelViewSet):
             if not request.data:
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please enter a valid pay amount!!",'error': True} 
                 return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
+            if str(request.data[0]['cust_noid']) == "undefined":
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please select customer!!",'error': True} 
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)         
+            
+            cust_obj = Customer.objects.filter(pk=int(request.data[0]['cust_noid']),cust_isactive=True).first()
+            if not cust_obj:
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer ID does not exist!!",'error': True} 
+                return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
+            # cartvalue = get_cartid(self, request, cust_obj)
+    
                 
-            for idx, req in enumerate(request.data, start=1):
-                cust_obj = Customer.objects.filter(pk=req['cust_noid'],cust_isactive=True).first()
-                if not cust_obj:
-                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer ID does not exist!!",'error': True} 
-                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+            # for idx, req in enumerate(request.data, start=1):
+            #     cust_obj = Customer.objects.filter(pk=req['cust_noid'],cust_isactive=True).first()
+            #     if not cust_obj:
+            #         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer ID does not exist!!",'error': True} 
+            #         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
                 
-                fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
-                site = fmspw[0].loginsite
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+            site = fmspw[0].loginsite
 
             cart_lst = [];subtotal = 0.0; discount=0.0; billable_amount=0.0;trans_amt=0.0;deposit_amt = 0.0
             for idx, req in enumerate(request.data, start=1):
                 cart_id = request.GET.get('cart_id',None)
+                # cart_id = cartvalue
                 if cart_id:
                     cartchids = ItemCart.objects.filter(isactive=True,cart_date=cartdate,
                     cust_noid=cust_obj,cart_status="Inprogress",is_payment=False,sitecodeid=site).exclude(type__in=type_ex)
@@ -3139,16 +3357,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                 #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cart Date must be today date",'error': True}
                 #     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
-                
-                fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
-                site = fmspw[0].loginsite
-
-                
-                cust_obj = Customer.objects.filter(pk=req['cust_noid'],cust_isactive=True).first()
-                if not cust_obj:
-                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer ID does not exist!!",'error': True} 
-                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-
+               
                 stock_obj = Stock.objects.filter(pk=req['itemcodeid']).first()
 
                 if not stock_obj:
@@ -3780,15 +3989,25 @@ class itemCartViewset(viewsets.ModelViewSet):
                 cartdate = timezone.now().date()
                 fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
                 site = fmspw[0].loginsite  
-                for idx, reqt in enumerate(request.data, start=1):
-                    cust_obj = Customer.objects.filter(pk=reqt['cust_noid'],cust_isactive=True).first()
-                    if not cust_obj:
-                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer ID does not exist!!",'error': True} 
-                        return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+                if not request.data:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please enter a valid pay amount!!",'error': True} 
+                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
+                if str(request.data[0]['cust_noid']) == "undefined":
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please select customer!!",'error': True} 
+                    return Response(result, status=status.HTTP_400_BAD_REQUEST)         
+                
+                cust_obj = Customer.objects.filter(pk=int(request.data[0]['cust_noid']),cust_isactive=True).first()
+                if not cust_obj:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer ID does not exist!!",'error': True} 
+                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
+                # cartvalue = get_cartid(self, request, cust_obj)
+    
+               
                      
                 
-                if not reqt['ori_stockid']:
+                if not request.data[0]['ori_stockid']:
                     tmp_ids = TmpItemHelper.objects.filter(treatment__Cust_Codeid__pk=cust_obj.pk,
                     site_code=site.itemsite_code,created_at__date=cartdate,line_no__isnull=True)   
                     # print(tmp_ids,"tmp_ids")
@@ -3822,15 +4041,13 @@ class itemCartViewset(viewsets.ModelViewSet):
                                     "ori_stockid" : None
                                 }
                             request.data.append(val)    
-                    print(request.data,"request.data")
+                    # print(request.data,"request.data")
                 
-                    
-               
-                    
                 
                 cart_lst = [];subtotal = 0.0; discount=0.0; billable_amount=0.0;trans_amt=0.0;deposit_amt = 0.0
                 for idx, req in enumerate(request.data, start=1):
                     cart_id = request.GET.get('cart_id',None)
+                    # cart_id = cartvalue
                     if cart_id:
                         cartchids = ItemCart.objects.filter(isactive=True,cart_date=cartdate,
                         cust_noid=cust_obj,cart_status="Inprogress",is_payment=False,sitecodeid=site).exclude(type__in=type_ex)
@@ -4455,8 +4672,8 @@ class itemCartViewset(viewsets.ModelViewSet):
                         # discount = float(request.data['discount'])
                         # discount_amt = float(request.data['discount_amt'])
 
-
-                        value = float(itemcart.price) - discount_amt
+                        # value = float(itemcart.price) - discount_amt
+                        value = float(itemcart.discount_price) - discount_amt
                         amount = value * itemcart.quantity
                         if float(amount) <= 0.0:
                             result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Deposit Should not be negative!!",'error': True} 
@@ -4487,8 +4704,9 @@ class itemCartViewset(viewsets.ModelViewSet):
                             # print(discount_amt,"discount_amt")
                             # discount = float(request.data['discount'])
                             # discount_amt = float(request.data['discount_amt'])
-
-                            value = float(itemcart.price) - discount_amt
+                            
+                            # value = float(itemcart.price) - discount_amt
+                            value = float(itemcart.discount_price) - discount_amt
                             # print(value,"value")
                             amount = value * itemcart.quantity
                             # print(amount,"amount")
@@ -4788,8 +5006,9 @@ class itemCartViewset(viewsets.ModelViewSet):
                         if float(itemcart.deposit) != float(self.request.GET.get('deposit',None)):
                             result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Deposit can't be changed for Voucher Product!!",'error': True} 
                             return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-                
-                    if int(float(self.request.GET.get('deposit',None))) > int(trans_amt):
+                    
+                    transaction_amt = "{:.2f}".format(float(trans_amt))
+                    if float(self.request.GET.get('deposit',None)) > float(transaction_amt):
                         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Deposit should not be greater than transaction amount!!",'error': True} 
                         return Response(result, status=status.HTTP_400_BAD_REQUEST) 
 
@@ -5043,10 +5262,37 @@ class itemCartViewset(viewsets.ModelViewSet):
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Transac Discount not allowable!!",'error': True} 
                 return Response(result, status=status.HTTP_400_BAD_REQUEST) 
             
-            
+            # add_discountamt = sum([i.additional_discountamt for i in cart_ids])
+            # net_amountv = sum([i.trans_amt for i in cart_ids])
+            # deposit_amountv = sum([i.deposit for i in cart_ids])
+
 
             lst = [];total_amount = 0.0;other_disc = 0.0;net_amount=0.0;tran_disc=0.0;deposit_amount=0.0
-            for c in cart_ids:
+            # trandisc = 0; netamount = 0; depositamount = 0
+            for idx, c in enumerate(cart_ids, start=1):
+                # trdisc = truncate(c.additional_discountamt, 2)
+                # trandisc += trdisc
+                
+                # trasacamt = truncate(c.trans_amt, 2)
+                # netamount += trasacamt
+                # depoamount = truncate(c.deposit, 2)
+                # depositamount += depoamount
+
+                # if len(cart_ids) == idx:
+                #     if trandisc < add_discountamt:
+                #         trem = round(add_discountamt - trandisc, 3)
+                #         trdisc = truncate(trdisc + trem, 2)
+                #     if netamount < net_amountv :
+                #         # round(2.673, 2)
+                #         nrem = round(net_amountv - netamount, 3)
+                #         trasacamt = truncate(trasacamt + nrem, 2)
+
+                #     if depositamount < deposit_amountv :
+                #         drem = round(deposit_amountv - depositamount, 3)
+                #         depoamount = truncate(depoamount + drem, 2)
+                    
+                
+               
                 val = {'id':c.pk,'lineno':c.lineno,'item_code':c.itemcodeid.item_code,'item_desc':c.itemcodeid.item_name,
                 'qty':c.quantity,'unit_price':"{:.2f}".format(float(c.price)),'other_disc':"{:.2f}".format(float(c.discount_amt)),
                 'tran_disc':"{:.2f}".format(float(c.additional_discountamt)),'net_amount':"{:.2f}".format(float(c.trans_amt)),
@@ -5636,10 +5882,17 @@ class itemCartViewset(viewsets.ModelViewSet):
     def perform_destroy(self, instance):
         instance.isactive = False
         if instance.treatment:
-            TmpTreatmentSession.objects.filter(treatment_parentcode=instance.treatment.treatment_parentcode,
-            created_at=date.today()).delete() 
+            trs_ids = TmpTreatmentSession.objects.filter(treatment_parentcode=instance.treatment.treatment_parentcode,
+            created_at=date.today())
+            if trs_ids:
+                trs_ids.delete() 
 
-                  
+            tmpsearchhids = TmpItemHelperSession.objects.filter(treatment_parentcode=instance.treatment.treatment_parentcode,
+            sa_date__date=date.today())
+            if tmpsearchhids:
+                tmpsearchhids.delete()  
+
+
         TreatmentAccount.objects.filter(itemcart=instance).update(itemcart=None)
         PosDaud.objects.filter(itemcart=instance).update(itemcart=None)
         TmpItemHelper.objects.filter(itemcart=instance).delete()
@@ -8105,8 +8358,9 @@ class CartPopupViewset(viewsets.ModelViewSet):
                     if float(itemcart.deposit) != float(request.data['deposit']):
                         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Deposit can't be changed for Voucher Product!!",'error': True} 
                         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-            
-                if float(request.data['deposit']) > itemcart.trans_amt:
+                
+                trans_amt = "{:.2f}".format(float(itemcart.trans_amt))
+                if float(request.data['deposit']) > float(trans_amt):
                     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Deposit should not be greater than transaction amount!!",'error': True} 
                     return Response(result, status=status.HTTP_400_BAD_REQUEST) 
 
@@ -9204,8 +9458,9 @@ class CartItemDeleteAPIView(APIView):
             d_cartids = ItemCart.objects.filter(cart_id=cart_id,cart_date=cart_date,
             cart_status="Inprogress",isactive=True,is_payment=False,sitecode=site.itemsite_code).exclude(type__in=type_ex).order_by('lineno')  
             checkd =list(set([x.pk for x in d_cartids if x.remark != None]))
-            if len(checkd) == d_cartids.count():
-                raise Exception('TCM ItemCart Cant Delete !!') 
+            if d_cartids and checkd:
+                if len(checkd) == d_cartids.count():
+                    raise Exception('TCM ItemCart Cant Delete !!') 
 
             check_e =list(set([x.pk for x in d_cartids if x.remark == None]))
             cartids = ItemCart.objects.filter(cart_id=cart_id,cart_date=cart_date,
@@ -9218,8 +9473,16 @@ class CartItemDeleteAPIView(APIView):
                 for instance in cartids:
                     instance.isactive = False
                     if instance.treatment:
-                        TmpTreatmentSession.objects.filter(treatment_parentcode=instance.treatment.treatment_parentcode,
-                        created_at=date.today()).delete() 
+                        trs_ids = TmpTreatmentSession.objects.filter(treatment_parentcode=instance.treatment.treatment_parentcode,
+                        created_at=date.today())
+                        if trs_ids:
+                            trs_ids.delete() 
+
+                        tmpsearchhids = TmpItemHelperSession.objects.filter(treatment_parentcode=instance.treatment.treatment_parentcode,
+                        sa_date__date=date.today())
+                        if tmpsearchhids:
+                            tmpsearchhids.delete()  
+                
 
                     
                     TreatmentAccount.objects.filter(itemcart=instance).update(itemcart=None)

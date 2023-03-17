@@ -39,7 +39,9 @@ class WebConsultationQuestionSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = WebConsultation_Question
-        fields = '__all__'
+        fields = ['id','question_group','question_number','page_number','isactive',
+        'question_type','image','question_english','question_chinese','question_others',
+        'site_ids','question_text','option_type','mandatory']
 
     def to_representation(self, obj):
         data = super(WebConsultationQuestionSerializer, self).to_representation(obj)
@@ -132,7 +134,7 @@ class TNCMasterSerializer(serializers.ModelSerializer):
  
     class Meta:
         model = TNC_Master
-        fields = '__all__'
+        fields = ['id','sno','isactive','english','otherlanguage'] 
 
 class TNC_DetailSerializer(serializers.ModelSerializer):
     
@@ -191,7 +193,9 @@ class WebConsultationQuestionprintSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = WebConsultation_Question
-        fields = '__all__'
+        fields = ['id','question_group','question_number','page_number','isactive',
+        'question_type','image','question_english','question_chinese','question_others',
+        'site_ids','question_text','option_type','mandatory']
 
     def to_representation(self, obj):
         data = super(WebConsultationQuestionprintSerializer, self).to_representation(obj)

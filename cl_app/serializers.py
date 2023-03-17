@@ -948,7 +948,7 @@ class SessionTmpItemHelperSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TmpItemHelperSession
-        fields = ['id','helper_name','session','wp1']
+        fields = ['id','helper_name','session','wp1','helper_id']
 
     def to_representation(self, instance):
        

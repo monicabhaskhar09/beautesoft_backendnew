@@ -2667,6 +2667,7 @@ class Stock(models.Model):
 
     class Meta:
         db_table = 'Stock'
+        unique_together = (('item_code'),)
 
     def __str__(self):
         return str(self.item_desc)

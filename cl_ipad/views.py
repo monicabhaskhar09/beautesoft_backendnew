@@ -78,7 +78,14 @@ class WebConsultationHdrViewset(viewsets.ModelViewSet):
             message = "Listed Succesfully"
             error = False
             data = None
+
+            aqueryset = WebConsultation_Question.objects.filter(isactive=False,question_group="Declaration").order_by('-pk').values('declaration_text',
+            'id')
+          
+
             result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+            result['declaration'] = aqueryset[0] if aqueryset else None
+
             return Response(result, status=status.HTTP_200_OK) 
         except Exception as e:
             invalid_message = str(e)
@@ -178,26 +185,26 @@ class WebConsultationHdrViewset(viewsets.ModelViewSet):
                 fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
                 site = fmspw.loginsite
                 ref = self.get_object(pk)
-                if not 'cust_codeid' in request.data or not request.data['cust_codeid']:
-                    raise Exception('Please give Customer ID!!.') 
+                # if not 'cust_codeid' in request.data or not request.data['cust_codeid']:
+                #     raise Exception('Please give Customer ID!!.') 
 
-                if not 'emp_codeid' in request.data or not request.data['emp_codeid']:
-                    raise Exception('Please give Employee ID!!.') 
+                # if not 'emp_codeid' in request.data or not request.data['emp_codeid']:
+                #     raise Exception('Please give Employee ID!!.') 
 
-                emp_obj = Employee.objects.filter(pk=request.data['emp_codeid'],emp_isactive=True).order_by('-pk').first()      
-                if not emp_obj:
-                    raise Exception('Employee ID Does not exist!!.') 
+                # emp_obj = Employee.objects.filter(pk=request.data['emp_codeid'],emp_isactive=True).order_by('-pk').first()      
+                # if not emp_obj:
+                #     raise Exception('Employee ID Does not exist!!.') 
 
-                cust_obj = Customer.objects.filter(cust_isactive=True,pk=request.data['cust_codeid']).only('cust_isactive').order_by('-pk').first()      
-                if not cust_obj:
-                    raise Exception('Customer ID Does not exist!!.') 
+                # cust_obj = Customer.objects.filter(cust_isactive=True,pk=request.data['cust_codeid']).only('cust_isactive').order_by('-pk').first()      
+                # if not cust_obj:
+                #     raise Exception('Customer ID Does not exist!!.') 
 
                
-                check_ids = WebConsultation_Hdr.objects.filter(~Q(pk=ref.pk)).filter(site_codeid__pk=ref.site_codeid.pk,
-                cust_codeid=cust_obj,emp_codeid=emp_obj,doc_date=ref.doc_date).order_by('-pk')
-                if check_ids:
-                    msg = "Customer {0} already consulted by this staff  !!".format(str(cust_obj.cust_name))
-                    raise Exception(msg) 
+                # check_ids = WebConsultation_Hdr.objects.filter(~Q(pk=ref.pk)).filter(site_codeid__pk=ref.site_codeid.pk,
+                # cust_codeid=cust_obj,emp_codeid=emp_obj,doc_date=ref.doc_date).order_by('-pk')
+                # if check_ids:
+                #     msg = "Customer {0} already consulted by this staff  !!".format(str(cust_obj.cust_name))
+                #     raise Exception(msg) 
                     
                 serializer = self.get_serializer(ref, data=request.data, partial=True)
                 if serializer.is_valid():
@@ -1603,21 +1610,21 @@ class WebConsultation_Referral_HdrViewset(viewsets.ModelViewSet):
                 fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
                 site = fmspw.loginsite
                 ref = self.get_object(pk)
-                if not 'signature_img' in request.data or not request.data['signature_img']:
-                    raise Exception('Please give signature img!!.') 
+                # if not 'signature_img' in request.data or not request.data['signature_img']:
+                #     raise Exception('Please give signature img!!.') 
 
-                if not 'welcomedoor_signatureimg' in request.data or not request.data['welcomedoor_signatureimg']:
-                    raise Exception('Please give welcomedoor signatureimg!!.') 
+                # if not 'welcomedoor_signatureimg' in request.data or not request.data['welcomedoor_signatureimg']:
+                #     raise Exception('Please give welcomedoor signatureimg!!.') 
 
-                if not 'last_updateby' in request.data or not request.data['last_updateby']:
-                    raise Exception('Please give last updateby!!.') 
+                # if not 'last_updateby' in request.data or not request.data['last_updateby']:
+                #     raise Exception('Please give last updateby!!.') 
                     
-                if not 'doc_no' in request.data or not request.data['doc_no']:
-                    raise Exception('Please give doc no!!.') 
+                # if not 'doc_no' in request.data or not request.data['doc_no']:
+                #     raise Exception('Please give doc no!!.') 
 
                
                 check_ids = WebConsultation_Referral_Hdr.objects.filter(~Q(pk=ref.pk)).filter(site_code=site.itemsite_code,
-                doc_no=request.data['doc_no'],
+                doc_no=ref.doc_no,
                 create_date=ref.create_date).order_by('-pk').first()
                 if check_ids:
                     msg = "Already record there for this customer this site ,today date , doc no {0}!!".format(str(request.data['doc_no']))
@@ -2288,7 +2295,8 @@ class WebConsultationPrintListAPIView(GenericAPIView):
             quest_ids = WebConsultation_Question.objects.filter(isactive=True)
             qserializer = WebConsultationQuestionprintSerializer(quest_ids, many=True, context={'request': self.request})
             
-            dtl_answerids = WebConsultation_Dtl.objects.filter(doc_no=doc_no).values('pk','question_number','answer','answer_text','subquestion_number')
+            dtl_answerids = WebConsultation_Dtl.objects.filter(doc_no=doc_no).values('pk','question_number','answer','answer_text',
+            'subquestion_number','image','pic_data1','page_number')
 
             analysis_ids = WebConsultation_AnalysisResult.objects.filter(doc_no=doc_no).first()  
             aserializer = WebConsultation_AnalysisResultprintSerializer(analysis_ids, context={'request': self.request})

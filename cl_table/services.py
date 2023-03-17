@@ -15,7 +15,7 @@ from django.utils import timezone
 from custom.views import get_in_val
 from cl_app.utils import general_error_response
 from dateutil.relativedelta import relativedelta
-from cl_app.models import ItemSitelist,Usagelevel,TreatmentUsage,TmpTreatmentSession
+from cl_app.models import ItemSitelist,Usagelevel,TreatmentUsage,TmpTreatmentSession,TmpItemHelperSession
 from django.db.models.functions import Coalesce,Concat
 from django.db.models import Sum
 import time
@@ -1565,7 +1565,8 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                 line_no=dtl.dt_lineno,sa_transacno=sa_transacno,amount="{:.2f}".format(float(treatmentid.unit_amount)),
                                 helper_name=h.helper_name if h.helper_name else None,helper_code=h.helper_code if h.helper_code else None,
                                 site_code=site.itemsite_code,share_amt="{:.2f}".format(float(share_amt)),helper_transacno=sa_transacno,
-                                wp1=wp1,wp2=0.0,wp3=0.0,percent=h.percent,work_amt="{:.2f}".format(float(h.work_amt)) if h.work_amt else h.work_amt,session=h.session,
+                                wp1=wp1,wp2=0.0,wp3=0.0,percent=h.percent,work_amt="{:.2f}".format(float(h.work_amt)) if h.work_amt else h.work_amt,
+                                session=h.session,
                                 times=h.times,treatment_no=h.treatment_no)
                                 helper.save()
                                 ItemHelper.objects.filter(id=helper.id).update(sa_date=pay_date)
@@ -3181,7 +3182,8 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                         line_no=dtl.dt_lineno,sa_transacno=c.treatment.sa_transacno,amount=cl.unit_amount,
                         helper_name=h.helper_name,helper_code=h.helper_code,sa_date=dtl.sa_date,
                         site_code=site.itemsite_code,share_amt="{:.2f}".format(float(share_amt)),helper_transacno=sa_transacno,
-                        wp1=wp1,wp2=0.0,wp3=0.0,percent=h.percent,work_amt="{:.2f}".format(float(h.work_amt)) if h.work_amt else h.work_amt,times=h.times,treatment_no=h.treatment_no)
+                        wp1=wp1,wp2=0.0,wp3=0.0,percent=h.percent,work_amt="{:.2f}".format(float(h.work_amt)) if h.work_amt else h.work_amt,times=h.times,treatment_no=h.treatment_no,
+                        session=h.session)
                         helper.save()
                         ItemHelper.objects.filter(id=helper.id).update(sa_date=pay_date)
                         # print(helper.id,"helper")
@@ -3551,6 +3553,11 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
             created_at=date.today()) 
             if searchhids:
                 searchhids.delete()
+
+            tmpsearchhids = TmpItemHelperSession.objects.filter(treatment_parentcode=ct.treatment_parentcode,
+            sa_date__date=date.today()) 
+            if tmpsearchhids:
+                tmpsearchhids.delete()    
            
 
 

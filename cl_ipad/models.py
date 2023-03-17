@@ -37,8 +37,11 @@ class WebConsultation_Dtl(models.Model):
     answer = models.IntegerField(db_column='answer', null=True, blank=True)  # Field name made lowercase.
     answer_text = models.CharField(db_column='answerText', max_length=200, null=True, blank=True)  # Field name made lowercase.
     subquestion_number = models.CharField(db_column='subquestionNumber', max_length=10, null=True, blank=True)  # Field name made lowercase.
-    image = models.ImageField(db_column='image', blank=True, null=True,upload_to='img')  # Field name made lowercase. 
+    image = models.ImageField(db_column='image', max_length=255, blank=True, null=True,upload_to='img')  # Field name made lowercase. 
     pic_data1 = models.TextField(blank=True, null=True)
+    page_number = models.IntegerField(db_column='PageNumber', blank=True, null=True)  # Field name made lowercase.
+
+
     
     class Meta:
         db_table = 'WebConsultation_Dtl'
@@ -62,6 +65,8 @@ class WebConsultation_Question(models.Model):
     question_text = models.CharField(db_column='QuestionText',max_length=500,  blank=True, null=True)  # Field name made lowercase.
     option_type = models.IntegerField(db_column='option_type', blank=True, null=True)  # Field name made lowercase.
     mandatory = models.BooleanField(db_column='Mandatory',default=False)
+    declaration_text = models.TextField(db_column='Declaration_Text', blank=True, null=True)  # Field name made lowercase.
+
 
     class Meta:
         db_table = 'WebConsultation_Question'
