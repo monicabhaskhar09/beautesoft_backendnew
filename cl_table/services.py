@@ -18,8 +18,25 @@ from dateutil.relativedelta import relativedelta
 from cl_app.models import ItemSitelist,Usagelevel,TreatmentUsage,TmpTreatmentSession,TmpItemHelperSession
 from django.db.models.functions import Coalesce,Concat
 from django.db.models import Sum
-import time
+import time,math
 from django.db.models import Q
+
+def truncate(f, n):
+    res = math.floor(f * 10 ** n) / 10 ** n
+    # val = numberWithoutRounding(res)
+    return res
+
+def calculate_shareamt(share_amt_val,totlen, idx,unit_amount_val):
+    exact_val = truncate(share_amt_val , 2) 
+    share_amt =  exact_val 
+    # print(share_amt,"share_amt")
+    first_val = exact_val * (totlen -1)
+
+    if idx == totlen:
+        # print("iff")
+        share_amt = float(unit_amount_val) - first_val
+        # print(share_amt,"share_amt") 
+    return share_amt    
 
 
 def customeraccount(cust_obj, site):
@@ -276,7 +293,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
             #     multi.save()
                 # print(multi.id,"multi")
 
-            mdeposit = float(c.deposit) / float(c.multistaff_ids.all().count()) 
+            mdeposit = float(c.deposit) / float(c.multistaff_ids.all().count()) if c.multistaff_ids.all() else 0
             for sale in c.multistaff_ids.all():
                 multi = Multistaff(sa_transacno=sa_transacno,item_code=str(c.itemcodeid.item_code)+"0000",
                 emp_code=sale.emp_code,ratio=sale.ratio,salesamt="{:.2f}".format(float(sale.salesamt)),type=None,isdelete=False,role=1,
@@ -391,7 +408,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                                 if len(c.helper_ids.all().filter(times=times,pospackage=p)) > 1:
                                                     plink_flag = True
 
-                                                for h in c.helper_ids.all().filter(times=times,pospackage=p):
+                                                for idx, h in enumerate(c.helper_ids.all().filter(times=times,pospackage=p), start=1):
                                                 
                                                     # dtl_st_ref_treatmentcode = treatment_parentcode+"-"+"01"
                                                         
@@ -404,6 +421,12 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                                     # wp1 = h.workcommpoints / float(c.helper_ids.all().filter(times=times).count())
                                                     wp1 = h.wp1
                                                     pashare_amt = float(patreatmentid.unit_amount) / float(c.helper_ids.all().filter(times=times,pospackage=p).count())
+                         
+                                                    unit_amount_val = patreatmentid.unit_amount
+                                                    totlen = len(c.helper_ids.all().filter(times=times,pospackage=p))
+                                                    share_amt = calculate_shareamt(pashare_amt,totlen,idx,unit_amount_val)
+
+                                                    
                                                     if h.work_amt and h.work_amt > 0:
                                                         pashare_amt = h.work_amt
                                                     
@@ -413,11 +436,12 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                                     amount=patreatmentid.unit_amount,sa_date=pay_date,site_code=site.itemsite_code,
                                                     wp1=wp1,wp2=0.0,wp3=0.0)
 
+                                                    # "{:.2f}".format(float(pashare_amt)) 
                                                     # Item helper create
                                                     helper = ItemHelper(item_code=patreatment_parentcode+"-"+str(times),item_name=itmstock.item_desc,
                                                     line_no=dtl.dt_lineno,sa_transacno=sa_transacno,amount="{:.2f}".format(float(patreatmentid.unit_amount)),
                                                     helper_name=h.helper_name if h.helper_name else None,helper_code=h.helper_code if h.helper_code else None,
-                                                    site_code=site.itemsite_code,share_amt="{:.2f}".format(float(pashare_amt)),helper_transacno=sa_transacno,
+                                                    site_code=site.itemsite_code,share_amt=share_amt,helper_transacno=sa_transacno,
                                                     wp1=wp1,wp2=0.0,wp3=0.0,percent=h.percent,work_amt="{:.2f}".format(float(h.work_amt)) if h.work_amt else h.work_amt,session=h.session,
                                                     times=h.times,treatment_no=h.treatment_no)
                                                     helper.save()
@@ -592,7 +616,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                                             obatchids = ItemBatch.objects.none()
 
                                                             uom_ids = ItemUomprice.objects.filter(item_code=i.item_code[:-4],item_uom2=i.uom
-                                                            ,uom_unit__gt=0,isactive=True).first()
+                                                            ,uom_unit__gt=0,isactive=True).filter(~Q(item_uom=i.uom)).first()
                                                             if uom_ids:
                                                                 obatchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=str(i.item_code[:-4]),
                                                                 uom=uom_ids.item_uom).order_by('pk').last() 
@@ -666,7 +690,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
 
                                                                         stktrnid = Stktrn(trn_no=None,post_time=post_time,aperiod=None,itemcode=str(i.item_code[:-4])+"0000",
                                                                         store_no=site.itemsite_code,tstore_no=None,fstore_no=None,trn_docno=adjno,trn_date=currentdate,
-                                                                        trn_type="ADJS",trn_db_qty=None,trn_cr_qty=None,trn_qty=uom_ids.uom_unit,trn_balqty=uom_ids.uom_unit,
+                                                                        trn_type="ADJS",trn_db_qty=None,trn_cr_qty=None,trn_qty=uom_ids.uom_unit,trn_balqty=uom_ids.uom_unit + batchids.qty,
                                                                         trn_balcst=stktrnids.trn_balcst if stktrnids and stktrnids.trn_balcst else 0,
                                                                         trn_amt=None,trn_post=currentdate,
                                                                         trn_cost=stktrnids.trn_cost if stktrnids and stktrnids.trn_cost else 0,trn_ref=None,
@@ -883,7 +907,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                         qtytodeduct = p.qty
                                         if p.hold_qty and int(p.hold_qty) > 0:
                                             qtytodeduct = p.qty - int(p.hold_qty)
-
+                                        
                                         if qtytodeduct > 0:
                                             batchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=str(itmstock.item_code),
                                             uom=pa.uom).order_by('pk').last() 
@@ -1117,7 +1141,6 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                     qtytodeduct = c.quantity
                     if c.holditemqty and int(c.holditemqty) > 0:
                         qtytodeduct = c.quantity - int(c.holditemqty)
-
                     if qtytodeduct > 0:
                         batchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=str(c.itemcodeid.item_code),
                         uom=c.item_uom.uom_code).order_by('pk').last() 
@@ -1155,7 +1178,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
 
 
                             uom_ids = ItemUomprice.objects.filter(item_code=c.itemcodeid.item_code,item_uom2=c.item_uom.uom_code
-                            ,uom_unit__gt=0,isactive=True).first()
+                            ,uom_unit__gt=0,isactive=True).filter(~Q(item_uom=c.item_uom.uom_code)).first()
                             if uom_ids:
                                 obatchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=str(c.itemcodeid.item_code),
                                 uom=uom_ids.item_uom).order_by('pk').last() 
@@ -1185,7 +1208,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
 
                                     stktrnid = Stktrn(trn_no=None,post_time=post_time,aperiod=None,itemcode=str(c.itemcodeid.item_code)+"0000",
                                     store_no=site.itemsite_code,tstore_no=None,fstore_no=None,trn_docno=adjno,trn_date=currentdate,
-                                    trn_type="ADJS",trn_db_qty=None,trn_cr_qty=None,trn_qty=uom_ids.uom_unit,trn_balqty=uom_ids.uom_unit,
+                                    trn_type="ADJS",trn_db_qty=None,trn_cr_qty=None,trn_qty=uom_ids.uom_unit,trn_balqty=uom_ids.uom_unit + batchids.qty,
                                     trn_balcst=stktrnids.trn_balcst if stktrnids and stktrnids.trn_balcst else 0,
                                     trn_amt="{:.2f}".format(float(c.deposit)),trn_post=currentdate,
                                     trn_cost=stktrnids.trn_cost if stktrnids and stktrnids.trn_cost else 0,trn_ref=None,
@@ -1538,7 +1561,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                             if len(c.helper_ids.all()) > 1:
                                 link_flag = True
 
-                            for h in c.helper_ids.all().filter(times=times):
+                            for idx, h in enumerate(c.helper_ids.all().filter(times=times), start=1):
                             
                                 # dtl_st_ref_treatmentcode = treatment_parentcode+"-"+"01"
                                     
@@ -1550,7 +1573,12 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
 
                                 # wp1 = h.workcommpoints / float(c.helper_ids.all().filter(times=times).count())
                                 wp1 = h.wp1
-                                share_amt = float(treatmentid.unit_amount) / float(c.helper_ids.all().filter(times=times).count())
+                                share_amt_val = float(treatmentid.unit_amount) / float(c.helper_ids.all().filter(times=times).count())
+                                
+                                unit_amount_val = treatmentid.unit_amount
+                                totlen = len(c.helper_ids.all().filter(times=times))
+                                share_amt = calculate_shareamt(share_amt_val,totlen,idx,unit_amount_val)
+
                                 if h.work_amt and h.work_amt > 0:
                                     share_amt = h.work_amt
                                 
@@ -1559,12 +1587,13 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                 item_name=c.itemcodeid.item_name,line_no=dtl.dt_lineno,sa_transacno=sa_transacno,
                                 amount=treatmentid.unit_amount,sa_date=pay_date,site_code=site.itemsite_code,
                                 wp1=wp1,wp2=0.0,wp3=0.0)
-
+                                
+                                # "{:.2f}".format(float(share_amt))
                                 # Item helper create
                                 helper = ItemHelper(item_code=treatment_parentcode+"-"+str(times),item_name=c.itemdesc,
                                 line_no=dtl.dt_lineno,sa_transacno=sa_transacno,amount="{:.2f}".format(float(treatmentid.unit_amount)),
                                 helper_name=h.helper_name if h.helper_name else None,helper_code=h.helper_code if h.helper_code else None,
-                                site_code=site.itemsite_code,share_amt="{:.2f}".format(float(share_amt)),helper_transacno=sa_transacno,
+                                site_code=site.itemsite_code,share_amt=share_amt,helper_transacno=sa_transacno,
                                 wp1=wp1,wp2=0.0,wp3=0.0,percent=h.percent,work_amt="{:.2f}".format(float(h.work_amt)) if h.work_amt else h.work_amt,
                                 session=h.session,
                                 times=h.times,treatment_no=h.treatment_no)
@@ -1742,7 +1771,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                         obatchids = ItemBatch.objects.none()
 
                                         uom_ids = ItemUomprice.objects.filter(item_code=i.item_code[:-4],item_uom2=i.uom
-                                        ,uom_unit__gt=0,isactive=True).first()
+                                        ,uom_unit__gt=0,isactive=True).filter(~Q(item_uom=i.uom)).first()
                                         if uom_ids:
                                             obatchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=str(i.item_code[:-4]),
                                             uom=uom_ids.item_uom).order_by('pk').last() 
@@ -1816,7 +1845,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
 
                                                     stktrnid = Stktrn(trn_no=None,post_time=post_time,aperiod=None,itemcode=str(i.item_code[:-4])+"0000",
                                                     store_no=site.itemsite_code,tstore_no=None,fstore_no=None,trn_docno=adjno,trn_date=currentdate,
-                                                    trn_type="ADJS",trn_db_qty=None,trn_cr_qty=None,trn_qty=uom_ids.uom_unit,trn_balqty=uom_ids.uom_unit,
+                                                    trn_type="ADJS",trn_db_qty=None,trn_cr_qty=None,trn_qty=uom_ids.uom_unit,trn_balqty=uom_ids.uom_unit + batchids.qty,
                                                     trn_balcst=stktrnids.trn_balcst if stktrnids and stktrnids.trn_balcst else 0,
                                                     trn_amt=None,trn_post=currentdate,
                                                     trn_cost=stktrnids.trn_cost if stktrnids and stktrnids.trn_cost else 0,trn_ref=None,
@@ -3160,18 +3189,25 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                     if len(cl.helper_ids.all()) > 1:
                         link_flag = True
 
-                    for h in cl.helper_ids.all():
+                    for idx, h in enumerate(cl.helper_ids.all(), start=1):
                         
                         # dtl_st_ref_treatmentcode = treatment_parentcode+"-"+"01"
                         
                         # treatmentid.status = "Done"
                         # wp1 = h.workcommpoints / float(c.treatment.helper_ids.all().count())
                         wp1 = h.wp1
-                        share_amt = float(cl.unit_amount) / float(cl.helper_ids.all().count())
+                        share_amt_val = float(cl.unit_amount) / float(cl.helper_ids.all().count())
+                         
+                        unit_amount_val = cl.unit_amount
+                        totlen = len(cl.helper_ids.all())
+                        share_amt = calculate_shareamt(share_amt_val,totlen,idx,unit_amount_val)
+
                         if h.work_amt and h.work_amt > 0:
                             share_amt =  h.work_amt
 
-
+                            
+  
+                        # "{:.2f}".format(float(share_amt))
                         TmpItemHelper.objects.filter(id=h.id).update(item_code=cl.treatment_code,
                         item_name=cl.course,line_no=dtl.dt_lineno,sa_transacno=sa_transacno,
                         amount=cl.unit_amount,sa_date=pay_date,site_code=site.itemsite_code,
@@ -3181,7 +3217,7 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                         helper = ItemHelper(item_code=cl.treatment_code,item_name=cl.course,
                         line_no=dtl.dt_lineno,sa_transacno=c.treatment.sa_transacno,amount=cl.unit_amount,
                         helper_name=h.helper_name,helper_code=h.helper_code,sa_date=dtl.sa_date,
-                        site_code=site.itemsite_code,share_amt="{:.2f}".format(float(share_amt)),helper_transacno=sa_transacno,
+                        site_code=site.itemsite_code,share_amt=share_amt,helper_transacno=sa_transacno,
                         wp1=wp1,wp2=0.0,wp3=0.0,percent=h.percent,work_amt="{:.2f}".format(float(h.work_amt)) if h.work_amt else h.work_amt,times=h.times,treatment_no=h.treatment_no,
                         session=h.session)
                         helper.save()
@@ -3326,7 +3362,6 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                     # appt_time=treat.appt_time,Trmt_Room_Codeid=treat.Trmt_Room_Codeid,trmt_room_code=treat.trmt_room_code,
                     # print(treatmentid.id,"treatment_id")
 
-
                 #auto Treatment Usage transactions
                 now = datetime.datetime.now()
                 s1 = str(now.strftime("%Y/%m/%d %H:%M:%S"))
@@ -3355,7 +3390,7 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                         obatchids = ItemBatch.objects.none()
 
                         uom_ids = ItemUomprice.objects.filter(item_code=i.item_code[:-4],item_uom2=i.uom
-                        ,uom_unit__gt=0,isactive=True).first()
+                        ,uom_unit__gt=0,isactive=True).filter(~Q(item_uom=i.uom)).first()
                         # print(uom_ids,"uom_ids")
                         if uom_ids:
                             obatchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=str(i.item_code[:-4]),
@@ -3429,7 +3464,7 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
 
                                     stktrnid = Stktrn(trn_no=None,post_time=post_time,aperiod=None,itemcode=str(i.item_code[:-4])+"0000",
                                     store_no=site.itemsite_code,tstore_no=None,fstore_no=None,trn_docno=adjno,trn_date=currentdate,
-                                    trn_type="ADJS",trn_db_qty=None,trn_cr_qty=None,trn_qty=uom_ids.uom_unit,trn_balqty=uom_ids.uom_unit,
+                                    trn_type="ADJS",trn_db_qty=None,trn_cr_qty=None,trn_qty=uom_ids.uom_unit,trn_balqty=uom_ids.uom_unit + batchids.qty,
                                     trn_balcst=stktrnids.trn_balcst if stktrnids and stktrnids.trn_balcst else 0,
                                     trn_amt=None,trn_post=currentdate,
                                     trn_cost=stktrnids.trn_cost if stktrnids and stktrnids.trn_cost else 0,trn_ref=None,

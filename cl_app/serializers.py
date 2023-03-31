@@ -350,7 +350,7 @@ class TreatmentAccSerializer(serializers.ModelSerializer):
 class CreditNoteSerializer(serializers.ModelSerializer):
     class Meta:
         model = CreditNote
-        fields = ['id','credit_code','sa_date','amount','balance','status']
+        fields = ['id','credit_code','sa_date','amount','balance','status','type']
 
 class CreditNoteAdjustSerializer(serializers.ModelSerializer):
     new_balance = serializers.FloatField(source='balance',required=True)
@@ -906,8 +906,15 @@ class ProductPurchaseSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
        
         data = super(ProductPurchaseSerializer, self).to_representation(instance)
+        ttime =''
+                                           
+        if instance.sa_time:
+            tsplt = str(instance.sa_time).split(" ")
+            tmp_t = tsplt[1].split(".")
+            ttime = datetime.datetime.strptime(str(tmp_t[0]), "%H:%M:%S").strftime("%H:%M:%S")
+
         splt = str(data['sa_date']).split("T")
-        data['sa_date'] = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d-%b-%y")
+        data['sa_date'] = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d-%m-%Y")+" "+ttime
         haud_ids = PosHaud.objects.filter(sa_transacno=instance.sa_transacno).first()
         data['transaction'] = haud_ids.sa_transacno_ref if haud_ids and haud_ids.sa_transacno_ref else ""           
         data['dt_promoprice'] = "{:.2f}".format(float(data['dt_promoprice']))

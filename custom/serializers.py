@@ -192,14 +192,14 @@ class VoucherRecordSerializer(serializers.ModelSerializer):
 
     sitecode_name = serializers.CharField(source='site_codeid.itemsite_desc',required=False)
     cust_name = serializers.CharField(source='cust_codeid.cust_name',required=False)
-    sa_date = serializers.DateTimeField(format="%d-%m-%Y",required=False)
+    # sa_date = serializers.DateTimeField(format="%d-%m-%Y",required=False)
 
 
     class Meta:
         model = VoucherRecord
         fields = ['id','voucher_no','cust_codeid','cust_name',
         'value','percent','site_codeid','sitecode_name',
-        'issued_expiry_date','isvalid','voucher_name','sa_date','issued_staff']
+        'issued_expiry_date','isvalid','voucher_name','sa_date','issued_staff','sa_transacno']
                  
 class VoucherRecordAccSerializer(serializers.ModelSerializer):
 
@@ -539,8 +539,8 @@ class CartServiceCourseSerializer(serializers.ModelSerializer):
 
         treatment_limit_times = obj.treatment_limit_times
         if not obj.treatment_limit_times:
-            if obj.itemcodeid.treatment_limit_active == True:
-                treatment_limit_times = obj.itemcodeid.treatment_limit_count
+            if obj.itemcodeid and obj.itemcodeid.limitservice_flexionly == True:
+                treatment_limit_times = obj.itemcodeid.treatment_limit_count 
 
         treat_type = obj.treat_type
         if not obj.treat_type:

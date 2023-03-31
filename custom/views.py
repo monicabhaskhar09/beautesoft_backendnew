@@ -98,12 +98,23 @@ from itertools import chain
 from fpdf import FPDF 
 from cl_app.serializers import TransactionManualInvoiceSerializer
 
-
 type_ex = ['VT-Deposit','VT-Top Up','VT-Sales']
 
 # Create your views here.
 
 #print(value,"value")
+
+def calculate_shareamt(share_amt_val,totlen, idx,unit_amount_val):
+    exact_val = truncate(share_amt_val , 2) 
+    share_amt =  exact_val 
+    # print(share_amt,"share_amt")
+    first_val = exact_val * (totlen -1)
+
+    if idx == totlen:
+        # print("iff")
+        share_amt = unit_amount_val - first_val
+        # print(share_amt,"share_amt") 
+    return share_amt    
 
 @register.filter(name='split')
 def split(value, key):
@@ -2584,11 +2595,14 @@ class itemCartViewset(viewsets.ModelViewSet):
                 if not logstaff_id:
                     logstaffid = [fmspw[0].Emp_Codeid.pk] if fmspw[0].Emp_Codeid else None
                 else:
-                    logstaffid = logstaff_id.split(',')    
+                    logstaffid = logstaff_id.split(',')
+
+                if logstaffid:    
                     for e in logstaffid:
                         logstaff = Employee.objects.filter(pk=e,emp_isactive=True).first()
                         if not logstaff:
-                            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Default Sales employee is inactive / id doesn't exist",'error': True}
+                            emp_msg = "Default logined / selected Sales employee is inactive / id doesn't exist"
+                            result = {'status': status.HTTP_400_BAD_REQUEST,"message":emp_msg,'error': True}
                             return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -2802,7 +2816,7 @@ class itemCartViewset(viewsets.ModelViewSet):
 
                         # if batchids.qty <= 0:
                         uomprice_ids = ItemUomprice.objects.filter(item_code=stock_obj.item_code,
-                        item_uom2=uom_obj.uom_code,uom_unit__gt=0,isactive=True).first()
+                        item_uom2=uom_obj.uom_code,uom_unit__gt=0,isactive=True).filter(~Q(item_uom=uom_obj.uom_code)).first()
                         if uomprice_ids:
                             obatchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=str(stock_obj.item_code),
                             uom=uomprice_ids.item_uom).order_by('pk').last() 
@@ -3372,7 +3386,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                 # if item_div.itm_code == '3' and item_dept and item_dept.is_service == True:
                 if item_div.itm_code == '3':
                     #acc_obj = TreatmentAccount.objects.filter(pk=req['treatment_account'],site_code=site.itemsite_code).first()
-                    acc_obj = TreatmentAccount.objects.filter(pk=req['treatment_account']).first()
+                    acc_obj = TreatmentAccount.objects.filter(pk=int(req['treatment_account'])).first()
                     if not acc_obj:
                         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Treatment Account ID does not exist!!",'error': True} 
                         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
@@ -4217,7 +4231,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                     else:
                         firstid = req['treatment']    
                     # trmtacc_obj = TreatmentAccount.objects.filter(pk=req['treatment_account'],site_code=site.itemsite_code).first()
-                    trmtacc_obj = TreatmentAccount.objects.filter(pk=req['treatment_account']).first()
+                    trmtacc_obj = TreatmentAccount.objects.filter(pk=int(req['treatment_account'])).first()
 
                     if not trmtacc_obj:
                         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Treatment Account ID does not exist!!",'error': True} 
@@ -4359,7 +4373,10 @@ class itemCartViewset(viewsets.ModelViewSet):
                                 cart.multi_treat.add(int(treat))
 
                             # print(cart.multi_treat.all(),"kkk")    
-
+                            
+                            treat_remark = cart.multi_treat.filter(~Q(remarks__isnull=True)).first()
+                            cart.remark = treat_remark.remarks
+                            cart.save()
 
                             if req['ori_stockid']:
                                 cart.exchange_id = ex
@@ -5946,14 +5963,33 @@ class VoucherRecordViewset(viewsets.ModelViewSet):
             serializer = self.get_serializer(queryset, many=True)
             data = serializer.data
             lst = []
+            tot_balance = 0
             for d in data:
                 dict_d = dict(d)
+                ttime ='';dict_d["transaction"] = ""
+                if dict_d['sa_transacno']:
+                    pos_haud = PosHaud.objects.filter(
+                    sa_transacno=dict_d['sa_transacno']
+                    ).only('sa_custno','sa_transacno').order_by('pk').first()
+                    
+                    if pos_haud:
+                        dict_d["transaction"]  = pos_haud.sa_transacno_ref if pos_haud.sa_transacno_ref else ""
+                        if pos_haud.sa_time:
+                            tsplt = str(pos_haud.sa_time).split(" ")
+                            tmp_t = tsplt[1].split(".")
+                            ttime = datetime.datetime.strptime(str(tmp_t[0]), "%H:%M:%S").strftime("%H:%M:%S")
+
+                if dict_d['sa_date']:
+                    splt = str(dict_d['sa_date']).split('T')
+                    dict_d['sa_date'] = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d-%m-%Y")+" "+ttime
+                    
                 if dict_d['percent']:
                     dict_d['percent'] = str("{:.2f}".format(float(dict_d['percent'])))+" "+"%"
                 else:
                     dict_d['percent'] = "0.0"
                 if dict_d['value']:
                     dict_d['value'] = "{:.2f}".format(float(dict_d['value']))
+                    tot_balance += float(dict_d['value'])
                 else:
                     dict_d['value'] = "0.0"
                 
@@ -5970,13 +6006,19 @@ class VoucherRecordViewset(viewsets.ModelViewSet):
                         dict_d['issued_staff'] = emp_obj.display_name if emp_obj.display_name else ""
                 lst.append(dict_d)
 
-            result = {'status': state,"message":message,'error': error, 'data': lst}
+            result = {'status': state,"message":message,'error': error, 'data': lst,
+            'header_data':{'tot_balance':"{:.2f}".format(float(tot_balance)),
+            'tot_count' : len(queryset)
+            }}
             return Response(data=result, status=status.HTTP_200_OK)              
         else:
             state = status.HTTP_204_NO_CONTENT
             message = "No Content"
             error = False
-            result = {'status': state,"message":message,'error': error, 'data': []}
+            result = {'status': state,"message":message,'error': error, 'data': [],
+            'header_data':{'tot_balance': "0.00",
+            'tot_count' : 0
+            }}
             return Response(data=result, status=status.HTTP_200_OK)              
     
 class VoucherRecordAccViewset(viewsets.ModelViewSet):
@@ -7838,7 +7880,7 @@ class ChangeStaffViewset(viewsets.ModelViewSet):
                                     emp_obj = Employee.objects.filter(emp_isactive=True,pk=s['emp_id']).first()
                                     if s['tmp_saleid']:
                                         Tmpmultistaff.objects.filter(id=s['tmp_saleid']).update(
-                                        ratio=s['sales_percentage'],salesamt=s['sales_amount'],salescommpoints=s['sp'])
+                                        ratio=s['sales_percentage'],salesamt=s['sales_amount'] if 'sales_amount' in s and s['sales_amount'] else 0,salescommpoints=s['sp'])
                                     elif s['tmp_saleid'] == None:
                                         if emp_obj:
                                             objids = Tmpmultistaff.objects.filter(itemcart=itemcart,
@@ -7847,7 +7889,7 @@ class ChangeStaffViewset(viewsets.ModelViewSet):
                                             if not objids:
                                                 tmpmulti = Tmpmultistaff(item_code=itemcart.itemcodeid.item_code,
                                                 emp_code=emp_obj.emp_code,ratio=s['sales_percentage'],
-                                                salesamt="{:.2f}".format(float(s['sales_amount'])),type=None,isdelete=False,role=1,
+                                                salesamt="{:.2f}".format(float(s['sales_amount'])) if 'sales_amount' in s and s['sales_amount'] else 0,type=None,isdelete=False,role=1,
                                                 dt_lineno=itemcart.lineno,itemcart=itemcart,emp_id=emp_obj,salescommpoints=s['sp'],
                                                 sa_transacno=itemcart.sa_transacno)
                                                 tmpmulti.save()
@@ -7858,7 +7900,7 @@ class ChangeStaffViewset(viewsets.ModelViewSet):
                                     ratio=s['old_ratio'] if 'old_ratio' in s and s['old_ratio'] else None,
                                     salesamt=s['old_salesamt'] if 'old_salesamt' in s and s['old_salesamt'] else None,
                                     newempcode=emp_obj.emp_code if emp_obj and emp_obj.emp_code else None,
-                                    newratio=s['sales_percentage'],newsalesamt="{:.2f}".format(float(s['sales_amount'])),
+                                    newratio=s['sales_percentage'],newsalesamt="{:.2f}".format(float(s['sales_amount'])) if 'sales_amount' in s and s['sales_amount'] else 0,
                                     dt_lineno=itemcart.lineno,itemsite_code=site.itemsite_code).save()            
 
                             for existings in itemcart.multistaff_ids.all():
@@ -7897,15 +7939,24 @@ class ChangeStaffViewset(viewsets.ModelViewSet):
 
                             for i in range(1,int(itemcart.quantity)+1):
                                 acc_ids = TreatmentAccount.objects.filter(type="Deposit",itemcart=itemcart).first()
+                                if not acc_ids:
+                                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Treatment Account Does not exist for cart lineno {0} .".format(str(itemcart.lineno)),
+                                    'error': True}
+                                    return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
                                 treatment_parentcode = acc_ids.treatment_parentcode
 
                                 times = str(i).zfill(2)
                                 Unit_Amount = itemcart.trans_amt / itemcart.quantity
-                                for h in itemcart.helper_ids.all().filter(times=times):
+                                for idx, h in enumerate(itemcart.helper_ids.all().filter(times=times), start=1):
                                 
                                     # wp1 = h.workcommpoints / float(c.helper_ids.all().filter(times=times).count())
                                     wp1 = h.wp1
-                                    share_amt = float(Unit_Amount) / float(itemcart.helper_ids.all().filter(times=times).count())
+                                    share_amt_val = float(Unit_Amount) / float(itemcart.helper_ids.all().filter(times=times).count())
+                                    
+                                    totlen = len(itemcart.helper_ids.all().filter(times=times))
+                                    share_amt = calculate_shareamt(share_amt_val,totlen,idx,Unit_Amount)
+
                                     if h.work_amt and h.work_amt > 0:
                                         share_amt = h.work_amt
                                     
@@ -7914,12 +7965,13 @@ class ChangeStaffViewset(viewsets.ModelViewSet):
                                     item_name=itemcart.itemcodeid.item_name,line_no=itemcart.lineno,sa_transacno=sa_transacno,
                                     amount=Unit_Amount,sa_date=poshaud_v.sa_date,site_code=site.itemsite_code,
                                     wp1=wp1,wp2=0.0,wp3=0.0)
-
+                                    
+                                    # "{:.2f}".format(float(share_amt))
                                     # Item helper create
                                     helper = ItemHelper(item_code=treatment_parentcode+"-"+str(times),item_name=itemcart.itemcodeid.item_desc,
                                     line_no=itemcart.lineno,sa_transacno=sa_transacno,amount="{:.2f}".format(float(Unit_Amount)),
                                     helper_name=h.helper_name if h.helper_name else None,helper_code=h.helper_code if h.helper_code else None,
-                                    site_code=site.itemsite_code,share_amt="{:.2f}".format(float(share_amt)),helper_transacno=sa_transacno,
+                                    site_code=site.itemsite_code,share_amt=share_amt,helper_transacno=sa_transacno,
                                     wp1=wp1,wp2=0.0,wp3=0.0,percent=h.percent,work_amt="{:.2f}".format(float(h.work_amt)) if h.work_amt else h.work_amt,session=h.session,
                                     times=h.times,treatment_no=h.treatment_no)
                                     helper.save()
@@ -7975,14 +8027,19 @@ class ChangeStaffViewset(viewsets.ModelViewSet):
                 
 
                                 if cl.helper_ids.exists():
-                                    for h in cl.helper_ids.all():
+                                    for idx,h in enumerate(cl.helper_ids.all(), start=1):
                                 
                                         # dtl_st_ref_treatmentcode = treatment_parentcode+"-"+"01"
                                         
                                         # treatmentid.status = "Done"
                                         # wp1 = h.workcommpoints / float(c.treatment.helper_ids.all().count())
                                         wp1 = h.wp1
-                                        share_amt = float(itemcart.treatment.unit_amount) / float(itemcart.treatment.helper_ids.all().count())
+                                        share_amt_val = float(cl.unit_amount) / float(cl.helper_ids.all().count())
+                                        
+                                        unit_amount_val = cl.unit_amount
+                                        totlen = len(cl.helper_ids.all())
+                                        share_amt = calculate_shareamt(share_amt_val,totlen,idx,unit_amount_val)
+
                                         if h.work_amt and h.work_amt > 0:
                                             share_amt =  h.work_amt
 
@@ -7991,12 +8048,13 @@ class ChangeStaffViewset(viewsets.ModelViewSet):
                                         item_name=itemcart.itemcodeid.item_name,line_no=itemcart.lineno,sa_transacno=sa_transacno,
                                         amount=cl.unit_amount,sa_date=poshaud_v.sa_date,site_code=site.itemsite_code,
                                         wp1=wp1,wp2=0.0,wp3=0.0)
-
+                                        
+                                        # "{:.2f}".format(float(share_amt))
                                         # Item helper create
                                         helper = ItemHelper(item_code=cl.treatment_code,item_name=itemcart.itemcodeid.item_name,
                                         line_no=itemcart.lineno,sa_transacno=itemcart.treatment.sa_transacno,amount=cl.unit_amount,
                                         helper_name=h.helper_name,helper_code=h.helper_code,sa_date=poshaud_v.sa_date,
-                                        site_code=site.itemsite_code,share_amt="{:.2f}".format(float(share_amt)),helper_transacno=sa_transacno,
+                                        site_code=site.itemsite_code,share_amt=share_amt,helper_transacno=sa_transacno,
                                         wp1=wp1,wp2=0.0,wp3=0.0,percent=h.percent,work_amt="{:.2f}".format(float(h.work_amt)) if h.work_amt else h.work_amt,
                                         session=h.session,times=h.times,treatment_no=h.treatment_no)
                                         helper.save()
@@ -8068,7 +8126,7 @@ class ChangeStaffViewset(viewsets.ModelViewSet):
                                 if sa['sales'] == True:
                                     if sa['tmp_saleid']:
                                         Tmpmultistaff.objects.filter(id=sa['tmp_saleid']).update(
-                                        ratio=sa['sales_percentage'],salesamt=sa['sales_amount'],salescommpoints=sa['sp'])
+                                        ratio=sa['sales_percentage'],salesamt=sa['sales_amount'] if 'sales_amount' in sa and sa['sales_amount'] else 0,salescommpoints=sa['sp'])
                                     elif sa['tmp_saleid'] == None:
                                         
                                         if emp_obj:
@@ -8078,7 +8136,7 @@ class ChangeStaffViewset(viewsets.ModelViewSet):
                                             if not objids:
                                                 tmpmulti = Tmpmultistaff(item_code=itemcart.itemcodeid.item_code,
                                                 emp_code=emp_obj.emp_code,ratio=sa['sales_percentage'],
-                                                salesamt="{:.2f}".format(float(sa['sales_amount'])),type=None,isdelete=False,role=1,
+                                                salesamt="{:.2f}".format(float(sa['sales_amount'])) if 'sales_amount' in sa and sa['sales_amount'] else 0,type=None,isdelete=False,role=1,
                                                 dt_lineno=itemcart.lineno,itemcart=itemcart,emp_id=emp_obj,salescommpoints=sa['sp'],
                                                 sa_transacno=itemcart.sa_transacno)
                                                 tmpmulti.save()
@@ -8088,7 +8146,7 @@ class ChangeStaffViewset(viewsets.ModelViewSet):
                                     ratio=sa['old_ratio'] if 'old_ratio' in sa and sa['old_ratio'] else None,
                                     salesamt=sa['old_salesamt'] if 'old_salesamt' in sa and sa['old_salesamt'] else None,
                                     newempcode=emp_obj.emp_code if emp_obj and emp_obj.emp_code else None,
-                                    newratio=sa['sales_percentage'],newsalesamt="{:.2f}".format(float(sa['sales_amount'])),
+                                    newratio=sa['sales_percentage'],newsalesamt="{:.2f}".format(float(sa['sales_amount'])) if 'sales_amount' in sa and sa['sales_amount'] else 0,
                                     dt_lineno=itemcart.lineno,itemsite_code=site.itemsite_code).save()               
                             
 
@@ -9104,8 +9162,8 @@ class CourseTmpAPIView(generics.ListCreateAPIView):
                     if request.data['treatment_no']:
                         price = request.data['treatment_no'] * discount_price
 
-                        checkids = Tmptreatment.objects.filter(itemcart=cartobj).order_by('pk').first()
-
+                        checkids = Tmptreatment.objects.filter(itemcart=cartobj).order_by('pk')
+                        # print(checkids,"checkids")   
                         if checkids:
                             checkids.delete()
                             # result = {'status': status.HTTP_400_BAD_REQUEST,

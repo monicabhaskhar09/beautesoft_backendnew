@@ -715,6 +715,7 @@ class Employee(models.Model):
 
     class Meta:
         db_table = 'Employee'
+        # unique_together = (('emp_name'),)
         # unique_together = [['emp_name','emp_phone1']]
 
     def __str__(self):
@@ -886,7 +887,7 @@ class Fmspw(models.Model):
     # flgcatalog = models.BooleanField(db_column='flgcatalog',default=False)  # Field name made lowercase.
     # flgtcm = models.BooleanField(db_column='flgtcm',default=False)  # Field name made lowercase.
     flgpayroll = models.BooleanField(db_column='flgpayroll',default=False)  # Field name made lowercase.
-    # flginvoices = models.BooleanField(db_column='flginvoices',default=False)  # Field name made lowercase.
+    flginvoicedate = models.BooleanField(db_column='flginvoicedate',default=False)  # Field name made lowercase.
     flgstaff =  models.BooleanField(db_column='flgstaff',default=False)  # Field name made lowercase.
     # flginventory = models.BooleanField(db_column='flginventory',default=False)  # Field name made lowercase.
     # flgdayend = models.BooleanField(db_column='flgdayend',default=False)  # Field name made lowercase.
@@ -898,6 +899,7 @@ class Fmspw(models.Model):
     # flgquantum = models.BooleanField(db_column='flgquantum',default=False)  # Field name made lowercase.
     # flgbilling = models.BooleanField(db_column='flgbilling',default=False)  # Field name made lowercase.
     flgservicelimit = models.BooleanField(db_column='flgservicelimit',default=False)  # Field name made lowercase.
+    flgpayment = models.BooleanField(db_column='flgPayment',default=False)  # Field name made lowercase.
 
     class Meta:
         db_table = 'FMSPW'
@@ -1097,7 +1099,7 @@ class Customer(models.Model):
     no_of_weeks_pregnant = models.IntegerField(db_column='NoOfWeeksOfPregnancy', blank=True, null=True)  # Field name made lowercase.
     no_of_children = models.IntegerField(db_column='NoOfChildren', blank=True, null=True)  # Field name made lowercase.
     # customerextend = models.ForeignKey('cl_table.CustomerExtended', on_delete=models.PROTECT, null=True)
-
+  
     def save(self, *args,**kwargs):
         if self.Cust_Classid:
             self.cust_class = self.Cust_Classid.class_code
@@ -1248,7 +1250,9 @@ class CustomerExtended(models.Model):
     last_visit =  models.DateTimeField(null=True)
     upcoming_appointments = models.CharField(max_length=1000, null=True)
     class_name = models.CharField(max_length=40, blank=True, null=True)
+    original_sitecode = models.CharField(db_column='Original_SiteCode', max_length=50, blank=True, null=True)  # Field name made lowercase.
 
+  
     # def save(self, *args,**kwargs):
     #     if self.Cust_Classid:
     #         self.cust_class = self.Cust_Classid.class_code
@@ -1258,7 +1262,7 @@ class CustomerExtended(models.Model):
         db_table = 'CustomerExtended'
         # unique_together = (('cust_code','cust_email','cust_phone1'),)
         # unique_together = (('cust_code','cust_email','cust_phone1','cust_phone2'),)
-        # unique_together = (('cust_code'),)
+        unique_together = (('cust_code'),)
 
 
     def __str__(self):
@@ -2667,7 +2671,7 @@ class Stock(models.Model):
 
     class Meta:
         db_table = 'Stock'
-        unique_together = (('item_code'),)
+        # unique_together = (('item_code'),)
 
     def __str__(self):
         return str(self.item_desc)

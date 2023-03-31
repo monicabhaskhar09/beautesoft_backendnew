@@ -7725,6 +7725,8 @@ class UsersList(APIView):
             value_name='PoolSharing',isactive=True).first()
             outletrestrict_setup = Systemsetup.objects.filter(title='Customeroutletrestrict',
             value_name='Customeroutletrestrict',isactive=True).first()
+            courseautopro_setup = Systemsetup.objects.filter(title='courseautoproportion',
+            value_name='courseautoproportion',isactive=True).first()
        
        
     
@@ -7806,8 +7808,9 @@ class UsersList(APIView):
             # 'flgsales' : fmspw.flgsales if fmspw.flgsales == True else False,
             # 'flgtcm' : fmspw.flgtcm if fmspw.flgtcm == True else False,
             # 'flgpayroll' : fmspw.flgpayroll if fmspw.flgpayroll == True else False,
-            # 'flginvoices' : fmspw.flginvoices if fmspw.flginvoices == True else False ,
-            # 'flgstaff':fmspw.flgstaff if fmspw.flgstaff == True else False ,
+            'flginvoicedate' : fmspw.flginvoicedate if fmspw.flginvoicedate == True else False ,
+            'flgstaff':fmspw.flgstaff if fmspw.flgstaff == True else False ,
+            'flgpayment':fmspw.flgpayment if fmspw.flgpayment == True else False ,
             # 'flginventory' : fmspw.flginventory if fmspw.flginventory == True else False ,
             # 'flgdayend' : fmspw.flgdayend if fmspw.flgdayend == True else False ,
             # 'flgbackend' : fmspw.flgbackend if fmspw.flgbackend == True else False ,
@@ -7845,6 +7848,7 @@ class UsersList(APIView):
             'userswitch' : True if userswitch_setup and userswitch_setup.value_data == 'True' else False,  
             'poolsharing' : True if poolsharing_setup and poolsharing_setup.value_data == 'True' else False,  
             'customeroutletrestrict' : True if outletrestrict_setup and outletrestrict_setup.value_data == 'True' else False,  
+            'courseautoproportion' : True if courseautopro_setup and courseautopro_setup.value_data == 'True' else False,  
             }
 
 
@@ -8638,6 +8642,15 @@ class postaudViewset(viewsets.ModelViewSet):
                         if not cla.helper_ids.all().exists():
                             result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Treatment done service staffs not mapped!!",'error': True} 
                             return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
+                for m in depotop_ids:
+                    if not m.multistaff_ids.all():
+                        line_nomsg = "Cart line no {0} is not have Sales Staff.".format(str(m.lineno))
+                        result = {'status': status.HTTP_400_BAD_REQUEST,
+                        "message":line_nomsg,'error': True} 
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
+
 
                 checkgt=[]
                 # print(request.data,"request.data")
@@ -16675,6 +16688,9 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
                             fmspwidss.pw_isactive = True
                             fmspwidss.save()
 
+                    if 'emp_pic' in request.data and request.data['emp_pic']:
+                        employee.emp_pic = request.FILES.get("emp_pic") 
+                        employee.save()
 
 
 
@@ -18001,7 +18017,8 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
                         
                         checkex_ids = CustomerExtended.objects.filter(cust_codeid__pk=k.pk)
                         if not checkex_ids:
-                            CustomerExtended(cust_code=cus_code,cust_codeid=k,cust_name=k.cust_name).save()
+                            CustomerExtended(cust_code=cus_code,cust_codeid=k,cust_name=k.cust_name
+                            ,site_code=site.itemsite_code,original_sitecode=site.itemsite_code).save()
 
 
                     if 'referredbyid' in request.data and request.data['referredbyid']:
@@ -18178,6 +18195,10 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
                     sgn_unitno=request.data['sgn_unitno'] if 'sgn_unitno' in request.data and request.data['sgn_unitno'] else customer.sgn_unitno,
                     sgn_block=request.data['sgn_block'] if 'sgn_block' in request.data and request.data['sgn_block'] else customer.sgn_block,
                     sgn_street=request.data['sgn_street'] if 'sgn_street' in request.data and request.data['sgn_street'] else customer.sgn_street,
+                    oustanding_payment=request.data['oustanding_payment'] if 'oustanding_payment' in request.data and request.data['oustanding_payment'] else customer.oustanding_payment,
+                    cust_refer=request.data['cust_refer'] if 'cust_refer' in request.data and request.data['cust_refer'] else customer.cust_refer,
+                    cust_joindate=request.data['cust_joindate'] if 'cust_joindate' in request.data and request.data['cust_joindate'] else customer.cust_joindate,
+                    
                     )
 
                     if 'cust_corporate' in requestData and requestData['cust_corporate']:
@@ -18197,10 +18218,16 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
                     username=fmspw.pw_userlogin,
                     user_loginid=fmspw,updated_at=timezone.now()).save()
 
-                    checkex_ids = CustomerExtended.objects.filter(cust_codeid__pk=customer.pk)
+                    checkex_ids = CustomerExtended.objects.filter(cust_codeid__pk=customer.pk).first()
                     if not checkex_ids:
                         CustomerExtended(cust_code=customer.cust_code,cust_codeid=customer,
-                        cust_name=customer.cust_name).save()
+                        cust_name=customer.cust_name,site_code=customer.site_code
+                        ,original_sitecode=customer.site_code).save()
+                    else:
+                        if checkex_ids:
+                            checkex_ids.cust_name = customer.cust_name
+                            checkex_ids.save()
+
 
 
                     if 'referredbyid' in request.data and request.data['referredbyid']:
@@ -24743,6 +24770,8 @@ class OutletRequestCustomerViewset(viewsets.ModelViewSet):
                     raise Exception('Please give Customer id!!.') 
 
                 cust_id = request.data['cust_id']
+                is_permanent = request.data['is_permanent']  
+
                 # if not 'site_id' in request.data or not request.data['site_id']:
                 #     raise Exception('Please give Site id!!.')
                 # site_id = request.data['site_id']
@@ -24750,10 +24779,13 @@ class OutletRequestCustomerViewset(viewsets.ModelViewSet):
                 if not cust_obj:
                     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer id Does't Exist!!",'error': True} 
                     return Response(data=result, status=status.HTTP_400_BAD_REQUEST) 
+                
+                
                 # site_obj = ItemSitelist.objects.filter(pk=site_id,itemsite_isactive=True).order_by('-pk').first()
-                # if not site_obj:
-                #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Site id Does't Exist!!",'error': True} 
-                #     return Response(data=result, status=status.HTTP_400_BAD_REQUEST) 
+                if cust_obj.site_code == site.itemsite_code:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,
+                    "message":"Customer Sitecode and logined sitecode same so can't transfer!!",'error': True} 
+                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST) 
                 
                 haud_ids =  PosHaud.objects.filter(isvoid=False,sa_custno=cust_obj.cust_code,
                 itemsite_code=site.itemsite_code).order_by("-pk").first()
@@ -24764,6 +24796,37 @@ class OutletRequestCustomerViewset(viewsets.ModelViewSet):
                     result = {'status': status.HTTP_400_BAD_REQUEST,
                     "message":"Already Customer Request created for this given site!!",'error': True} 
                     return Response(data=result, status=status.HTTP_400_BAD_REQUEST) 
+
+                if is_permanent == True:
+                    log =OutletRequestLog(log_date=date.today(),cust_code=cust_obj.cust_code,cust_name=cust_obj.cust_name,
+                    from_site=cust_obj.or_key,requesting_site=site.itemsite_code,
+                    last_transaction=haud_ids.sa_transacno if haud_ids and haud_ids.sa_transacno else "",
+                    request_by=fmspw.pw_userlogin,
+                    req_date=date.today(),req_status="Permanent Transfer",req_staff_code=fmspw.Emp_Codeid.emp_code)
+                    log.save()
+                    if haud_ids and haud_ids.sa_date:
+                        log.last_transaction_date = haud_ids.sa_date
+                        log.save()
+
+                    checkex_ids = CustomerExtended.objects.filter(cust_codeid__pk=cust_obj.pk).first()
+                    if not checkex_ids:
+                        CustomerExtended(cust_code=cust_obj.cust_code,cust_codeid=cust_obj,
+                        cust_name=cust_obj.cust_name,site_code=site.itemsite_code
+                        ,original_sitecode=cust_obj.site_code).save()
+                    else:
+                        if checkex_ids:
+                            checkex_ids.site_code = site.itemsite_code
+                            checkex_ids.save()    
+
+                    cust_obj.or_key = site.itemsite_code
+                    cust_obj.site_code = site.itemsite_code
+                    cust_obj.Site_Codeid = site
+                    cust_obj.save()
+                    result = {'status': status.HTTP_200_OK,"message":"Customer Transferred to this {0} Outlet Permanently".format(str(site.itemsite_code)),
+                    'error': False}
+                    return Response(data=result, status=status.HTTP_200_OK)
+                 
+
                 
                 # print(date.today(),"date.today()")
                 asystem_setup = Systemsetup.objects.filter(title='outletrequestmanualrelease',

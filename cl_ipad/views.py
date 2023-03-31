@@ -327,10 +327,13 @@ class WebConsultationDtlViewset(viewsets.ModelViewSet):
                     # print(serializer.errors)
                     if serializer.is_valid():
                         if not 'doc_no' in reqt or not reqt['doc_no']:
-                            raise Exception('Please give doc_no!!.') 
+                            raise Exception('Please give doc no!!.') 
  
                         if not 'question_number' in reqt or not reqt['question_number']:
-                            raise Exception('Please give question_number!!.') 
+                            raise Exception('Please give question number!!.') 
+
+                        if not 'page_number' in reqt or not reqt['page_number']:
+                            raise Exception('Please give page number!!.')      
 
                         if not 'answer' in reqt or reqt['answer'] is None:
                             raise Exception('Please give answer!!.') 
@@ -338,10 +341,14 @@ class WebConsultationDtlViewset(viewsets.ModelViewSet):
                         check_ids = False
                         if 'subquestion_number' in reqt and reqt['subquestion_number']:
                             check_ids = WebConsultation_Dtl.objects.filter(doc_no=reqt['doc_no'],
-                            question_number=reqt['question_number'],subquestion_number=reqt['subquestion_number']).order_by('-pk')
+                            question_number=reqt['question_number'],
+                            subquestion_number=reqt['subquestion_number'],
+                            page_number=reqt['page_number']).order_by('-pk')
                         else:
                             check_ids = WebConsultation_Dtl.objects.filter(doc_no=reqt['doc_no'],
-                            question_number=reqt['question_number']).order_by('-pk')
+                            question_number=reqt['question_number'],
+                            page_number=reqt['page_number']).order_by('-pk')
+
                         if not check_ids:
                             k = serializer.save()
 
@@ -2295,8 +2302,10 @@ class WebConsultationPrintListAPIView(GenericAPIView):
             quest_ids = WebConsultation_Question.objects.filter(isactive=True)
             qserializer = WebConsultationQuestionprintSerializer(quest_ids, many=True, context={'request': self.request})
             
-            dtl_answerids = WebConsultation_Dtl.objects.filter(doc_no=doc_no).values('pk','question_number','answer','answer_text',
-            'subquestion_number','image','pic_data1','page_number')
+            dtl_answerids = WebConsultation_Dtl.objects.filter(doc_no=doc_no).order_by('pk')
+            # .values('pk','question_number','answer','answer_text',
+            # 'subquestion_number','image','pic_data1','page_number')
+            dtlserializer = WebConsultationDtlSerializer(dtl_answerids, many=True, context={'request': self.request})
 
             analysis_ids = WebConsultation_AnalysisResult.objects.filter(doc_no=doc_no).first()  
             aserializer = WebConsultation_AnalysisResultprintSerializer(analysis_ids, context={'request': self.request})
@@ -2309,7 +2318,7 @@ class WebConsultationPrintListAPIView(GenericAPIView):
             
             result = {'status': status.HTTP_200_OK , "message": "Listed Succesfully",
             'error': False,'data': val,'customer_data': cust_val,
-            'question_data': qserializer.data,'answer_data': dtl_answerids,
+            'question_data': qserializer.data,'answer_data': dtlserializer.data,
             'analysis_result': aserializer.data, 'referral_list': rserializer.data,
             'referralhdr_list': rhdrserializer.data}
         

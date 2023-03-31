@@ -92,6 +92,8 @@ class UserLoginSerializer(serializers.Serializer):
         'invalid' : _('Salon Does not match with User salon.'),
         'site_notmapped' : _('Users is not allowed to login in this site'),
         'sitegrp_notmapped' : _('Site Group is not mapped'),
+        'notlinked_account': _('Emp_Codeid is not mapped in Fmspw.'),
+
 
     }
 
@@ -112,10 +114,19 @@ class UserLoginSerializer(serializers.Serializer):
                     raise serializers.ValidationError(self.error_messages['inactive_account'])
 
                 fmspw = Fmspw.objects.filter(user=self.user.id,pw_isactive=True)
+                
                 if not fmspw:
                     raise serializers.ValidationError(self.error_messages['inactive_account'])
 
-                emp = fmspw[0].Emp_Codeid.pk
+                emp = fmspw[0].Emp_Codeid.pk if fmspw[0].Emp_Codeid else False
+                if not emp:
+                    raise serializers.ValidationError(self.error_messages['notlinked_account'])
+                
+                if emp:
+                    logstaff = Employee.objects.filter(pk=fmspw[0].Emp_Codeid.pk,emp_isactive=True).first()     
+                    if not logstaff:
+                        raise serializers.ValidationError(self.error_messages['inactive_account'])
+
                 #sitelist_ids = EmpSitelist.objects.filter(Emp_Codeid=emp,Site_Codeid=branch[0].pk,isactive=True)
                 #if not sitelist_ids:
                 #    raise serializers.ValidationError(self.error_messages['site_notmapped'])
@@ -2655,6 +2666,8 @@ class StaffPlusSerializer(serializers.ModelSerializer):
         request = self.context['request']
         site_list = request.data.get('site_list',"").split(",")
         # print(site_list,"site_list")
+        if 'emp_pic' in validated_data and validated_data['emp_pic']:
+            validated_data.pop('emp_pic')
 
         instance.emp_name = validated_data.get("emp_name", instance.emp_name)
         instance.display_name = validated_data.get("display_name", instance.display_name)
@@ -2664,7 +2677,7 @@ class StaffPlusSerializer(serializers.ModelSerializer):
         instance.emp_dob = validated_data.get("emp_dob", instance.emp_dob)
         instance.emp_joindate = validated_data.get("emp_joindate", instance.emp_joindate)
         instance.shift = validated_data.get("shift", instance.shift)
-        instance.emp_pic = validated_data.get("emp_pic", instance.emp_pic)
+        # instance.emp_pic = validated_data.get("emp_pic", instance.emp_pic)
         instance.EMP_TYPEid = validated_data.get("EMP_TYPEid", instance.EMP_TYPEid)
         instance.defaultSiteCodeid = validated_data.get("defaultSiteCodeid", instance.defaultSiteCodeid)
         instance.defaultsitecode = instance.defaultSiteCodeid.itemsite_code if instance.defaultSiteCodeid else None

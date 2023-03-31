@@ -438,7 +438,9 @@ body{
       <div class="split right" style="font-size: 15px;line-height: 10px">
         <div style="display: flex;justify-content: flex-end;" >
           <div>
-            <img src="{{custsign_ids}}" width="85" height="85" alt="" style="padding-left: 30px;padding-bottom:20px;"> 
+            {% if custsign_ids %}
+              <img src="{{custsign_ids}}" width="85" height="85" alt="" style="padding-left: 30px;padding-bottom:20px;"> 
+            {% endif %}
             <p style="border-top: 1px dashed black;padding-top:10px;"><b>Customer Signature</b></p> 
             </div>
         </div>
