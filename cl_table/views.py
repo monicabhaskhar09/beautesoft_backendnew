@@ -9018,7 +9018,7 @@ class postaudViewset(viewsets.ModelViewSet):
                                                 outstanding=pac_ids.outstanding if pac_ids and pac_ids.outstanding is not None and pac_ids.outstanding > 0 else 0,active_deposit_bonus=pac_ids.active_deposit_bonus,topup_no="",topup_date=None,
                                                 line_no=pac_ids.line_no,staff_name=None,staff_no=None,
                                                 pp_type2=open_ids.conditiontype2,condition_type1=open_ids.conditiontype1,pos_daud_lineno=pac_ids.line_no,Cust_Codeid=cust_obj,Site_Codeid=site,
-                                                Item_Codeid=i.itemcodeid,item_code=i.itemcodeid.item_code)
+                                                Item_Codeid=p_pac_ids.Item_Codeid,item_code=p_pac_ids.item_code)
                                                 prepacc.save()
                                                 prepacc.sa_date = pay_date 
                                                 prepacc.start_date = pay_date

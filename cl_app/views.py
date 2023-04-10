@@ -1916,80 +1916,90 @@ class TopupCombinedViewset(viewsets.ModelViewSet):
 
             # queryset = PosHaud.objects.filter(sa_custno=cust_obj.cust_code,sa_transacno_type="Receipt",
             # ItemSite_Codeid__pk=site.pk)
-            queryset = PosHaud.objects.filter(sa_custno=cust_obj.cust_code,sa_transacno_type="Receipt")
+            # queryset = PosHaud.objects.filter(sa_custno=cust_obj.cust_code,
+            # sa_transacno_type__in=["Receipt","Non Sales"])
             prsum = 0; lst = []
            
-            if queryset:
-                for rq in queryset:
-                    # daud = PosDaud.objects.filter(sa_transacno=rq.sa_transacno,
-                    # ItemSite_Codeid__pk=site.pk)
-                    daud = PosDaud.objects.filter(sa_transacno=rq.sa_transacno)
-                    for d in daud:
-                        pacc_ids = PrepaidAccount.objects.filter(pp_no=d.sa_transacno,sa_status='DEPOSIT',
-                        cust_code=cust_obj.cust_code,line_no=d.dt_lineno,outstanding__gt = 0)
-                       
-                        if pacc_ids:
-                            # if int(d.dt_itemnoid.item_div) == 3 and d.dt_itemnoid.item_type == 'PACKAGE':
-                            #     acc_ids = PrepaidAccount.objects.filter(pp_no=d.sa_transacno,package_code=d.dt_combocode,
-                            #     line_no=d.dt_lineno,outstanding__gt = 0,status=True).order_by('id').last()
-                            # else:
-                            #     acc_ids = PrepaidAccount.objects.filter(pp_no=d.sa_transacno,
-                            #     line_no=d.dt_lineno,outstanding__gt = 0,status=True).order_by('id').last()
-                            
-                            acc_ids = PrepaidAccount.objects.filter(pp_no=d.sa_transacno,
-                            line_no=d.dt_lineno,outstanding__gt = 0,status=True).order_by('id').last()
-                            
-                            
-                            if acc_ids:
-                                acc = PrepaidAccount.objects.filter(pk=acc_ids.pk)
-                                serializer = TopupprepaidSerializer(acc, many=True)
-                                pmultistaff_ids = list(set(Multistaff.objects.filter(sa_transacno=d.sa_transacno,dt_lineno=d.dt_lineno).values_list('emp_code', flat=True).distinct()))
-                                # print(pmultistaff_ids,"pmultistaff_ids")
-                                pemp_ids = Employee.objects.filter(emp_code__in=pmultistaff_ids).order_by('-pk')
-                                # print(pemp_ids,"pemp_ids") 
-                        
-                                for pdata in serializer.data:
-                                    pos_haud = PosHaud.objects.none()
-                                    if system_setup and system_setup.value_data == 'True' and system_obj and system_obj.value_data == 'True':
-                                        if acc_ids.site_code != site.itemsite_code or acc_ids.site_code == site.itemsite_code:
-                                            pos_haud = PosHaud.objects.filter(sa_custnoid=cust_obj,
-                                            sa_transacno_type="Receipt",sa_transacno=rq.sa_transacno).first()
-                               
-                                    else:
-                                        if acc_ids.site_code == site.itemsite_code: 
-                                            pos_haud = PosHaud.objects.filter(sa_custnoid=cust_obj,ItemSite_Codeid__pk=site.pk,
-                                            sa_transacno_type="Receipt",sa_transacno=rq.sa_transacno).first()
-                               
-                                    
-                                    if pos_haud:
-                                        prsum += pdata['outstanding']
-                                        if pos_haud.sa_date:
-                                            presplt = str(pos_haud.sa_date).split(" ")
-                                            pdata['sa_date'] = datetime.datetime.strptime(str(presplt[0]), "%Y-%m-%d").strftime("%d-%m-%Y")
-                                    
-                                        # psplt = str(pdata['exp_date']).split('T')
-                                        # if pdata['exp_date']:
-                                        #     pdata['exp_date'] = datetime.datetime.strptime(str(psplt[0]), "%Y-%m-%d").strftime("%d-%b-%y")
-                                        
-                                        pdata['qty'] = 1
-                                        pdata['sa_transacno'] = pos_haud.sa_transacno_ref if pos_haud.sa_transacno_ref else ""
-                                        pdata['prepaid_id']  = acc_ids.pk
+            # if queryset:
+            #     for rq in queryset:
+            #         # daud = PosDaud.objects.filter(sa_transacno=rq.sa_transacno,
+            #         # ItemSite_Codeid__pk=site.pk)
+            #         daud = PosDaud.objects.filter(sa_transacno=rq.sa_transacno)
+            #         for d in daud:
+            #             pacc_ids = PrepaidAccount.objects.filter(pp_no=d.sa_transacno,sa_status='DEPOSIT',
+            #             cust_code=cust_obj.cust_code,line_no=d.dt_lineno,outstanding__gt = 0)
 
-                                        if int(d.dt_itemnoid.item_div) == 3 and d.dt_itemnoid.item_type == 'PACKAGE':
-                                            pdata['stock_id'] = pacc_ids[0].Item_Codeid.pk
-                                        else:
-                                            pdata['stock_id'] = d.dt_itemnoid.pk
-
-                                        pdata["pay_amount"] = None
-                                        pdata["total_amount"] = "{:.2f}".format(float(acc_ids.pp_total)) if acc_ids.pp_total else "0.00"
-                                        if pdata["remain"]:
-                                            pdata["balance"] = "{:.2f}".format(float(pdata['remain']))
-                                        if pdata["outstanding"]:
-                                            pdata["outstanding"] = "{:.2f}".format(float(pdata['outstanding']))
-                                        pdata['sa_staffname'] = ','.join([i.display_name for i in pemp_ids if i.display_name]) if pemp_ids else ""
-                                        pdata.update({'type':"Prepaid"})             
-                                        lst.append(pdata) 
+            # pqueryset = DepositAccount.objects.filter(Cust_Codeid=cust_id, type='Deposit', 
+            # outstanding__gt=0).order_by('pk')
             
+            pacc_ids = PrepaidAccount.objects.filter(sa_status='DEPOSIT',
+            cust_code=cust_obj.cust_code,outstanding__gt = 0)
+            
+                       
+            if pacc_ids:
+                for prep in pacc_ids:
+                    # if int(d.dt_itemnoid.item_div) == 3 and d.dt_itemnoid.item_type == 'PACKAGE':
+                    #     acc_ids = PrepaidAccount.objects.filter(pp_no=d.sa_transacno,package_code=d.dt_combocode,
+                    #     line_no=d.dt_lineno,outstanding__gt = 0,status=True).order_by('id').last()
+                    # else:
+                    #     acc_ids = PrepaidAccount.objects.filter(pp_no=d.sa_transacno,
+                    #     line_no=d.dt_lineno,outstanding__gt = 0,status=True).order_by('id').last()
+                    
+                    acc_ids = PrepaidAccount.objects.filter(pp_no=prep.pp_no,
+                    line_no=prep.line_no,outstanding__gt = 0,status=True).order_by('id').last()
+                    
+                    
+                    if acc_ids:
+                        acc = PrepaidAccount.objects.filter(pk=acc_ids.pk)
+                        serializer = TopupprepaidSerializer(acc, many=True)
+                        pmultistaff_ids = list(set(Multistaff.objects.filter(sa_transacno=prep.pp_no,dt_lineno=prep.line_no).values_list('emp_code', flat=True).distinct()))
+                        # print(pmultistaff_ids,"pmultistaff_ids")
+                        pemp_ids = Employee.objects.filter(emp_code__in=pmultistaff_ids).order_by('-pk')
+                        # print(pemp_ids,"pemp_ids") 
+                
+                        for pdata in serializer.data:
+                            pos_haud = PosHaud.objects.none()
+                            if system_setup and system_setup.value_data == 'True' and system_obj and system_obj.value_data == 'True':
+                                if acc_ids.site_code != site.itemsite_code or acc_ids.site_code == site.itemsite_code:
+                                    pos_haud = PosHaud.objects.filter(sa_custnoid=cust_obj,
+                                    sa_transacno=prep.pp_no).first()
+                        
+                            else:
+                                if acc_ids.site_code == site.itemsite_code: 
+                                    pos_haud = PosHaud.objects.filter(sa_custnoid=cust_obj,ItemSite_Codeid__pk=site.pk,
+                                    sa_transacno=prep.pp_no).first()
+                        
+                            
+                            if pos_haud:
+                                prsum += pdata['outstanding']
+                                if pos_haud.sa_date:
+                                    presplt = str(pos_haud.sa_date).split(" ")
+                                    pdata['sa_date'] = datetime.datetime.strptime(str(presplt[0]), "%Y-%m-%d").strftime("%d-%m-%Y")
+                            
+                                # psplt = str(pdata['exp_date']).split('T')
+                                # if pdata['exp_date']:
+                                #     pdata['exp_date'] = datetime.datetime.strptime(str(psplt[0]), "%Y-%m-%d").strftime("%d-%b-%y")
+                                
+                                pdata['qty'] = 1
+                                pdata['sa_transacno'] = pos_haud.sa_transacno_ref if pos_haud.sa_transacno_ref else ""
+                                pdata['prepaid_id']  = acc_ids.pk
+
+                                # if int(d.dt_itemnoid.item_div) == 3 and d.dt_itemnoid.item_type == 'PACKAGE':
+                                #     pdata['stock_id'] = pacc_ids[0].Item_Codeid.pk
+                                # else:
+                                #     pdata['stock_id'] = d.dt_itemnoid.pk
+                                
+                                pdata['stock_id'] = prep.Item_Codeid.pk
+                                pdata["pay_amount"] = None
+                                pdata["total_amount"] = "{:.2f}".format(float(acc_ids.pp_total)) if acc_ids.pp_total else "0.00"
+                                if pdata["remain"]:
+                                    pdata["balance"] = "{:.2f}".format(float(pdata['remain']))
+                                if pdata["outstanding"]:
+                                    pdata["outstanding"] = "{:.2f}".format(float(pdata['outstanding']))
+                                pdata['sa_staffname'] = ','.join([i.display_name for i in pemp_ids if i.display_name]) if pemp_ids else ""
+                                pdata.update({'type':"Prepaid"})             
+                                lst.append(pdata) 
+
             # print(len(tlst),"tlst")
             # print(len(plst),"plst")
             # print(len(lst),"lst")
@@ -2814,7 +2824,7 @@ class TreatmentDoneNewViewset(viewsets.ModelViewSet):
 
     #new code given by yoouns
     def list(self, request):
-        try:
+        # try:
             now = timezone.now()
             print(str(now.hour) + '  ' +  str(now.minute) + '  ' +  str(now.second),"Start hour, minute, second\n")
            
@@ -2914,6 +2924,8 @@ class TreatmentDoneNewViewset(viewsets.ModelViewSet):
                 data_list= []
                 for row in queryset:
                     trmt_obj = row ;is_allow=False
+                    print(trmt_obj,trmt_obj.pk,"trmt_obj")
+                    print(trmt_obj.Item_Codeid,"trmt_obj.Item_Codeid")
                     a = row.item_code
                     v = a[-4:]
                     # print(v,type(v),"v")
@@ -3038,9 +3050,9 @@ class TreatmentDoneNewViewset(viewsets.ModelViewSet):
                 'totaltdlines' : len(tmp_ids),
                 }
             return Response(data=result, status=status.HTTP_200_OK) 
-        except Exception as e:
-            invalid_message = str(e)
-            return general_error_response(invalid_message)          
+        # except Exception as e:
+        #     invalid_message = str(e)
+        #     return general_error_response(invalid_message)          
 
 
     @transaction.atomic
@@ -4533,176 +4545,158 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
     
             
              
-    
+    @transaction.atomic
     @action(methods=['get'], detail=False, permission_classes=[IsAuthenticated & authenticated_only],
     authentication_classes=[TokenAuthentication])
     def confirm(self, request):
         try:
-            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
-            site = fmspw[0].loginsite
-            if request.GET.get('treatmentid',None) is None:
-                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give Treatment Record ID",'error': False}
-                return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-
-            cartobj = ItemCart.objects.filter(pk=request.GET.get('cart_id',None)).first()
-            
-            
-            arrtreatmentid = request.GET.get('treatmentid',None).split(',')
-            if arrtreatmentid:
-                t = arrtreatmentid[0]
-                trmtobj = Treatment.objects.filter(status__in=["Open","Done"],pk=t).first()
-                if not trmtobj:
-                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Treatment ID does not exist/Status Should be in Open only!!",'error': True} 
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+                site = fmspw[0].loginsite
+                if request.GET.get('treatmentid',None) is None:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give Treatment Record ID",'error': False}
                     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-                trmtobj.remarks = request.GET.get('remarks',None)
-                trmtobj.save()
-               
-                queryset = TmpItemHelperSession.objects.filter(treatment_parentcode=trmtobj.treatment_parentcode,
-                sa_date__date=date.today()).order_by('-pk')
-                # print(queryset,"queryset")
 
-                # for i in queryset:
-                #     print(i.session,"ses")
-                #     # print(round(i.session, 2),"round")
-                #     t = math.ceil(i.session)
-                #     print(math.ceil(i.session),type(t),"ceil")
-
-                totlist = []
-                for idx, c in enumerate(queryset, start=1):
-                    print(idx,c)
-                    session_v = math.ceil(c.session)
+                cartobj = ItemCart.objects.filter(pk=request.GET.get('cart_id',None)).first()
                 
-                    if totlist == []:
-                        ori = arrtreatmentid[:session_v]
-                        # print(ori,"iff")
-                        rem = arrtreatmentid[session_v:]
-                        # print(rem,"iff")
-                        val = {'id': c.pk,'helper_id': c.helper_id.pk,'session': session_v,
-                        'treatment': ori}
-                        totlist.append(val)
+                
+                arrtreatmentid = request.GET.get('treatmentid',None).split(',')
+                if arrtreatmentid:
+                    t = arrtreatmentid[0]
+                    trmtobj = Treatment.objects.filter(status__in=["Open","Done"],pk=t).first()
+                    if not trmtobj:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Treatment ID does not exist/Status Should be in Open only!!",'error': True} 
+                        return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+                    trmtobj.remarks = request.GET.get('remarks',None)
+                    trmtobj.save()
+                
+                    queryset = TmpItemHelperSession.objects.filter(treatment_parentcode=trmtobj.treatment_parentcode,
+                    sa_date__date=date.today()).order_by('-pk')
+                    # print(queryset,"queryset")
 
-                        for t in ori:
-                            trmt_obj = Treatment.objects.filter(status__in=["Open","Done"],pk=t).first()
-                            if not trmt_obj:
-                                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Treatment ID does not exist / not in open status!!",'error': True} 
-                                return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-                            
-                            alemp_ids = TmpItemHelper.objects.filter(treatment__pk=trmt_obj.pk,
-                            helper_id__pk=c.helper_id.pk,site_code=site.itemsite_code).order_by('pk')
-                           
-                            if trmt_obj.treatment_account and trmt_obj.treatment_account.itemcart and trmt_obj.treatment_account.itemcart.itemcodeid and trmt_obj.treatment_account.itemcart.itemcodeid.item_type and trmt_obj.treatment_account.itemcart.itemcodeid.item_type == 'PACKAGE':
-                                item_name = trmt_obj.course
-                            else:
-                                item_name = trmt_obj.treatment_account.itemcart.itemdesc if trmt_obj.treatment_account and trmt_obj.treatment_account.itemcart and trmt_obj.treatment_account.itemcart.itemdesc else trmt_obj.course
+                    # for i in queryset:
+                    #     print(i.session,"ses")
+                    #     # print(round(i.session, 2),"round")
+                    #     t = math.ceil(i.session)
+                    #     print(math.ceil(i.session),type(t),"ceil")
 
-                            if not alemp_ids:
-                                temph = TmpItemHelper(item_name=item_name,helper_id=c.helper_id,
-                                helper_name=c.helper_id.display_name,helper_code=c.helper_id.emp_code,
-                                site_code=site.itemsite_code,times=trmt_obj.times,treatment_no=trmt_obj.treatment_no,
-                                wp1=c.wp1,wp2=0.0,wp3=0.0,itemcart=None,treatment=trmt_obj,
-                                session=c.session)
-                                temph.save()
-                                trmt_obj.helper_ids.add(temph.id) 
-
-                    else:
-                        ori = rem[:session_v]
-                        # print(ori,"else")
-                        treatori = ori
-                        bal_ses = session_v - len(ori)
-                        # print(bal_ses,type(bal_ses),"bal_ses")
-                        if bal_ses == 0:
-                            rem = arrtreatmentid
-                        else:
-                            orii = arrtreatmentid[:bal_ses]
-                            # print(orii,"orii")
-                            rem = arrtreatmentid[bal_ses:] 
-                            # print(rem,"else rem")
-                            treatori = ori + orii
+                    totlist = []
+                    for idx, c in enumerate(queryset, start=1):
+                        # print(idx,c)
+                        session_v = math.ceil(c.session)
+                        # print(session_v,"session_v")
                     
-                        # print(treatori,"treatori")
-                        val = {'id': c.pk,'helper_id': c.helper_id.pk,'session': session_v,
-                        'treatment': treatori}
-                        totlist.append(val)
-
-                        for t in treatori:
+                        if totlist == []:
+                            ori = arrtreatmentid[:session_v]
+                            # print(ori,"iff ori")
+                            rem = arrtreatmentid[session_v:]
+                            # print(rem,"iff rem")
+                            val = {'id': c.pk,'helper_id': c.helper_id.pk,'session': session_v,
+                            'treatment': ori}
+                            totlist.append(val)
+                        else:
+                            if len(rem) >= session_v:
+                                orie = rem[:session_v]
+                                # print(orie,"orie")
+                                rem = rem[session_v:]
+                                # print(rem,"rem")
+                                val = {'id': c.pk,'helper_id': c.helper_id.pk,'session': session_v,
+                                'treatment': orie}
+                                totlist.append(val)
+                            else:
+                                if len(rem) < session_v:
+                                    treori = rem + arrtreatmentid
+                                    orid = treori[:session_v]
+                                    # print(orid,"orid")
+                                    rem = treori[session_v:]
+                                    # print(rem,"rem")
+                                    val = {'id': c.pk,'helper_id': c.helper_id.pk,'session': session_v,
+                                    'treatment': orid}
+                                    totlist.append(val)
+                    
+                    print(totlist,"totlist")
+                        
+                        
+                    for e in totlist:
+                        for t in e['treatment']:
                             trmt_obj = Treatment.objects.filter(status__in=["Open","Done"],pk=t).first()
                             if not trmt_obj:
                                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Treatment ID does not exist / not in open status!!",'error': True} 
                                 return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+                            helper_obj = Employee.objects.filter(emp_isactive=True,pk=e['helper_id']).first()
+                            if helper_obj:
+                                alemp_ids = TmpItemHelper.objects.filter(treatment__pk=trmt_obj.pk,
+                                helper_id__pk=helper_obj.pk,site_code=site.itemsite_code).order_by('pk')
+                                
+                                if trmt_obj.treatment_account and trmt_obj.treatment_account.itemcart and trmt_obj.treatment_account.itemcart.itemcodeid and trmt_obj.treatment_account.itemcart.itemcodeid.item_type and trmt_obj.treatment_account.itemcart.itemcodeid.item_type == 'PACKAGE':
+                                    item_name = trmt_obj.course
+                                else:
+                                    item_name = trmt_obj.treatment_account.itemcart.itemdesc if trmt_obj.treatment_account and trmt_obj.treatment_account.itemcart and trmt_obj.treatment_account.itemcart.itemdesc else trmt_obj.course
+                                
                             
-                            alemp_ids = TmpItemHelper.objects.filter(treatment__pk=trmt_obj.pk,
-                            helper_id__pk=c.helper_id.pk,site_code=site.itemsite_code).order_by('pk')
-                           
-                            if trmt_obj.treatment_account and trmt_obj.treatment_account.itemcart and trmt_obj.treatment_account.itemcart.itemcodeid and trmt_obj.treatment_account.itemcart.itemcodeid.item_type and trmt_obj.treatment_account.itemcart.itemcodeid.item_type == 'PACKAGE':
-                                item_name = trmt_obj.course
-                            else:
-                                item_name = trmt_obj.treatment_account.itemcart.itemdesc if trmt_obj.treatment_account and trmt_obj.treatment_account.itemcart and trmt_obj.treatment_account.itemcart.itemdesc else trmt_obj.course
-
-                            if not alemp_ids:
-                                temph = TmpItemHelper(item_name=item_name,helper_id=c.helper_id,
-                                helper_name=c.helper_id.display_name,helper_code=c.helper_id.emp_code,
-                                site_code=site.itemsite_code,times=trmt_obj.times,treatment_no=trmt_obj.treatment_no,
-                                wp1=c.wp1,wp2=0.0,wp3=0.0,itemcart=None,treatment=trmt_obj,
-                                session=c.session)
-                                temph.save()
-                                trmt_obj.helper_ids.add(temph.id) 
+                                if not alemp_ids:
+                                    temph = TmpItemHelper(item_name=item_name,helper_id=helper_obj,
+                                    helper_name=helper_obj.display_name,helper_code=helper_obj.emp_code,
+                                    site_code=site.itemsite_code,times=trmt_obj.times,treatment_no=trmt_obj.treatment_no,
+                                    wp1=c.wp1,wp2=0.0,wp3=0.0,itemcart=None,treatment=trmt_obj,
+                                    session=e['session'])
+                                    temph.save()
+                                    trmt_obj.helper_ids.add(temph.id) 
+                    
                         
-                # print(totlist,"totlist")
+                    
+                    for t in arrtreatmentid:
+                    
+                        trmt_obj = Treatment.objects.filter(status__in=["Open","Done"],pk=t)
+                        if trmt_obj:
+                            tmp_ids = TmpItemHelper.objects.filter(treatment=trmt_obj[0])
+                            if not tmp_ids:
+                                msg = "Staff is not assigned properly for selected {0} Sessions !!".format(str(len(arrtreatmentid)))
+                                result = {'status': status.HTTP_400_BAD_REQUEST,"message":msg,'error': False}
+                                return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+                            
+                            for existing in trmt_obj[0].helper_ids.all():
+                                trmt_obj[0].helper_ids.remove(existing) 
 
+                            # print(trmt_obj[0],"id")
+                            for t1 in tmp_ids:
+                                trmt_obj[0].helper_ids.add(t1)
+
+                            if cartobj:    
+                                # for existing in cartobj.helper_ids.all():
+                                #     cartobj.helper_ids.remove(existing) 
+
+                                for exis in cartobj.treatment.helper_ids.all():
+                                    cartobj.treatment.helper_ids.remove(exis) 
+
+                                for exist in cartobj.service_staff.all():
+                                    cartobj.service_staff.remove(exist)     
+
+                                for t in TmpItemHelper.objects.filter(treatment=trmt_obj[0]):
+                                    helper_obj = Employee.objects.filter(emp_isactive=True,pk=t.helper_id.pk).first()
+                                    cartobj.helper_ids.add(t) 
+                                    cartobj.treatment.helper_ids.add(t) 
+                                    if helper_obj:
+                                        cartobj.service_staff.add(helper_obj.pk) 
+
+                    
+
+                    session_ids = list(set(TmpItemHelper.objects.filter(treatment__pk__in=arrtreatmentid).values_list('treatment', flat=True).distinct()))
+                    # print(session_ids,"session_ids")
+                    if session_ids:
+                    
+                        if trmtobj.status == "Open":  
+                            
+                            search_ids = TmpTreatmentSession.objects.filter(treatment_parentcode=trmtobj.treatment_parentcode,
+                            created_at=date.today()) 
+                            if not search_ids:
+                                t = TmpTreatmentSession(treatment_parentcode=trmtobj.treatment_parentcode,session=len(arrtreatmentid))
+                                t.save()
                 
-                
-                for t in arrtreatmentid:
-                
-                    trmt_obj = Treatment.objects.filter(status__in=["Open","Done"],pk=t)
-                    if trmt_obj:
-                        tmp_ids = TmpItemHelper.objects.filter(treatment=trmt_obj[0])
-                        if not tmp_ids:
-                            msg = "Staff is not assigned properly for selected {0} Sessions !!".format(str(len(arrtreatmentid)))
-                            result = {'status': status.HTTP_400_BAD_REQUEST,"message":msg,'error': False}
-                            return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-                        
-                        for existing in trmt_obj[0].helper_ids.all():
-                            trmt_obj[0].helper_ids.remove(existing) 
-
-                        # print(trmt_obj[0],"id")
-                        for t1 in tmp_ids:
-                            trmt_obj[0].helper_ids.add(t1)
-
-                        if cartobj:    
-                            # for existing in cartobj.helper_ids.all():
-                            #     cartobj.helper_ids.remove(existing) 
-
-                            for exis in cartobj.treatment.helper_ids.all():
-                                cartobj.treatment.helper_ids.remove(exis) 
-
-                            for exist in cartobj.service_staff.all():
-                                cartobj.service_staff.remove(exist)     
-
-                            for t in TmpItemHelper.objects.filter(treatment=trmt_obj[0]):
-                                helper_obj = Employee.objects.filter(emp_isactive=True,pk=t.helper_id.pk).first()
-                                cartobj.helper_ids.add(t) 
-                                cartobj.treatment.helper_ids.add(t) 
-                                if helper_obj:
-                                    cartobj.service_staff.add(helper_obj.pk) 
-
-                  
-
-                session_ids = list(set(TmpItemHelper.objects.filter(treatment__pk__in=arrtreatmentid).values_list('treatment', flat=True).distinct()))
-                # print(session_ids,"session_ids")
-                if session_ids:
-                   
-                    if trmtobj.status == "Open":  
-                        
-                        search_ids = TmpTreatmentSession.objects.filter(treatment_parentcode=trmtobj.treatment_parentcode,
-                        created_at=date.today()) 
-                        if not search_ids:
-                            t = TmpTreatmentSession(treatment_parentcode=trmtobj.treatment_parentcode,session=len(arrtreatmentid))
-                            t.save()
-            
 
 
-            result = {'status': status.HTTP_200_OK , "message": "Confirmed Succesfully", 'error': False}
-            return Response(result, status=status.HTTP_200_OK)
+                result = {'status': status.HTTP_200_OK , "message": "Confirmed Succesfully", 'error': False}
+                return Response(result, status=status.HTTP_200_OK)
 
         except Exception as e:
             invalid_message = str(e)
@@ -10212,6 +10206,7 @@ class ProductAccListViewset(viewsets.ModelViewSet):
                     ).only('sa_custno','sa_transacno','itemsite_code').order_by('pk').first()
                     if pos_haud:
                         data['transaction'] = pos_haud.sa_transacno_ref if pos_haud.sa_transacno_ref else ""
+                        data['sa_transacno'] = pos_haud.sa_transacno if pos_haud.sa_transacno else ""
                         ttime =''
                                            
                         if pos_haud.sa_time:
@@ -10721,7 +10716,7 @@ class PrepaidAccListViewset(viewsets.ModelViewSet):
                         v['topup_date'] = "-"
                         # v['status'] = "-"
                         v['status'] = "Redeem"
-                        v['use_amt'] = "{:.2f}".format(float(-v['use_amt'])) if v['use_amt'] else 0.00
+                        v['use_amt'] = "{:.2f}".format(-float(v['use_amt'])) if v['use_amt'] else 0.00
                     else:
                         v['topup_amt'] = "-";v['topup_no'] = "-";v['topup_date'] = "-";v['status'] = "-"
 

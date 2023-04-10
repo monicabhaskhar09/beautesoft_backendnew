@@ -9,7 +9,7 @@ WorkOrderInvoiceDetailModel,WorkOrderInvoiceAddrModel,WorkOrderInvoiceItemModel,
 DeliveryOrderDetailModel,DeliveryOrderItemModel,DeliveryOrdersign,EquipmentDropdownModel,EquipmentUsage,
 EquipmentUsageItemModel,Currencytable,QuotationPayment,ManualInvoicePayment,quotationsign,RoundSales,ManualInvoicesign)
 from cl_table.models import (Treatment, Stock, PackageDtl, ItemClass, ItemRange, Employee, Tmptreatment,
-TmpItemHelper,PosHaud,City, State, Country, Stock,Title,PayGroup,ItemDept )
+TmpItemHelper,PosHaud,City, State, Country, Stock,Title,PayGroup,ItemDept,Systemsetup )
 from cl_table.serializers import get_client_ip
 from django.db.models import Sum
 from datetime import date, timedelta, datetime
@@ -495,7 +495,19 @@ class CartServiceCourseSerializer(serializers.ModelSerializer):
 
     def to_representation(self, obj):
        
-        tmpids = Tmptreatment.objects.filter(itemcart=obj).order_by('pk')
+        tmpids = Tmptreatment.objects.filter(itemcart=obj).order_by('-pk')
+        auto_proportion = False
+        if not tmpids:
+            courseautopro_setup = Systemsetup.objects.filter(title='courseautoproportion',
+            value_name='courseautoproportion',isactive=True).first()
+            auto_proportion = True if courseautopro_setup and courseautopro_setup.value_data == 'True' else False
+        else:
+            audotrt_ids = tmpids.filter(trmt_is_auto_proportion=True)
+            if audotrt_ids:
+                auto_proportion = True
+
+       
+        
         
         data = [{'slno': i,'program': c.course,'next_appt': datetime.datetime.strptime(str(c.next_appt), "%Y-%m-%d %H:%M:%S").strftime("%d/%m/%Y") ,'unit_amount': "{:.2f}".format(c.unit_amount)} 
         for i, c in enumerate(tmpids, start=1)]
@@ -548,6 +560,8 @@ class CartServiceCourseSerializer(serializers.ModelSerializer):
                 treat_type = "FFi"
 
 
+
+
         mapped_object = {
             'id': obj.id,
             'itemdesc' : obj.itemdesc,
@@ -555,6 +569,7 @@ class CartServiceCourseSerializer(serializers.ModelSerializer):
             'price': "{:.2f}".format(float(obj.price)),
             'total_price' : "{:.2f}".format(float(obj.total_price)),
             'discount_price' : "{:.2f}".format(float(obj.discount_price)),
+            # 'dis_price_withoutround' : obj.discount_price,
             'trans_amt' : "{:.2f}".format(float(obj.trans_amt)),
             'deposit' : "{:.2f}".format(float(obj.deposit)),
             'treatment_no': obj.treatment_no,
@@ -573,7 +588,8 @@ class CartServiceCourseSerializer(serializers.ModelSerializer):
             'treat_expiry': treat_expiry,
             'treat_type': treat_type,
             'flexipoint': int(obj.itemcodeid.flexipoints) if obj.itemcodeid.flexipoints else None,
-            'treatment_limit_times': treatment_limit_times
+            'treatment_limit_times': treatment_limit_times,
+            'auto_proportion': auto_proportion
             }
        
         return mapped_object

@@ -44,7 +44,7 @@ GstSetting,PosTaud,PosDaud,PosHaud,ControlNo,EmpSitelist,ItemStatus, TmpItemHelp
 TreatmentAccount, PosDaud, ItemDept, DepositAccount, PrepaidAccount, ItemDiv, Systemsetup, Title,
 PackageHdr,PackageDtl,Paytable,Multistaff,ItemBatch,Stktrn,ItemUomprice,Holditemdetail,CreditNote,
 CustomerClass,ItemClass,Tmpmultistaff,Tmptreatment,ExchangeDtl,ItemUom,ItemHelper,PrepaidAccountCondition,
-City, State, Country, Stock,PayGroup,Tempcustsign,Item_MembershipPrice)
+City, State, Country, Stock,PayGroup,Tempcustsign,Item_MembershipPrice,TreatmentPackage)
 from cl_app.models import ItemSitelist, SiteGroup, TmpTreatmentSession,TmpItemHelperSession
 from cl_table.serializers import PostaudSerializer,StaffsAvailableSerializer,PosdaudSerializer,TmpItemHelperSerializer
 from datetime import date, timedelta, datetime
@@ -4577,39 +4577,95 @@ class itemCartViewset(viewsets.ModelViewSet):
                 tmp_treat_ids = Tmptreatment.objects.filter(itemcart=itemcart).order_by('pk') 
                 if tmp_treat_ids:
                     if self.request.GET.get('auto',None):
+                        number = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk').count()
+                        price = itemcart.price * number
+
                         if int(self.request.GET.get('auto',None)) == 0:
-                            number = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk').count()
-                            price = itemcart.price * number
+                            # number = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk').count()
+                            # price = itemcart.price * number
+ 
+                            # Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk'
+                            # ).update(price="{:.2f}".format(float(price)),unit_amount="{:.2f}".format(float(itemcart.price)),trmt_is_auto_proportion=False)
 
-                            Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk'
-                            ).update(price="{:.2f}".format(float(price)),unit_amount="{:.2f}".format(float(itemcart.price)),trmt_is_auto_proportion=False)
+                            # Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True).order_by('pk'
+                            # ).update(price=0,unit_amount=0.00,trmt_is_auto_proportion=False)
 
+                            treatmentno = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk').count()
+                            unit_amountforless = 0.0
+                            if treatmentno > 1:
+                                unit_amount = round(float(float(price) / float(treatmentno)),2)
+                                if str(unit_amount - int(unit_amount))[3:]:
+                                    if int(str(unit_amount - int(unit_amount))[3:]) < 5:
+                                        unit_amount = math.floor(unit_amount * 100)/100.00
+                                    else:
+                                        unit_amount = math.ceil(unit_amount * 100)/100.00
+                                unit_amountforless= float(float(price) - float(unit_amount * float(treatmentno-1)))
+                                unit_amountforless= math.floor(unit_amountforless * 100)/100.00
+                                if round(float(price),2) < round(float(float(unit_amount * float(treatmentno-1)) + float(unit_amountforless)),2):
+                                    unit_amountforless = unit_amountforless - 0.01
+                                elif round(float(price),2) > round(float(float(unit_amount * float(treatmentno-1)) + float(unit_amountforless)),2):
+                                    unit_amountforless = unit_amountforless + 0.01
+                                tmp_treatids = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk').update(price="{:.2f}".format(float(price)),
+                                unit_amount="{:.2f}".format(unit_amount),trmt_is_auto_proportion=False)
+                                tmp_pk = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('-times').only('pk').first()
+                                tmp_treatids = Tmptreatment.objects.filter(itemcart=itemcart,pk=tmp_pk.sys_code).update(unit_amount="{:.2f}".format(unit_amountforless),trmt_is_auto_proportion=False)
+                            else:
+                                unit_amount = float(price) / int(treatmentno)
+                                tmp_treatids = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk'
+                                ).update(price="{:.2f}".format(float(price)),
+                                unit_amount="{:.2f}".format(unit_amount),trmt_is_auto_proportion=False)
                             Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True).order_by('pk'
                             ).update(price=0,unit_amount=0.00,trmt_is_auto_proportion=False)
 
                         elif int(self.request.GET.get('auto',None)) == 1: 
-                            no = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk').count()
-                            price = itemcart.price * no
-                            # print(price, type(price),"kk")
-                            number = Tmptreatment.objects.filter(itemcart=itemcart).order_by('pk').count()
+                            # no = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk').count()
+                            # price = itemcart.price * no
+                            # # print(price, type(price),"kk")
+                            # number = Tmptreatment.objects.filter(itemcart=itemcart).order_by('pk').count()
                             
-                            d_price = price / number
+                            # d_price = price / number
 
-                            Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk'
-                            ).update(price="{:.2f}".format(float(price)),unit_amount="{:.2f}".format(float(d_price)),trmt_is_auto_proportion=True)
+                            # Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk'
+                            # ).update(price="{:.2f}".format(float(price)),unit_amount="{:.2f}".format(float(d_price)),trmt_is_auto_proportion=True)
                             
-                            l_ids = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True).order_by('pk').last()
+                            # l_ids = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True).order_by('pk').last()
                             
-                            if l_ids:
-                                Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True).order_by('pk'
-                                ).exclude(pk=l_ids.pk).update(price=0,unit_amount="{:.2f}".format(float(d_price)),trmt_is_auto_proportion=True)
+                            # if l_ids:
+                            #     Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True).order_by('pk'
+                            #     ).exclude(pk=l_ids.pk).update(price=0,unit_amount="{:.2f}".format(float(d_price)),trmt_is_auto_proportion=True)
                                 
-                                amt = "{:.2f}".format(float(d_price))   
-                                lval = float(price) - (float(amt) * (number -1))
+                            #     amt = "{:.2f}".format(float(d_price))   
+                            #     lval = float(price) - (float(amt) * (number -1))
 
-                                Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True,pk=l_ids.pk).order_by('pk'
-                                ).update(price=0,unit_amount="{:.2f}".format(float(lval)),trmt_is_auto_proportion=True)
-
+                            #     Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True,pk=l_ids.pk).order_by('pk'
+                            #     ).update(price=0,unit_amount="{:.2f}".format(float(lval)),trmt_is_auto_proportion=True)
+                            
+                            treatmentno = Tmptreatment.objects.filter(itemcart=itemcart).order_by('pk').count()
+                            unit_amountforless = 0.0
+                            if treatmentno > 1:
+                                unit_amount = round(float(float(price) / float(treatmentno)),2)
+                                if str(unit_amount - int(unit_amount))[3:]:
+                                    if int(str(unit_amount - int(unit_amount))[3:]) < 5:
+                                        unit_amount = math.floor(unit_amount * 100)/100.00
+                                    else:
+                                        unit_amount = math.ceil(unit_amount * 100)/100.00
+                                unit_amountforless= float(float(price) - float(unit_amount * float(treatmentno-1)))
+                                unit_amountforless= math.floor(unit_amountforless * 100)/100.00
+                                if round(float(price),2) < round(float(float(unit_amount * float(treatmentno-1)) + float(unit_amountforless)),2):
+                                    unit_amountforless = unit_amountforless - 0.01
+                                elif round(float(price),2) > round(float(float(unit_amount * float(treatmentno-1)) + float(unit_amountforless)),2):
+                                    unit_amountforless = unit_amountforless + 0.01
+                                tmp_treatids = Tmptreatment.objects.filter(itemcart=itemcart).order_by('pk'
+                                ).update(price="{:.2f}".format(float(price)),
+                                unit_amount="{:.2f}".format(unit_amount),trmt_is_auto_proportion=True)
+                                tmp_pk = Tmptreatment.objects.filter(itemcart=itemcart).order_by('-times').only('pk').first()
+                                tmp_treatids = Tmptreatment.objects.filter(itemcart=itemcart,pk=tmp_pk.sys_code).update(unit_amount="{:.2f}".format(unit_amountforless),trmt_is_auto_proportion=True)
+                            else:
+                                unit_amount = float(price) / int(treatmentno)
+                                tmp_treatids = Tmptreatment.objects.filter(itemcart=itemcart).order_by('pk'
+                                ).update(price="{:.2f}".format(float(price)),
+                                unit_amount="{:.2f}".format(unit_amount),trmt_is_auto_proportion=True)
+                            
 
 
                 result = {'status': status.HTTP_200_OK,"message":"Reset Succesfully",'error': False}
@@ -4786,38 +4842,93 @@ class itemCartViewset(viewsets.ModelViewSet):
                         if disamt['disc_amt__sum']:
                             dprice = float(itemcart.price) - disamt['disc_amt__sum']
                             if self.request.GET.get('auto',None):
+                                number = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk').count()
+                                price = dprice * number
                                 if int(self.request.GET.get('auto',None)) == 0:
-                                    number = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk').count()
-                                    price = dprice * number
+                                    # number = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk').count()
+                                    # price = dprice * number
 
-                                    Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk'
-                                    ).update(price="{:.2f}".format(float(price)),unit_amount="{:.2f}".format(float(dprice)),trmt_is_auto_proportion=False)
+                                    # Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk'
+                                    # ).update(price="{:.2f}".format(float(price)),unit_amount="{:.2f}".format(float(dprice)),trmt_is_auto_proportion=False)
 
+                                    # Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True).order_by('pk'
+                                    # ).update(price=0,unit_amount=0.00,trmt_is_auto_proportion=False)
+                                    
+                                    treatmentno = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk').count()
+                                    unit_amountforless = 0.0
+                                    if treatmentno > 1:
+                                        unit_amount = round(float(float(price) / float(treatmentno)),2)
+                                        if str(unit_amount - int(unit_amount))[3:]:
+                                            if int(str(unit_amount - int(unit_amount))[3:]) < 5:
+                                                unit_amount = math.floor(unit_amount * 100)/100.00
+                                            else:
+                                                unit_amount = math.ceil(unit_amount * 100)/100.00
+                                        unit_amountforless= float(float(price) - float(unit_amount * float(treatmentno-1)))
+                                        unit_amountforless= math.floor(unit_amountforless * 100)/100.00
+                                        if round(float(price),2) < round(float(float(unit_amount * float(treatmentno-1)) + float(unit_amountforless)),2):
+                                            unit_amountforless = unit_amountforless - 0.01
+                                        elif round(float(price),2) > round(float(float(unit_amount * float(treatmentno-1)) + float(unit_amountforless)),2):
+                                            unit_amountforless = unit_amountforless + 0.01
+                                        tmp_treatids = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk').update(price="{:.2f}".format(float(price)),
+                                        unit_amount="{:.2f}".format(unit_amount),trmt_is_auto_proportion=False)
+                                        tmp_pk = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('-times').only('pk').first()
+                                        tmp_treatids = Tmptreatment.objects.filter(itemcart=itemcart,pk=tmp_pk.sys_code).update(unit_amount="{:.2f}".format(unit_amountforless),trmt_is_auto_proportion=False)
+                                    else:
+                                        unit_amount = float(price) / int(treatmentno)
+                                        tmp_treatids = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk'
+                                        ).update(price="{:.2f}".format(float(price)),
+                                        unit_amount="{:.2f}".format(unit_amount),trmt_is_auto_proportion=False)
                                     Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True).order_by('pk'
                                     ).update(price=0,unit_amount=0.00,trmt_is_auto_proportion=False)
 
                                 elif int(self.request.GET.get('auto',None)) == 1: 
-                                    no = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk').count()
-                                    price = dprice * no
-                                    number = Tmptreatment.objects.filter(itemcart=itemcart).order_by('pk').count()
+                                    # no = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk').count()
+                                    # price = dprice * no
+                                    # number = Tmptreatment.objects.filter(itemcart=itemcart).order_by('pk').count()
                                     
-                                    d_price = price / number
+                                    # d_price = price / number
 
-                                    l_ids = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True).order_by('pk').last()
+                                    # l_ids = Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True).order_by('pk').last()
 
-                                    Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk'
-                                    ).update(price="{:.2f}".format(float(price)),unit_amount="{:.2f}".format(float(d_price)),trmt_is_auto_proportion=True)
+                                    # Tmptreatment.objects.filter(itemcart=itemcart,isfoc=False).order_by('pk'
+                                    # ).update(price="{:.2f}".format(float(price)),unit_amount="{:.2f}".format(float(d_price)),trmt_is_auto_proportion=True)
 
-                                    if l_ids: 
-                                        Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True).order_by('pk'
-                                        ).exclude(pk=l_ids.pk).update(price=0,unit_amount="{:.2f}".format(float(d_price)),trmt_is_auto_proportion=True)
+                                    # if l_ids: 
+                                    #     Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True).order_by('pk'
+                                    #     ).exclude(pk=l_ids.pk).update(price=0,unit_amount="{:.2f}".format(float(d_price)),trmt_is_auto_proportion=True)
                                         
-                                        amt = "{:.2f}".format(float(d_price))   
-                                        lval = price - (float(amt) * (number -1))
+                                    #     amt = "{:.2f}".format(float(d_price))   
+                                    #     lval = price - (float(amt) * (number -1))
 
-                                        Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True,pk=l_ids.pk).order_by('pk'
-                                        ).update(price=0,unit_amount="{:.2f}".format(float(lval)),trmt_is_auto_proportion=True)
-
+                                    #     Tmptreatment.objects.filter(itemcart=itemcart,isfoc=True,pk=l_ids.pk).order_by('pk'
+                                    #     ).update(price=0,unit_amount="{:.2f}".format(float(lval)),trmt_is_auto_proportion=True)
+                                    
+                                    treatmentno = Tmptreatment.objects.filter(itemcart=itemcart).order_by('pk').count()
+                                    unit_amountforless = 0.0
+                                    if treatmentno > 1:
+                                        unit_amount = round(float(float(price) / float(treatmentno)),2)
+                                        if str(unit_amount - int(unit_amount))[3:]:
+                                            if int(str(unit_amount - int(unit_amount))[3:]) < 5:
+                                                unit_amount = math.floor(unit_amount * 100)/100.00
+                                            else:
+                                                unit_amount = math.ceil(unit_amount * 100)/100.00
+                                        unit_amountforless= float(float(price) - float(unit_amount * float(treatmentno-1)))
+                                        unit_amountforless= math.floor(unit_amountforless * 100)/100.00
+                                        if round(float(price),2) < round(float(float(unit_amount * float(treatmentno-1)) + float(unit_amountforless)),2):
+                                            unit_amountforless = unit_amountforless - 0.01
+                                        elif round(float(price),2) > round(float(float(unit_amount * float(treatmentno-1)) + float(unit_amountforless)),2):
+                                            unit_amountforless = unit_amountforless + 0.01
+                                        tmp_treatids = Tmptreatment.objects.filter(itemcart=itemcart).order_by('pk'
+                                        ).update(price="{:.2f}".format(float(price)),
+                                        unit_amount="{:.2f}".format(unit_amount),trmt_is_auto_proportion=True)
+                                        tmp_pk = Tmptreatment.objects.filter(itemcart=itemcart).order_by('-times').only('pk').first()
+                                        tmp_treatids = Tmptreatment.objects.filter(itemcart=itemcart,pk=tmp_pk.sys_code).update(unit_amount="{:.2f}".format(unit_amountforless),trmt_is_auto_proportion=True)
+                                    else:
+                                        unit_amount = float(price) / int(treatmentno)
+                                        tmp_treatids = Tmptreatment.objects.filter(itemcart=itemcart).order_by('pk'
+                                        ).update(price="{:.2f}".format(float(price)),
+                                        unit_amount="{:.2f}".format(unit_amount),trmt_is_auto_proportion=True)
+                                    
 
 
                     result = {'status': status.HTTP_200_OK,"message":"Discount added Succesfully",'error': False}
@@ -5390,9 +5501,10 @@ class itemCartViewset(viewsets.ModelViewSet):
                     c.pos_disc.all().filter(istransdisc=True,dt_status='New').delete()  
             
             other_disc = sum([ca.discount_amt * int(ca.treatment_no) if ca.discount_amt and ca.treatment_no else ca.discount_amt * ca.quantity for ca in cart_ids])
-            transamtids = cart_ids.filter(auto=True).aggregate(Sum('trans_amt'),Sum('total_price'))
+            transamtids = cart_ids.filter(auto=True).filter(~Q(recorddetail='TD'),~Q(recorddetail__startswith='TP'),~Q(is_foc=True)).aggregate(Sum('trans_amt'),Sum('total_price'),Sum('discount_price'))
             totaltrans_amt = float(transamtids['trans_amt__sum'])
             total_amount = float(transamtids['total_price__sum'])
+            discount_price_amt = float(transamtids['discount_price__sum'])
 
             if not self.request.GET.get('disc_reset',None) is None and int(self.request.GET.get('disc_reset',None)) == 1 and not self.request.GET.get('net_amt',None) is None and int(self.request.GET.get('net_amt',None)) != 0.0:
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Disc Reset and Net Amount add will not be allowed at the same time!!",'error': True} 
@@ -5584,7 +5696,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                             return Response(result, status=status.HTTP_400_BAD_REQUEST)
             
                         cp.save()
-                        print(cp.trans_amt,"cp.trans_amt")
+                        # print(cp.trans_amt,"cp.trans_amt")
                         
                         posdisc = PosDisc(sa_transacno=None,dt_itemno=cp.itemcodeid.item_code+"0000",
                         disc_amt=div_pvalue,disc_percent=request.data['additional_discount'],dt_lineno=cp.lineno,remark=reason,
@@ -5604,20 +5716,35 @@ class itemCartViewset(viewsets.ModelViewSet):
                     # amt_cartids = self.filter_queryset(self.get_queryset()).filter(itemcodeid__item_div__in=[1,3],itemcodeid__item_type='SINGLE').exclude(type__in=('Top Up','Sales'),is_foc=True)
 
                     percent = (float(request.data['additional_discountamt']) * 100) / float(totaltrans_amt)
+                    # print(percent,"percent")
                     
-                    
-                    for ca in per_cartids:
+                    sum_tdisc = 0; sum_trasac = 0;sum_discprice = 0
+                    for idx, ca in enumerate(per_cartids, start=1):
+                    # for ca in per_cartids:
                         #if ca.auto == True:
                         if ca.auto == True and ca.recorddetail != 'TD' and ca.recorddetail[0:2] != 'TP' and ca.is_foc != True:
                             amt = ca.trans_amt * (percent / 100)
-                            div_amt = amt / int(ca.treatment_no) if ca.treatment_no else amt / ca.quantity
-                            ca.additional_discountamt = amt
+                            # print(amt,"amt")
+                            v = str(amt).split('.')
+                            c = float(v[0]+"."+v[1][:2])
+                            sum_tdisc += c
+                            # print(sum_tdisc,"sum_tdisc")
+                            div_amt = c / int(ca.treatment_no) if ca.treatment_no else c / ca.quantity
+                            # print(div_amt,"div_amt")
+                            ca.additional_discountamt = c
                             disc_price = ca.discount_price  * int(ca.treatment_no) if ca.treatment_no else ca.discount_price  * ca.quantity
+                            # print(disc_price,"disc_price")
                             ca.discount_price =  ca.discount_price - div_amt
-                            ca.deposit = disc_price - amt
-                            ca.trans_amt = disc_price - amt
+                            # print(ca.discount_price,"ca.discount_price")
+                            sum_discprice += ca.discount_price
+                            ca.deposit = disc_price - c
+                            # print(ca.deposit,"ca.deposit")
+                            ca.trans_amt = disc_price - c
+                            # print(ca.trans_amt,"ca.trans_amt")
+                            sum_trasac += ca.trans_amt
+                            cid = ca
                             # print(ca.discount_price,ca.deposit,ca.trans_amt,"kk")
-
+                            
                             if ca.discount_price <= 0.0 or ca.deposit <= 0.0 or ca.trans_amt <= 0.0:
                                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cart Line Deposit should not be negative/Zero",'error': False}
                                 return Response(result, status=status.HTTP_400_BAD_REQUEST)
@@ -5632,8 +5759,20 @@ class itemCartViewset(viewsets.ModelViewSet):
                             istransdisc=True)
                             posdisc_a.save()
                             ca.pos_disc.add(posdisc_a.id)  
+                    
+                    bal_addisc = float(request.data['additional_discountamt']) - sum_tdisc
+                    # print(bal_addisc)
+                    aftertdisc_disprice = discount_price_amt - float(request.data['additional_discountamt'])
+                    bal_discprice = aftertdisc_disprice - sum_discprice
+                    aftertdisc_trasac = totaltrans_amt - float(request.data['additional_discountamt'])
+                    bal_trasc = aftertdisc_trasac - sum_trasac
+                    cid.additional_discountamt = cid.additional_discountamt + bal_addisc
+                    cid.discount_price = cid.discount_price + bal_discprice
+                    cid.trans_amt = cid.trans_amt  + bal_trasc
+                    cid.deposit = cid.deposit + bal_trasc
+                    cid.save()
 
-                    result = {'status': status.HTTP_200_OK,"message":"Addtional Discount Updated Succesfully",'error': False}
+                    result = {'status': status.HTTP_200_OK,"message":"Addtional Discount Amount Updated Succesfully",'error': False}
                     return Response(result, status=status.HTTP_200_OK)
             
    
@@ -9153,11 +9292,17 @@ class CourseTmpAPIView(generics.ListCreateAPIView):
                 
                 discount_price = cartobj.discount_price
                 if 'unit_amount' in request.data and request.data['unit_amount']:
-                       discount_price = float(request.data['unit_amount'])
+                    discount_price = float(request.data['unit_amount'])
 
                 # print(request.data,"request.data")    
                 serializer = CourseTmpSerializer(data=request.data)
                 if serializer.is_valid():
+                    h_obj = TmpItemHelper.objects.filter(itemcart=cartobj).order_by('pk')
+                    if h_obj:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,
+                        "message":"TD Staff selected cant't change qty / Foc / Total Price, Reset and try!!",'error': True} 
+                        return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+            
                 
                     if request.data['treatment_no']:
                         price = request.data['treatment_no'] * discount_price
@@ -9218,17 +9363,17 @@ class CourseTmpAPIView(generics.ListCreateAPIView):
                             treatmentid.save()
                             cnt += 1
 
-                        tmpids = Tmptreatment.objects.filter(itemcart=cartobj).order_by('pk')
-                        # print(tmpids)
-                        data = [{'slno': i,'program': c.course,
-                        'next_appt': datetime.datetime.strptime(str(c.next_appt), "%Y-%m-%d %H:%M:%S").strftime("%d/%m/%Y") ,
-                        'unit_amount': "{:.2f}".format(c.unit_amount)} 
-                        for i, c in enumerate(tmpids, start=1)]
+                        # tmpids = Tmptreatment.objects.filter(itemcart=cartobj).order_by('pk')
+                        # # print(tmpids)
+                        # data = [{'slno': i,'program': c.course,
+                        # 'next_appt': datetime.datetime.strptime(str(c.next_appt), "%Y-%m-%d %H:%M:%S").strftime("%d/%m/%Y") ,
+                        # 'unit_amount': "{:.2f}".format(c.unit_amount)} 
+                        # for i, c in enumerate(tmpids, start=1)]
                     
-                        result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully",
-                        'error': False,'data': data}
+                        # result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully",
+                        # 'error': False,'data': data}
 
-                        return Response(result, status=status.HTTP_201_CREATED)
+                        # return Response(result, status=status.HTTP_201_CREATED)
 
                     if request.data['total_price']:
                         if request.data['auto'] == False:
@@ -9276,18 +9421,18 @@ class CourseTmpAPIView(generics.ListCreateAPIView):
                                     unit_amountforless = unit_amountforless + 0.01
                                 tmp_treatids = Tmptreatment.objects.filter(itemcart=cartobj).order_by('pk'
                                 ).update(price="{:.2f}".format(float(request.data['total_price'])),
-                                unit_amount="{:.2f}".format(unit_amount),trmt_is_auto_proportion=False)
+                                unit_amount="{:.2f}".format(unit_amount),trmt_is_auto_proportion=True)
                                 tmp_pk = Tmptreatment.objects.filter(itemcart=cartobj).order_by('-times').only('pk').first()
-                                tmp_treatids = Tmptreatment.objects.filter(itemcart=cartobj,pk=tmp_pk.sys_code).update(unit_amount="{:.2f}".format(unit_amountforless),trmt_is_auto_proportion=False)
+                                tmp_treatids = Tmptreatment.objects.filter(itemcart=cartobj,pk=tmp_pk.sys_code).update(unit_amount="{:.2f}".format(unit_amountforless),trmt_is_auto_proportion=True)
                             else:
                                 unit_amount = float(request.data['total_price']) / int(treatmentno)
                                 tmp_treatids = Tmptreatment.objects.filter(itemcart=cartobj).order_by('pk'
                                 ).update(price="{:.2f}".format(float(request.data['total_price'])),
-                                unit_amount="{:.2f}".format(unit_amount),trmt_is_auto_proportion=False)
+                                unit_amount="{:.2f}".format(unit_amount),trmt_is_auto_proportion=True)
                             
                         tmp_ids = Tmptreatment.objects.filter(itemcart=cartobj).order_by('pk')
                         unit_amount = float(request.data['total_price']) / int(treatmentno)
-
+                        print(unit_amount,"unit_amount")
                      
 
                         cartobj.is_total = True
@@ -11144,12 +11289,23 @@ class ChangePaymentDateViewset(viewsets.ModelViewSet):
                 if t_accids:
                     TreatmentAccount.objects.filter(sa_transacno=sa_transacno,pk__in=list(t_accids)).update(sa_date=pay_date,sa_time=pay_time)
                 
-                ts_accids = TreatmentAccount.objects.filter(sa_transacno=sa_transacno,type='Sales').values_list('ref_no', flat=True).distinct()
+                # ts_accids = TreatmentAccount.objects.filter(sa_transacno=sa_transacno,type='Sales').values_list('ref_no', flat=True).distinct()
                 treat_ids = Treatment.objects.filter(sa_transacno=sa_transacno,status='Open').values_list('pk', flat=True).distinct()
                 if treat_ids:
-                    Treatment.objects.filter(sa_transacno=sa_transacno,pk__in=list(treat_ids)).update(treatment_date=pay_date)
-                    Treatment.objects.filter(treatment_code__in=list(ts_accids)).update(treatment_date=pay_date)
-
+                    Treatment.objects.filter(sa_transacno=sa_transacno,pk__in=list(set(treat_ids))).update(treatment_date=pay_date)
+                    # Treatment.objects.filter(treatment_code__in=list(ts_accids)).update(treatment_date=pay_date)
+                
+                helper_ids = ItemHelper.objects.filter(helper_transacno=sa_transacno)
+                if helper_ids:
+                    helperpk_ids = helper_ids.values_list('pk', flat=True).distinct()
+                    ItemHelper.objects.filter(helper_transacno=sa_transacno,pk__in=list(helperpk_ids)).update(sa_date=pay_date)
+                    helpercod_ids = list(set(helper_ids.values_list('item_code', flat=True).distinct()))
+                    Treatment.objects.filter(treatment_code__in=helpercod_ids,status='Done').update(treatment_date=pay_date,transaction_time=pay_time)
+                
+                tp_accids = TreatmentPackage.objects.filter(sa_transacno=sa_transacno).values_list('pk', flat=True).distinct()
+                if tp_accids:
+                    TreatmentPackage.objects.filter(sa_transacno=sa_transacno,pk__in=list(set(tp_accids))).update(treatment_date=pay_time)
+                
                 depo_ids = DepositAccount.objects.filter(sa_transacno=sa_transacno).values_list('pk', flat=True).distinct()
                 if depo_ids:
                     DepositAccount.objects.filter(sa_transacno=sa_transacno,pk__in=list(depo_ids)).update(sa_date=pay_date,sa_time=pay_time)
@@ -11201,9 +11357,6 @@ class ChangePaymentDateViewset(viewsets.ModelViewSet):
                 if tmphelper_ids:
                     TmpItemHelper.objects.filter(sa_transacno=sa_transacno,pk__in=list(tmphelper_ids)).update(sa_date=pay_date)
 
-                helper_ids = ItemHelper.objects.filter(helper_transacno=sa_transacno).values_list('pk', flat=True).distinct()
-                if helper_ids:
-                    ItemHelper.objects.filter(helper_transacno=sa_transacno,pk__in=list(helper_ids)).update(sa_date=pay_date)
                 
                 tmpmulti_ids = Tmpmultistaff.objects.filter(sa_transacno=sa_transacno).values_list('pk', flat=True).distinct()
                 for t in tmpmulti_ids:
