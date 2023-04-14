@@ -9,8 +9,8 @@ WorkOrderInvoiceDetailModel,WorkOrderInvoiceAddrModel,WorkOrderInvoiceItemModel,
 DeliveryOrderDetailModel,DeliveryOrderItemModel,DeliveryOrdersign,EquipmentDropdownModel,EquipmentUsage,
 EquipmentUsageItemModel,Currencytable,QuotationPayment,ManualInvoicePayment,quotationsign,RoundSales,ManualInvoicesign)
 from cl_table.models import (Treatment, Stock, PackageDtl, ItemClass, ItemRange, Employee, Tmptreatment,
-TmpItemHelper,PosHaud,City, State, Country, Stock,Title,PayGroup,ItemDept,Systemsetup )
-from cl_table.serializers import get_client_ip
+TmpItemHelper,PosHaud,City, State, Country, Stock,Title,PayGroup,ItemDept,Systemsetup,PrepaidOpenCondition )
+from cl_table.serializers import get_client_ip,PrepaidOpenConditionSerializer
 from django.db.models import Sum
 from datetime import date, timedelta, datetime
 import datetime
@@ -648,12 +648,16 @@ class CartPrepaidSerializer(serializers.ModelSerializer):
 
 
     def to_representation(self, obj):
+        request = self.context['request']
         # print(obj.prepaid_value,"obj.prepaid_value")
         if obj.prepaid_value == None:
             prepaid_value = "{:.2f}".format(float(obj.itemcodeid.prepaid_value)),
         else:
             prepaid_value = "{:.2f}".format(obj.prepaid_value),
 
+        pqueryset = PrepaidOpenCondition.objects.filter(membercardnoaccess=False,itemcart=obj,
+            item_code=obj.itemcodeid.item_code).order_by('id')     
+        serializer = PrepaidOpenConditionSerializer(pqueryset, context={'request': request}, many=True)          
         # print(prepaid_value,"prepaid_value")   
         mapped_object = {
             'id': obj.id,
@@ -664,6 +668,7 @@ class CartPrepaidSerializer(serializers.ModelSerializer):
             'deposit' : "{:.2f}".format(float(obj.deposit)),
             'prepaid_value' : prepaid_value[0],
             'isopen_prepaid' : obj.isopen_prepaid,
+            'openprepaid_condition': serializer.data
             }
        
         return mapped_object

@@ -671,7 +671,7 @@ class PrepaidPaySerializer(serializers.ModelSerializer):
         return mapped_object
 
 
-class CartPrepaidSerializer(serializers.ModelSerializer): 
+class CartPrepaidPaySerializer(serializers.ModelSerializer): 
 
     class Meta:
         model = ItemCart

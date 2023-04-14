@@ -8,7 +8,7 @@ Treatment_Master,ItemClass,Paytable,PosTaud,PayGroup,PosDaud,PosHaud,GstSetting,
 ItemStatus,Source,ApptType, ItemHelper, Multistaff, DepositType, TmpItemHelper, PosDisc, FocReason, Holditemdetail,
 DepositAccount,PrepaidAccount,PrepaidAccountCondition,VoucherCondition,ItemUom,Title,PackageHdr,PackageDtl,
 ItemBatch,Stktrn,ItemUomprice,Tmptreatment,ExchangeDtl,Systemsetup,PackageAuditingLog,
-TreatmentPackage,StudioWork,AppointmentLog,ItemBatchSno,Treatmentids)
+TreatmentPackage,StudioWork,AppointmentLog,ItemBatchSno,Treatmentids,PrepaidOpenCondition)
 from datetime import date, timedelta, datetime
 import datetime
 from django.utils import timezone
@@ -978,8 +978,21 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                         paprepacc.start_date = pay_date
                                         paprepacc.save()
                                         # print(paprepacc.pk,"paprepacc")
+                                        
+                                        vo_obj = False
+                                        if itmstock.is_open_prepaid == False:
+                                            vo_obj = VoucherCondition.objects.filter(item_code=itmstock.item_code)
+                                            condition_amount = vo_obj.first().amount
+                                            rate = vo_obj.first().rate
+                                        else:
+                                            if itmstock.is_open_prepaid == True:
+                                                vo_obj = PrepaidOpenCondition.objects.filter(membercardnoaccess=False,itemcart=c,p_itemtype='Inclusive').order_by('-pk')[:1]
+                                                condition_amount = vo_obj.first().prepaid_value  
+                                                rate = vo_obj.first().rate 
+                                                if vo_obj and vo_obj[0].prepaid_valid_period:
+                                                    pprepaid_valid_period = date.today() + timedelta(int(vo_obj[0].prepaid_valid_period)) 
 
-                                        vo_obj = VoucherCondition.objects.filter(item_code=itmstock.item_code)
+
                                         # print(vo_obj,"vo_obj")
                                         #PrepaidAccountCondition Creation
                                         if vo_obj:  
@@ -987,12 +1000,12 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                             pp_desc=ppdescval,p_itemtype=','.join([v.p_itemtype for v in vo_obj if v.p_itemtype]),
                                             item_code=itmstock.item_code,conditiontype1=','.join([v.conditiontype1 for v in vo_obj if v.conditiontype1]),
                                             conditiontype2=','.join([v.conditiontype2 for v in vo_obj if v.conditiontype2]),
-                                            amount=vo_obj.first().amount,rate=vo_obj.first().rate,use_amt=0,remain=pre_remain,
+                                            amount=condition_amount,rate=rate,use_amt=0,remain=pre_remain,
                                             pos_daud_lineno=c.lineno,lpackage=True,package_code=packhdr_ids.code,package_code_lineno=p.deposit_lineno)
                                             ppacc.save()
                                             # print(ppacc.pk,"ppacc")
                                             PrepaidAccount.objects.filter(pk=paprepacc.pk).update(pp_type2=ppacc.pp_type,
-                                            condition_type1=ppacc.conditiontype1)
+                                            condition_type1=ppacc.conditiontype1,exp_date=pprepaid_valid_period)
 
 
                                         p.sa_transacno = sa_transacno
@@ -1282,7 +1295,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                     prepaid_valid_period = None
                     if c.itemcodeid and c.itemcodeid.prepaid_valid_period:
                         prepaid_valid_period = date.today() + timedelta(int(c.itemcodeid.prepaid_valid_period))
-                    vo_obj = VoucherCondition.objects.filter(item_code=c.itemcodeid.item_code)
+                    
 
                     if c.isopen_prepaid == True:
                         pp_amt = c.price
@@ -1331,6 +1344,16 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
 
                     #PrepaidAccountCondition Creation
 
+                    vo_obj = False
+                    if c.itemcodeid.is_open_prepaid == False:
+                        vo_obj = VoucherCondition.objects.filter(item_code=c.itemcodeid.item_code)
+                    else:
+                        if c.itemcodeid.is_open_prepaid == True:
+                            vo_obj = PrepaidOpenCondition.objects.filter(membercardnoaccess=False,itemcart=c,p_itemtype='Inclusive').order_by('-pk')[:1]
+                            if vo_obj and vo_obj[0].prepaid_valid_period:
+                                prepaid_valid_period = date.today() + timedelta(int(vo_obj[0].prepaid_valid_period))
+
+
                     pp_acc = PrepaidAccountCondition(pp_no=sa_transacno,pp_type=c.itemcodeid.item_range if c.itemcodeid.item_range else None,
                     pp_desc=pp_descval,p_itemtype=','.join([v.p_itemtype for v in vo_obj if v.p_itemtype]),
                     item_code=c.itemcodeid.item_code,conditiontype1=','.join([v.conditiontype1 for v in vo_obj if v.conditiontype1]),
@@ -1340,7 +1363,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                     pp_acc.save()
                     # print(pp_acc.pk,"pp_acc")
                     PrepaidAccount.objects.filter(pk=prepacc.pk).update(pp_type2=pp_acc.pp_type,
-                    condition_type1=pp_acc.conditiontype1)
+                    condition_type1=pp_acc.conditiontype1,exp_date=prepaid_valid_period)
 
                 elif int(c.itemcodeid.Item_Divid.itm_code) == 4 and c.itemcodeid.Item_Divid.itm_desc == 'VOUCHER' and c.itemcodeid.Item_Divid.itm_isactive == True:
                     vorecontrolobj = ControlNo.objects.filter(control_description__iexact="Public Voucher",Site_Codeid__pk=fmspw.loginsite.pk).first()

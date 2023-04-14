@@ -9,7 +9,7 @@ DepositAccount, CustomerPoint, MrRewardItemType,Smsreceivelog,Systemsetup,Treatm
 CustomerTitle,ItemDiv,Tempcustsign,CustomerDocument,TreatmentPackage,ContactPerson,ItemFlexiservice,
 termsandcondition,Participants,ProjectDocument,Dayendconfirmlog,CustomerPointDtl,
 CustomerReferral,MGMPolicyCloud,sitelistip,DisplayCatalog,DisplayItem,ItemUomprice,ItemUom,
-ItemBatch,OutletRequestLog)
+ItemBatch,OutletRequestLog,PrepaidOpenCondition,PrepaidValidperiod)
 from cl_app.models import ItemSitelist, SiteGroup
 from custom.models import EmpLevel,Room,VoucherRecord
 from django.contrib.auth.models import User
@@ -3589,5 +3589,20 @@ class OutletRequestLogSerializer(serializers.ModelSerializer):
         data['cust_phone'] = cust_phone        
         return data 
 
+class PrepaidOpenConditionSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='pk',required=False)
+
+    class Meta:
+        model = PrepaidOpenCondition
+        fields = ['id','p_itemtype','item_code','conditiontype1','conditiontype2','prepaid_value',
+        'prepaid_sell_amt','prepaid_valid_period','rate','membercardnoaccess','creditvalueshared',
+        'itemcart']
     
-            
+class PrepaidValidperiodSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='pk',required=False)
+    prepaid_valid_days = serializers.IntegerField(required=False)
+
+    class Meta:
+        model = PrepaidValidperiod
+        fields = ['id','prepaid_valid_code','prepaid_valid_desc','prepaid_valid_days',
+        'prepaid_valid_isactive']            

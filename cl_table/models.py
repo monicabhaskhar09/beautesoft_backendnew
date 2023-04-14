@@ -2957,12 +2957,14 @@ class PrepaidOpenCondition(models.Model):
     creditvalueshared = models.BooleanField(db_column='CreditValueShared')  # Field name made lowercase.
     updated_at = models.DateTimeField(auto_now=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
+    itemcart = models.ForeignKey('custom.ItemCart', on_delete=models.PROTECT,null=True)
+
 
     class Meta:
         db_table = 'Prepaid_Open_Condition'
 
     def __str__(self):
-        return str(self.P_ItemType)
+        return str(self.p_itemtype)
 
 class ScheduleHour(models.Model):
     id = models.AutoField(db_column='ID',primary_key=True)  # Field name made lowercase.

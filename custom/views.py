@@ -44,9 +44,10 @@ GstSetting,PosTaud,PosDaud,PosHaud,ControlNo,EmpSitelist,ItemStatus, TmpItemHelp
 TreatmentAccount, PosDaud, ItemDept, DepositAccount, PrepaidAccount, ItemDiv, Systemsetup, Title,
 PackageHdr,PackageDtl,Paytable,Multistaff,ItemBatch,Stktrn,ItemUomprice,Holditemdetail,CreditNote,
 CustomerClass,ItemClass,Tmpmultistaff,Tmptreatment,ExchangeDtl,ItemUom,ItemHelper,PrepaidAccountCondition,
-City, State, Country, Stock,PayGroup,Tempcustsign,Item_MembershipPrice,TreatmentPackage)
+City, State, Country, Stock,PayGroup,Tempcustsign,Item_MembershipPrice,TreatmentPackage,PrepaidOpenCondition)
 from cl_app.models import ItemSitelist, SiteGroup, TmpTreatmentSession,TmpItemHelperSession
-from cl_table.serializers import PostaudSerializer,StaffsAvailableSerializer,PosdaudSerializer,TmpItemHelperSerializer
+from cl_table.serializers import (PostaudSerializer,StaffsAvailableSerializer,PosdaudSerializer,TmpItemHelperSerializer,
+PrepaidOpenConditionSerializer)
 from datetime import date, timedelta, datetime
 import datetime
 from rest_framework.authentication import TokenAuthentication
@@ -2527,8 +2528,9 @@ class itemCartViewset(viewsets.ModelViewSet):
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give Payload Data",'error': False}
                 return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
-            
- 
+            if not 'cust_noid' in request.data[0] or not request.data[0]['cust_noid']:
+                raise Exception('Please select customer !.')
+
             if str(request.data[0]['cust_noid']) == "undefined":
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please select customer!!",'error': True} 
                 return Response(result, status=status.HTTP_400_BAD_REQUEST)         
@@ -9734,7 +9736,11 @@ class CartPrepaidViewset(viewsets.ModelViewSet):
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Service Prepaid is not applicable!!",'error': True} 
                 return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
+            if cart.itemcodeid.is_open_prepaid == False:
+                raise Exception('This Item Stock isopenprepaid checkbox is false!!')
+            
             serializer = CartPrepaidSerializer(cart, context={'request': self.request})
+            # print(serializer.data,"serializer.data")
             result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
             'data': serializer.data}
             return Response(data=result, status=status.HTTP_200_OK)
@@ -9749,6 +9755,9 @@ class CartPrepaidViewset(viewsets.ModelViewSet):
             fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
             site = fmspw.loginsite
             cart = self.get_object(pk)
+            if cart.itemcodeid.is_open_prepaid == False:
+                raise Exception('This Item Stock isopenprepaid checkbox is false!!')
+
 
             serializer = self.get_serializer(cart, data=request.data, partial=True)
             if serializer.is_valid():
@@ -9756,6 +9765,55 @@ class CartPrepaidViewset(viewsets.ModelViewSet):
 
                 serializer.save(isopen_prepaid=True,total_price=total_price,discount_price=request.data['price'],
                 trans_amt=total_price)
+
+                if 'openprepaid_condition' in request.data and request.data['openprepaid_condition']:
+                    openprepaid_condition = request.data.pop('openprepaid_condition')
+                    # print(openprepaid_condition,"openprepaid_condition")
+                    for idx, reqt in enumerate(openprepaid_condition):    
+                        # print(reqt,"reqt")
+                        serializer_op = PrepaidOpenConditionSerializer(data=reqt)
+                        # print(serializer_op.is_valid())
+                        # print(serializer.errors)
+                        if serializer_op.is_valid():
+                        
+                            if not 'p_itemtype' in reqt or not reqt['p_itemtype']:
+                                raise Exception('Please give Inclusive / Exclusive Type!.') 
+
+                            if not 'conditiontype1' in reqt or not reqt['conditiontype1']:
+                                raise Exception('Please give page number!!.')      
+
+                            if not 'conditiontype2' in reqt or reqt['conditiontype2'] is None:
+                                raise Exception('Please give conditiontype2!!.') 
+
+                            if not 'prepaid_value' in reqt or reqt['prepaid_value'] is None:
+                                raise Exception('Please give prepaid value!!.') 
+
+                            if not 'prepaid_sell_amt' in reqt or reqt['prepaid_sell_amt'] is None:
+                                raise Exception('Please give prepaid sell amt!!.') 
+                                
+                        
+                            
+                            check_ids = PrepaidOpenCondition.objects.filter(itemcart=cart,
+                            item_code=cart.itemcodeid.item_code,p_itemtype=reqt['p_itemtype'],
+                            conditiontype1=reqt['conditiontype1'],conditiontype2=reqt['conditiontype2']).order_by('-pk')
+                            # print(check_ids,"check_ids")
+                            if not check_ids:
+                                k = serializer_op.save(item_code=cart.itemcodeid.item_code,itemcart=cart)
+                                # print(k,"k")
+                        else:
+                            data = serializer_op.errors
+
+                            if 'non_field_errors' in data:
+                                message = data['non_field_errors'][0]
+                            else:
+                                first_key = list(data.keys())[0]
+                                message = str(first_key)+":  "+str(data[first_key][0])
+
+                            result = {'status': status.HTTP_400_BAD_REQUEST,"message":message,
+                            'error': True, 'data': serializer_op.errors}
+                            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+
 
                 result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",'error': False}
                 return Response(result, status=status.HTTP_200_OK)

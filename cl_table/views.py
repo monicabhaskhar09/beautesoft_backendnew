@@ -26,7 +26,7 @@ from .models import (Gender, Employee, Fmspw, Attendance2, Customer, Images, Tre
                      ItemDiv,Tempcustsign,CustomerDocument,TreatmentPackage,Tmptreatment,CustLogAudit,ContactPerson,
                      ItemFlexiservice,termsandcondition,Dayendconfirmlog,Participants,ProjectDocument,
                      MGMPolicyCloud,CustomerReferral,sitelistip,CustomerExtended,DisplayCatalog,
-                     DisplayItem,OutletRequestLog)
+                     DisplayItem,OutletRequestLog,ItemBrand,PrepaidOpenCondition,PrepaidValidperiod)
 from cl_app.models import ItemSitelist, SiteGroup, LoggedInUser,TmpTreatmentSession
 from custom.models import Room,ItemCart,VoucherRecord,EmpLevel,PosPackagedeposit,payModeChangeLog,ProjectModel
 from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializer, Attendance2Serializer,
@@ -67,7 +67,8 @@ from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializ
                           Custphone2Serializer,DayendconfirmlogSerializer,CustomerPointAccountSerializer,
                           MGMPolicyCloudSerializer,CustomerReferralSerializer,SitelistipSerializer,
                           DisplayCatalogSerializer,DisplayItemSerializer,DisplayItemStockSerializer,
-                          DisplayItemlistSerializer,OutletRequestLogSerializer)
+                          DisplayItemlistSerializer,OutletRequestLogSerializer,
+                          PrepaidValidperiodSerializer)
 from datetime import date, timedelta, datetime
 import datetime
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
@@ -8891,7 +8892,8 @@ class postaudViewset(viewsets.ModelViewSet):
                 else:
                     if cust_obj and cust_obj.cust_point_value and cust_obj.cust_point_value > 0:
                         custnow_point = cust_obj.cust_point_value
-
+                
+                prepaid_redeemlst = []
                 for idx, req in enumerate(request.data, start=1): 
                     # print(idx,"idx")
                     paytable = Paytable.objects.filter(pk=req['pay_typeid'],pay_isactive=True).first()
@@ -8964,6 +8966,7 @@ class postaudViewset(viewsets.ModelViewSet):
                                 splt = str(req['pay_rem1']).split("-")
                                 pp_no = splt[0]
                                 line_no = splt[1]
+                                print(pp_no,line_no,"line_no")
                                 open_ids = PrepaidAccountCondition.objects.filter(pp_no=pp_no,
                                 pos_daud_lineno=line_no).only('pp_no','pos_daud_lineno').first()
                                 pac_ids = PrepaidAccount.objects.filter(pp_no=pp_no,line_no=line_no,
@@ -8974,7 +8977,15 @@ class postaudViewset(viewsets.ModelViewSet):
                                     #     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
                                     
                                     conditiontype1 = str(open_ids.conditiontype1.lower()).split(',') 
+                                    # print(conditiontype1,"conditiontype1")
                                     conditiontype_res = [ele.replace(" ", "") for ele in conditiontype1]
+                                    print(conditiontype_res,"conditiontype_res")
+
+                                    conditiontype2 = str(open_ids.conditiontype2.lower()).split(',') 
+                                    # print(conditiontype2,"conditiontype2")
+                                    conditiontype2_res = [el.replace(" ", "") for el in conditiontype2]
+                                    print(conditiontype2_res,"conditiontype2_res")
+                                    item_brand = ItemBrand.objects.filter(itm_desc=open_ids.conditiontype2,retail_product_brand=True,itm_status=True).first()
 
                                    
                                     all_ids = False
@@ -8987,45 +8998,99 @@ class postaudViewset(viewsets.ModelViewSet):
                                     elif "productonly" in conditiontype_res: 
                                         all_ids = depo_ids.filter(itemcodeid__item_div=1)
                                         
+                                    used_amount = 0    
                                     check_amt = float(req['pay_amt'])
+                                    print(all_ids,"all_ids")
                                     if all_ids:
                                         for i in all_ids:
+                                            print(i,"ii")
+                                            redeem_allow = False
                                             if check_amt > 0:
                                                 checkamt = check_amt
-                                                p_pac_ids = PrepaidAccount.objects.filter(pp_no=pp_no,line_no=line_no,
-                                                cust_code=cust_obj.cust_code,status=True).only('pp_no','line_no','site_code','cust_code','status').order_by('pk').last()
+                                                print(checkamt,"checkamt 111")
+                                                if "all" in conditiontype_res:
+                                                    if "all" in conditiontype2_res:
+                                                        redeem_allow = True
+                                                    else:
+                                                        if int(i.itemcodeid.item_div) == 3:
+                                                            cartredeem_ids = ItemCart.objects.filter(id=i.pk,itemcodeid__Item_Deptid__itm_desc=open_ids.conditiontype2)
+                                                            if cartredeem_ids:
+                                                                redeem_allow = True
+                                                        if int(i.itemcodeid.item_div) == 1:
+                                                            cartbrandredeem_ids = ItemCart.objects.filter(id=i.pk,itemcodeid__item_brand=item_brand.itm_code)
+                                                            if cartbrandredeem_ids:
+                                                                redeem_allow = True
                                                 
-                                                PrepaidAccount.objects.filter(pk=p_pac_ids.pk).update(status=False)
-                                                
-                                                check_amt -= i.deposit 
-                                                if check_amt > 0:
-                                                    use_amt = i.deposit
-                                                    remain = float(p_pac_ids.remain) - float(i.deposit)
-                                                else:
-                                                    use_amt = checkamt
-                                                    remain = float(p_pac_ids.remain) - float(use_amt)
+                                                elif "serviceonly" in conditiontype_res: 
+                                                    if "all" in conditiontype2_res:
+                                                        redeem_allow = True
+                                                    else:
+                                                        if int(i.itemcodeid.item_div) == 3:
+                                                            cartredeem_ids = ItemCart.objects.filter(id=i.pk,itemcodeid__Item_Deptid__itm_desc=open_ids.conditiontype2)
+                                                            if cartredeem_ids:
+                                                                redeem_allow = True
 
-                                                vstatus = True
-                                                if remain == 0 and p_pac_ids.outstanding == 0:
-                                                    vstatus = False
-        
-                                                prepacc = PrepaidAccount(pp_no=pac_ids.pp_no,pp_type=pac_ids.pp_type,
-                                                pp_desc=pac_ids.pp_desc,exp_date=pac_ids.exp_date,cust_code=pac_ids.cust_code,
-                                                cust_name=pac_ids.cust_name,pp_amt=pac_ids.pp_amt,pp_total=pac_ids.pp_total,
-                                                pp_bonus=pac_ids.pp_bonus,transac_no=sa_transacno,item_no=i.itemcodeid.item_code,use_amt=use_amt,
-                                                remain=remain,ref1=pac_ids.ref1,ref2=pac_ids.ref2,status=vstatus,site_code=site.itemsite_code,sa_status="SA",exp_status=pac_ids.exp_status,
-                                                voucher_no=pac_ids.voucher_no,isvoucher=pac_ids.isvoucher,has_deposit=pac_ids.has_deposit,topup_amt=0,
-                                                outstanding=pac_ids.outstanding if pac_ids and pac_ids.outstanding is not None and pac_ids.outstanding > 0 else 0,active_deposit_bonus=pac_ids.active_deposit_bonus,topup_no="",topup_date=None,
-                                                line_no=pac_ids.line_no,staff_name=None,staff_no=None,
-                                                pp_type2=open_ids.conditiontype2,condition_type1=open_ids.conditiontype1,pos_daud_lineno=pac_ids.line_no,Cust_Codeid=cust_obj,Site_Codeid=site,
-                                                Item_Codeid=p_pac_ids.Item_Codeid,item_code=p_pac_ids.item_code)
-                                                prepacc.save()
-                                                prepacc.sa_date = pay_date 
-                                                prepacc.start_date = pay_date
-                                                prepacc.save()
+                                                elif "productonly" in conditiontype_res: 
+                                                    if "all" in conditiontype2_res:
+                                                        redeem_allow = True
+                                                    else:
+                                                        if int(i.itemcodeid.item_div) == 1:
+                                                            cartbrandredeem_ids = ItemCart.objects.filter(id=i.pk,itemcodeid__item_brand=item_brand.itm_code)
+                                                            if cartbrandredeem_ids:
+                                                                redeem_allow = True
                                                 
-                                        acc = PrepaidAccountCondition.objects.filter(pk=open_ids.pk).update(use_amt=float(req['pay_amt']),
-                                        remain=remain)
+
+                                                if redeem_allow == True and i.pk not in prepaid_redeemlst:
+                                                    p_pac_ids = PrepaidAccount.objects.filter(pp_no=pp_no,line_no=line_no,
+                                                    cust_code=cust_obj.cust_code,status=True).only('pp_no','line_no','site_code','cust_code','status').order_by('pk').last()
+                                                    
+                                                    PrepaidAccount.objects.filter(pk=p_pac_ids.pk).update(status=False)
+                                                    
+                                                    check_amt -= i.deposit 
+                                                    print(check_amt,"check_amt")
+                                                    if check_amt > 0:
+                                                        use_amt = i.deposit
+                                                        remain = float(p_pac_ids.remain) - float(i.deposit)
+                                                    else:
+                                                        use_amt = checkamt
+                                                        
+                                                        remain = float(p_pac_ids.remain) - float(use_amt)
+                                                    print(use_amt,"use_amt")    
+                                                    used_amount += use_amt
+                                                    vstatus = True
+                                                    if remain == 0 and p_pac_ids.outstanding == 0:
+                                                        vstatus = False
+            
+                                                    prepacc = PrepaidAccount(pp_no=pac_ids.pp_no,pp_type=pac_ids.pp_type,
+                                                    pp_desc=pac_ids.pp_desc,exp_date=pac_ids.exp_date,cust_code=pac_ids.cust_code,
+                                                    cust_name=pac_ids.cust_name,pp_amt=pac_ids.pp_amt,pp_total=pac_ids.pp_total,
+                                                    pp_bonus=pac_ids.pp_bonus,transac_no=sa_transacno,item_no=i.itemcodeid.item_code,use_amt=use_amt,
+                                                    remain=remain,ref1=pac_ids.ref1,ref2=pac_ids.ref2,status=vstatus,site_code=site.itemsite_code,sa_status="SA",exp_status=pac_ids.exp_status,
+                                                    voucher_no=pac_ids.voucher_no,isvoucher=pac_ids.isvoucher,has_deposit=pac_ids.has_deposit,topup_amt=0,
+                                                    outstanding=pac_ids.outstanding if pac_ids and pac_ids.outstanding is not None and pac_ids.outstanding > 0 else 0,active_deposit_bonus=pac_ids.active_deposit_bonus,topup_no="",topup_date=None,
+                                                    line_no=pac_ids.line_no,staff_name=None,staff_no=None,
+                                                    pp_type2=open_ids.conditiontype2,condition_type1=open_ids.conditiontype1,pos_daud_lineno=pac_ids.line_no,Cust_Codeid=cust_obj,Site_Codeid=site,
+                                                    Item_Codeid=p_pac_ids.Item_Codeid,item_code=p_pac_ids.item_code)
+                                                    prepacc.save()
+                                                    prepacc.sa_date = pay_date 
+                                                    prepacc.start_date = pay_date
+                                                    prepacc.save()
+                                                    prepaid_redeemlst.append(i.pk) 
+
+                                        print(used_amount,"used_amount") 
+                                        print(redeem_allow,"redeem_allow")
+                                        print(prepaid_redeemlst,"prepaid_redeemlst")  
+                                        if used_amount > 0:
+                                            if used_amount < float(req['pay_amt']):
+                                                msg = "Prepaid {0},line no {1},pp_no {2} pay amount is greater than use amount !".format(str(pac_ids.pp_desc),
+                                                str(pac_ids.line_no),str(pac_ids.pp_no))
+                                                result = {'status': status.HTTP_400_BAD_REQUEST,
+                                                "message":msg,'error': True} 
+                                                return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
+                                            # float(req['pay_amt'])      
+                                            acc = PrepaidAccountCondition.objects.filter(pk=open_ids.pk).update(use_amt=used_amount,
+                                            remain=remain)
                                     
                                 check.remove("PREPAID")
                             # elif req['pay_typeid'] == 17:
@@ -9281,6 +9346,17 @@ class postaudViewset(viewsets.ModelViewSet):
                                 if taud:
                                     taud_ids.append(taud.pk)
                 
+
+                taud_prepaid_ids = PosTaud.objects.filter(sa_transacno=sa_transacno,itemsite_code=site.itemsite_code,
+                pay_type="PP")
+                if taud_prepaid_ids:
+                    if prepaid_redeemlst == []:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,
+                        "message":"Pay Mode Prepaid Selected but no prepaid redeem SA usage records created in Prepaid Account!!",'error': True} 
+                        return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
+
+                # print(n)
                 if rcdtl_lst != []:
                     # print("True")
                     redeempy_ids = CustomerPointDtl.objects.filter(pk__in=rcdtl_lst)
@@ -24869,6 +24945,25 @@ class OutletRequestCustomerViewset(viewsets.ModelViewSet):
             invalid_message = str(e)
             return general_error_response(invalid_message)
     
-           
 
+   
+class PrepaidValidperiodAPIView(generics.ListAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = PrepaidValidperiod.objects.filter(prepaid_valid_isactive=True).order_by('prepaid_valid_days')
+    serializer_class = PrepaidValidperiodSerializer
+
+    def list(self, request):
+        try:
+            queryset = self.filter_queryset(self.get_queryset())
+            if queryset:
+                serializer = self.get_serializer(queryset, many=True)
+                result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 'data':  serializer.data}
+            else:
+                serializer = self.get_serializer()
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+            return Response(data=result, status=status.HTTP_200_OK)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)      
 

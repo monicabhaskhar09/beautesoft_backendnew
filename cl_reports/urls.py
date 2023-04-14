@@ -6,12 +6,12 @@ from django.urls import path, include
 from . import views
 
 router = DefaultRouter()
-# router.register(r'webconsultationhdr', views.WebConsultationHdrViewset, basename='webconsultationhdr')
-
+router.register(r'reportmaster', views.ReportmasterViewset, basename='reportmaster')
 
 urlpatterns = [
     path('api/', include(router.urls)),
-    # path('api/login', views.UserLoginAPIView.as_view(), name='login'),
+    # path('api/clientdetails/', views.ClientDetailsListAPIView.as_view(), name='clientdetails'),
+
    
 
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

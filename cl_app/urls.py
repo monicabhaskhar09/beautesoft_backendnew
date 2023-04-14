@@ -33,6 +33,7 @@ router.register(r'treatmentacclist', views.TreatmentAccListViewset, basename='tr
 router.register(r'creditnotelist', views.CreditNoteListViewset, basename='creditnotelist')
 router.register(r'productacclist', views.ProductAccListViewset, basename='productacclist')
 router.register(r'prepaidacclist', views.PrepaidAccListViewset, basename='prepaidacclist')
+router.register(r'prepaidaccpaymentlist', views.PrepaidAccPaymentListViewset, basename='prepaidaccpaymentlist')
 router.register(r'combo', views.ComboViewset, basename='combo')
 router.register(r'billing', views.BillingViewset, basename='billing')
 router.register(r'prepaidpay', views.PrepaidPayViewset, basename='prepaidpay'),

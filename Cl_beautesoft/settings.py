@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'custom',
     'clpayroll',
     'cl_ipad',
+    'cl_reports',
 ]
 
 MIDDLEWARE = [
