@@ -1574,8 +1574,8 @@ class PrepaidAccountCondition(models.Model):
     pp_desc = models.CharField(db_column='PP_DESC', max_length=50, blank=True, null=True)  # Field name made lowercase.
     p_itemtype = models.CharField(db_column='P_ItemType', max_length=50, null=True)  # Field name made lowercase.
     item_code = models.CharField(max_length=20, null=True)
-    conditiontype1 = models.CharField(db_column='ConditionType1', max_length=20, null=True)  # Field name made lowercase.
-    conditiontype2 = models.CharField(db_column='ConditionType2', max_length=20, null=True)  # Field name made lowercase.
+    conditiontype1 = models.CharField(db_column='ConditionType1', max_length=500, null=True)  # Field name made lowercase.
+    conditiontype2 = models.CharField(db_column='ConditionType2', max_length=500, null=True)  # Field name made lowercase.
     amount = models.DecimalField(db_column='Amount', max_digits=19, decimal_places=4, blank=True, null=True)  # Field name made lowercase.
     rate = models.CharField(db_column='Rate', max_length=20, blank=True, null=True)  # Field name made lowercase.
     membercardnoaccess = models.BooleanField(db_column='MemberCardNoAccess', null=True)  # Field name made lowercase.
@@ -1589,6 +1589,8 @@ class PrepaidAccountCondition(models.Model):
     creditvalueshared = models.BooleanField(db_column='CreditValueShared', null=True)  # Field name made lowercase.
     updated_at = models.DateTimeField(default=timezone.now, null=True)
     created_at = models.DateTimeField(default=timezone.now, null=True)
+    itemdept_id = models.IntegerField(db_column='itemdept_id', blank=True, null=True)  # Field name made lowercase.
+    itembrand_id = models.IntegerField(db_column='itembrand_id', blank=True, null=True)  # Field name made lowercase.
 
     class Meta:
         db_table = 'Prepaid_Account_Condition'
@@ -1606,8 +1608,8 @@ class VoucherCondition(models.Model):
     amount = models.DecimalField(db_column='Amount', max_digits=19, decimal_places=4, blank=True, null=True)  # Field name made lowercase.
     rate = models.CharField(db_column='Rate', max_length=10, blank=True, null=True)  # Field name made lowercase.
     membercardnoaccess = models.BooleanField(db_column='MemberCardNoAccess', blank=True, null=True)  # Field name made lowercase.
-    # line_no = models.IntegerField(db_column='Line_No', blank=True, null=True)  # Field name made lowercase.
-    # isactive = models.BooleanField(db_column='IsActive')  # Field name made lowercase.
+    line_no = models.IntegerField(db_column='Line_No', blank=True, null=True)  # Field name made lowercase.
+    isactive = models.BooleanField(db_column='IsActive',default=True)  # Field name made lowercase.
 
     class Meta:
         db_table = 'Voucher_condition' 
@@ -2958,6 +2960,9 @@ class PrepaidOpenCondition(models.Model):
     updated_at = models.DateTimeField(auto_now=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     itemcart = models.ForeignKey('custom.ItemCart', on_delete=models.PROTECT,null=True)
+    itemdept_id = models.IntegerField(db_column='itemdept_id', blank=True, null=True)  # Field name made lowercase.
+    itembrand_id = models.IntegerField(db_column='itembrand_id', blank=True, null=True)  # Field name made lowercase.
+
 
 
     class Meta:

@@ -655,9 +655,18 @@ class CartPrepaidSerializer(serializers.ModelSerializer):
         else:
             prepaid_value = "{:.2f}".format(obj.prepaid_value),
 
-        pqueryset = PrepaidOpenCondition.objects.filter(membercardnoaccess=False,itemcart=obj,
+        pqueryset = PrepaidOpenCondition.objects.filter(itemcart=obj,
             item_code=obj.itemcodeid.item_code).order_by('id')     
         serializer = PrepaidOpenConditionSerializer(pqueryset, context={'request': request}, many=True)          
+        
+        isopen_prepaid = obj.isopen_prepaid 
+        if not obj.isopen_prepaid:
+            isopen_prepaid = True if obj.itemcodeid.is_open_prepaid == True else False
+        else:
+            isopen_prepaid = True if obj.isopen_prepaid == True else False
+        
+         
+
         # print(prepaid_value,"prepaid_value")   
         mapped_object = {
             'id': obj.id,
@@ -667,8 +676,10 @@ class CartPrepaidSerializer(serializers.ModelSerializer):
             'trans_amt' : "{:.2f}".format(float(obj.trans_amt)),
             'deposit' : "{:.2f}".format(float(obj.deposit)),
             'prepaid_value' : prepaid_value[0],
-            'isopen_prepaid' : obj.isopen_prepaid,
-            'openprepaid_condition': serializer.data
+            'isopen_prepaid' : isopen_prepaid,
+            'openprepaid_condition': serializer.data,
+            'prepaid_valid_period' : pqueryset[0].prepaid_valid_period if pqueryset and pqueryset[0].prepaid_valid_period else "",
+            'membercardnoaccess' : pqueryset[0].membercardnoaccess if pqueryset and pqueryset[0].membercardnoaccess else False
             }
        
         return mapped_object

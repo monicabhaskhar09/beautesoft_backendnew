@@ -52,7 +52,8 @@ class StockSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Stock
-        fields = ['id','item_name','item_desc','item_div','item_type','Stock_PIC','item_price','prepaid_value','redeempoints']
+        fields = ['id','item_name','item_desc','item_div','item_type',
+        'Stock_PIC','item_price','prepaid_value','redeempoints']
     
     def to_representation(self, instance):
         data = super(StockSerializer, self).to_representation(instance)
@@ -61,7 +62,7 @@ class StockSerializer(serializers.ModelSerializer):
             data['item_price'] = "{:.2f}".format(float(instance.item_price)) 
         data['prepaid_value'] = "{:.2f}".format(float(instance.prepaid_value)) if instance.prepaid_value else "0.00"
         data['redeempoints'] = int(instance.redeempoints) if instance.redeempoints else ""
-
+        data['is_open_prepaid'] = True if instance.is_open_prepaid == True else False  
         return data 
 
 class StockRetailSerializer(serializers.ModelSerializer):
@@ -151,6 +152,7 @@ class VoidSerializer(serializers.ModelSerializer):
    
     is_current = serializers.SerializerMethodField() 
     is_allow = serializers.SerializerMethodField() 
+    staffName = serializers.CharField(source='cas_name',required=False)
 
     def get_is_current(self, obj):
         request = self.context['request']
@@ -189,7 +191,19 @@ class VoidSerializer(serializers.ModelSerializer):
     class Meta:
         model = PosHaud
         fields = ['id','sa_transacno_ref','sa_custno','sa_custname','sa_date','sa_status',
-        'void_refno','payment_remarks','is_current','itemsite_code','is_allow']
+        'void_refno','payment_remarks','is_current','itemsite_code','is_allow','sa_totamt','staffName']
+    
+    def to_representation(self, instance):
+        data = super(VoidSerializer, self).to_representation(instance)
+        taud_ids = PosTaud.objects.filter(sa_transacno=instance.sa_transacno)
+       
+        data["payment"] = "{:.2f}".format(float(instance.sa_totamt)) if instance.sa_totamt else "0.00"     
+        data["paymentType"] = ','.join(list(set([v.pay_group for v in taud_ids if v.pay_group])))
+        if instance.sa_date:
+            splt = str(instance.sa_date).split(" ")
+            data['sa_date'] = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d-%b-%y")
+
+        return data 
     
     
 
@@ -644,7 +658,7 @@ class PrepaidPaySerializer(serializers.ModelSerializer):
             exp_date = datetime.datetime.strptime(str(splt_ex[0]), "%Y-%m-%d").strftime("%d-%b-%y")
                         
         open_ids = PrepaidAccountCondition.objects.filter(pp_no=instance.pp_no,
-        pos_daud_lineno=instance.line_no).only('pp_no','pos_daud_lineno').first()
+        pos_daud_lineno=instance.line_no,p_itemtype="Inclusive").only('pp_no','pos_daud_lineno').first()
         product = 0.00; service = 0.00; allval = 0.00
         if open_ids.conditiontype1 == "Product Only":
             product = "{:.2f}".format(float(instance.remain))

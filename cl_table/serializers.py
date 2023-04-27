@@ -11,7 +11,7 @@ termsandcondition,Participants,ProjectDocument,Dayendconfirmlog,CustomerPointDtl
 CustomerReferral,MGMPolicyCloud,sitelistip,DisplayCatalog,DisplayItem,ItemUomprice,ItemUom,
 ItemBatch,OutletRequestLog,PrepaidOpenCondition,PrepaidValidperiod)
 from cl_app.models import ItemSitelist, SiteGroup
-from custom.models import EmpLevel,Room,VoucherRecord
+from custom.models import EmpLevel,Room,VoucherRecord,ItemCart
 from django.contrib.auth.models import User
 from django.utils.translation import ugettext_lazy as _
 from django.contrib.auth import authenticate, get_user_model, password_validation
@@ -1595,13 +1595,54 @@ class PoshaudSerializer(serializers.ModelSerializer):
         model = PosHaud
         fields = ['id','sa_custno','sa_custname','sa_date','sa_time']
 
+class ItemCartCustomerReceiptSerializer(serializers.ModelSerializer):
+    sa_custname = serializers.CharField(source='cust_noid.cust_name',required=False)
+
+    class Meta:
+        model = ItemCart
+        fields = ['id','customercode','sa_custname','cart_date']
+
+
 class PosdaudSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source='pk',required=False)
 
     class Meta:
         model = PosDaud
         fields = ['id','dt_itemdesc','dt_qty','dt_deposit','record_detail_type','dt_price',
-        'dt_status','itemcart','staffs','isfoc','holditemqty','trmt_done_staff_name','dt_combocode',]
+        'dt_status','itemcart','staffs','isfoc','holditemqty','trmt_done_staff_name','dt_combocode']
+
+class ItemCartdaudSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='pk',required=False)
+    dt_itemdesc = serializers.CharField(source='itemdesc',required=False)
+    dt_qty = serializers.IntegerField(source='quantity',required=False)
+    dt_deposit = serializers.FloatField(source='deposit',required=False)
+    record_detail_type = serializers.CharField(source='recorddetail',required=False)
+    dt_price = serializers.FloatField(source='price',required=False)
+    isfoc = serializers.BooleanField(source='is_foc',required=False)
+    dt_status = serializers.CharField(source='type',required=False)
+    staffs  = serializers.SerializerMethodField() 
+    dt_amt = serializers.FloatField(source='trans_amt',required=False)
+
+    def get_staffs(self, obj):
+        sales = "";service = ""
+        if obj.sales_staff.exists(): 
+            sales = ','.join(list(set([v.display_name for v in obj.sales_staff.filter() if v.display_name])))
+
+        if obj.service_staff.exists():
+            service = ','.join(list(set([v.display_name for v in obj.service_staff.filter() if v.display_name])))
+
+        var = sales+" "+"/"+" "+ service
+        
+        return var       
+
+    # 'staffs''trmt_done_staff_name',
+    # ,itemcart,staffs,dt_combocode
+
+    class Meta:
+        model = ItemCart
+        fields = ['id','dt_itemdesc','dt_qty','dt_deposit','record_detail_type','itemtype','dt_price',
+        'dt_status','isfoc','holditemqty','itemcode','staffs','dt_amt']
+
 
 class PostaudprintSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source='pk',required=False)
@@ -3516,7 +3557,7 @@ class DisplayItemStockSerializer(serializers.ModelSerializer):
     class Meta:
         model = Stock
         fields = ['id','item_name','item_desc','item_div','item_type',
-        'Stock_PIC','item_price','prepaid_value','redeempoints','item_code']
+        'Stock_PIC','item_price','prepaid_value','redeempoints','item_code','is_open_prepaid']
     
     def to_representation(self, instance):
         request = self.context['request']
@@ -3536,6 +3577,7 @@ class DisplayItemStockSerializer(serializers.ModelSerializer):
             data['item_price'] = "{:.2f}".format(float(instance.item_price)) 
         data['prepaid_value'] = "{:.2f}".format(float(instance.prepaid_value)) if instance.prepaid_value else "0.00"
         data['redeempoints'] = int(instance.redeempoints) if instance.redeempoints else ""
+        data['is_open_prepaid'] = True if instance.is_open_prepaid == True else False
         
         if instance.item_div == "1":
             stock = instance
@@ -3590,13 +3632,29 @@ class OutletRequestLogSerializer(serializers.ModelSerializer):
         return data 
 
 class PrepaidOpenConditionSerializer(serializers.ModelSerializer):
-    id = serializers.IntegerField(source='pk',required=False)
+    # id = serializers.IntegerField(source='pk',required=False)
+    op_id = serializers.SerializerMethodField() 
+ 
+    def get_op_id(self, obj):
+        if obj.pk:
+            return obj.pk
+        else:
+            return None 
 
     class Meta:
         model = PrepaidOpenCondition
-        fields = ['id','p_itemtype','item_code','conditiontype1','conditiontype2','prepaid_value',
+        fields = ['op_id','p_itemtype','item_code','conditiontype1','conditiontype2','prepaid_value',
         'prepaid_sell_amt','prepaid_valid_period','rate','membercardnoaccess','creditvalueshared',
-        'itemcart']
+        'itemcart','itemdept_id','itembrand_id']
+
+    def to_representation(self, instance):
+        data = super(PrepaidOpenConditionSerializer, self).to_representation(instance)
+       
+
+        data['prepaid_value'] = "{:.2f}".format(float(instance.prepaid_value)) if instance.prepaid_value else "0.00" 
+        data['prepaid_sell_amt'] = "{:.2f}".format(float(instance.prepaid_sell_amt)) if instance.prepaid_sell_amt else "0.00"               
+        return data 
+    
     
 class PrepaidValidperiodSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source='pk',required=False)

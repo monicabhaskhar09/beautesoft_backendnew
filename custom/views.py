@@ -1715,6 +1715,7 @@ def get_cartid(self, request, cust_obj):
                             PosPackagedeposit.objects.filter(itemcart=instance).delete()
                             Tmpmultistaff.objects.filter(itemcart=instance).delete()
                             Tmptreatment.objects.filter(itemcart=instance).delete()
+                            PrepaidOpenCondition.objects.filter(itemcart=instance).delete()
                             if instance.multi_treat.all().exists():
                                 for i in instance.multi_treat.all():
                                     TmpItemHelper.objects.filter(treatment=i).delete()
@@ -1879,6 +1880,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                                     PosPackagedeposit.objects.filter(itemcart=instance).delete()
                                     Tmpmultistaff.objects.filter(itemcart=instance).delete()
                                     Tmptreatment.objects.filter(itemcart=instance).delete()
+                                    PrepaidOpenCondition.objects.filter(itemcart=instance).delete()
                                     if instance.multi_treat.all().exists():
                                         for i in instance.multi_treat.all():
                                             TmpItemHelper.objects.filter(treatment=i).delete()
@@ -6057,6 +6059,7 @@ class itemCartViewset(viewsets.ModelViewSet):
         PosPackagedeposit.objects.filter(itemcart=instance).delete()
         Tmpmultistaff.objects.filter(itemcart=instance).delete()
         Tmptreatment.objects.filter(itemcart=instance).delete()
+        PrepaidOpenCondition.objects.filter(itemcart=instance).delete()
         if instance.multi_treat.all().exists():
             for i in instance.multi_treat.all():
                 TmpItemHelper.objects.filter(treatment=i).delete()
@@ -9662,10 +9665,11 @@ class CartItemDeleteAPIView(APIView):
             
             d_cartids = ItemCart.objects.filter(cart_id=cart_id,cart_date=cart_date,
             cart_status="Inprogress",isactive=True,is_payment=False,sitecode=site.itemsite_code).exclude(type__in=type_ex).order_by('lineno')  
-            checkd =list(set([x.pk for x in d_cartids if x.remark != None]))
+            checkd =list(set([x.pk for x in d_cartids if x.remark]))
             if d_cartids and checkd:
-                if len(checkd) == d_cartids.count():
-                    raise Exception('TCM ItemCart Cant Delete !!') 
+                if checkd !=[]:
+                    if len(checkd) == d_cartids.count():
+                        raise Exception('TCM ItemCart Cant Delete !!') 
 
             check_e =list(set([x.pk for x in d_cartids if x.remark == None]))
             cartids = ItemCart.objects.filter(cart_id=cart_id,cart_date=cart_date,
@@ -9697,6 +9701,7 @@ class CartItemDeleteAPIView(APIView):
                     PosPackagedeposit.objects.filter(itemcart=instance).delete()
                     Tmpmultistaff.objects.filter(itemcart=instance).delete()
                     Tmptreatment.objects.filter(itemcart=instance).delete()
+                    PrepaidOpenCondition.objects.filter(itemcart=instance).delete()
                     if instance.multi_treat.all().exists():
                         for i in instance.multi_treat.all():
                             TmpItemHelper.objects.filter(treatment=i).delete()
@@ -9765,16 +9770,20 @@ class CartPrepaidViewset(viewsets.ModelViewSet):
 
                 serializer.save(isopen_prepaid=True,total_price=total_price,discount_price=request.data['price'],
                 trans_amt=total_price)
-
+                
+                openprepaid_condition = request.data.get('openprepaid_condition') 
+                # print(openprepaid_condition,"openprepaid_condition")
+                
                 if 'openprepaid_condition' in request.data and request.data['openprepaid_condition']:
-                    openprepaid_condition = request.data.pop('openprepaid_condition')
-                    # print(openprepaid_condition,"openprepaid_condition")
+                    # print("iff openprepaid_condition")
+                    openprepaid_lst = []
                     for idx, reqt in enumerate(openprepaid_condition):    
                         # print(reqt,"reqt")
                         serializer_op = PrepaidOpenConditionSerializer(data=reqt)
                         # print(serializer_op.is_valid())
                         # print(serializer.errors)
                         if serializer_op.is_valid():
+                            
                         
                             if not 'p_itemtype' in reqt or not reqt['p_itemtype']:
                                 raise Exception('Please give Inclusive / Exclusive Type!.') 
@@ -9792,14 +9801,26 @@ class CartPrepaidViewset(viewsets.ModelViewSet):
                                 raise Exception('Please give prepaid sell amt!!.') 
                                 
                         
-                            
-                            check_ids = PrepaidOpenCondition.objects.filter(itemcart=cart,
-                            item_code=cart.itemcodeid.item_code,p_itemtype=reqt['p_itemtype'],
-                            conditiontype1=reqt['conditiontype1'],conditiontype2=reqt['conditiontype2']).order_by('-pk')
-                            # print(check_ids,"check_ids")
-                            if not check_ids:
-                                k = serializer_op.save(item_code=cart.itemcodeid.item_code,itemcart=cart)
-                                # print(k,"k")
+                            if 'op_id' in reqt and not reqt['op_id']:
+                                check_ids = PrepaidOpenCondition.objects.filter(itemcart=cart,
+                                item_code=cart.itemcodeid.item_code,p_itemtype=reqt['p_itemtype'],
+                                conditiontype1=reqt['conditiontype1'],conditiontype2=reqt['conditiontype2']).order_by('-pk')
+                                print(check_ids,"check_ids")
+                                if not check_ids:
+                                    k = serializer_op.save(item_code=cart.itemcodeid.item_code,
+                                    itemcart=cart,
+                                    prepaid_valid_period=request.data['prepaid_valid_period'] if 'prepaid_valid_period' in request.data and request.data['prepaid_valid_period'] else None,
+                                    membercardnoaccess=request.data['membercardnoaccess'] if 'membercardnoaccess' in request.data and request.data['membercardnoaccess'] else False)
+                                    print(k,"k")
+                                    if k.pk not in openprepaid_lst:
+                                        openprepaid_lst.append(k.pk)
+                            else:
+                                if not 'op_id' in reqt or not reqt['op_id']:
+                                    raise Exception('Please give ID!') 
+
+                                if 'op_id' in reqt and reqt['op_id'] and reqt['op_id'] not in openprepaid_lst:
+                                    openprepaid_lst.append(reqt['op_id'])
+
                         else:
                             data = serializer_op.errors
 
@@ -9812,8 +9833,18 @@ class CartPrepaidViewset(viewsets.ModelViewSet):
                             result = {'status': status.HTTP_400_BAD_REQUEST,"message":message,
                             'error': True, 'data': serializer_op.errors}
                             return Response(result, status=status.HTTP_400_BAD_REQUEST)
-
-
+                    
+                    update_ids = PrepaidOpenCondition.objects.filter(itemcart=cart
+                    ).filter(Q(pk__in=openprepaid_lst)).update(membercardnoaccess=request.data['membercardnoaccess'] if 'membercardnoaccess' in request.data and request.data['membercardnoaccess'] else False,
+                    prepaid_valid_period=request.data['prepaid_valid_period'] if 'prepaid_valid_period' in request.data and request.data['prepaid_valid_period'] else None)
+                   
+                    delcheck_ids = PrepaidOpenCondition.objects.filter(itemcart=cart
+                    ).filter(~Q(pk__in=openprepaid_lst)).order_by('-pk').delete()
+                else:
+                    if openprepaid_condition == []:
+                        del_check_ids = PrepaidOpenCondition.objects.filter(itemcart=cart).order_by('pk').delete()
+    
+                    
 
                 result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",'error': False}
                 return Response(result, status=status.HTTP_200_OK)
@@ -9824,7 +9855,53 @@ class CartPrepaidViewset(viewsets.ModelViewSet):
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)     
+
+
+    @action(detail=False, methods=['delete'], name='delete', permission_classes=[IsAuthenticated & authenticated_only],
+    authentication_classes=[TokenAuthentication])
+    def delete(self, request):  
+        try: 
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+            site = fmspw[0].loginsite
+
+            if self.request.GET.get('clear_all',None) is None:
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give clear all/line in parms!!",'error': True} 
+                return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+        
+            if not request.GET.get('cart_id',None):
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give cart id",'error': False}
+                return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
+            cartdate = timezone.now().date()
+            cart_id = request.GET.get('cart_id',None)
             
+            carttr_ids = ItemCart.objects.filter(isactive=True,cart_date=cartdate,
+            cart_status="Inprogress",is_payment=False,
+            pk=cart_id).exclude(type__in=type_ex).order_by('lineno').first() 
+            if not carttr_ids:
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cart ID doesn't exist !!",'error': True} 
+                return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
+
+            tmp_ids = PrepaidOpenCondition.objects.filter(itemcart=carttr_ids).values_list('id')
+            if not tmp_ids:
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"PrepaidOpenCondition records doesn't exist!!",'error': True} 
+                return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
+            if self.request.GET.get('clear_all',None) == "1":
+                queryset = PrepaidOpenCondition.objects.filter(itemcart=carttr_ids).order_by('id').delete()
+                
+            elif self.request.GET.get('clear_all',None) == "0":
+                queryset = PrepaidOpenCondition.objects.filter(itemcart=carttr_ids).order_by('id').first().delete()
+
+           
+            result = {'status': status.HTTP_200_OK , "message": "Deleted Succesfully", 'error': False}
+            return Response(result, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)     
+               
 
 class CourseTmpItemHelperViewset(viewsets.ModelViewSet):
     authentication_classes = [ExpiringTokenAuthentication]
@@ -11392,8 +11469,8 @@ class ChangePaymentDateViewset(viewsets.ModelViewSet):
                             PrepaidAccount.objects.filter(pp_no=sa_transacno,pk__in=list(pre_ids)).update(sa_date=pay_date,start_date=pay_time)
                  
                 preacc_ids = PrepaidAccountCondition.objects.filter(pp_no=sa_transacno).values_list('pk', flat=True).distinct()
-                if preacc_ids:
-                    PrepaidAccountCondition.objects.filter(pp_no=sa_transacno,pk__in=list(preacc_ids)).update(updated_at=pay_date,created_at=pay_date)
+                # if preacc_ids:
+                #     PrepaidAccountCondition.objects.filter(pp_no=sa_transacno,pk__in=list(preacc_ids)).update(updated_at=pay_date,created_at=pay_date)
                 
                 for k in preacc_ids:
                     kobj = PrepaidAccountCondition.objects.filter(pp_no=sa_transacno,pk=k).first()

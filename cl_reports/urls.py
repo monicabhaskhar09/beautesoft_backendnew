@@ -8,9 +8,14 @@ from . import views
 router = DefaultRouter()
 router.register(r'reportmaster', views.ReportmasterViewset, basename='reportmaster')
 
+
 urlpatterns = [
     path('api/', include(router.urls)),
-    # path('api/clientdetails/', views.ClientDetailsListAPIView.as_view(), name='clientdetails'),
+    path('api/listpaytable/', views.PaymentPaytableListAPIView.as_view(), name='listpaytable'),
+    path('api/sitelisting/', views.siteListingAPIView.as_view(), name='sitelisting'),
+    path('api/report-title/', views.ReportTitleListAPIView.as_view(), name='report-title'),
+
+
 
    
 

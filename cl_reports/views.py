@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from cl_app.permissions import authenticated_only
 from .models import (Reportmaster)
 from .serializers import (ReportmasterSerializer)
-from cl_table.models import (Fmspw,Employee,ControlNo,Customer,PosHaud,PosDaud,Title)
+from cl_table.models import (Fmspw,Employee,ControlNo,Customer,PosHaud,PosDaud,Title,Paytable)
 from rest_framework import status,viewsets,mixins
 from rest_framework.response import Response
 from custom.views import response, get_client_ip, round_calc
@@ -31,8 +31,11 @@ class ReportmasterViewset(viewsets.ModelViewSet):
     def get_queryset(self):
       
         queryset = Reportmaster.objects.filter(inactive="N").order_by('-pk')
-      
-       
+        q = self.request.GET.get('search',None)
+        if q:
+            queryset = queryset.filter(Q(name__icontains=q) | 
+            Q(description__icontains=q))[:20]
+
         return queryset
 
     def list(self, request):
@@ -187,3 +190,153 @@ class ReportmasterViewset(viewsets.ModelViewSet):
         except Reportmaster.DoesNotExist:
             raise Exception('Reportmaster Does not Exist') 
 
+# Collection By Outlet
+def dictfetchall(self,cursor):
+    columns = [col[0] for col in cursor.description]
+    return [
+        dict(zip(columns, row))
+        for row in cursor.fetchall()
+    ]
+
+class PaymentPaytableListAPIView(GenericAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+
+    def get_paytable(self):
+        try:
+            cursor = connection.cursor()
+            cursor.execute("SELECT Distinct pay_code [code],pay_description [name] FROM PAYTABLE WHERE pay_isactive='True'  ORDER BY pay_description;")
+            res = dictfetchall(self, cursor)
+            return res
+        except Paytable.DoesNotExist:
+            raise Exception('Paytable Does not Exist') 
+    
+    def get(self, request):
+        try:    
+            fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+            site = fmspw.loginsite
+            fk_id = self.get_paytable()
+
+            result = {'status': status.HTTP_200_OK , "message": "Listed Succesfully",
+            'error': False,'data': fk_id}
+        
+
+            return Response(result, status=status.HTTP_200_OK)
+    
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)          
+
+class siteListingAPIView(GenericAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+
+    def get_sitelisting(self,empcode):
+        try:
+            cursor = connection.cursor()
+            cursor.execute("SELECT TOP(100) ItemSite_Code as itemcode, ItemSite_Desc as itemdesc FROM item_SiteList WHERE ItemSite_isactive='True' AND itemsite_code in (SELECT Site_Code from emp_SiteList WHERE emp_code = %s and isactive=1) ORDER BY itemDesc;",[empcode])
+            res = dictfetchall(self, cursor)
+            return res
+        except Paytable.DoesNotExist:
+            raise Exception('Paytable Does not Exist') 
+    
+    def get(self, request):
+        try:    
+            fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+            site = fmspw.loginsite
+            empcode = fmspw.Emp_Codeid.emp_code
+            # select Distinct pay_code [Code],pay_description [Name]  from PAYTABLE where pay_isactive=1 Order By pay_description
+            fk_id = self.get_sitelisting(empcode)
+
+            result = {'status': status.HTTP_200_OK , "message": "Listed Succesfully",
+            'error': False,'data': fk_id}
+        
+            return Response(result, status=status.HTTP_200_OK)
+    
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)        
+
+class ReportTitleListAPIView(GenericAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+
+    def get_report_titlelisting(self,sitecode):
+        try:
+            cursor = connection.cursor()
+            # select TOP 1 product_license,ID,Title,Comp_Title1,Comp_Title2,Comp_Title3,Comp_Title4,Footer_1,Footer_2,Footer_3,Footer_4 from Title 
+            # where 
+            # --product_license=@siteCode
+            # product_license in (Select Item From dbo.LISTTABLE(@siteCode,','))
+            # order by ID
+            cursor.execute("SELECT TOP(1) product_license,id,title,comp_title1,comp_title2,comp_title3,comp_title4,footer_1,footer_2,footer_3,footer_4  FROM Title WHERE product_license = %s  ORDER BY id;",[sitecode])
+            res = dictfetchall(self, cursor)
+            return res
+        except Paytable.DoesNotExist:
+            raise Exception('Paytable Does not Exist') 
+    
+    def post(self, request):
+        # try:    
+            fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+            site = fmspw.loginsite
+            from_date = self.request.data.get('from_date',None)
+            to_date = self.request.data.get('to_date',None)
+            report_title = self.request.data.get('report_title',None)
+            if not from_date:
+                result = {'status': status.HTTP_200_OK,
+                "message":"Please give from_date!!",'error': True} 
+                return Response(data=result, status=status.HTTP_200_OK)
+
+            if not to_date:
+                result = {'status': status.HTTP_200_OK,
+                "message":"Please give to_date!!",'error': True} 
+                return Response(data=result, status=status.HTTP_200_OK)
+
+            if not report_title:
+                result = {'status': status.HTTP_200_OK,
+                "message":"Please give report_title!!",'error': True} 
+                return Response(data=result, status=status.HTTP_200_OK)
+
+
+    
+            site_code = self.request.data.get('site_code',None)
+            if not site_code:
+                result = {'status': status.HTTP_200_OK,
+                "message":"Please give site_code!!",'error': True} 
+                return Response(data=result, status=status.HTTP_200_OK)
+            
+            site_codelst = site_code.split(",")
+            site_least = ItemSitelist.objects.filter(itemsite_code__in=site_codelst).order_by('itemsite_id').first()
+            if not site_least:
+                result = {'status': status.HTTP_200_OK,
+                "message":"Selected site doesn't exist!!",'error': True} 
+                return Response(data=result, status=status.HTTP_200_OK)
+    
+
+            from_date = datetime.datetime.strptime(str(from_date), "%Y-%m-%d").strftime("%d/%m/%Y")
+            to_date = datetime.datetime.strptime(str(to_date), "%Y-%m-%d").strftime("%d/%m/%Y") 
+            sitecode = site_least.itemsite_code
+            fk_id = self.get_report_titlelisting(sitecode)
+            if not fk_id:
+                result = {'status': status.HTTP_200_OK,
+                "message":"Company Title doesn't exist!!",'error': True} 
+                return Response(data=result, status=status.HTTP_200_OK)
+    
+
+            now = datetime.datetime.now()
+            dt_string = now.strftime("%d/%m/%Y | %H:%M:%S %I:%M:%S %p")
+            if fk_id:
+                vals = {'report_title': "Collection By Outlet",'outlet': site.itemsite_desc,
+                'from_date': from_date, 'to_date':to_date ,'print_by': fmspw.pw_userlogin,
+                'print_time': dt_string ,'site': site_code}
+                fk_id[0].update(vals)
+            # print(fk_id,"fk_id")
+
+            result = {'status': status.HTTP_200_OK , "message": "Listed Succesfully",
+            'error': False,'data': fk_id}
+        
+            return Response(result, status=status.HTTP_200_OK)
+    
+        # except Exception as e:
+        #     invalid_message = str(e)
+        #     return general_error_response(invalid_message)        

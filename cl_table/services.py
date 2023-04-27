@@ -8,7 +8,7 @@ Treatment_Master,ItemClass,Paytable,PosTaud,PayGroup,PosDaud,PosHaud,GstSetting,
 ItemStatus,Source,ApptType, ItemHelper, Multistaff, DepositType, TmpItemHelper, PosDisc, FocReason, Holditemdetail,
 DepositAccount,PrepaidAccount,PrepaidAccountCondition,VoucherCondition,ItemUom,Title,PackageHdr,PackageDtl,
 ItemBatch,Stktrn,ItemUomprice,Tmptreatment,ExchangeDtl,Systemsetup,PackageAuditingLog,
-TreatmentPackage,StudioWork,AppointmentLog,ItemBatchSno,Treatmentids,PrepaidOpenCondition)
+TreatmentPackage,StudioWork,AppointmentLog,ItemBatchSno,Treatmentids,PrepaidOpenCondition,ItemBrand)
 from datetime import date, timedelta, datetime
 import datetime
 from django.utils import timezone
@@ -86,6 +86,154 @@ def customeraccount(cust_obj, site):
 
     value = tr_outstanding + pr_outstanding + pe_outstanding
     return "{:.2f}".format(value)    
+
+# uom_ids,obatchids,site,itemcode,trn_docno,pay_date,line_no,adjno,multi_uom,qtytodeduct
+
+def create_multiuom_transac(uom_ids,obatchids,site,itemcode,trn_docno,pay_date,line_no,adjno,multi_uom,qtytodeduct,trn_type,post_time,trn_amt):
+    # print(uom_ids.item_uom,"uuuom_ids")
+    # print(obatchids.uom,"ooobatchids")
+
+    currentdate = timezone.now().date()
+    stktrn_ids = Stktrn.objects.filter(store_no=site.itemsite_code,itemcode=str(itemcode)+"0000",
+    item_uom=uom_ids.item_uom).order_by('pk').last() 
+
+
+    stktrn_id = Stktrn(trn_no=None,post_time=post_time,aperiod=None,itemcode=str(itemcode)+"0000",
+    store_no=site.itemsite_code,tstore_no=None,fstore_no=None,trn_docno=adjno if adjno else trn_docno,trn_date=currentdate,
+    trn_type="ADJS",trn_db_qty=None,trn_cr_qty=None,trn_qty=-1,trn_balqty=obatchids.qty-1,
+    trn_balcst=stktrn_ids.trn_balcst if stktrn_ids and stktrn_ids.trn_balcst else 0,
+    trn_amt=trn_amt,trn_post=currentdate,
+    trn_cost=stktrn_ids.trn_cost if stktrn_ids and stktrn_ids.trn_cost else 0,trn_ref=None,
+    hq_update=stktrn_ids.hq_update if stktrn_ids and stktrn_ids.hq_update else 0,
+    line_no=line_no,item_uom=uom_ids.item_uom,item_batch=None,mov_type=None,item_batch_cost=None,
+    stock_in=None,trans_package_line_no=None)
+    stktrn_id.save()
+    Stktrn.objects.filter(pk=stktrn_id.pk).update(trn_post=pay_date,trn_date=pay_date)
+    
+    mbatchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=str(itemcode),
+    uom=uom_ids.item_uom2).order_by('pk').last() 
+    # print(mbatchids.uom,"mbatchids")
+
+
+    stktrnids = Stktrn.objects.filter(store_no=site.itemsite_code,itemcode=str(itemcode)+"0000",
+    item_uom=uom_ids.item_uom2).order_by('pk').last() 
+
+
+    stktrnid = Stktrn(trn_no=None,post_time=post_time,aperiod=None,itemcode=str(itemcode)+"0000",
+    store_no=site.itemsite_code,tstore_no=None,fstore_no=None,trn_docno=adjno,trn_date=currentdate,
+    trn_type="ADJS",trn_db_qty=None,trn_cr_qty=None,trn_qty=uom_ids.uom_unit,trn_balqty=uom_ids.uom_unit + mbatchids.qty,
+    trn_balcst=stktrnids.trn_balcst if stktrnids and stktrnids.trn_balcst else 0,
+    trn_amt=trn_amt,trn_post=currentdate,
+    trn_cost=stktrnids.trn_cost if stktrnids and stktrnids.trn_cost else 0,trn_ref=None,
+    hq_update=stktrnids.hq_update if stktrnids and stktrnids.hq_update else 0,
+    line_no=line_no,item_uom=uom_ids.item_uom2,item_batch=None,mov_type=None,item_batch_cost=None,
+    stock_in=None,trans_package_line_no=None)
+    stktrnid.save()
+    Stktrn.objects.filter(pk=stktrnid.pk).update(trn_post=pay_date,trn_date=pay_date)
+
+
+
+   
+    ItemBatch.objects.filter(pk=obatchids.pk).update(qty=obatchids.qty-1,updated_at=timezone.now())
+
+    ItemBatch.objects.filter(pk=mbatchids.pk).update(qty=uom_ids.uom_unit + mbatchids.qty,updated_at=timezone.now())
+
+    if multi_uom == []:
+        fbatch_qty = (mbatchids.qty + uom_ids.uom_unit) - qtytodeduct
+
+        vstk = Stktrn(trn_no=None,post_time=post_time,aperiod=None,itemcode=str(itemcode)+"0000",
+        store_no=site.itemsite_code,tstore_no=None,fstore_no=None,trn_docno=trn_docno,trn_date=currentdate,
+        trn_type=trn_type,trn_db_qty=None,trn_cr_qty=None,trn_qty=-qtytodeduct,trn_balqty=fbatch_qty,
+        trn_balcst=stktrnid.trn_balcst if stktrnid and stktrnid.trn_balcst else 0,
+        trn_amt=trn_amt,trn_post=currentdate,
+        trn_cost=stktrnid.trn_cost if stktrnid and stktrnid.trn_cost else 0,trn_ref=None,
+        hq_update=stktrnid.hq_update if stktrnid and stktrnid.hq_update else 0,
+        line_no=line_no,item_uom=uom_ids.item_uom2,item_batch=None,mov_type=None,item_batch_cost=None,
+        stock_in=None,trans_package_line_no=None)
+        vstk.save()
+        Stktrn.objects.filter(pk=vstk.pk).update(trn_post=pay_date,trn_date=pay_date)
+    
+
+        ItemBatch.objects.filter(pk=mbatchids.pk).update(qty=fbatch_qty,updated_at=timezone.now())
+
+
+   
+    return adjno 
+ 
+ 
+#b_uom_ids,oabatchids,site,itemcode,trn_docno,pay_date,line_no,adjno,qtytodeduct,check_uom
+def multiuom_adjsafter_stockopenup(b_uom_ids,oabatchids,site,itemcode,trn_docno,pay_date,line_no,adjno,qtytodeduct,check_uom,trn_type,post_time,trn_amt):
+    uom_ids = b_uom_ids
+   
+    currentdate = timezone.now().date()
+    stktrn_ids = Stktrn.objects.filter(store_no=site.itemsite_code,itemcode=str(itemcode)+"0000",
+    item_uom=uom_ids.item_uom).order_by('pk').last() 
+
+
+    stktrn_idd = Stktrn(trn_no=None,post_time=post_time,aperiod=None,itemcode=str(itemcode)+"0000",
+    store_no=site.itemsite_code,tstore_no=None,fstore_no=None,trn_docno=adjno if adjno else trn_docno,trn_date=currentdate,
+    trn_type="ADJS",trn_db_qty=None,trn_cr_qty=None,trn_qty=-1,trn_balqty=oabatchids.qty-1,
+    trn_balcst=stktrn_ids.trn_balcst if stktrn_ids and stktrn_ids.trn_balcst else 0,
+    trn_amt=trn_amt,trn_post=currentdate,
+    trn_cost=stktrn_ids.trn_cost if stktrn_ids and stktrn_ids.trn_cost else 0,trn_ref=None,
+    hq_update=stktrn_ids.hq_update if stktrn_ids and stktrn_ids.hq_update else 0,
+    line_no=line_no,item_uom=uom_ids.item_uom,item_batch=None,mov_type=None,item_batch_cost=None,
+    stock_in=None,trans_package_line_no=None)
+    stktrn_idd.save()
+    Stktrn.objects.filter(pk=stktrn_idd.pk).update(trn_post=pay_date,trn_date=pay_date)
+    
+    batchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=str(itemcode),
+    uom=uom_ids.item_uom2).order_by('pk').last() 
+    # print(batchids.uom,"batchids")
+
+    stktrnids = Stktrn.objects.filter(store_no=site.itemsite_code,itemcode=str(itemcode)+"0000",
+    item_uom=batchids.uom).order_by('pk').last() 
+
+    
+
+
+    stktrnid = Stktrn(trn_no=None,post_time=post_time,aperiod=None,itemcode=str(itemcode)+"0000",
+    store_no=site.itemsite_code,tstore_no=None,fstore_no=None,trn_docno=adjno,trn_date=currentdate,
+    trn_type="ADJS",trn_db_qty=None,trn_cr_qty=None,trn_qty=uom_ids.uom_unit,trn_balqty=uom_ids.uom_unit + batchids.qty,
+    trn_balcst=stktrnids.trn_balcst if stktrnids and stktrnids.trn_balcst else 0,
+    trn_amt=trn_amt,trn_post=currentdate,
+    trn_cost=stktrnids.trn_cost if stktrnids and stktrnids.trn_cost else 0,trn_ref=None,
+    hq_update=stktrnids.hq_update if stktrnids and stktrnids.hq_update else 0,
+    line_no=line_no,item_uom=uom_ids.item_uom2,item_batch=None,mov_type=None,item_batch_cost=None,
+    stock_in=None,trans_package_line_no=None)
+    stktrnid.save()
+    Stktrn.objects.filter(pk=stktrnid.pk).update(trn_post=pay_date,trn_date=pay_date)
+    
+    ItemBatch.objects.filter(pk=oabatchids.pk).update(qty=oabatchids.qty-1,updated_at=timezone.now())
+
+    buom_ids = ItemUomprice.objects.filter(item_code=itemcode,item_uom=uom_ids.item_uom2
+                        ,uom_unit__gt=0,isactive=True).filter(~Q(item_uom2=uom_ids.item_uom2)).first()
+    
+    if not buom_ids:
+        # mai_uom_ids = ItemUomprice.objects.filter(item_code=i.item_code[:-4],item_uom2=uom_ids.item_uom2
+        #                     ,uom_unit__gt=0,isactive=True).filter(Q(item_uom=uom_ids.item_uom2)).first()
+
+        if str(check_uom) == str(uom_ids.item_uom2): 
+            fbatch_qty = (batchids.qty + uom_ids.uom_unit) - qtytodeduct
+
+            vstk = Stktrn(trn_no=None,post_time=post_time,aperiod=None,itemcode=str(itemcode)+"0000",
+            store_no=site.itemsite_code,tstore_no=None,fstore_no=None,trn_docno=trn_docno,trn_date=currentdate,
+            trn_type=trn_type,trn_db_qty=None,trn_cr_qty=None,trn_qty=-qtytodeduct,trn_balqty=fbatch_qty,
+            trn_balcst=stktrnids.trn_balcst if stktrnids and stktrnids.trn_balcst else 0,
+            trn_amt=trn_amt,trn_post=currentdate,
+            trn_cost=stktrnids.trn_cost if stktrnids and stktrnids.trn_cost else 0,trn_ref=None,
+            hq_update=stktrnids.hq_update if stktrnids and stktrnids.hq_update else 0,
+            line_no=line_no,item_uom=uom_ids.item_uom2,item_batch=None,mov_type=None,item_batch_cost=None,
+            stock_in=None,trans_package_line_no=None)
+            vstk.save()
+            Stktrn.objects.filter(pk=vstk.pk).update(trn_post=pay_date,trn_date=pay_date)
+
+            ItemBatch.objects.filter(pk=batchids.pk).update(qty=fbatch_qty,updated_at=timezone.now())
+    
+    return True
+
+
+
 
 
 
@@ -603,7 +751,9 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
 
                                                     currenttime = timezone.now()
                                                     currentdate = timezone.now().date()
-                                                        
+                                                    post_time = str(currenttime.hour).zfill(2)+str(currenttime.minute).zfill(2)+str(currenttime.second).zfill(2)
+
+                                                    #MultiUOM SplitUp Level Based    
                                                     for i in usagelevel_ids: 
                                                         TreatmentUsage(treatment_code=patreatmentid.treatment_code,item_code=i.item_code,
                                                         item_desc=i.item_desc,qty=i.qty,uom=i.uom,site_code=site.itemsite_code,usage_status="Usage",
@@ -615,16 +765,42 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                                             uom=i.uom).order_by('pk').last() 
                                                             obatchids = ItemBatch.objects.none()
 
-                                                            uom_ids = ItemUomprice.objects.filter(item_code=i.item_code[:-4],item_uom2=i.uom
-                                                            ,uom_unit__gt=0,isactive=True).filter(~Q(item_uom=i.uom)).first()
-                                                            if uom_ids:
-                                                                obatchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=str(i.item_code[:-4]),
-                                                                uom=uom_ids.item_uom).order_by('pk').last() 
+                                                            main_uom_ids = ItemUomprice.objects.filter(item_code=i.item_code[:-4],item_uom2=i.uom
+                                                                ,uom_unit__gt=0,isactive=True).filter(Q(item_uom=i.uom)).first()
 
+                                                            if (batchids and int(batchids.qty) < int(i.qty)):
+                                                            
+                                                                sa_count = 1
+                                    
+                                                                sa_uom = i.uom ; check_obatchqty = 0
+                                                                while sa_count > 0:
+                                                                    w_uom_ids = ItemUomprice.objects.filter(item_code=i.item_code[:-4],item_uom2=sa_uom
+                                                                    ,uom_unit__gt=0,isactive=True).filter(~Q(item_uom=sa_uom)).first()
+                                                                    # print(w_uom_ids,"w_uom_ids")
+                                                                    if w_uom_ids:
+                                                                        wobatchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=str(i.item_code[:-4]),
+                                                                        uom=w_uom_ids.item_uom).order_by('pk').last() 
+                                                                        # print(wobatchids,"wobatchids")
+                                                                        if wobatchids:
+                                                                            if int(wobatchids.qty) <= 0:
+                                                                                sa_uom = w_uom_ids.item_uom
+                                                                                sa_count += 1
+                                                                            else:
+                                                                                if int(wobatchids.qty) > 0:
+                                                                                    sa_count = 0    
+                                                                                    check_obatchqty =  wobatchids.qty
+                                                                                else:
+                                                                                    sa_count = 0    
+                                                                        else:
+                                                                            sa_count = 0            
+                                                                    else:
+                                                                        sa_count = 0                
 
+                                                           
                                                             stockreduce = False
                                                             if valuedata == 'TRUE':
-                                                                if (batchids and int(batchids.qty) >= int(i.qty)) or (obatchids and int(obatchids.qty) >= int(qtytodeduct)):
+                                                                # if (batchids and int(batchids.qty) >= int(i.qty)) or (obatchids and int(obatchids.qty) >0 and int(uom_ids.uom_unit) >= qtytodeduct):
+                                                                if (batchids and int(batchids.qty) >= int(i.qty)) or (check_obatchqty > 0):
                                                                     stockreduce = True
                                                             else:
                                                                 stockreduce = True     
@@ -636,7 +812,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                                                     batch = ItemBatch.objects.filter(pk=batchids.pk).update(qty=deduct,updated_at=timezone.now())
 
                                                                     
-                                                                    post_time = str(currenttime.hour).zfill(2)+str(currenttime.minute).zfill(2)+str(currenttime.second).zfill(2)
+                                                                    
                                                                     stktrn_ids = Stktrn.objects.filter(store_no=site.itemsite_code,itemcode=str(i.item_code[:-4])+"0000",
                                                                     item_uom=i.uom).order_by('pk').last() 
 
@@ -662,69 +838,135 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                                                     adjno = False
                                                                     if adcontrolobj:
                                                                         adjno = "W"+str(adcontrolobj.control_prefix)+str(adcontrolobj.site_code)+str(adcontrolobj.control_no)
-
-
-                                                                    if batchids and obatchids and int(obatchids.qty) >= int(qtytodeduct):
-
-                                                                        post_time = str(currenttime.hour).zfill(2)+str(currenttime.minute).zfill(2)+str(currenttime.second).zfill(2)
-                                                                        stktrn_ids = Stktrn.objects.filter(store_no=site.itemsite_code,itemcode=str(i.item_code[:-4])+"0000",
-                                                                        item_uom=uom_ids.item_uom).order_by('pk').last() 
-
-
-                                                                        stktrn_id = Stktrn(trn_no=None,post_time=post_time,aperiod=None,itemcode=str(i.item_code[:-4])+"0000",
-                                                                        store_no=site.itemsite_code,tstore_no=None,fstore_no=None,trn_docno=adjno if adjno else patreatmentid.treatment_code,trn_date=currentdate,
-                                                                        trn_type="ADJS",trn_db_qty=None,trn_cr_qty=None,trn_qty=-1,trn_balqty=obatchids.qty-1,
-                                                                        trn_balcst=stktrn_ids.trn_balcst if stktrn_ids and stktrn_ids.trn_balcst else 0,
-                                                                        trn_amt=None,trn_post=currentdate,
-                                                                        trn_cost=stktrn_ids.trn_cost if stktrn_ids and stktrn_ids.trn_cost else 0,trn_ref=None,
-                                                                        hq_update=stktrn_ids.hq_update if stktrn_ids and stktrn_ids.hq_update else 0,
-                                                                        line_no=c.lineno,item_uom=uom_ids.item_uom,item_batch=None,mov_type=None,item_batch_cost=None,
-                                                                        stock_in=None,trans_package_line_no=None)
-                                                                        stktrn_id.save()
-                                                                        Stktrn.objects.filter(pk=stktrn_id.pk).update(trn_post=pay_date,trn_date=pay_date)
-                                                                        
-
-                                                                        stktrnids = Stktrn.objects.filter(store_no=site.itemsite_code,itemcode=str(i.item_code[:-4])+"0000",
-                                                                        item_uom=i.uom).order_by('pk').last() 
-
-
-                                                                        stktrnid = Stktrn(trn_no=None,post_time=post_time,aperiod=None,itemcode=str(i.item_code[:-4])+"0000",
-                                                                        store_no=site.itemsite_code,tstore_no=None,fstore_no=None,trn_docno=adjno,trn_date=currentdate,
-                                                                        trn_type="ADJS",trn_db_qty=None,trn_cr_qty=None,trn_qty=uom_ids.uom_unit,trn_balqty=uom_ids.uom_unit + batchids.qty,
-                                                                        trn_balcst=stktrnids.trn_balcst if stktrnids and stktrnids.trn_balcst else 0,
-                                                                        trn_amt=None,trn_post=currentdate,
-                                                                        trn_cost=stktrnids.trn_cost if stktrnids and stktrnids.trn_cost else 0,trn_ref=None,
-                                                                        hq_update=stktrnids.hq_update if stktrnids and stktrnids.hq_update else 0,
-                                                                        line_no=c.lineno,item_uom=i.uom,item_batch=None,mov_type=None,item_batch_cost=None,
-                                                                        stock_in=None,trans_package_line_no=None)
-                                                                        stktrnid.save()
-                                                                        Stktrn.objects.filter(pk=stktrnid.pk).update(trn_post=pay_date,trn_date=pay_date)
-                                                                    
-
-                                                                        fbatch_qty = (batchids.qty + uom_ids.uom_unit) - qtytodeduct
-
-                                                                        vstk = Stktrn(trn_no=None,post_time=post_time,aperiod=None,itemcode=str(i.item_code[:-4])+"0000",
-                                                                        store_no=site.itemsite_code,tstore_no=None,fstore_no=None,trn_docno=patreatmentid.treatment_code,trn_date=currentdate,
-                                                                        trn_type="Usage",trn_db_qty=None,trn_cr_qty=None,trn_qty=-qtytodeduct,trn_balqty=fbatch_qty,
-                                                                        trn_balcst=stktrnids.trn_balcst if stktrnids and stktrnids.trn_balcst else 0,
-                                                                        trn_amt=None,trn_post=currentdate,
-                                                                        trn_cost=stktrnids.trn_cost if stktrnids and stktrnids.trn_cost else 0,trn_ref=None,
-                                                                        hq_update=stktrnids.hq_update if stktrnids and stktrnids.hq_update else 0,
-                                                                        line_no=c.lineno,item_uom=i.uom,item_batch=None,mov_type=None,item_batch_cost=None,
-                                                                        stock_in=None,trans_package_line_no=None)
-                                                                        vstk.save()
-                                                                        Stktrn.objects.filter(pk=vstk.pk).update(trn_post=pay_date,trn_date=pay_date)
-                                                                    
-
-
-                                                                        ItemBatch.objects.filter(pk=batchids.pk).update(qty=fbatch_qty,updated_at=timezone.now())
-
-                                                                        ItemBatch.objects.filter(pk=obatchids.pk).update(qty=obatchids.qty-1,updated_at=timezone.now())
-                                                                        
                                                                         adcontrolobj.control_no = int(adcontrolobj.control_no) + 1
                                                                         adcontrolobj.save()
 
-                                                                        flag = True
+                                                                    sa_countuom = 1 ; multi_uom = []
+                               
+
+                                                                    sa_tx_uom = i.uom ; cl = patreatmentid
+                                                                    itemcode = str(i.item_code[:-4]);trn_amt = None
+                                                                    trn_docno = cl.treatment_code ; trn_type="Usage"
+                                                                    line_no = c.lineno ; check_uom = i.uom
+                                                                    while sa_countuom > 0:
+                                                                        uom_ids = ItemUomprice.objects.filter(item_code=i.item_code[:-4],item_uom2=sa_tx_uom
+                                                                        ,uom_unit__gt=0,isactive=True).filter(~Q(item_uom=sa_tx_uom)).first()
+                                                                        # print(uom_ids.item_uom,"uom_ids")
+                                                                        if uom_ids:
+                                                                            obatchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=str(i.item_code[:-4]),
+                                                                            uom=uom_ids.item_uom).order_by('pk').last() 
+                                                                            # print(obatchids.uom,"obatchids")
+                                                                            if batchids and obatchids:
+                                                                                #if batchids and obatchids and int(obatchids.qty) >= int(qtytodeduct):
+                                                                                if int(obatchids.qty) > 0:
+                                                                                    # print("iff")
+                                                                                    # print(sa_tx_uom,"sa_tx_uom")
+                                                                                    
+                                                                                    
+                                                                                    # uom_ids,obatchids,site,itemcode,trn_docno,pay_date,line_no,adjno,multi_uom,qtytodeduct,trn_type,post_time,trn_amt
+                                                                                    uomtx = create_multiuom_transac(uom_ids,obatchids,site,itemcode,trn_docno,pay_date,line_no,adjno,multi_uom,qtytodeduct,trn_type,post_time,trn_amt)     
+                                                                                    
+                                                                                
+                                                                                    flag = True
+                                                                                    sa_countuom = 0
+                                                                                else:
+                                                                                    # print("else")
+                                                                                    if int(obatchids.qty) <= 0:
+                                                                                        
+                                                                                        if uom_ids.item_uom not in multi_uom:
+                                                                                            multi_uom.append(uom_ids.item_uom)
+                                                                                        
+                                                                                        # print(multi_uom,"multi_uom")
+                                                                                        sa_countuom += 1
+                                                                                        sa_tx_uom = uom_ids.item_uom
+                                                                                        # print(sa_tx_uom,"sa_tx_uom")
+                                                                                    else:
+                                                                                        sa_countuom = 0    
+                                                                            else:
+                                                                                sa_countuom = 0            
+                                                                        else:
+                                                                            sa_countuom = 0                
+
+                                                                    if multi_uom != []:
+                                                                        for um in multi_uom:
+                                                                            b_uom_ids = ItemUomprice.objects.filter(item_code=i.item_code[:-4],item_uom=um
+                                                                            ,uom_unit__gt=0,isactive=True).filter(~Q(item_uom2=um)).first()
+                                                                            # print(b_uom_ids.item_uom,"uom_ids")
+                                                                            if b_uom_ids:
+                                                                                oabatchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=str(i.item_code[:-4]),
+                                                                                uom=b_uom_ids.item_uom).order_by('pk').last() 
+                                                                                # print(obatchids,"obatchids")
+                                                                                if batchids and oabatchids:
+                                                                                    if int(oabatchids.qty) > 0:
+                                                                                        sa_tx_uomc = b_uom_ids.item_uom2
+                                                                                        
+                                                                                        
+                                                                                        # b_uom_ids,oabatchids,site,itemcode,trn_docno,pay_date,line_no,adjno,qtytodeduct,check_uom,trn_type,post_time,trn_amt
+                                                                                        uomtxu = multiuom_adjsafter_stockopenup(b_uom_ids,oabatchids,site,itemcode,trn_docno,pay_date,line_no,adjno,qtytodeduct,check_uom,trn_type,post_time,trn_amt)     
+
+     
+ 
+
+                                                                    # # if batchids and obatchids and int(obatchids.qty) >= int(qtytodeduct):
+                                                                    # if batchids and obatchids and int(obatchids.qty) > 0:
+
+                                                                    #     post_time = str(currenttime.hour).zfill(2)+str(currenttime.minute).zfill(2)+str(currenttime.second).zfill(2)
+                                                                    #     stktrn_ids = Stktrn.objects.filter(store_no=site.itemsite_code,itemcode=str(i.item_code[:-4])+"0000",
+                                                                    #     item_uom=uom_ids.item_uom).order_by('pk').last() 
+
+
+                                                                    #     stktrn_id = Stktrn(trn_no=None,post_time=post_time,aperiod=None,itemcode=str(i.item_code[:-4])+"0000",
+                                                                    #     store_no=site.itemsite_code,tstore_no=None,fstore_no=None,trn_docno=adjno if adjno else patreatmentid.treatment_code,trn_date=currentdate,
+                                                                    #     trn_type="ADJS",trn_db_qty=None,trn_cr_qty=None,trn_qty=-1,trn_balqty=obatchids.qty-1,
+                                                                    #     trn_balcst=stktrn_ids.trn_balcst if stktrn_ids and stktrn_ids.trn_balcst else 0,
+                                                                    #     trn_amt=None,trn_post=currentdate,
+                                                                    #     trn_cost=stktrn_ids.trn_cost if stktrn_ids and stktrn_ids.trn_cost else 0,trn_ref=None,
+                                                                    #     hq_update=stktrn_ids.hq_update if stktrn_ids and stktrn_ids.hq_update else 0,
+                                                                    #     line_no=c.lineno,item_uom=uom_ids.item_uom,item_batch=None,mov_type=None,item_batch_cost=None,
+                                                                    #     stock_in=None,trans_package_line_no=None)
+                                                                    #     stktrn_id.save()
+                                                                    #     Stktrn.objects.filter(pk=stktrn_id.pk).update(trn_post=pay_date,trn_date=pay_date)
+                                                                        
+
+                                                                    #     stktrnids = Stktrn.objects.filter(store_no=site.itemsite_code,itemcode=str(i.item_code[:-4])+"0000",
+                                                                    #     item_uom=i.uom).order_by('pk').last() 
+
+
+                                                                    #     stktrnid = Stktrn(trn_no=None,post_time=post_time,aperiod=None,itemcode=str(i.item_code[:-4])+"0000",
+                                                                    #     store_no=site.itemsite_code,tstore_no=None,fstore_no=None,trn_docno=adjno,trn_date=currentdate,
+                                                                    #     trn_type="ADJS",trn_db_qty=None,trn_cr_qty=None,trn_qty=uom_ids.uom_unit,trn_balqty=uom_ids.uom_unit + batchids.qty,
+                                                                    #     trn_balcst=stktrnids.trn_balcst if stktrnids and stktrnids.trn_balcst else 0,
+                                                                    #     trn_amt=None,trn_post=currentdate,
+                                                                    #     trn_cost=stktrnids.trn_cost if stktrnids and stktrnids.trn_cost else 0,trn_ref=None,
+                                                                    #     hq_update=stktrnids.hq_update if stktrnids and stktrnids.hq_update else 0,
+                                                                    #     line_no=c.lineno,item_uom=i.uom,item_batch=None,mov_type=None,item_batch_cost=None,
+                                                                    #     stock_in=None,trans_package_line_no=None)
+                                                                    #     stktrnid.save()
+                                                                    #     Stktrn.objects.filter(pk=stktrnid.pk).update(trn_post=pay_date,trn_date=pay_date)
+                                                                    
+
+                                                                    #     fbatch_qty = (batchids.qty + uom_ids.uom_unit) - qtytodeduct
+
+                                                                    #     vstk = Stktrn(trn_no=None,post_time=post_time,aperiod=None,itemcode=str(i.item_code[:-4])+"0000",
+                                                                    #     store_no=site.itemsite_code,tstore_no=None,fstore_no=None,trn_docno=patreatmentid.treatment_code,trn_date=currentdate,
+                                                                    #     trn_type="Usage",trn_db_qty=None,trn_cr_qty=None,trn_qty=-qtytodeduct,trn_balqty=fbatch_qty,
+                                                                    #     trn_balcst=stktrnids.trn_balcst if stktrnids and stktrnids.trn_balcst else 0,
+                                                                    #     trn_amt=None,trn_post=currentdate,
+                                                                    #     trn_cost=stktrnids.trn_cost if stktrnids and stktrnids.trn_cost else 0,trn_ref=None,
+                                                                    #     hq_update=stktrnids.hq_update if stktrnids and stktrnids.hq_update else 0,
+                                                                    #     line_no=c.lineno,item_uom=i.uom,item_batch=None,mov_type=None,item_batch_cost=None,
+                                                                    #     stock_in=None,trans_package_line_no=None)
+                                                                    #     vstk.save()
+                                                                    #     Stktrn.objects.filter(pk=vstk.pk).update(trn_post=pay_date,trn_date=pay_date)
+                                                                    
+
+
+                                                                    #     ItemBatch.objects.filter(pk=batchids.pk).update(qty=fbatch_qty,updated_at=timezone.now())
+
+                                                                    #     ItemBatch.objects.filter(pk=obatchids.pk).update(qty=obatchids.qty-1,updated_at=timezone.now())
+                                                                        
+                                                                       
+                                                                    #     flag = True
 
                                                                     if flag == False:
                                                                         if batchids:
@@ -736,10 +978,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                                                             deduct = -qtytodeduct
 
                                                                         #Stktrn
-                                                                        currenttime = timezone.now()
-                                                                        currentdate = timezone.now().date()
-                                                                
-                                                                        post_time = str(currenttime.hour).zfill(2)+str(currenttime.minute).zfill(2)+str(currenttime.second).zfill(2)
+                                                                      
                                                                         stktrn_ids = Stktrn.objects.filter(store_no=site.itemsite_code,itemcode=str(i.item_code[:-4])+"0000",
                                                                         item_uom=i.uom).order_by('pk').last() 
 
@@ -979,33 +1218,66 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                         paprepacc.save()
                                         # print(paprepacc.pk,"paprepacc")
                                         
-                                        vo_obj = False
+                                        vo_obj = False 
                                         if itmstock.is_open_prepaid == False:
-                                            vo_obj = VoucherCondition.objects.filter(item_code=itmstock.item_code)
-                                            condition_amount = vo_obj.first().amount
-                                            rate = vo_obj.first().rate
+                                            vo_obj = VoucherCondition.objects.filter(item_code=itmstock.item_code,isactive=True).order_by('pk')
+                                            # condition_amount = vo_obj.first().amount
+                                            # rate = vo_obj.first().rate
                                         else:
                                             if itmstock.is_open_prepaid == True:
-                                                vo_obj = PrepaidOpenCondition.objects.filter(membercardnoaccess=False,itemcart=c,p_itemtype='Inclusive').order_by('-pk')[:1]
-                                                condition_amount = vo_obj.first().prepaid_value  
-                                                rate = vo_obj.first().rate 
-                                                if vo_obj and vo_obj[0].prepaid_valid_period:
-                                                    pprepaid_valid_period = date.today() + timedelta(int(vo_obj[0].prepaid_valid_period)) 
-
-
+                                                vo_obj = PrepaidOpenCondition.objects.filter(
+                                                itemcart=c).order_by('pk')
+                                                # condition_amount = vo_obj.first().prepaid_value  
+                                                # rate = vo_obj.first().rate 
+                                                
+                                        # else  
                                         # print(vo_obj,"vo_obj")
                                         #PrepaidAccountCondition Creation
                                         if vo_obj:  
+                                            for v in vo_obj:
+                                                rate = v.rate
+                                                if v.__class__.__name__ == 'PrepaidOpenCondition':
+                                                    itemdept_id = v.itemdept_id
+                                                    itembrand_id = v.itembrand_id
+                                                    amount = v.prepaid_value
+
+                                                elif v.__class__.__name__ == 'VoucherCondition':
+                                                    amount = v.amount 
+                                                    if v.conditiontype2 != 'All':
+                                                        itemdept_id = ItemDept.objects.filter(itm_desc__icontains=v.conditiontype2,
+                                                        is_service=True, itm_status=True).order_by('itm_seq').first()
+                                                        itembrand_id = ItemBrand.objects.filter(itm_desc__icontains=v.conditiontype2,
+                                                        retail_product_brand=True, itm_status=True).order_by('itm_seq').first()
+                                                    else:
+                                                        itemdept_id = None ; itembrand_id = None
+
+                                                # condition_amount
+                                                ppacc = PrepaidAccountCondition(pp_no=sa_transacno,pp_type=itmstock.item_range if itmstock.item_range else None,
+                                                pp_desc=ppdescval,p_itemtype=v.p_itemtype,
+                                                item_code=itmstock.item_code,conditiontype1=v.conditiontype1,
+                                                conditiontype2=v.conditiontype2,
+                                                amount=amount ,rate=rate,use_amt=0,remain=pre_remain,
+                                                pos_daud_lineno=c.lineno,lpackage=True,package_code=packhdr_ids.code,package_code_lineno=p.deposit_lineno,
+                                                itemdept_id=itemdept_id,itembrand_id=itembrand_id)
+                                                ppacc.save()
+                                                # print(ppacc.pk,"ppacc")
+                                                if ppacc.p_itemtype == "Inclusive": 
+                                                    if v and v.prepaid_valid_period:
+                                                        pprepaid_valid_period = date.today() + timedelta(int(v.prepaid_valid_period)) 
+
+                                                    PrepaidAccount.objects.filter(pk=paprepacc.pk).update(pp_type2=ppacc.pp_type,
+                                                    condition_type1=ppacc.conditiontype1,exp_date=pprepaid_valid_period)
+                                        else:
                                             ppacc = PrepaidAccountCondition(pp_no=sa_transacno,pp_type=itmstock.item_range if itmstock.item_range else None,
-                                            pp_desc=ppdescval,p_itemtype=','.join([v.p_itemtype for v in vo_obj if v.p_itemtype]),
-                                            item_code=itmstock.item_code,conditiontype1=','.join([v.conditiontype1 for v in vo_obj if v.conditiontype1]),
-                                            conditiontype2=','.join([v.conditiontype2 for v in vo_obj if v.conditiontype2]),
-                                            amount=condition_amount,rate=rate,use_amt=0,remain=pre_remain,
-                                            pos_daud_lineno=c.lineno,lpackage=True,package_code=packhdr_ids.code,package_code_lineno=p.deposit_lineno)
+                                            pp_desc=ppdescval,p_itemtype="Inclusive",
+                                            item_code=itmstock.item_code,conditiontype1="All",
+                                            conditiontype2="All",
+                                            amount=itmstock.prepaid_value,rate="Amount$",use_amt=0,remain=pre_remain,
+                                            pos_daud_lineno=c.lineno,lpackage=True,package_code=packhdr_ids.code,package_code_lineno=p.deposit_lineno,
+                                            itemdept_id=itemdept_id,itembrand_id=itembrand_id)
                                             ppacc.save()
-                                            # print(ppacc.pk,"ppacc")
                                             PrepaidAccount.objects.filter(pk=paprepacc.pk).update(pp_type2=ppacc.pp_type,
-                                            condition_type1=ppacc.conditiontype1,exp_date=pprepaid_valid_period)
+                                                    condition_type1=ppacc.conditiontype1,exp_date=pprepaid_valid_period)
 
 
                                         p.sa_transacno = sa_transacno
@@ -1147,9 +1419,18 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
 
                         dtl.save()    
                     
+                    valuedata = 'TRUE'
+
+                    sys_ids = Systemsetup.objects.filter(title='Stock Available',value_name='Stock Available').first() 
+                    if sys_ids:
+                        valuedata = sys_ids.value_data
+
                     currenttime = timezone.now()
                     currentdate = timezone.now().date()
+                    post_time = str(currenttime.hour).zfill(2)+str(currenttime.minute).zfill(2)+str(currenttime.second).zfill(2)
+
                     
+                    #MultiUOM SplitUp Level Based  
                     # Inventory Control
                     qtytodeduct = c.quantity
                     if c.holditemqty and int(c.holditemqty) > 0:
@@ -1157,120 +1438,59 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                     if qtytodeduct > 0:
                         batchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=str(c.itemcodeid.item_code),
                         uom=c.item_uom.uom_code).order_by('pk').last() 
-                        #ItemBatch
-                        if batchids and batchids.qty >= qtytodeduct:
-                            deduct = batchids.qty - qtytodeduct
-                            batch = ItemBatch.objects.filter(pk=batchids.pk).update(qty=deduct,updated_at=timezone.now())
+                        # print(batchids.qty,"batchids") 
 
-                            
-                            post_time = str(currenttime.hour).zfill(2)+str(currenttime.minute).zfill(2)+str(currenttime.second).zfill(2)
-                            stktrn_ids = Stktrn.objects.filter(store_no=site.itemsite_code,itemcode=str(c.itemcodeid.item_code)+"0000",
-                            item_uom=c.item_uom.uom_code).order_by('pk').last() 
-
-                            stktrn_id = Stktrn(trn_no=None,post_time=post_time,aperiod=None,itemcode=str(c.itemcodeid.item_code)+"0000",
-                            store_no=site.itemsite_code,tstore_no=None,fstore_no=None,trn_docno=sa_transacno,trn_date=currentdate,
-                            trn_type="SA",trn_db_qty=None,trn_cr_qty=None,trn_qty=-qtytodeduct,trn_balqty=deduct,
-                            trn_balcst=stktrn_ids.trn_balcst if stktrn_ids and stktrn_ids.trn_balcst else 0,
-                            trn_amt="{:.2f}".format(float(c.deposit)),trn_post=currentdate,
-                            trn_cost=stktrn_ids.trn_cost if stktrn_ids and stktrn_ids.trn_cost else 0,trn_ref=None,
-                            hq_update=stktrn_ids.hq_update if stktrn_ids and stktrn_ids.hq_update else 0,
-                            line_no=c.lineno,item_uom=c.item_uom.uom_code,item_batch=None,mov_type=None,item_batch_cost=None,
-                            stock_in=None,trans_package_line_no=None)
-                            stktrn_id.save()
-                            Stktrn.objects.filter(pk=stktrn_id.pk).update(trn_post=pay_date,trn_date=pay_date)
-                           
-                        else:
-                            flag = False
-
-                            adcontrolobj = ControlNo.objects.filter(control_description__iexact="ADJS",
-                            site_code=fmspw.loginsite.itemsite_code).first()
-
-                            adjno = False
-                            if adcontrolobj:
-                                adjno = "W"+str(adcontrolobj.control_prefix)+str(adcontrolobj.site_code)+str(adcontrolobj.control_no)
-
-
-                            uom_ids = ItemUomprice.objects.filter(item_code=c.itemcodeid.item_code,item_uom2=c.item_uom.uom_code
-                            ,uom_unit__gt=0,isactive=True).filter(~Q(item_uom=c.item_uom.uom_code)).first()
-                            if uom_ids:
-                                obatchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=str(c.itemcodeid.item_code),
-                                uom=uom_ids.item_uom).order_by('pk').last() 
-                                if batchids and obatchids and obatchids.qty > 0:
-
-                                    post_time = str(currenttime.hour).zfill(2)+str(currenttime.minute).zfill(2)+str(currenttime.second).zfill(2)
-                                    stktrn_ids = Stktrn.objects.filter(store_no=site.itemsite_code,itemcode=str(c.itemcodeid.item_code)+"0000",
-                                    item_uom=uom_ids.item_uom).order_by('pk').last() 
-
-
-                                    stktrn_id = Stktrn(trn_no=None,post_time=post_time,aperiod=None,itemcode=str(c.itemcodeid.item_code)+"0000",
-                                    store_no=site.itemsite_code,tstore_no=None,fstore_no=None,trn_docno=adjno if adjno else sa_transacno,trn_date=currentdate,
-                                    trn_type="ADJS",trn_db_qty=None,trn_cr_qty=None,trn_qty=-1,trn_balqty=obatchids.qty-1,
-                                    trn_balcst=stktrn_ids.trn_balcst if stktrn_ids and stktrn_ids.trn_balcst else 0,
-                                    trn_amt="{:.2f}".format(float(c.deposit)),trn_post=currentdate,
-                                    trn_cost=stktrn_ids.trn_cost if stktrn_ids and stktrn_ids.trn_cost else 0,trn_ref=None,
-                                    hq_update=stktrn_ids.hq_update if stktrn_ids and stktrn_ids.hq_update else 0,
-                                    line_no=c.lineno,item_uom=uom_ids.item_uom,item_batch=None,mov_type=None,item_batch_cost=None,
-                                    stock_in=None,trans_package_line_no=None)
-                                    stktrn_id.save()
-                                    Stktrn.objects.filter(pk=stktrn_id.pk).update(trn_post=pay_date,trn_date=pay_date)
-                                    
-
-                                    stktrnids = Stktrn.objects.filter(store_no=site.itemsite_code,itemcode=str(c.itemcodeid.item_code)+"0000",
-                                    item_uom=c.item_uom.uom_code).order_by('pk').last() 
-
-
-                                    stktrnid = Stktrn(trn_no=None,post_time=post_time,aperiod=None,itemcode=str(c.itemcodeid.item_code)+"0000",
-                                    store_no=site.itemsite_code,tstore_no=None,fstore_no=None,trn_docno=adjno,trn_date=currentdate,
-                                    trn_type="ADJS",trn_db_qty=None,trn_cr_qty=None,trn_qty=uom_ids.uom_unit,trn_balqty=uom_ids.uom_unit + batchids.qty,
-                                    trn_balcst=stktrnids.trn_balcst if stktrnids and stktrnids.trn_balcst else 0,
-                                    trn_amt="{:.2f}".format(float(c.deposit)),trn_post=currentdate,
-                                    trn_cost=stktrnids.trn_cost if stktrnids and stktrnids.trn_cost else 0,trn_ref=None,
-                                    hq_update=stktrnids.hq_update if stktrnids and stktrnids.hq_update else 0,
-                                    line_no=c.lineno,item_uom=c.item_uom.uom_code,item_batch=None,mov_type=None,item_batch_cost=None,
-                                    stock_in=None,trans_package_line_no=None)
-                                    stktrnid.save()
-                                    Stktrn.objects.filter(pk=stktrnid.pk).update(trn_post=pay_date,trn_date=pay_date)
-                                   
-
-                                    fbatch_qty = (batchids.qty + uom_ids.uom_unit) - qtytodeduct
-
-                                    vstk = Stktrn(trn_no=None,post_time=post_time,aperiod=None,itemcode=str(c.itemcodeid.item_code)+"0000",
-                                    store_no=site.itemsite_code,tstore_no=None,fstore_no=None,trn_docno=sa_transacno,trn_date=currentdate,
-                                    trn_type="SA",trn_db_qty=None,trn_cr_qty=None,trn_qty=-qtytodeduct,trn_balqty=fbatch_qty,
-                                    trn_balcst=stktrnids.trn_balcst if stktrnids and stktrnids.trn_balcst else 0,
-                                    trn_amt="{:.2f}".format(float(c.deposit)),trn_post=currentdate,
-                                    trn_cost=stktrnids.trn_cost if stktrnids and stktrnids.trn_cost else 0,trn_ref=None,
-                                    hq_update=stktrnids.hq_update if stktrnids and stktrnids.hq_update else 0,
-                                    line_no=c.lineno,item_uom=c.item_uom.uom_code,item_batch=None,mov_type=None,item_batch_cost=None,
-                                    stock_in=None,trans_package_line_no=None)
-                                    vstk.save()
-                                    Stktrn.objects.filter(pk=vstk.pk).update(trn_post=pay_date,trn_date=pay_date)
-                                   
-
-
-                                    ItemBatch.objects.filter(pk=batchids.pk).update(qty=fbatch_qty,updated_at=timezone.now())
-
-                                    ItemBatch.objects.filter(pk=obatchids.pk).update(qty=obatchids.qty-1,updated_at=timezone.now())
-                                    
-                                    adcontrolobj.control_no = int(adcontrolobj.control_no) + 1
-                                    adcontrolobj.save()
-
-                                    flag = True
-
-                            if flag == False:
-                                if batchids:
-                                    deduct = batchids.qty - qtytodeduct
-                                    batch = ItemBatch.objects.filter(pk=batchids.pk).update(qty=deduct,updated_at=timezone.now())
-                                else:
-                                    batch_id = ItemBatch(item_code=c.itemcodeid.item_code,site_code=site.itemsite_code,
-                                    batch_no="",uom=c.item_uom.uom_code,qty=-qtytodeduct,exp_date=None,batch_cost=c.itemcodeid.lstpo_ucst).save()
-                                    deduct = -qtytodeduct
-
-                                #Stktrn
-                                currenttime = timezone.now()
-                                currentdate = timezone.now().date()
+                        obatchids = ItemBatch.objects.none()
                         
-                                post_time = str(currenttime.hour).zfill(2)+str(currenttime.minute).zfill(2)+str(currenttime.second).zfill(2)
+                        main_uom_ids = ItemUomprice.objects.filter(item_code=c.itemcodeid.item_code,item_uom2=c.item_uom.uom_code
+                            ,uom_unit__gt=0,isactive=True).filter(Q(item_uom=c.item_uom.uom_code)).first()
+
+                        if (batchids and int(batchids.qty) < int(qtytodeduct)):
+                         
+                            sa_count = 1
+ 
+                            sa_uom = c.item_uom.uom_code ; check_obatchqty = 0
+                            while sa_count > 0:
+                                w_uom_ids = ItemUomprice.objects.filter(item_code=c.itemcodeid.item_code,item_uom2=sa_uom
+                                ,uom_unit__gt=0,isactive=True).filter(~Q(item_uom=sa_uom)).first()
+                                # print(w_uom_ids,"w_uom_ids")
+                                if w_uom_ids:
+                                    wobatchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=str(c.itemcodeid.item_code),
+                                    uom=w_uom_ids.item_uom).order_by('pk').last() 
+                                    # print(wobatchids,"wobatchids")
+                                    if wobatchids:
+                                        # print(wobatchids.qty,"wobatchids.qty")
+                                        if int(wobatchids.qty) <= 0:
+                                            sa_uom = w_uom_ids.item_uom
+                                            sa_count += 1
+                                        else:
+                                            if int(wobatchids.qty) > 0:
+                                                sa_count = 0    
+                                                check_obatchqty =  wobatchids.qty
+                                            else:
+                                                sa_count = 0  
+                                    else:
+                                        sa_count = 0
+                                else:
+                                    sa_count = 0
+
+
+                        stockreduce = False
+                        if valuedata == 'TRUE':
+                            # if (batchids and int(batchids.qty) >= int(i.qty)) or (obatchids and int(obatchids.qty) >0 and int(uom_ids.uom_unit) >= qtytodeduct):
+                            if (batchids and int(batchids.qty) >= int(i.qty)) or (check_obatchqty > 0):
+                                stockreduce = True
+                        else:
+                            stockreduce = True
+
+                        if stockreduce == True:
+                            # print(batchids.qty,"batchids.qty")
+                            #ItemBatch
+                            if batchids and batchids.qty >= int(qtytodeduct):
+                                deduct = batchids.qty - qtytodeduct
+                                batch = ItemBatch.objects.filter(pk=batchids.pk).update(qty=deduct,updated_at=timezone.now())
+
+                                
                                 stktrn_ids = Stktrn.objects.filter(store_no=site.itemsite_code,itemcode=str(c.itemcodeid.item_code)+"0000",
                                 item_uom=c.item_uom.uom_code).order_by('pk').last() 
 
@@ -1285,7 +1505,176 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                 stock_in=None,trans_package_line_no=None)
                                 stktrn_id.save()
                                 Stktrn.objects.filter(pk=stktrn_id.pk).update(trn_post=pay_date,trn_date=pay_date)
-                              
+                            
+                            else:
+                                flag = False
+
+                                adcontrolobj = ControlNo.objects.filter(control_description__iexact="ADJS",
+                                site_code=fmspw.loginsite.itemsite_code).first()
+
+                                adjno = False
+                                if adcontrolobj:
+                                    adjno = "W"+str(adcontrolobj.control_prefix)+str(adcontrolobj.site_code)+str(adcontrolobj.control_no)
+                                    adcontrolobj.control_no = int(adcontrolobj.control_no) + 1
+                                    adcontrolobj.save()
+
+                                sa_countuom = 1 ; multi_uom = []
+                               
+
+                                sa_tx_uom = c.item_uom.uom_code ; 
+                                itemcode = str(c.itemcodeid.item_code) ; trn_amt = "{:.2f}".format(float(c.deposit))
+                                trn_docno = sa_transacno ;trn_type="SA"
+                                line_no = c.lineno ; check_uom = c.item_uom.uom_code
+
+                                while sa_countuom > 0:
+                                    uom_ids = ItemUomprice.objects.filter(item_code=str(c.itemcodeid.item_code),item_uom2=sa_tx_uom
+                                    ,uom_unit__gt=0,isactive=True).filter(~Q(item_uom=sa_tx_uom)).first()
+                                    # print(uom_ids,"uom_ids")
+                                    if uom_ids:
+                                        obatchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=str(c.itemcodeid.item_code),
+                                        uom=uom_ids.item_uom).order_by('pk').last() 
+                                        # print(obatchids.qty,"obatchids")
+                                        if batchids and obatchids:
+                                            #if batchids and obatchids and int(obatchids.qty) >= int(qtytodeduct):
+                                            if int(obatchids.qty) > 0:
+                                                # print("iff")
+                                                # print(sa_tx_uom,"sa_tx_uom")
+                                                # uom_ids,obatchids,site,itemcode,trn_docno,pay_date,line_no,adjno,multi_uom,qtytodeduct,trn_type,post_time,trn_amt
+                                                uomtx = create_multiuom_transac(uom_ids,obatchids,site,itemcode,trn_docno,pay_date,line_no,adjno,multi_uom,qtytodeduct,trn_type,post_time,trn_amt)     
+                                                  
+                                               
+                                                flag = True
+                                                sa_countuom = 0
+                                            else:
+                                                # print("else")
+                                                if int(obatchids.qty) <= 0:
+                                                    
+                                                    if uom_ids.item_uom not in multi_uom:
+                                                        multi_uom.append(uom_ids.item_uom)
+                                                    
+                                                    # print(multi_uom,"multi_uom")
+                                                    sa_countuom += 1
+                                                    sa_tx_uom = uom_ids.item_uom
+                                                    # print(sa_tx_uom,"sa_tx_uom")
+                                                else:
+                                                    sa_countuom = 0
+                                        else:
+                                            sa_countuom = 0
+                                    else:
+                                        sa_countuom = 0
+
+
+                                if multi_uom != []:
+                                    for um in multi_uom:
+                                        b_uom_ids = ItemUomprice.objects.filter(item_code=c.itemcodeid.item_code,item_uom=um
+                                        ,uom_unit__gt=0,isactive=True).filter(~Q(item_uom2=um)).first()
+                                        # print(b_uom_ids.item_uom,"uom_ids")
+                                        if b_uom_ids:
+                                            oabatchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=str(c.itemcodeid.item_code),
+                                            uom=b_uom_ids.item_uom).order_by('pk').last() 
+                                            # print(obatchids,"obatchids")
+                                            if batchids and oabatchids:
+                                                if int(oabatchids.qty) > 0:
+                                                    sa_tx_uomc = b_uom_ids.item_uom2
+                                                    
+                                                    # b_uom_ids,oabatchids,site,itemcode,trn_docno,pay_date,line_no,adjno,qtytodeduct,check_uom,trn_type,post_time,trn_amt
+                                                    uomtxu = multiuom_adjsafter_stockopenup(b_uom_ids,oabatchids,site,itemcode,trn_docno,pay_date,line_no,adjno,qtytodeduct,check_uom,trn_type,post_time,trn_amt)     
+    
+
+
+                                # uom_ids = ItemUomprice.objects.filter(item_code=c.itemcodeid.item_code,item_uom2=c.item_uom.uom_code
+                                # ,uom_unit__gt=0,isactive=True).filter(~Q(item_uom=c.item_uom.uom_code)).first()
+                                # if uom_ids:
+                                #     obatchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=str(c.itemcodeid.item_code),
+                                #     uom=uom_ids.item_uom).order_by('pk').last() 
+                                #     if batchids and obatchids and obatchids.qty > 0:
+
+                                #         post_time = str(currenttime.hour).zfill(2)+str(currenttime.minute).zfill(2)+str(currenttime.second).zfill(2)
+                                #         stktrn_ids = Stktrn.objects.filter(store_no=site.itemsite_code,itemcode=str(c.itemcodeid.item_code)+"0000",
+                                #         item_uom=uom_ids.item_uom).order_by('pk').last() 
+
+
+                                #         stktrn_id = Stktrn(trn_no=None,post_time=post_time,aperiod=None,itemcode=str(c.itemcodeid.item_code)+"0000",
+                                #         store_no=site.itemsite_code,tstore_no=None,fstore_no=None,trn_docno=adjno if adjno else sa_transacno,trn_date=currentdate,
+                                #         trn_type="ADJS",trn_db_qty=None,trn_cr_qty=None,trn_qty=-1,trn_balqty=obatchids.qty-1,
+                                #         trn_balcst=stktrn_ids.trn_balcst if stktrn_ids and stktrn_ids.trn_balcst else 0,
+                                #         trn_amt="{:.2f}".format(float(c.deposit)),trn_post=currentdate,
+                                #         trn_cost=stktrn_ids.trn_cost if stktrn_ids and stktrn_ids.trn_cost else 0,trn_ref=None,
+                                #         hq_update=stktrn_ids.hq_update if stktrn_ids and stktrn_ids.hq_update else 0,
+                                #         line_no=c.lineno,item_uom=uom_ids.item_uom,item_batch=None,mov_type=None,item_batch_cost=None,
+                                #         stock_in=None,trans_package_line_no=None)
+                                #         stktrn_id.save()
+                                #         Stktrn.objects.filter(pk=stktrn_id.pk).update(trn_post=pay_date,trn_date=pay_date)
+                                        
+
+                                #         stktrnids = Stktrn.objects.filter(store_no=site.itemsite_code,itemcode=str(c.itemcodeid.item_code)+"0000",
+                                #         item_uom=c.item_uom.uom_code).order_by('pk').last() 
+
+
+                                #         stktrnid = Stktrn(trn_no=None,post_time=post_time,aperiod=None,itemcode=str(c.itemcodeid.item_code)+"0000",
+                                #         store_no=site.itemsite_code,tstore_no=None,fstore_no=None,trn_docno=adjno,trn_date=currentdate,
+                                #         trn_type="ADJS",trn_db_qty=None,trn_cr_qty=None,trn_qty=uom_ids.uom_unit,trn_balqty=uom_ids.uom_unit + batchids.qty,
+                                #         trn_balcst=stktrnids.trn_balcst if stktrnids and stktrnids.trn_balcst else 0,
+                                #         trn_amt="{:.2f}".format(float(c.deposit)),trn_post=currentdate,
+                                #         trn_cost=stktrnids.trn_cost if stktrnids and stktrnids.trn_cost else 0,trn_ref=None,
+                                #         hq_update=stktrnids.hq_update if stktrnids and stktrnids.hq_update else 0,
+                                #         line_no=c.lineno,item_uom=c.item_uom.uom_code,item_batch=None,mov_type=None,item_batch_cost=None,
+                                #         stock_in=None,trans_package_line_no=None)
+                                #         stktrnid.save()
+                                #         Stktrn.objects.filter(pk=stktrnid.pk).update(trn_post=pay_date,trn_date=pay_date)
+                                    
+
+                                #         fbatch_qty = (batchids.qty + uom_ids.uom_unit) - qtytodeduct
+
+                                #         vstk = Stktrn(trn_no=None,post_time=post_time,aperiod=None,itemcode=str(c.itemcodeid.item_code)+"0000",
+                                #         store_no=site.itemsite_code,tstore_no=None,fstore_no=None,trn_docno=sa_transacno,trn_date=currentdate,
+                                #         trn_type="SA",trn_db_qty=None,trn_cr_qty=None,trn_qty=-qtytodeduct,trn_balqty=fbatch_qty,
+                                #         trn_balcst=stktrnids.trn_balcst if stktrnids and stktrnids.trn_balcst else 0,
+                                #         trn_amt="{:.2f}".format(float(c.deposit)),trn_post=currentdate,
+                                #         trn_cost=stktrnids.trn_cost if stktrnids and stktrnids.trn_cost else 0,trn_ref=None,
+                                #         hq_update=stktrnids.hq_update if stktrnids and stktrnids.hq_update else 0,
+                                #         line_no=c.lineno,item_uom=c.item_uom.uom_code,item_batch=None,mov_type=None,item_batch_cost=None,
+                                #         stock_in=None,trans_package_line_no=None)
+                                #         vstk.save()
+                                #         Stktrn.objects.filter(pk=vstk.pk).update(trn_post=pay_date,trn_date=pay_date)
+                                    
+
+
+                                #         ItemBatch.objects.filter(pk=batchids.pk).update(qty=fbatch_qty,updated_at=timezone.now())
+
+                                #         ItemBatch.objects.filter(pk=obatchids.pk).update(qty=obatchids.qty-1,updated_at=timezone.now())
+                                        
+                                #         adcontrolobj.control_no = int(adcontrolobj.control_no) + 1
+                                #         adcontrolobj.save()
+
+                                #         flag = True
+
+                                if flag == False:
+                                    if batchids:
+                                        deduct = batchids.qty - qtytodeduct
+                                        batch = ItemBatch.objects.filter(pk=batchids.pk).update(qty=deduct,updated_at=timezone.now())
+                                    else:
+                                        batch_id = ItemBatch(item_code=c.itemcodeid.item_code,site_code=site.itemsite_code,
+                                        batch_no="",uom=c.item_uom.uom_code,qty=-qtytodeduct,exp_date=None,batch_cost=c.itemcodeid.lstpo_ucst).save()
+                                        deduct = -qtytodeduct
+
+                                    #Stktrn
+                                   
+                                    stktrn_ids = Stktrn.objects.filter(store_no=site.itemsite_code,itemcode=str(c.itemcodeid.item_code)+"0000",
+                                    item_uom=c.item_uom.uom_code).order_by('pk').last() 
+
+                                    stktrn_id = Stktrn(trn_no=None,post_time=post_time,aperiod=None,itemcode=str(c.itemcodeid.item_code)+"0000",
+                                    store_no=site.itemsite_code,tstore_no=None,fstore_no=None,trn_docno=sa_transacno,trn_date=currentdate,
+                                    trn_type="SA",trn_db_qty=None,trn_cr_qty=None,trn_qty=-qtytodeduct,trn_balqty=deduct,
+                                    trn_balcst=stktrn_ids.trn_balcst if stktrn_ids and stktrn_ids.trn_balcst else 0,
+                                    trn_amt="{:.2f}".format(float(c.deposit)),trn_post=currentdate,
+                                    trn_cost=stktrn_ids.trn_cost if stktrn_ids and stktrn_ids.trn_cost else 0,trn_ref=None,
+                                    hq_update=stktrn_ids.hq_update if stktrn_ids and stktrn_ids.hq_update else 0,
+                                    line_no=c.lineno,item_uom=c.item_uom.uom_code,item_batch=None,mov_type=None,item_batch_cost=None,
+                                    stock_in=None,trans_package_line_no=None)
+                                    stktrn_id.save()
+                                    Stktrn.objects.filter(pk=stktrn_id.pk).update(trn_post=pay_date,trn_date=pay_date)
+                                
 
 
                        
@@ -1296,6 +1685,14 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                     if c.itemcodeid and c.itemcodeid.prepaid_valid_period:
                         prepaid_valid_period = date.today() + timedelta(int(c.itemcodeid.prepaid_valid_period))
                     
+                    vo_obj = False
+                    if c.itemcodeid.is_open_prepaid == False:
+                        vo_obj = VoucherCondition.objects.filter(item_code=c.itemcodeid.item_code,isactive=True).order_by('pk')
+                    else:
+                        if c.itemcodeid.is_open_prepaid == True:
+                            vo_obj = PrepaidOpenCondition.objects.filter(
+                                itemcart=c).order_by('pk')
+                           
 
                     if c.isopen_prepaid == True:
                         pp_amt = c.price
@@ -1343,27 +1740,58 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                     # print(prepacc.pk,"prepacc")
 
                     #PrepaidAccountCondition Creation
+        
+                    if vo_obj:  
+                        for v in vo_obj:
+                            rate = v.rate
+                            if v.__class__.__name__ == 'PrepaidOpenCondition':
+                                itemdept_id = v.itemdept_id
+                                itembrand_id = v.itembrand_id
+                                amount = v.prepaid_value
 
-                    vo_obj = False
-                    if c.itemcodeid.is_open_prepaid == False:
-                        vo_obj = VoucherCondition.objects.filter(item_code=c.itemcodeid.item_code)
+                            elif v.__class__.__name__ == 'VoucherCondition':
+                                amount = v.amount 
+                                if v.conditiontype2 != 'All':
+                                    itemdept_id = ItemDept.objects.filter(itm_desc__icontains=v.conditiontype2,
+                                    is_service=True, itm_status=True).order_by('itm_seq').first()
+                                    itembrand_id = ItemBrand.objects.filter(itm_desc__icontains=v.conditiontype2,
+                                    retail_product_brand=True, itm_status=True).order_by('itm_seq').first()
+                                else:
+                                    itemdept_id = None ; itembrand_id = None
+
+                           
+                            # print(pp_acc.pk,"pp_acc")
+                           
+                            # v_amount
+                            pp_acc = PrepaidAccountCondition(pp_no=sa_transacno,pp_type=c.itemcodeid.item_range if c.itemcodeid.item_range else None,
+                            pp_desc=pp_descval,p_itemtype=v.p_itemtype,
+                            item_code=c.itemcodeid.item_code,conditiontype1=v.conditiontype1,
+                            conditiontype2=v.conditiontype2,
+                            amount=amount,rate=rate,use_amt=0,remain=remain,
+                            pos_daud_lineno=c.lineno,
+                            itemdept_id=itemdept_id,itembrand_id=itembrand_id)
+                            pp_acc.save()
+                            # print(ppacc.pk,"ppacc")
+                            if pp_acc.p_itemtype == "Inclusive":
+                                if v and v.prepaid_valid_period:
+                                    prepaid_valid_period = date.today() + timedelta(int(v.prepaid_valid_period))
+ 
+                                PrepaidAccount.objects.filter(pk=prepacc.pk).update(pp_type2=pp_acc.pp_type,
+                                condition_type1=pp_acc.conditiontype1,exp_date=prepaid_valid_period)
+ 
                     else:
-                        if c.itemcodeid.is_open_prepaid == True:
-                            vo_obj = PrepaidOpenCondition.objects.filter(membercardnoaccess=False,itemcart=c,p_itemtype='Inclusive').order_by('-pk')[:1]
-                            if vo_obj and vo_obj[0].prepaid_valid_period:
-                                prepaid_valid_period = date.today() + timedelta(int(vo_obj[0].prepaid_valid_period))
+                        pp_acc = PrepaidAccountCondition(pp_no=sa_transacno,pp_type=c.itemcodeid.item_range if c.itemcodeid.item_range else None,
+                        pp_desc=pp_descval,p_itemtype="Inclusive",
+                        item_code=c.itemcodeid.item_code,conditiontype1="All",
+                        conditiontype2="All",
+                        amount=c.prepaid_value,rate="Amount$",use_amt=0,remain=remain,
+                        pos_daud_lineno=c.lineno,
+                        itemdept_id=itemdept_id,itembrand_id=itembrand_id)
+                        pp_acc.save()
+                        PrepaidAccount.objects.filter(pk=prepacc.pk).update(pp_type2=pp_acc.pp_type,
+                                condition_type1=pp_acc.conditiontype1,exp_date=prepaid_valid_period)
 
 
-                    pp_acc = PrepaidAccountCondition(pp_no=sa_transacno,pp_type=c.itemcodeid.item_range if c.itemcodeid.item_range else None,
-                    pp_desc=pp_descval,p_itemtype=','.join([v.p_itemtype for v in vo_obj if v.p_itemtype]),
-                    item_code=c.itemcodeid.item_code,conditiontype1=','.join([v.conditiontype1 for v in vo_obj if v.conditiontype1]),
-                    conditiontype2=','.join([v.conditiontype2 for v in vo_obj if v.conditiontype2]),
-                    amount=v_amount,rate=vo_obj.first().rate if vo_obj else 0,use_amt=0,remain=remain,
-                    pos_daud_lineno=c.lineno)
-                    pp_acc.save()
-                    # print(pp_acc.pk,"pp_acc")
-                    PrepaidAccount.objects.filter(pk=prepacc.pk).update(pp_type2=pp_acc.pp_type,
-                    condition_type1=pp_acc.conditiontype1,exp_date=prepaid_valid_period)
 
                 elif int(c.itemcodeid.Item_Divid.itm_code) == 4 and c.itemcodeid.Item_Divid.itm_desc == 'VOUCHER' and c.itemcodeid.Item_Divid.itm_isactive == True:
                     vorecontrolobj = ControlNo.objects.filter(control_description__iexact="Public Voucher",Site_Codeid__pk=fmspw.loginsite.pk).first()
@@ -1781,7 +2209,9 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
 
                                 currenttime = timezone.now()
                                 currentdate = timezone.now().date()
-                                    
+                                post_time = str(currenttime.hour).zfill(2)+str(currenttime.minute).zfill(2)+str(currenttime.second).zfill(2)
+
+                                #MultiUOM SplitUp Level Based        
                                 for i in usagelevel_ids: 
                                     TreatmentUsage(treatment_code=treatmentid.treatment_code,item_code=i.item_code,
                                     item_desc=i.item_desc,qty=i.qty,uom=i.uom,site_code=site.itemsite_code,usage_status="Usage",
@@ -1793,16 +2223,49 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                         uom=i.uom).order_by('pk').last() 
                                         obatchids = ItemBatch.objects.none()
 
-                                        uom_ids = ItemUomprice.objects.filter(item_code=i.item_code[:-4],item_uom2=i.uom
-                                        ,uom_unit__gt=0,isactive=True).filter(~Q(item_uom=i.uom)).first()
-                                        if uom_ids:
-                                            obatchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=str(i.item_code[:-4]),
-                                            uom=uom_ids.item_uom).order_by('pk').last() 
+                                        main_uom_ids = ItemUomprice.objects.filter(item_code=i.item_code[:-4],item_uom2=i.uom
+                                            ,uom_unit__gt=0,isactive=True).filter(Q(item_uom=i.uom)).first()
+
+                                        if (batchids and int(batchids.qty) < int(i.qty)):
+                                        
+                                            sa_count = 1
+                
+                                            sa_uom = i.uom ; check_obatchqty = 0
+                                            while sa_count > 0:
+                                                w_uom_ids = ItemUomprice.objects.filter(item_code=i.item_code[:-4],item_uom2=sa_uom
+                                                ,uom_unit__gt=0,isactive=True).filter(~Q(item_uom=sa_uom)).first()
+                                                # print(w_uom_ids,"w_uom_ids")
+                                                if w_uom_ids:
+                                                    wobatchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=str(i.item_code[:-4]),
+                                                    uom=w_uom_ids.item_uom).order_by('pk').last() 
+                                                    # print(wobatchids,"wobatchids")
+                                                    if wobatchids:
+                                                        if int(wobatchids.qty) <= 0:
+                                                            sa_uom = w_uom_ids.item_uom
+                                                            sa_count += 1
+                                                        else:
+                                                            if int(wobatchids.qty) > 0:
+                                                                sa_count = 0    
+                                                                check_obatchqty =  wobatchids.qty
+                                                            else:
+                                                                sa_count = 0    
+                                                    else:
+                                                        sa_count = 0            
+                                                else:
+                                                    sa_count = 0                
+
+
+                                        # uom_ids = ItemUomprice.objects.filter(item_code=i.item_code[:-4],item_uom2=i.uom
+                                        # ,uom_unit__gt=0,isactive=True).filter(~Q(item_uom=i.uom)).first()
+                                        # if uom_ids:
+                                        #     obatchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=str(i.item_code[:-4]),
+                                        #     uom=uom_ids.item_uom).order_by('pk').last() 
 
 
                                         stockreduce = False
                                         if valuedata == 'TRUE':
-                                            if (batchids and int(batchids.qty) >= int(i.qty)) or (obatchids and int(obatchids.qty) >= int(qtytodeduct)):
+                                            # if (batchids and int(batchids.qty) >= int(i.qty)) or (obatchids and int(obatchids.qty) >0 and int(uom_ids.uom_unit) >= qtytodeduct):
+                                            if (batchids and int(batchids.qty) >= int(i.qty)) or (check_obatchqty > 0):
                                                 stockreduce = True
                                         else:
                                             stockreduce = True     
@@ -1814,7 +2277,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                                 batch = ItemBatch.objects.filter(pk=batchids.pk).update(qty=deduct,updated_at=timezone.now())
 
                                                 
-                                                post_time = str(currenttime.hour).zfill(2)+str(currenttime.minute).zfill(2)+str(currenttime.second).zfill(2)
+                                                
                                                 stktrn_ids = Stktrn.objects.filter(store_no=site.itemsite_code,itemcode=str(i.item_code[:-4])+"0000",
                                                 item_uom=i.uom).order_by('pk').last() 
 
@@ -1840,69 +2303,136 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                                 adjno = False
                                                 if adcontrolobj:
                                                     adjno = "W"+str(adcontrolobj.control_prefix)+str(adcontrolobj.site_code)+str(adcontrolobj.control_no)
-
-
-                                                if batchids and obatchids and int(obatchids.qty) >= int(qtytodeduct):
-
-                                                    post_time = str(currenttime.hour).zfill(2)+str(currenttime.minute).zfill(2)+str(currenttime.second).zfill(2)
-                                                    stktrn_ids = Stktrn.objects.filter(store_no=site.itemsite_code,itemcode=str(i.item_code[:-4])+"0000",
-                                                    item_uom=uom_ids.item_uom).order_by('pk').last() 
-
-
-                                                    stktrn_id = Stktrn(trn_no=None,post_time=post_time,aperiod=None,itemcode=str(i.item_code[:-4])+"0000",
-                                                    store_no=site.itemsite_code,tstore_no=None,fstore_no=None,trn_docno=adjno if adjno else treatmentid.treatment_code,trn_date=currentdate,
-                                                    trn_type="ADJS",trn_db_qty=None,trn_cr_qty=None,trn_qty=-1,trn_balqty=obatchids.qty-1,
-                                                    trn_balcst=stktrn_ids.trn_balcst if stktrn_ids and stktrn_ids.trn_balcst else 0,
-                                                    trn_amt=None,trn_post=currentdate,
-                                                    trn_cost=stktrn_ids.trn_cost if stktrn_ids and stktrn_ids.trn_cost else 0,trn_ref=None,
-                                                    hq_update=stktrn_ids.hq_update if stktrn_ids and stktrn_ids.hq_update else 0,
-                                                    line_no=c.lineno,item_uom=uom_ids.item_uom,item_batch=None,mov_type=None,item_batch_cost=None,
-                                                    stock_in=None,trans_package_line_no=None)
-                                                    stktrn_id.save()
-                                                    Stktrn.objects.filter(pk=stktrn_id.pk).update(trn_post=pay_date,trn_date=pay_date)
-                                                    
-
-                                                    stktrnids = Stktrn.objects.filter(store_no=site.itemsite_code,itemcode=str(i.item_code[:-4])+"0000",
-                                                    item_uom=i.uom).order_by('pk').last() 
-
-
-                                                    stktrnid = Stktrn(trn_no=None,post_time=post_time,aperiod=None,itemcode=str(i.item_code[:-4])+"0000",
-                                                    store_no=site.itemsite_code,tstore_no=None,fstore_no=None,trn_docno=adjno,trn_date=currentdate,
-                                                    trn_type="ADJS",trn_db_qty=None,trn_cr_qty=None,trn_qty=uom_ids.uom_unit,trn_balqty=uom_ids.uom_unit + batchids.qty,
-                                                    trn_balcst=stktrnids.trn_balcst if stktrnids and stktrnids.trn_balcst else 0,
-                                                    trn_amt=None,trn_post=currentdate,
-                                                    trn_cost=stktrnids.trn_cost if stktrnids and stktrnids.trn_cost else 0,trn_ref=None,
-                                                    hq_update=stktrnids.hq_update if stktrnids and stktrnids.hq_update else 0,
-                                                    line_no=c.lineno,item_uom=i.uom,item_batch=None,mov_type=None,item_batch_cost=None,
-                                                    stock_in=None,trans_package_line_no=None)
-                                                    stktrnid.save()
-                                                    Stktrn.objects.filter(pk=stktrnid.pk).update(trn_post=pay_date,trn_date=pay_date)
-                                                
-
-                                                    fbatch_qty = (batchids.qty + uom_ids.uom_unit) - qtytodeduct
-
-                                                    vstk = Stktrn(trn_no=None,post_time=post_time,aperiod=None,itemcode=str(i.item_code[:-4])+"0000",
-                                                    store_no=site.itemsite_code,tstore_no=None,fstore_no=None,trn_docno=treatmentid.treatment_code,trn_date=currentdate,
-                                                    trn_type="Usage",trn_db_qty=None,trn_cr_qty=None,trn_qty=-qtytodeduct,trn_balqty=fbatch_qty,
-                                                    trn_balcst=stktrnids.trn_balcst if stktrnids and stktrnids.trn_balcst else 0,
-                                                    trn_amt=None,trn_post=currentdate,
-                                                    trn_cost=stktrnids.trn_cost if stktrnids and stktrnids.trn_cost else 0,trn_ref=None,
-                                                    hq_update=stktrnids.hq_update if stktrnids and stktrnids.hq_update else 0,
-                                                    line_no=c.lineno,item_uom=i.uom,item_batch=None,mov_type=None,item_batch_cost=None,
-                                                    stock_in=None,trans_package_line_no=None)
-                                                    vstk.save()
-                                                    Stktrn.objects.filter(pk=vstk.pk).update(trn_post=pay_date,trn_date=pay_date)
-                                                
-
-
-                                                    ItemBatch.objects.filter(pk=batchids.pk).update(qty=fbatch_qty,updated_at=timezone.now())
-
-                                                    ItemBatch.objects.filter(pk=obatchids.pk).update(qty=obatchids.qty-1,updated_at=timezone.now())
-                                                    
                                                     adcontrolobj.control_no = int(adcontrolobj.control_no) + 1
                                                     adcontrolobj.save()
 
-                                                    flag = True
+                                                sa_countuom = 1 ; multi_uom = [] 
+                                                sa_tx_uom = i.uom ; cl = treatmentid
+                                                itemcode = str(i.item_code[:-4]); trn_amt = None
+                                                trn_docno = cl.treatment_code;trn_type="Usage"
+                                                line_no = c.lineno ; check_uom = i.uom
+
+
+                                                
+                                                while sa_countuom > 0:
+                                                    uom_ids = ItemUomprice.objects.filter(item_code=i.item_code[:-4],item_uom2=sa_tx_uom
+                                                    ,uom_unit__gt=0,isactive=True).filter(~Q(item_uom=sa_tx_uom)).first()
+                                                    # print(uom_ids.item_uom,"uom_ids")
+                                                    if uom_ids:
+                                                        obatchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=str(i.item_code[:-4]),
+                                                        uom=uom_ids.item_uom).order_by('pk').last() 
+                                                        # print(obatchids.uom,"obatchids")
+                                                        if batchids and obatchids:
+                                                            #if batchids and obatchids and int(obatchids.qty) >= int(qtytodeduct):
+                                                            if int(obatchids.qty) > 0:
+                                                                # print("iff")
+                                                                # print(sa_tx_uom,"sa_tx_uom")
+
+                                                                # uom_ids,obatchids,site,itemcode,trn_docno,pay_date,line_no,adjno,multi_uom,qtytodeduct,trn_type,post_time,trn_amt
+                                                                uomtx = create_multiuom_transac(uom_ids,obatchids,site,itemcode,trn_docno,pay_date,line_no,adjno,multi_uom,qtytodeduct,trn_type,post_time,trn_amt)     
+                                                                
+                                                            
+                                                                flag = True
+                                                                sa_countuom = 0
+                                                            else:
+                                                                # print("else")
+                                                                if int(obatchids.qty) <= 0:
+                                                                    
+                                                                    if uom_ids.item_uom not in multi_uom:
+                                                                        multi_uom.append(uom_ids.item_uom)
+                                                                    
+                                                                    # print(multi_uom,"multi_uom")
+                                                                    sa_countuom += 1
+                                                                    sa_tx_uom = uom_ids.item_uom
+                                                                    # print(sa_tx_uom,"sa_tx_uom")
+                                                                else:
+                                                                    sa_countuom = 0    
+                                                        else:
+                                                            sa_countuom = 0            
+                                                    else:
+                                                        sa_countuom = 0                
+
+                                                if multi_uom != []:
+                                                    for um in multi_uom:
+                                                        b_uom_ids = ItemUomprice.objects.filter(item_code=i.item_code[:-4],item_uom=um
+                                                        ,uom_unit__gt=0,isactive=True).filter(~Q(item_uom2=um)).first()
+                                                        # print(b_uom_ids.item_uom,"uom_ids")
+                                                        if b_uom_ids:
+                                                            oabatchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=str(i.item_code[:-4]),
+                                                            uom=b_uom_ids.item_uom).order_by('pk').last() 
+                                                            # print(obatchids,"obatchids")
+                                                            if batchids and oabatchids:
+                                                                if int(oabatchids.qty) > 0:
+                                                                    sa_tx_uomc = b_uom_ids.item_uom2
+                                                                    
+                                                                    # b_uom_ids,oabatchids,site,itemcode,trn_docno,pay_date,line_no,adjno,qtytodeduct,check_uom,trn_type,post_time,trn_amt
+                                                                    uomtxu = multiuom_adjsafter_stockopenup(b_uom_ids,oabatchids,site,itemcode,trn_docno,pay_date,line_no,adjno,qtytodeduct,check_uom,trn_type,post_time,trn_amt)     
+                    
+
+
+                                                
+                                                # # if batchids and obatchids and int(obatchids.qty) >= int(qtytodeduct):
+                                                # if batchids and obatchids and int(obatchids.qty) > 0:
+
+                                                #     post_time = str(currenttime.hour).zfill(2)+str(currenttime.minute).zfill(2)+str(currenttime.second).zfill(2)
+                                                #     stktrn_ids = Stktrn.objects.filter(store_no=site.itemsite_code,itemcode=str(i.item_code[:-4])+"0000",
+                                                #     item_uom=uom_ids.item_uom).order_by('pk').last() 
+
+
+                                                #     stktrn_id = Stktrn(trn_no=None,post_time=post_time,aperiod=None,itemcode=str(i.item_code[:-4])+"0000",
+                                                #     store_no=site.itemsite_code,tstore_no=None,fstore_no=None,trn_docno=adjno if adjno else treatmentid.treatment_code,trn_date=currentdate,
+                                                #     trn_type="ADJS",trn_db_qty=None,trn_cr_qty=None,trn_qty=-1,trn_balqty=obatchids.qty-1,
+                                                #     trn_balcst=stktrn_ids.trn_balcst if stktrn_ids and stktrn_ids.trn_balcst else 0,
+                                                #     trn_amt=None,trn_post=currentdate,
+                                                #     trn_cost=stktrn_ids.trn_cost if stktrn_ids and stktrn_ids.trn_cost else 0,trn_ref=None,
+                                                #     hq_update=stktrn_ids.hq_update if stktrn_ids and stktrn_ids.hq_update else 0,
+                                                #     line_no=c.lineno,item_uom=uom_ids.item_uom,item_batch=None,mov_type=None,item_batch_cost=None,
+                                                #     stock_in=None,trans_package_line_no=None)
+                                                #     stktrn_id.save()
+                                                #     Stktrn.objects.filter(pk=stktrn_id.pk).update(trn_post=pay_date,trn_date=pay_date)
+                                                    
+
+                                                #     stktrnids = Stktrn.objects.filter(store_no=site.itemsite_code,itemcode=str(i.item_code[:-4])+"0000",
+                                                #     item_uom=i.uom).order_by('pk').last() 
+
+
+                                                #     stktrnid = Stktrn(trn_no=None,post_time=post_time,aperiod=None,itemcode=str(i.item_code[:-4])+"0000",
+                                                #     store_no=site.itemsite_code,tstore_no=None,fstore_no=None,trn_docno=adjno,trn_date=currentdate,
+                                                #     trn_type="ADJS",trn_db_qty=None,trn_cr_qty=None,trn_qty=uom_ids.uom_unit,trn_balqty=uom_ids.uom_unit + batchids.qty,
+                                                #     trn_balcst=stktrnids.trn_balcst if stktrnids and stktrnids.trn_balcst else 0,
+                                                #     trn_amt=None,trn_post=currentdate,
+                                                #     trn_cost=stktrnids.trn_cost if stktrnids and stktrnids.trn_cost else 0,trn_ref=None,
+                                                #     hq_update=stktrnids.hq_update if stktrnids and stktrnids.hq_update else 0,
+                                                #     line_no=c.lineno,item_uom=i.uom,item_batch=None,mov_type=None,item_batch_cost=None,
+                                                #     stock_in=None,trans_package_line_no=None)
+                                                #     stktrnid.save()
+                                                #     Stktrn.objects.filter(pk=stktrnid.pk).update(trn_post=pay_date,trn_date=pay_date)
+                                                
+
+                                                #     fbatch_qty = (batchids.qty + uom_ids.uom_unit) - qtytodeduct
+
+                                                #     vstk = Stktrn(trn_no=None,post_time=post_time,aperiod=None,itemcode=str(i.item_code[:-4])+"0000",
+                                                #     store_no=site.itemsite_code,tstore_no=None,fstore_no=None,trn_docno=treatmentid.treatment_code,trn_date=currentdate,
+                                                #     trn_type="Usage",trn_db_qty=None,trn_cr_qty=None,trn_qty=-qtytodeduct,trn_balqty=fbatch_qty,
+                                                #     trn_balcst=stktrnids.trn_balcst if stktrnids and stktrnids.trn_balcst else 0,
+                                                #     trn_amt=None,trn_post=currentdate,
+                                                #     trn_cost=stktrnids.trn_cost if stktrnids and stktrnids.trn_cost else 0,trn_ref=None,
+                                                #     hq_update=stktrnids.hq_update if stktrnids and stktrnids.hq_update else 0,
+                                                #     line_no=c.lineno,item_uom=i.uom,item_batch=None,mov_type=None,item_batch_cost=None,
+                                                #     stock_in=None,trans_package_line_no=None)
+                                                #     vstk.save()
+                                                #     Stktrn.objects.filter(pk=vstk.pk).update(trn_post=pay_date,trn_date=pay_date)
+                                                
+
+
+                                                #     ItemBatch.objects.filter(pk=batchids.pk).update(qty=fbatch_qty,updated_at=timezone.now())
+
+                                                #     ItemBatch.objects.filter(pk=obatchids.pk).update(qty=obatchids.qty-1,updated_at=timezone.now())
+                                                    
+                                                #     adcontrolobj.control_no = int(adcontrolobj.control_no) + 1
+                                                #     adcontrolobj.save()
+
+                                                #     flag = True
 
                                                 if flag == False:
                                                     if batchids:
@@ -1914,10 +2444,8 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                                         deduct = -qtytodeduct
 
                                                     #Stktrn
-                                                    currenttime = timezone.now()
-                                                    currentdate = timezone.now().date()
-                                            
-                                                    post_time = str(currenttime.hour).zfill(2)+str(currenttime.minute).zfill(2)+str(currenttime.second).zfill(2)
+                                                   
+                                                    
                                                     stktrn_ids = Stktrn.objects.filter(store_no=site.itemsite_code,itemcode=str(i.item_code[:-4])+"0000",
                                                     item_uom=i.uom).order_by('pk').last() 
 
@@ -2087,7 +2615,6 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
 
 
             # tmptrd_ids = Tmptreatment.objects.filter(itemcart=c).order_by('pk').delete()
-
         return id_lst
     # except Exception as e:
     #     invalid_message = str(e)
@@ -2405,10 +2932,11 @@ def invoice_topup(self, request, topup_ids,sa_transacno, cust_obj, outstanding, 
                 prepaidacc.sa_date = pay_date
                 prepaidacc.start_date = pay_date
                 prepaidacc.save()
-                pacc_ids = PrepaidAccountCondition.objects.filter(pp_no=c.prepaid_account.pp_no,
-                pos_daud_lineno=c.prepaid_account.line_no).only('pp_no','pos_daud_lineno').first()
-                if pacc_ids:                                
-                    acc = PrepaidAccountCondition.objects.filter(pk=pacc_ids.pk).update(remain=remain)
+                # ,p_itemtype="Inclusive"
+                pacc_ids = list(set(PrepaidAccountCondition.objects.filter(pp_no=c.prepaid_account.pp_no,
+                pos_daud_lineno=c.prepaid_account.line_no).only('pp_no','pos_daud_lineno').values_list('id', flat=True).distinct()))
+                if pacc_ids != []:                                
+                    acc = PrepaidAccountCondition.objects.filter(pk__in=pacc_ids).update(remain=remain)
 
 
             totaldisc = c.discount_amt + c.additional_discountamt
@@ -3400,7 +3928,9 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
 
                 currenttime = timezone.now()
                 currentdate = timezone.now().date()
-                     
+                post_time = str(currenttime.hour).zfill(2)+str(currenttime.minute).zfill(2)+str(currenttime.second).zfill(2)
+
+                #MultiUOM SplitUp Level Based         
                 for i in usagelevel_ids: 
                     TreatmentUsage(treatment_code=cl.treatment_code,item_code=i.item_code,
                     item_desc=i.item_desc,qty=i.qty,uom=i.uom,site_code=site.itemsite_code,usage_status="Usage",
@@ -3408,20 +3938,46 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                     if int(i.qty) > 0:
                         qtytodeduct = int(i.qty)
                         batchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=i.item_code[:-4],
-                        uom=i.uom).order_by('pk').last() 
+                        uom=i.uom).order_by('pk').last()
+                        # print(batchids.uom,"batchids") 
 
                         obatchids = ItemBatch.objects.none()
+                        
+                        main_uom_ids = ItemUomprice.objects.filter(item_code=i.item_code[:-4],item_uom2=i.uom
+                            ,uom_unit__gt=0,isactive=True).filter(Q(item_uom=i.uom)).first()
 
-                        uom_ids = ItemUomprice.objects.filter(item_code=i.item_code[:-4],item_uom2=i.uom
-                        ,uom_unit__gt=0,isactive=True).filter(~Q(item_uom=i.uom)).first()
-                        # print(uom_ids,"uom_ids")
-                        if uom_ids:
-                            obatchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=str(i.item_code[:-4]),
-                            uom=uom_ids.item_uom).order_by('pk').last() 
+                        if (batchids and int(batchids.qty) < int(i.qty)):
+                         
+                            sa_count = 1
+ 
+                            sa_uom = i.uom ; check_obatchqty = 0
+                            while sa_count > 0:
+                                w_uom_ids = ItemUomprice.objects.filter(item_code=i.item_code[:-4],item_uom2=sa_uom
+                                ,uom_unit__gt=0,isactive=True).filter(~Q(item_uom=sa_uom)).first()
+                                # print(w_uom_ids,"w_uom_ids")
+                                if w_uom_ids:
+                                    wobatchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=str(i.item_code[:-4]),
+                                    uom=w_uom_ids.item_uom).order_by('pk').last() 
+                                    # print(wobatchids,"wobatchids")
+                                    if wobatchids:
+                                        if int(wobatchids.qty) <= 0:
+                                            sa_uom = w_uom_ids.item_uom
+                                            sa_count += 1
+                                        else:
+                                            if int(wobatchids.qty) > 0:
+                                                sa_count = 0    
+                                                check_obatchqty =  wobatchids.qty
+                                            else:
+                                                sa_count = 0     
+                                    else:
+                                        sa_count = 0             
+                                else:
+                                    sa_count = 0                 
 
                         stockreduce = False
                         if valuedata == 'TRUE':
-                            if (batchids and int(batchids.qty) >= int(i.qty)) or (obatchids and int(obatchids.qty) >= int(qtytodeduct)):
+                            # if (batchids and int(batchids.qty) >= int(i.qty)) or (obatchids and int(obatchids.qty) >0 and int(uom_ids.uom_unit) >= qtytodeduct):
+                            if (batchids and int(batchids.qty) >= int(i.qty)) or (check_obatchqty > 0):
                                 stockreduce = True
                         else:
                             stockreduce = True
@@ -3433,7 +3989,6 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                                 batch = ItemBatch.objects.filter(pk=batchids.pk).update(qty=deduct,updated_at=timezone.now())
 
                                 
-                                post_time = str(currenttime.hour).zfill(2)+str(currenttime.minute).zfill(2)+str(currenttime.second).zfill(2)
                                 stktrn_ids = Stktrn.objects.filter(store_no=site.itemsite_code,itemcode=str(i.item_code[:-4])+"0000",
                                 item_uom=i.uom).order_by('pk').last() 
 
@@ -3452,76 +4007,140 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                             
                             else:
                                 flag = False
-
+                                
                                 adcontrolobj = ControlNo.objects.filter(control_description__iexact="ADJS",
                                 site_code=fmspw.loginsite.itemsite_code).first()
 
                                 adjno = False
                                 if adcontrolobj:
                                     adjno = "W"+str(adcontrolobj.control_prefix)+str(adcontrolobj.site_code)+str(adcontrolobj.control_no)
-
-
-                                if batchids and obatchids and int(obatchids.qty) >= int(qtytodeduct):
-
-                                    post_time = str(currenttime.hour).zfill(2)+str(currenttime.minute).zfill(2)+str(currenttime.second).zfill(2)
-                                    stktrn_ids = Stktrn.objects.filter(store_no=site.itemsite_code,itemcode=str(i.item_code[:-4])+"0000",
-                                    item_uom=uom_ids.item_uom).order_by('pk').last() 
-
-
-                                    stktrn_id = Stktrn(trn_no=None,post_time=post_time,aperiod=None,itemcode=str(i.item_code[:-4])+"0000",
-                                    store_no=site.itemsite_code,tstore_no=None,fstore_no=None,trn_docno=adjno if adjno else cl.treatment_code,trn_date=currentdate,
-                                    trn_type="ADJS",trn_db_qty=None,trn_cr_qty=None,trn_qty=-1,trn_balqty=obatchids.qty-1,
-                                    trn_balcst=stktrn_ids.trn_balcst if stktrn_ids and stktrn_ids.trn_balcst else 0,
-                                    trn_amt=None,trn_post=currentdate,
-                                    trn_cost=stktrn_ids.trn_cost if stktrn_ids and stktrn_ids.trn_cost else 0,trn_ref=None,
-                                    hq_update=stktrn_ids.hq_update if stktrn_ids and stktrn_ids.hq_update else 0,
-                                    line_no=c.lineno,item_uom=uom_ids.item_uom,item_batch=None,mov_type=None,item_batch_cost=None,
-                                    stock_in=None,trans_package_line_no=None)
-                                    stktrn_id.save()
-                                    Stktrn.objects.filter(pk=stktrn_id.pk).update(trn_post=pay_date,trn_date=pay_date)
-                                    
-
-                                    stktrnids = Stktrn.objects.filter(store_no=site.itemsite_code,itemcode=str(i.item_code[:-4])+"0000",
-                                    item_uom=i.uom).order_by('pk').last() 
-
-
-                                    stktrnid = Stktrn(trn_no=None,post_time=post_time,aperiod=None,itemcode=str(i.item_code[:-4])+"0000",
-                                    store_no=site.itemsite_code,tstore_no=None,fstore_no=None,trn_docno=adjno,trn_date=currentdate,
-                                    trn_type="ADJS",trn_db_qty=None,trn_cr_qty=None,trn_qty=uom_ids.uom_unit,trn_balqty=uom_ids.uom_unit + batchids.qty,
-                                    trn_balcst=stktrnids.trn_balcst if stktrnids and stktrnids.trn_balcst else 0,
-                                    trn_amt=None,trn_post=currentdate,
-                                    trn_cost=stktrnids.trn_cost if stktrnids and stktrnids.trn_cost else 0,trn_ref=None,
-                                    hq_update=stktrnids.hq_update if stktrnids and stktrnids.hq_update else 0,
-                                    line_no=c.lineno,item_uom=i.uom,item_batch=None,mov_type=None,item_batch_cost=None,
-                                    stock_in=None,trans_package_line_no=None)
-                                    stktrnid.save()
-                                    Stktrn.objects.filter(pk=stktrnid.pk).update(trn_post=pay_date,trn_date=pay_date)
-                                
-
-                                    fbatch_qty = (batchids.qty + uom_ids.uom_unit) - qtytodeduct
-
-                                    vstk = Stktrn(trn_no=None,post_time=post_time,aperiod=None,itemcode=str(i.item_code[:-4])+"0000",
-                                    store_no=site.itemsite_code,tstore_no=None,fstore_no=None,trn_docno=cl.treatment_code,trn_date=currentdate,
-                                    trn_type="Usage",trn_db_qty=None,trn_cr_qty=None,trn_qty=-qtytodeduct,trn_balqty=fbatch_qty,
-                                    trn_balcst=stktrnids.trn_balcst if stktrnids and stktrnids.trn_balcst else 0,
-                                    trn_amt=None,trn_post=currentdate,
-                                    trn_cost=stktrnids.trn_cost if stktrnids and stktrnids.trn_cost else 0,trn_ref=None,
-                                    hq_update=stktrnids.hq_update if stktrnids and stktrnids.hq_update else 0,
-                                    line_no=c.lineno,item_uom=i.uom,item_batch=None,mov_type=None,item_batch_cost=None,
-                                    stock_in=None,trans_package_line_no=None)
-                                    vstk.save()
-                                    Stktrn.objects.filter(pk=vstk.pk).update(trn_post=pay_date,trn_date=pay_date)
-                                
-
-
-                                    ItemBatch.objects.filter(pk=batchids.pk).update(qty=fbatch_qty,updated_at=timezone.now())
-
-                                    ItemBatch.objects.filter(pk=obatchids.pk).update(qty=obatchids.qty-1,updated_at=timezone.now())
-                                    
                                     adcontrolobj.control_no = int(adcontrolobj.control_no) + 1
                                     adcontrolobj.save()
 
-                                    flag = True
+                                sa_countuom = 1 ; multi_uom = []
+                                itemcode = str(i.item_code[:-4]) ; trn_amt=None
+                                trn_docno = cl.treatment_code ;trn_type="Usage"
+                                line_no = c.lineno ; check_uom = i.uom
+
+
+                                sa_tx_uom = i.uom ; 
+                                while sa_countuom > 0:
+                                    uom_ids = ItemUomprice.objects.filter(item_code=i.item_code[:-4],item_uom2=sa_tx_uom
+                                    ,uom_unit__gt=0,isactive=True).filter(~Q(item_uom=sa_tx_uom)).first()
+                                    # print(uom_ids.item_uom,"uom_ids")
+                                    if uom_ids:
+                                        obatchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=str(i.item_code[:-4]),
+                                        uom=uom_ids.item_uom).order_by('pk').last() 
+                                        # print(obatchids.uom,"obatchids")
+                                        if batchids and obatchids:
+                                            #if batchids and obatchids and int(obatchids.qty) >= int(qtytodeduct):
+                                            if int(obatchids.qty) > 0:
+                                                # print("iff")
+                                                # print(sa_tx_uom,"sa_tx_uom")
+
+                                                # uom_ids,obatchids,site,itemcode,trn_docno,pay_date,line_no,adjno,multi_uom,qtytodeduct,trn_type,post_time,trn_amt
+                                                uomtx = create_multiuom_transac(uom_ids,obatchids,site,itemcode,trn_docno,pay_date,line_no,adjno,multi_uom,qtytodeduct,trn_type,post_time,trn_amt)     
+                                                  
+                                               
+                                                flag = True
+                                                sa_countuom = 0
+                                            else:
+                                                # print("else")
+                                                if int(obatchids.qty) <= 0:
+                                                    
+                                                    if uom_ids.item_uom not in multi_uom:
+                                                        multi_uom.append(uom_ids.item_uom)
+                                                    
+                                                    # print(multi_uom,"multi_uom")
+                                                    sa_countuom += 1
+                                                    sa_tx_uom = uom_ids.item_uom
+                                                    # print(sa_tx_uom,"sa_tx_uom")
+                                                else:
+                                                    sa_countuom = 0    
+                                        else:
+                                            sa_countuom = 0            
+                                    else:
+                                        sa_countuom = 0                
+
+                                if multi_uom != []:
+                                    for um in multi_uom:
+                                        b_uom_ids = ItemUomprice.objects.filter(item_code=i.item_code[:-4],item_uom=um
+                                        ,uom_unit__gt=0,isactive=True).filter(~Q(item_uom2=um)).first()
+                                        # print(b_uom_ids.item_uom,"uom_ids")
+                                        if b_uom_ids:
+                                            oabatchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=str(i.item_code[:-4]),
+                                            uom=b_uom_ids.item_uom).order_by('pk').last() 
+                                            # print(obatchids,"obatchids")
+                                            if batchids and oabatchids:
+                                                if int(oabatchids.qty) > 0:
+                                                    sa_tx_uomc = b_uom_ids.item_uom2
+                                                    
+                                                    # b_uom_ids,oabatchids,site,itemcode,trn_docno,pay_date,line_no,adjno,qtytodeduct,check_uom,trn_type,post_time,trn_amt
+                                                    uomtxu = multiuom_adjsafter_stockopenup(b_uom_ids,oabatchids,site,itemcode,trn_docno,pay_date,line_no,adjno,qtytodeduct,check_uom,trn_type,post_time,trn_amt)     
+
+
+                                # # if batchids and obatchids and int(obatchids.qty) >= int(qtytodeduct): 
+                                # if batchids and obatchids and int(obatchids.qty) > 0:
+
+                                #     post_time = str(currenttime.hour).zfill(2)+str(currenttime.minute).zfill(2)+str(currenttime.second).zfill(2)
+                                #     stktrn_ids = Stktrn.objects.filter(store_no=site.itemsite_code,itemcode=str(i.item_code[:-4])+"0000",
+                                #     item_uom=uom_ids.item_uom).order_by('pk').last() 
+
+
+                                #     stktrn_id = Stktrn(trn_no=None,post_time=post_time,aperiod=None,itemcode=str(i.item_code[:-4])+"0000",
+                                #     store_no=site.itemsite_code,tstore_no=None,fstore_no=None,trn_docno=adjno if adjno else cl.treatment_code,trn_date=currentdate,
+                                #     trn_type="ADJS",trn_db_qty=None,trn_cr_qty=None,trn_qty=-1,trn_balqty=obatchids.qty-1,
+                                #     trn_balcst=stktrn_ids.trn_balcst if stktrn_ids and stktrn_ids.trn_balcst else 0,
+                                #     trn_amt=None,trn_post=currentdate,
+                                #     trn_cost=stktrn_ids.trn_cost if stktrn_ids and stktrn_ids.trn_cost else 0,trn_ref=None,
+                                #     hq_update=stktrn_ids.hq_update if stktrn_ids and stktrn_ids.hq_update else 0,
+                                #     line_no=c.lineno,item_uom=uom_ids.item_uom,item_batch=None,mov_type=None,item_batch_cost=None,
+                                #     stock_in=None,trans_package_line_no=None)
+                                #     stktrn_id.save()
+                                #     Stktrn.objects.filter(pk=stktrn_id.pk).update(trn_post=pay_date,trn_date=pay_date)
+                                    
+
+                                #     stktrnids = Stktrn.objects.filter(store_no=site.itemsite_code,itemcode=str(i.item_code[:-4])+"0000",
+                                #     item_uom=i.uom).order_by('pk').last() 
+
+
+                                #     stktrnid = Stktrn(trn_no=None,post_time=post_time,aperiod=None,itemcode=str(i.item_code[:-4])+"0000",
+                                #     store_no=site.itemsite_code,tstore_no=None,fstore_no=None,trn_docno=adjno,trn_date=currentdate,
+                                #     trn_type="ADJS",trn_db_qty=None,trn_cr_qty=None,trn_qty=uom_ids.uom_unit,trn_balqty=uom_ids.uom_unit + batchids.qty,
+                                #     trn_balcst=stktrnids.trn_balcst if stktrnids and stktrnids.trn_balcst else 0,
+                                #     trn_amt=None,trn_post=currentdate,
+                                #     trn_cost=stktrnids.trn_cost if stktrnids and stktrnids.trn_cost else 0,trn_ref=None,
+                                #     hq_update=stktrnids.hq_update if stktrnids and stktrnids.hq_update else 0,
+                                #     line_no=c.lineno,item_uom=i.uom,item_batch=None,mov_type=None,item_batch_cost=None,
+                                #     stock_in=None,trans_package_line_no=None)
+                                #     stktrnid.save()
+                                #     Stktrn.objects.filter(pk=stktrnid.pk).update(trn_post=pay_date,trn_date=pay_date)
+                                
+
+                                #     fbatch_qty = (batchids.qty + uom_ids.uom_unit) - qtytodeduct
+
+                                #     vstk = Stktrn(trn_no=None,post_time=post_time,aperiod=None,itemcode=str(i.item_code[:-4])+"0000",
+                                #     store_no=site.itemsite_code,tstore_no=None,fstore_no=None,trn_docno=cl.treatment_code,trn_date=currentdate,
+                                #     trn_type="Usage",trn_db_qty=None,trn_cr_qty=None,trn_qty=-qtytodeduct,trn_balqty=fbatch_qty,
+                                #     trn_balcst=stktrnids.trn_balcst if stktrnids and stktrnids.trn_balcst else 0,
+                                #     trn_amt=None,trn_post=currentdate,
+                                #     trn_cost=stktrnids.trn_cost if stktrnids and stktrnids.trn_cost else 0,trn_ref=None,
+                                #     hq_update=stktrnids.hq_update if stktrnids and stktrnids.hq_update else 0,
+                                #     line_no=c.lineno,item_uom=i.uom,item_batch=None,mov_type=None,item_batch_cost=None,
+                                #     stock_in=None,trans_package_line_no=None)
+                                #     vstk.save()
+                                #     Stktrn.objects.filter(pk=vstk.pk).update(trn_post=pay_date,trn_date=pay_date)
+                                
+
+
+                                #     ItemBatch.objects.filter(pk=batchids.pk).update(qty=fbatch_qty,updated_at=timezone.now())
+
+                                #     ItemBatch.objects.filter(pk=obatchids.pk).update(qty=obatchids.qty-1,updated_at=timezone.now())
+                                    
+                                #     adcontrolobj.control_no = int(adcontrolobj.control_no) + 1
+                                #     adcontrolobj.save()
+
+                                #     flag = True
 
                                 if flag == False:
                                     if batchids:
@@ -3533,10 +4152,7 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                                         deduct = -qtytodeduct
 
                                     #Stktrn
-                                    currenttime = timezone.now()
-                                    currentdate = timezone.now().date()
-                            
-                                    post_time = str(currenttime.hour).zfill(2)+str(currenttime.minute).zfill(2)+str(currenttime.second).zfill(2)
+                                   
                                     stktrn_ids = Stktrn.objects.filter(store_no=site.itemsite_code,itemcode=str(i.item_code[:-4])+"0000",
                                     item_uom=i.uom).order_by('pk').last() 
 
