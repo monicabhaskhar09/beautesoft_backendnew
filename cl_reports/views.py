@@ -234,7 +234,7 @@ class siteListingAPIView(GenericAPIView):
     def get_sitelisting(self,empcode):
         try:
             cursor = connection.cursor()
-            cursor.execute("SELECT TOP(100) ItemSite_Code as itemcode, ItemSite_Desc as itemdesc FROM item_SiteList WHERE ItemSite_isactive='True' AND itemsite_code in (SELECT Site_Code from emp_SiteList WHERE emp_code = %s and isactive=1) ORDER BY itemDesc;",[empcode])
+            cursor.execute("SELECT TOP(100) ItemSite_Code as itemcode, ItemSite_Desc as itemdesc FROM Item_SiteList WHERE ItemSite_Isactive='True' AND itemsite_code in (SELECT Site_Code from Emp_SiteList WHERE emp_code = %s and isactive=1) ORDER BY itemdesc;",[empcode])
             res = dictfetchall(self, cursor)
             return res
         except Paytable.DoesNotExist:
@@ -276,60 +276,54 @@ class ReportTitleListAPIView(GenericAPIView):
             raise Exception('Paytable Does not Exist') 
     
     def post(self, request):
-        # try:    
+        try:    
             fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
             site = fmspw.loginsite
             from_date = self.request.data.get('from_date',None)
             to_date = self.request.data.get('to_date',None)
             report_title = self.request.data.get('report_title',None)
             if not from_date:
-                result = {'status': status.HTTP_200_OK,
-                "message":"Please give from_date!!",'error': True} 
-                return Response(data=result, status=status.HTTP_200_OK)
-
+                raise Exception('Please give from_date !!') 
+              
             if not to_date:
-                result = {'status': status.HTTP_200_OK,
-                "message":"Please give to_date!!",'error': True} 
-                return Response(data=result, status=status.HTTP_200_OK)
+                raise Exception('Please give to_date !!') 
 
             if not report_title:
-                result = {'status': status.HTTP_200_OK,
-                "message":"Please give report_title!!",'error': True} 
-                return Response(data=result, status=status.HTTP_200_OK)
+                raise Exception('Please give report_title !!') 
 
-
-    
+               
             site_code = self.request.data.get('site_code',None)
             if not site_code:
-                result = {'status': status.HTTP_200_OK,
-                "message":"Please give site_code!!",'error': True} 
-                return Response(data=result, status=status.HTTP_200_OK)
+                raise Exception('Please give site_code !!') 
+               
             
             site_codelst = site_code.split(",")
             site_least = ItemSitelist.objects.filter(itemsite_code__in=site_codelst).order_by('itemsite_id').first()
             if not site_least:
-                result = {'status': status.HTTP_200_OK,
-                "message":"Selected site doesn't exist!!",'error': True} 
-                return Response(data=result, status=status.HTTP_200_OK)
-    
+                raise Exception('Selected site doesnt exist !!') 
+               
 
             from_date = datetime.datetime.strptime(str(from_date), "%Y-%m-%d").strftime("%d/%m/%Y")
             to_date = datetime.datetime.strptime(str(to_date), "%Y-%m-%d").strftime("%d/%m/%Y") 
             sitecode = site_least.itemsite_code
             fk_id = self.get_report_titlelisting(sitecode)
-            if not fk_id:
-                result = {'status': status.HTTP_200_OK,
-                "message":"Company Title doesn't exist!!",'error': True} 
-                return Response(data=result, status=status.HTTP_200_OK)
-    
+            # print(fk_id)
 
             now = datetime.datetime.now()
             dt_string = now.strftime("%d/%m/%Y | %H:%M:%S %I:%M:%S %p")
-            if fk_id:
-                vals = {'report_title': "Collection By Outlet",'outlet': site.itemsite_desc,
+            vals = {'report_title': "Collection By Outlet",'outlet': site.itemsite_desc,
                 'from_date': from_date, 'to_date':to_date ,'print_by': fmspw.pw_userlogin,
                 'print_time': dt_string ,'site': site_code}
+            if fk_id:
                 fk_id[0].update(vals)
+            else:
+                vals.update({"product_license": "","id": "","title":"","comp_title1": "","comp_title2": "",
+                "comp_title3": "","comp_title4": "","footer_1": "","footer_2": "","footer_3": "",
+                "footer_4": ""})
+                fk_id.append(vals)
+
+                
+
             # print(fk_id,"fk_id")
 
             result = {'status': status.HTTP_200_OK , "message": "Listed Succesfully",
@@ -337,6 +331,115 @@ class ReportTitleListAPIView(GenericAPIView):
         
             return Response(result, status=status.HTTP_200_OK)
     
-        # except Exception as e:
-        #     invalid_message = str(e)
-        #     return general_error_response(invalid_message)        
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)        
+
+
+class CollectionbyOutletViewset(viewsets.ModelViewSet):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = []
+    serializer_class = []
+
+    def get_sales_collection(self):
+        pass
+
+         
+      
+
+        return queryset
+
+    def list(self, request):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+            site = fmspw[0].loginsite
+            from_date = self.request.data.get('from_date',None)
+            to_date = self.request.data.get('to_date',None)
+            if not from_date:
+                raise Exception('Please give from_date !!') 
+              
+            if not to_date:
+                raise Exception('Please give to_date !!') 
+
+              
+
+            start_date = datetime.datetime.strptime(request.GET.get("start"), "%Y-%m-%d").date()
+            end_date = datetime.datetime.strptime(request.GET.get("end"), "%Y-%m-%d").date()
+
+            serializer_class = ReportmasterSerializer
+            
+            queryset = self.filter_queryset(self.get_queryset())
+
+            total = len(queryset)
+            state = status.HTTP_200_OK
+            message = "Listed Succesfully"
+            error = False
+            data = None
+
+            result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+
+            return Response(result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+    
+
+    def get(self,request):
+
+        try:
+            start_date = datetime.datetime.strptime(request.GET.get("start"), "%Y-%m-%d").date()
+            end_date = datetime.datetime.strptime(request.GET.get("end"), "%Y-%m-%d").date()
+            date_range = [start_date + datetime.timedelta(days=i) for i in range(0, (end_date - start_date).days + 1)]
+        except:
+            result = {'status': status.HTTP_400_BAD_REQUEST,
+                      'message': "start and end query parameters are mandatory. format is YYYY-MM-DD",
+                      'error': True,
+                      "data": None}
+            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        # filters
+        _siteCodes = request.GET.get("siteCodes")
+        _siteGroup = request.GET.get("siteGroup")
+        if _siteGroup and _siteCodes:
+            result = {'status': status.HTTP_400_BAD_REQUEST,
+                      'message': "siteCodes and siteGroup query parameters can't use in sametime", 'error': True, "data": None}
+            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            site_code_list = ItemSitelist.objects.filter(itemsite_isactive=True).\
+                exclude(itemsite_code__icontains="HQ").\
+                values_list('itemsite_code', flat=True)
+
+        if _siteCodes:
+            site_code_list = _siteCodes.split(",")
+        elif _siteGroup:
+            site_code_list = site_code_list.filter(site_group=_siteGroup)
+        site_code_q = ', '.join(['\''+str(code)+'\'' for code in site_code_list])
+        raw_q = f"SELECT MAX(e.display_name) Consultant, " \
+                        f"cast(SUM(pd.dt_deposit/100*ms.ratio) AS decimal(9,2)) amount, " \
+                        f"pd.ItemSite_Code AS siteCode, MAX(e.emp_name) FullName " \
+                f"FROM pos_daud pd " \
+                f"INNER JOIN multistaff ms ON pd.sa_transacno = ms.sa_transacno and pd.dt_lineno = ms.dt_lineno " \
+                f"LEFT JOIN employee e on ms.emp_code = e.emp_code " \
+                f"WHERE pd.ItemSite_Code IN ({site_code_q})" \
+                f"AND pd.sa_date BETWEEN '{start_date}' AND '{end_date}' " \
+                f"GROUP BY ms.emp_code, pd.ItemSite_Code " \
+                f"ORDER BY Amount DESC"
+
+        with connection.cursor() as cursor:
+            cursor.execute(raw_q)
+            raw_qs = cursor.fetchall()
+            desc = cursor.description
+            # responseData = [dict(zip([col[0] for col in desc], row)) for row in raw_qs]
+            # for row in raw_qs:
+            data_list = []
+            site_total_dict = {}
+            for i,row in enumerate(raw_qs):
+                _d = dict(zip([col[0] for col in desc], row))
+                _d['id'] = i+1
+                data_list.append(_d)
+                site_total_dict[_d['Consultant']] = round(site_total_dict.get(_d['Consultant'], 0) + _d['amount'], 2)
+
+            responseData = {"data": data_list, "chart": site_total_dict}
+            result = {'status': status.HTTP_200_OK, 'message': "success", 'error': False, "data": responseData}
+            return Response(result, status=status.HTTP_200_OK)

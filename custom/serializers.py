@@ -9,7 +9,8 @@ WorkOrderInvoiceDetailModel,WorkOrderInvoiceAddrModel,WorkOrderInvoiceItemModel,
 DeliveryOrderDetailModel,DeliveryOrderItemModel,DeliveryOrdersign,EquipmentDropdownModel,EquipmentUsage,
 EquipmentUsageItemModel,Currencytable,QuotationPayment,ManualInvoicePayment,quotationsign,RoundSales,ManualInvoicesign)
 from cl_table.models import (Treatment, Stock, PackageDtl, ItemClass, ItemRange, Employee, Tmptreatment,
-TmpItemHelper,PosHaud,City, State, Country, Stock,Title,PayGroup,ItemDept,Systemsetup,PrepaidOpenCondition )
+TmpItemHelper,PosHaud,City, State, Country, Stock,Title,PayGroup,ItemDept,Systemsetup,PrepaidOpenCondition,
+PrepaidValidperiod)
 from cl_table.serializers import get_client_ip,PrepaidOpenConditionSerializer
 from django.db.models import Sum
 from datetime import date, timedelta, datetime
@@ -665,7 +666,13 @@ class CartPrepaidSerializer(serializers.ModelSerializer):
         else:
             isopen_prepaid = True if obj.isopen_prepaid == True else False
         
-         
+        prepaid_valid_period = ""
+        if pqueryset and pqueryset[0].prepaid_valid_period:
+            prepaid_valid_period = pqueryset[0].prepaid_valid_period
+        else:
+            default_ids = PrepaidValidperiod.objects.filter(prepaid_valid_isactive=True).order_by('prepaid_valid_days')
+            if default_ids and default_ids[0].prepaid_valid_days:
+                prepaid_valid_period = default_ids[0].prepaid_valid_days
 
         # print(prepaid_value,"prepaid_value")   
         mapped_object = {
@@ -678,7 +685,7 @@ class CartPrepaidSerializer(serializers.ModelSerializer):
             'prepaid_value' : prepaid_value[0],
             'isopen_prepaid' : isopen_prepaid,
             'openprepaid_condition': serializer.data,
-            'prepaid_valid_period' : pqueryset[0].prepaid_valid_period if pqueryset and pqueryset[0].prepaid_valid_period else "",
+            'prepaid_valid_period' :  prepaid_valid_period,
             'membercardnoaccess' : pqueryset[0].membercardnoaccess if pqueryset and pqueryset[0].membercardnoaccess else False
             }
        

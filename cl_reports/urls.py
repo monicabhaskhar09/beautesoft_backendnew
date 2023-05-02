@@ -7,6 +7,8 @@ from . import views
 
 router = DefaultRouter()
 router.register(r'reportmaster', views.ReportmasterViewset, basename='reportmaster')
+router.register(r'collectionbyoutlet', views.CollectionbyOutletViewset, basename='collectionbyoutlet')
+
 
 
 urlpatterns = [

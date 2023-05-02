@@ -121,7 +121,8 @@ class SalonViewset(viewsets.ModelViewSet):
             queryset = self.filter_queryset(self.get_queryset())
             if queryset:
                 serializer = self.get_serializer(queryset, many=True)
-                result = {'status': status.HTTP_200_OK,"message":"Listed Successfully",'error': False, 'data':  serializer.data}
+                result = {'status': status.HTTP_200_OK,"message":"Listed Successfully",
+                'error': False, 'data':  serializer.data}
             else:
                 serializer = self.get_serializer()
                 result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
@@ -7211,19 +7212,71 @@ class VoidViewset(viewsets.ModelViewSet):
                                 prepacc.sa_date = cart_date
                                 prepacc.start_date = cart_date
                                 prepacc.save()
-                                
-                                # ,p_itemtype="Inclusive"
-                                pacc_ids = list(set(PrepaidAccountCondition.objects.filter(pp_no=ppno,
-                                pos_daud_lineno=lineno).only('pp_no','pos_daud_lineno').values_list('id', flat=True).distinct()))
-                                if pacc_ids != []:                                
-                                    acc = PrepaidAccountCondition.objects.filter(pk__in=pacc_ids).update(use_amt=0,remain=remain)
 
-                            vtlast_preids = PrepaidAccount.objects.filter(pp_no=ppno,line_no=lineno,
-                            cust_code=haudobj.sa_custno,transac_no=haudobj.sa_transacno).order_by('-pk')
-                            if vtlast_preids:
-                                for v in vtlast_preids:
-                                    v.sa_status = "VT"
-                                    v.save()
+                                use_preids = PrepaidAccount.objects.filter(pp_no=ppno,line_no=lineno,
+                                cust_code=haudobj.sa_custno,transac_no=haudobj.sa_transacno,sa_status="SA").order_by('pk')
+                                print(use_preids,"use_preids")  
+                                if use_preids:
+                                    for u in use_preids:
+                                        use_stockobj = Stock.objects.filter(item_code=u.item_no).first()
+                                        redeem_ppac = False; op_conditionobj = False
+                                        if use_stockobj:
+                                            if int(use_stockobj.Item_Divid.itm_code) == 3:
+                                                updopen_ids = PrepaidAccountCondition.objects.filter(pp_no=ppno,
+                                                pos_daud_lineno=lineno,p_itemtype="Inclusive",conditiontype1="Service Only",
+                                                itemdept_id=use_stockobj.Item_Deptid.pk).first()
+                                                if updopen_ids:
+                                                    redeem_ppac = True ; op_conditionobj = updopen_ids
+                                                else:
+                                                    updopenall_ids = PrepaidAccountCondition.objects.filter(pp_no=ppno,
+                                                    pos_daud_lineno=lineno,p_itemtype="Inclusive",conditiontype1="Service Only",
+                                                    conditiontype2="All").first()
+                                                    if updopenall_ids:
+                                                        redeem_ppac = True; op_conditionobj=updopenall_ids
+                                                        
+                                            elif int(use_stockobj.Item_Divid.itm_code) == 1:
+                                                item_brand_code = ItemBrand.objects.filter(itm_code=use_stockobj.item_brand,
+                                                retail_product_brand=True,itm_status=True).first()
+                                                if item_brand_code:
+                                                    updpro_ids = PrepaidAccountCondition.objects.filter(pp_no=ppno,
+                                                    pos_daud_lineno=lineno,p_itemtype="Inclusive",conditiontype1="Product Only",
+                                                    itembrand_id=item_brand_code.pk).first()
+                                                    if updpro_ids:
+                                                        redeem_ppac = True; op_conditionobj=updpro_ids
+                                                    else:
+                                                        updproall_ids = PrepaidAccountCondition.objects.filter(pp_no=ppno,
+                                                        pos_daud_lineno=lineno,p_itemtype="Inclusive",conditiontype1="Product Only",
+                                                        conditiontype2="All").first()
+                                                        if updproall_ids:
+                                                            redeem_ppac = True; op_conditionobj = updproall_ids
+
+                                            if redeem_ppac == False:
+                                                upda_all_ids = PrepaidAccountCondition.objects.filter(pp_no=ppno,
+                                                pos_daud_lineno=lineno,p_itemtype="Inclusive",conditiontype1="All",
+                                                conditiontype2="All").first()
+                                                if upda_all_ids:
+                                                    redeem_ppac = True; op_conditionobj = upda_all_ids
+                                            
+                                            if op_conditionobj:
+                                                op_cond_remain = float(op_conditionobj.remain) + float(u.use_amt)
+                                                print(op_cond_remain,"op_cond_remain")
+                                                upd_preacc = PrepaidAccountCondition.objects.filter(pk=op_conditionobj.pk).update(remain=op_cond_remain,
+                                                use_amt=0)
+
+
+                
+                                # ,p_itemtype="Inclusive"
+                                # pacc_ids = list(set(PrepaidAccountCondition.objects.filter(pp_no=ppno,
+                                # pos_daud_lineno=lineno,p_itemtype="Inclusive").only('pp_no','pos_daud_lineno').values_list('id', flat=True).distinct()))
+                                # if pacc_ids != []:                                
+                                #     acc = PrepaidAccountCondition.objects.filter(pk__in=pacc_ids).update(use_amt=0,remain=remain)
+
+                                vtlast_preids = PrepaidAccount.objects.filter(pp_no=ppno,line_no=lineno,
+                                cust_code=haudobj.sa_custno,transac_no=haudobj.sa_transacno).order_by('-pk')
+                                if vtlast_preids:
+                                    for v in vtlast_preids:
+                                        v.sa_status = "VT"
+                                        v.save()
 
                             # # pac_ids = PrepaidAccount.objects.filter(transac_no=haudobj.sa_transacno,sa_status='SA',
                             # # cust_code=haudobj.sa_custno,site_code=site.itemsite_code)
@@ -10599,10 +10652,11 @@ class PrepaidAccPaymentListViewset(viewsets.ModelViewSet):
                 sa_status__in=['DEPOSIT']).exclude(sa_status='VT').only('site_code','cust_code','sa_status').order_by('-pk','-sa_date')
 
             else:
+                # .exclude(sa_status='VT')
                 # queryset = PrepaidAccount.objects.filter(site_code=site.itemsite_code,cust_code=cust_obj.cust_code,
                 # sa_status__in=['DEPOSIT','SA'],remain__gt=0).only('site_code','cust_code','sa_status').order_by('pk')
                 queryset = PrepaidAccount.objects.filter(cust_code=cust_obj.cust_code,
-                status=True,remain__gt=0).exclude(sa_status='VT').only('site_code','cust_code','sa_status').order_by('-pk','-sa_date')
+                status=True,remain__gt=0).only('site_code','cust_code','sa_status').order_by('-pk','-sa_date')
 
 
             if queryset:
@@ -10611,7 +10665,7 @@ class PrepaidAccPaymentListViewset(viewsets.ModelViewSet):
                 for data in serializer.data:
                     data.pop('voucher_no'); data.pop('condition_type1')
                     preobj = PrepaidAccount.objects.filter(pk=data["id"]).only('pk').first()
-                    print(preobj.pk,preobj.pp_desc,"pp_desc")
+                    # print(preobj.pk,preobj.pp_desc,"pp_desc")
                     if data["id"]:
                         id_lst.append(data["id"])
                     
@@ -10698,8 +10752,11 @@ class PrepaidAccPaymentListViewset(viewsets.ModelViewSet):
                         in_open_ids = PrepaidAccountCondition.objects.filter(pp_no=preobj.pp_no,
                         pos_daud_lineno=preobj.line_no,p_itemtype="Inclusive").order_by('pk')
 
+                        # open_ids.conditiontype1 
+                        # open_ids.conditiontype2
+
                         data["conditiontype1"]= ','.join(list(set([v.conditiontype1 for v in in_open_ids if v.conditiontype1])))
-                        data["conditiontype2"]= ','.join(list(set([v.conditiontype2 for v in in_open_ids if v.conditiontype2])))              
+                        data["conditiontype2"]=  ','.join(list(set([v.conditiontype2 for v in in_open_ids if v.conditiontype2])))                            
                         data["product"] = 0.00;data["service"] = 0.00;data["all"] = 0.00
                         if open_ids.conditiontype1 == "Product Only":
                             data["product"] = "{:.2f}".format(float(last_acc_ids.pp_amt))
@@ -10738,8 +10795,7 @@ class PrepaidAccPaymentListViewset(viewsets.ModelViewSet):
                                         if "all" in conditiontype2_res:
                                             allfilter_ids = list(set(whole_ids.values_list('pk', flat=True).distinct()))
                                             cartid_lst += allfilter_ids
-                                        else:
-                                            pass
+                                        
                                     elif "serviceonly" in conditiontype1_res: 
                                         if "all" in conditiontype2_res:
                                             ser_filter_ids = list(set(service_ids.values_list('pk', flat=True).distinct()))
@@ -10758,7 +10814,7 @@ class PrepaidAccPaymentListViewset(viewsets.ModelViewSet):
 
                             exc_ids = ol_open_ids.filter(p_itemtype="Exclusive")
                             inc_cart_ids = ItemCart.objects.filter(pk__in=list(set(cartid_lst))).order_by('id')
-                            print(inc_cart_ids,"inc_cart_ids")
+                            # print(inc_cart_ids,"inc_cart_ids")
                             if inc_cart_ids:
                                 use_final_ids = inc_cart_ids
                                 if exc_ids:
@@ -10783,91 +10839,16 @@ class PrepaidAccPaymentListViewset(viewsets.ModelViewSet):
                                                 final_ids = use_final_ids.filter(~Q(itemcodeid__item_brand__in=itembrand_p))
                                                 use_final_ids = final_ids
                                 
-                                print(use_final_ids,"use_final_ids")
+                                # print(use_final_ids,"use_final_ids")
                                 use_amount_ids = use_final_ids.aggregate(deposit=Coalesce(Sum('deposit'), 0))   
-                                print(use_amount_ids['deposit'],"kk")
+                                # print(use_amount_ids['deposit'],"kk")
                                 if use_amount_ids['deposit']: 
                                     if last_acc_ids.remain >= use_amount_ids['deposit'] :
                                         data["redeem_amount"] = "{:.2f}".format(use_amount_ids['deposit'] )
                                     elif last_acc_ids.remain < use_amount_ids['deposit'] :
                                         data["redeem_amount"] = "{:.2f}".format(last_acc_ids.remain)
 
-
-                            
-                            # dr_conditiontype2 = str(open_ids.conditiontype2).split(',')
-
-                            
-                            # if "all" in conditiontype_res:
-                            #     if "all" in conditiontype2_res:
-                            #         if last_acc_ids.remain >= all_only:
-                            #             data["redeem_amount"] = "{:.2f}".format(all_only)
-                            #         elif last_acc_ids.remain < all_only:
-                            #             data["redeem_amount"] = "{:.2f}".format(last_acc_ids.remain)
-
-                            #     else:
-                            #         allredeem_ids = depo_ids.filter(itemcodeid__item_div__in=[3,1,4]
-                            #         ).filter(~Q(itemcodeid__item_type='PACKAGE'),itemcodeid__Item_Deptid__itm_desc__in=dr_conditiontype2).aggregate(deposit=Coalesce(Sum('deposit'), 0))
-                                    
-                            #         if item_brand != []:
-                            #             allbrandredeem_ids = depo_ids.filter(itemcodeid__item_div__in=[3,1,4]
-                            #             ).filter(~Q(itemcodeid__item_type='PACKAGE'),itemcodeid__item_brand__in=item_brand).aggregate(deposit=Coalesce(Sum('deposit'), 0))
-                            #             allredeem_ids['deposit'] += allbrandredeem_ids['deposit']
-                                        
-                            #         all_package_only = depo_ids.filter(itemcodeid__item_div=3,itemcodeid__item_type='PACKAGE',itemcodeid__Item_Deptid__itm_desc__in=dr_conditiontype2)
-                            #         all_package_val = calculate_package_amount(all_package_only,site)
-                            #         # print(all_package_val,"all_package_val")
-
-                            #         allredeem_ids['deposit'] += all_package_val['paall_only']
-
-                            #         if last_acc_ids.remain >= allredeem_ids['deposit']: 
-                            #             data["redeem_amount"] = "{:.2f}".format(allredeem_ids['deposit'])
-                            #         elif last_acc_ids.remain < allredeem_ids['deposit']:
-                            #             data["redeem_amount"] = "{:.2f}".format(last_acc_ids.remain)
-
-                                   
-                            
-                            # elif "serviceonly" in conditiontype_res: 
-                            #     if "all" in conditiontype2_res:
-                                    
-                            #         if last_acc_ids.remain >= service_only:
-                            #             data["redeem_amount"] = "{:.2f}".format(service_only)
-                            #         elif last_acc_ids.remain < service_only:
-                            #             data["redeem_amount"] = "{:.2f}".format(last_acc_ids.remain)
-
-                            #     else:
-                            #         servredeem_ids = depo_ids.filter(itemcodeid__item_div__in=[3]
-                            #         ).filter(~Q(itemcodeid__item_type='PACKAGE'),itemcodeid__Item_Deptid__itm_desc__in=dr_conditiontype2).aggregate(deposit=Coalesce(Sum('deposit'), 0))
-                            #         ser_package_only = depo_ids.filter(itemcodeid__item_div=3,itemcodeid__item_type='PACKAGE',itemcodeid__Item_Deptid__itm_desc__in=dr_conditiontype2)
-                            #         ser_package_val = calculate_package_amount(ser_package_only,site)
-                            #         # print(ser_package_val,"ser_package_val")
-
-                            #         servredeem_ids['deposit'] += ser_package_val['paservice_only']
-
-                            #         if last_acc_ids.remain >= servredeem_ids['deposit']:
-                            #             data["redeem_amount"] = "{:.2f}".format(servredeem_ids['deposit'])
-                            #         elif last_acc_ids.remain < servredeem_ids['deposit']:
-                            #             data["redeem_amount"] = "{:.2f}".format(last_acc_ids.remain)
-
-                            # elif "productonly" in conditiontype_res: 
-                            #     if "all" in conditiontype2_res:
-                            #         if last_acc_ids.remain >= product_only:  
-                            #             data["redeem_amount"] = "{:.2f}".format(product_only)
-                            #         elif last_acc_ids.remain < product_only:
-                            #             data["redeem_amount"] = "{:.2f}".format(last_acc_ids.remain)
-                            #     else:
-                            #         prodredeem_ids = depo_ids.filter(itemcodeid__item_div__in=[1]
-                            #         ).filter(~Q(itemcodeid__item_type='PACKAGE'),itemcodeid__item_brand__in=item_brand).aggregate(deposit=Coalesce(Sum('deposit'), 0))
-                            #         pro_package_only = depo_ids.filter(itemcodeid__item_div=3,itemcodeid__item_type='PACKAGE',itemcodeid__Item_Deptid__itm_desc__in=dr_conditiontype2)
-                            #         pro_package_val = calculate_package_amount(pro_package_only,site)
-                            #         # print(pro_package_val,"pro_package_val")
-
-                            #         prodredeem_ids['deposit'] += pro_package_val['paproduct_only']
-
-                            #         if last_acc_ids.remain >= prodredeem_ids['deposit']:
-                            #             data["redeem_amount"] = "{:.2f}".format(prodredeem_ids['deposit']) 
-                            #         elif last_acc_ids.remain < prodredeem_ids['deposit']:
-                            #             data["redeem_amount"] = "{:.2f}".format(last_acc_ids.remain) 
-
+                           
                             if float(data["redeem_amount"]) > 0:
                                 is_allowprepaid = True
                             else:
@@ -10939,10 +10920,11 @@ class PrepaidAccListViewset(viewsets.ModelViewSet):
                 sa_status__in=['DEPOSIT']).exclude(sa_status='VT').only('site_code','cust_code','sa_status').order_by('-pk','-sa_date')
 
             else:
+                # .exclude(sa_status='VT')
                 # queryset = PrepaidAccount.objects.filter(site_code=site.itemsite_code,cust_code=cust_obj.cust_code,
                 # sa_status__in=['DEPOSIT','SA'],remain__gt=0).only('site_code','cust_code','sa_status').order_by('pk')
                 queryset = PrepaidAccount.objects.filter(cust_code=cust_obj.cust_code,
-                status=True,remain__gt=0).exclude(sa_status='VT').only('site_code','cust_code','sa_status').order_by('-pk','-sa_date')
+                status=True,remain__gt=0).only('site_code','cust_code','sa_status').order_by('-pk','-sa_date')
 
 
             if queryset:

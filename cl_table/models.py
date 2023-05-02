@@ -2967,6 +2967,7 @@ class PrepaidOpenCondition(models.Model):
 
     class Meta:
         db_table = 'Prepaid_Open_Condition'
+        # unique_together = (('conditiontype1', 'conditiontype2'),)
 
     def __str__(self):
         return str(self.p_itemtype)

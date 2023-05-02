@@ -44,7 +44,8 @@ GstSetting,PosTaud,PosDaud,PosHaud,ControlNo,EmpSitelist,ItemStatus, TmpItemHelp
 TreatmentAccount, PosDaud, ItemDept, DepositAccount, PrepaidAccount, ItemDiv, Systemsetup, Title,
 PackageHdr,PackageDtl,Paytable,Multistaff,ItemBatch,Stktrn,ItemUomprice,Holditemdetail,CreditNote,
 CustomerClass,ItemClass,Tmpmultistaff,Tmptreatment,ExchangeDtl,ItemUom,ItemHelper,PrepaidAccountCondition,
-City, State, Country, Stock,PayGroup,Tempcustsign,Item_MembershipPrice,TreatmentPackage,PrepaidOpenCondition)
+City, State, Country, Stock,PayGroup,Tempcustsign,Item_MembershipPrice,TreatmentPackage,PrepaidOpenCondition,
+ItemBrand)
 from cl_app.models import ItemSitelist, SiteGroup, TmpTreatmentSession,TmpItemHelperSession
 from cl_table.serializers import (PostaudSerializer,StaffsAvailableSerializer,PosdaudSerializer,TmpItemHelperSerializer,
 PrepaidOpenConditionSerializer)
@@ -3062,6 +3063,15 @@ class itemCartViewset(viewsets.ModelViewSet):
                                     pos.save()
                                     pos.sa_date = date.today()
                                     pos.save()
+                    
+                    if int(stock_obj.item_div) == 5 and stock_obj.Item_Divid.itm_desc == 'PREPAID':
+                        if stock_obj.is_open_prepaid == True:
+                            cart.isopen_prepaid = True
+                        else:
+                            cart.isopen_prepaid = False
+                        cart.save()
+
+
 
     
                     # if str(req['type']) == 'Top Up':
@@ -9766,24 +9776,51 @@ class CartPrepaidViewset(viewsets.ModelViewSet):
 
             serializer = self.get_serializer(cart, data=request.data, partial=True)
             if serializer.is_valid():
-                total_price =  request.data['price'] * cart.quantity
-
-                serializer.save(isopen_prepaid=True,total_price=total_price,discount_price=request.data['price'],
-                trans_amt=total_price)
-                
                 openprepaid_condition = request.data.get('openprepaid_condition') 
                 # print(openprepaid_condition,"openprepaid_condition")
                 
                 if 'openprepaid_condition' in request.data and request.data['openprepaid_condition']:
                     # print("iff openprepaid_condition")
+                    prepaid_valuesum = sum([float(i['prepaid_value']) for i in openprepaid_condition])
+                    # print(prepaid_valuesum,"prepaid_valuesum")
+                    # print(float(request.data['prepaid_value']),float(request.data['price']),"data")
+                    if float(request.data['prepaid_value']) == 0 or float(request.data['price']) == 0:
+                        raise Exception('Prepaid value or Prepaid amount should not be 0!!')
+
+                    if prepaid_valuesum == 0:
+                        if float(request.data['prepaid_value']) == 0:
+                            if float(request.data['price']) != 0:
+                                raise Exception('Inclusive Table Condition Amount 0,Prepaid Value should not be 0 when Prepaid Amount has some value!!')
+                    
+                    if prepaid_valuesum != float(request.data['prepaid_value']):
+                        raise Exception('Conditions Table Inclusive Amount Sum should be equal to Open Prepaid Value !')
+                    
+                    if prepaid_valuesum < float(request.data['price']):
+                        raise Exception('Conditions Table Inclusive Amount Sum should not be less than Open Prepaid Amount !')
+
+                    
+                        
                     openprepaid_lst = []
-                    for idx, reqt in enumerate(openprepaid_condition):    
+                    for idx, reqt in enumerate(openprepaid_condition, start=1):
+                        itemdept_id = None ; itembrand_id = None     
                         # print(reqt,"reqt")
                         serializer_op = PrepaidOpenConditionSerializer(data=reqt)
                         # print(serializer_op.is_valid())
                         # print(serializer.errors)
                         if serializer_op.is_valid():
-                            
+                            if reqt['conditiontype2'] != 'All':
+                                itemdept_obj = ItemDept.objects.filter(itm_desc__icontains=reqt['conditiontype2'],
+                                is_service=True, itm_status=True).order_by('itm_seq').first()
+                                # print(itemdept_obj,"itemdept_obj")
+                                if itemdept_obj:
+                                    itemdept_id = itemdept_obj.pk
+                                    
+                                itembrand_obj = ItemBrand.objects.filter(itm_desc__icontains=reqt['conditiontype2'],
+                                retail_product_brand=True, itm_status=True).order_by('itm_seq').first()
+                                # print(itembrand_obj,"itembrand_obj")
+                                if itembrand_obj:
+                                    itembrand_id = itembrand_obj.pk
+        
                         
                             if not 'p_itemtype' in reqt or not reqt['p_itemtype']:
                                 raise Exception('Please give Inclusive / Exclusive Type!.') 
@@ -9802,18 +9839,23 @@ class CartPrepaidViewset(viewsets.ModelViewSet):
                                 
                         
                             if 'op_id' in reqt and not reqt['op_id']:
+                                # p_itemtype=reqt['p_itemtype'],
                                 check_ids = PrepaidOpenCondition.objects.filter(itemcart=cart,
-                                item_code=cart.itemcodeid.item_code,p_itemtype=reqt['p_itemtype'],
+                                item_code=cart.itemcodeid.item_code,
                                 conditiontype1=reqt['conditiontype1'],conditiontype2=reqt['conditiontype2']).order_by('-pk')
-                                print(check_ids,"check_ids")
+                                # print(check_ids,"check_ids")
                                 if not check_ids:
                                     k = serializer_op.save(item_code=cart.itemcodeid.item_code,
-                                    itemcart=cart,
+                                    itemcart=cart,itemdept_id=itemdept_id,itembrand_id=itembrand_id,
                                     prepaid_valid_period=request.data['prepaid_valid_period'] if 'prepaid_valid_period' in request.data and request.data['prepaid_valid_period'] else None,
                                     membercardnoaccess=request.data['membercardnoaccess'] if 'membercardnoaccess' in request.data and request.data['membercardnoaccess'] else False)
-                                    print(k,"k")
+                                    # print(k,"k")
                                     if k.pk not in openprepaid_lst:
                                         openprepaid_lst.append(k.pk)
+                                else:
+                                    if check_ids:
+                                        msg = "Conditions Table lineno {0} Conditiontype1 {1} Conditiontype2 {2} already present in table Should not be duplicate Delete duplicate line then Submit!".format(str(idx),str(reqt['conditiontype1']),str(reqt['conditiontype2']))
+                                        raise Exception(msg) 
                             else:
                                 if not 'op_id' in reqt or not reqt['op_id']:
                                     raise Exception('Please give ID!') 
@@ -9837,14 +9879,34 @@ class CartPrepaidViewset(viewsets.ModelViewSet):
                     update_ids = PrepaidOpenCondition.objects.filter(itemcart=cart
                     ).filter(Q(pk__in=openprepaid_lst)).update(membercardnoaccess=request.data['membercardnoaccess'] if 'membercardnoaccess' in request.data and request.data['membercardnoaccess'] else False,
                     prepaid_valid_period=request.data['prepaid_valid_period'] if 'prepaid_valid_period' in request.data and request.data['prepaid_valid_period'] else None)
-                   
+                
                     delcheck_ids = PrepaidOpenCondition.objects.filter(itemcart=cart
                     ).filter(~Q(pk__in=openprepaid_lst)).order_by('-pk').delete()
+
+                    inclus_ids = PrepaidOpenCondition.objects.filter(itemcart=cart,p_itemtype="Inclusive")
+                    if not inclus_ids:
+                        raise Exception('Without Inclusive type cant submit!.') 
+
+
+
+                    # opencond_ids = PrepaidOpenCondition.objects.filter(itemcart=cart).order_by('pk').aggregate(prepaid_value=Coalesce(Sum('prepaid_value'), 0))
+                    # if opencond_ids['prepaid_value'] > 0.0:
+                    #     credit_amt = "{:.2f}".format(credit['amount'])
+                    # else:
+                    #     credit_amt = "0.00" 
+                
                 else:
                     if openprepaid_condition == []:
-                        del_check_ids = PrepaidOpenCondition.objects.filter(itemcart=cart).order_by('pk').delete()
+                        del_check_ids = PrepaidOpenCondition.objects.filter(itemcart=cart).order_by('pk')
+                        if del_check_ids:
+                            del_check_ids.delete()
+                        raise Exception('Open Prepaid Table Conditions should not be empty when submit!.') 
     
                     
+                total_price =  request.data['price'] * cart.quantity
+
+                serializer.save(total_price=total_price,discount_price=request.data['price'],
+                trans_amt=total_price)
 
                 result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",'error': False}
                 return Response(result, status=status.HTTP_200_OK)

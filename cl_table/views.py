@@ -138,6 +138,8 @@ import xlrd
 import calendar 
 from cl_app.serializers import StockSerializer
 from django.utils.dateparse import parse_datetime
+from xhtml2pdf import pisa
+
 type_ex = ['VT-Deposit','VT-Top Up','VT-Sales']
 
 # Create your views here .
@@ -8997,27 +8999,6 @@ class postaudViewset(viewsets.ModelViewSet):
                                     #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Prepaid pay amt should not be greater than selected prepaid remain!!",'error': True} 
                                     #     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
                                     
-                                    # conditiontype1 = str(open_ids.conditiontype1.lower()).split(',') 
-                                    # # print(conditiontype1,"conditiontype1")
-                                    # conditiontype_res = [ele.replace(" ", "") for ele in conditiontype1]
-                                    # # print(conditiontype_res,"conditiontype_res")
-
-                                    # conditiontype2 = str(open_ids.conditiontype2.lower()).split(',') 
-                                    # # print(conditiontype2,"conditiontype2")
-                                    # conditiontype2_res = [el.replace(" ", "") for el in conditiontype2]
-                                    # # print(conditiontype2_res,"conditiontype2_res")
-                                    # item_brand = ItemBrand.objects.filter(itm_desc=open_ids.conditiontype2,retail_product_brand=True,itm_status=True).first()
-
-                                   
-                                    # all_ids = False
-                                    # if "all" in conditiontype_res:
-                                    #     all_ids = depo_ids.filter(itemcodeid__item_div__in=[3,1,4])
-                                       
-                                    # elif "serviceonly" in conditiontype_res: 
-                                    #     all_ids = depo_ids.filter(itemcodeid__item_div=3)
-                                        
-                                    # elif "productonly" in conditiontype_res: 
-                                    #     all_ids = depo_ids.filter(itemcodeid__item_div=1)
                                     
                                     cartid_lst = []
                                     inc_ids = ol_open_ids.filter(p_itemtype="Inclusive")
@@ -9060,7 +9041,7 @@ class postaudViewset(viewsets.ModelViewSet):
 
                                     exc_ids = ol_open_ids.filter(p_itemtype="Exclusive")
                                     inc_cart_ids = ItemCart.objects.filter(pk__in=list(set(cartid_lst))).order_by('id')
-                                    print(inc_cart_ids,"inc_cart_ids")
+                                    # print(inc_cart_ids,"inc_cart_ids")
                                     if inc_cart_ids:
                                         use_final_ids = inc_cart_ids
                                         if exc_ids:
@@ -9085,12 +9066,11 @@ class postaudViewset(viewsets.ModelViewSet):
                                                         final_ids = use_final_ids.filter(~Q(itemcodeid__item_brand__in=itembrand_p))
                                                         use_final_ids = final_ids
                                         
-                                        print(use_final_ids,"use_final_ids")
+                                        # print(use_final_ids,"use_final_ids")
 
                                         
                                         used_amount = 0    
                                         check_amt = float(req['pay_amt'])
-                                        # print(all_ids,"all_ids")
                                         if use_final_ids:
                                             for i in use_final_ids:
                                                 # print(i,"ii")
@@ -9136,6 +9116,55 @@ class postaudViewset(viewsets.ModelViewSet):
                                                         prepacc.save()
                                                         prepaid_redeemlst.append(i.pk) 
 
+                                                        redeem_ppac = False; op_conditionobj = False
+
+                                                        if int(i.itemcodeid.Item_Divid.itm_code) == 3:
+                                                            updopen_ids = PrepaidAccountCondition.objects.filter(pp_no=pp_no,
+                                                            pos_daud_lineno=line_no,p_itemtype="Inclusive",conditiontype1="Service Only",
+                                                            itemdept_id=i.itemcodeid.Item_Deptid.pk).first()
+                                                            if updopen_ids:
+                                                                redeem_ppac = True ; op_conditionobj = updopen_ids
+                                                            else:
+                                                                updopenall_ids = PrepaidAccountCondition.objects.filter(pp_no=pp_no,
+                                                                pos_daud_lineno=line_no,p_itemtype="Inclusive",conditiontype1="Service Only",
+                                                                conditiontype2="All").first()
+                                                                if updopenall_ids:
+                                                                    redeem_ppac = True; op_conditionobj=updopenall_ids
+                                                                    
+                                                        elif int(i.itemcodeid.Item_Divid.itm_code) == 1:
+                                                            item_brand_code = ItemBrand.objects.filter(itm_code=i.itemcodeid.item_brand,
+                                                            retail_product_brand=True,itm_status=True).first()
+                                                            if item_brand_code:
+                                                                updpro_ids = PrepaidAccountCondition.objects.filter(pp_no=pp_no,
+                                                                pos_daud_lineno=line_no,p_itemtype="Inclusive",conditiontype1="Product Only",
+                                                                itembrand_id=item_brand_code.pk).first()
+                                                                if updpro_ids:
+                                                                    redeem_ppac = True; op_conditionobj=updpro_ids
+                                                                else:
+                                                                    updproall_ids = PrepaidAccountCondition.objects.filter(pp_no=pp_no,
+                                                                    pos_daud_lineno=line_no,p_itemtype="Inclusive",conditiontype1="Product Only",
+                                                                    conditiontype2="All").first()
+                                                                    if updproall_ids:
+                                                                        redeem_ppac = True; op_conditionobj = updproall_ids
+
+                                                        if redeem_ppac == False:
+                                                            upda_all_ids = PrepaidAccountCondition.objects.filter(pp_no=pp_no,
+                                                            pos_daud_lineno=line_no,p_itemtype="Inclusive",conditiontype1="All",
+                                                            conditiontype2="All").first()
+                                                            if upda_all_ids:
+                                                                redeem_ppac = True; op_conditionobj = upda_all_ids
+                                                        
+                                                        if op_conditionobj:
+                                                            PrepaidAccount.objects.filter(pk=prepacc.pk).update(pp_type2=op_conditionobj.conditiontype2,
+                                                            condition_type1=op_conditionobj.conditiontype1)
+                                                            op_cond_remain = float(op_conditionobj.remain) - float(prepacc.use_amt)
+                                                           
+                                                            upd_preacc = PrepaidAccountCondition.objects.filter(pk=op_conditionobj.pk).update(remain=op_cond_remain,
+                                                            use_amt=prepacc.use_amt)
+
+
+                           
+
                                             # print(used_amount,"used_amount") 
                                             # print(redeem_allow,"redeem_allow")
                                             # print(prepaid_redeemlst,"prepaid_redeemlst")  
@@ -9149,11 +9178,11 @@ class postaudViewset(viewsets.ModelViewSet):
 
                                                 # float(req['pay_amt']) 
                                                 # p_itemtype="Inclusive"
-                                                ac_open_ids = list(set(PrepaidAccountCondition.objects.filter(pp_no=pp_no,
-                                                pos_daud_lineno=line_no).only('pp_no','pos_daud_lineno').values_list('id', flat=True).distinct()))
-                                                if ac_open_ids != []:    
-                                                    acc = PrepaidAccountCondition.objects.filter(pk__in=ac_open_ids).update(use_amt=used_amount,
-                                                    remain=remain)
+                                                # ac_open_ids = list(set(PrepaidAccountCondition.objects.filter(pp_no=pp_no,
+                                                # pos_daud_lineno=line_no).only('pp_no','pos_daud_lineno').values_list('id', flat=True).distinct()))
+                                                # if ac_open_ids != []:    
+                                                #     acc = PrepaidAccountCondition.objects.filter(pk__in=ac_open_ids).update(use_amt=used_amount,
+                                                #     remain=remain)
                                     
                                 check.remove("PREPAID")
                             # elif req['pay_typeid'] == 17:
@@ -11524,7 +11553,7 @@ class CustomerReceiptPrintList(generics.ListAPIView):
            return general_error_response(invalid_message)   
 
 
-class CustomerReceiptPrintBeforeCheckoutList(generics.ListAPIView):
+class CustomerReceiptPrintBeforeCheckoutList(generics.ListCreateAPIView):
     authentication_classes = [ExpiringTokenAuthentication]
     permission_classes = [IsAuthenticated & authenticated_only]
     queryset = ItemCart.objects.filter().order_by('-pk')
@@ -11532,19 +11561,23 @@ class CustomerReceiptPrintBeforeCheckoutList(generics.ListAPIView):
    
     def post(self, request):
         # try:
+            now = timezone.now()
+            print(str(now.hour) + '  ' +  str(now.minute) + '  ' +  str(now.second),"Start hour, minute, second 11111\n")
+       
             global type_ex
             if not request.GET.get('cart_id',None):
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give cart_id!!",'error': True} 
                 return Response(result, status=status.HTTP_400_BAD_REQUEST) 
 
             cart_id = request.GET.get('cart_id',None)
+            print(cart_id,"cart_id")
            
             fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
             site = fmspw.loginsite
 
-            template_path = 'customer_receipt_beforepay.html'
-            response = HttpResponse(content_type='application/pdf')
-            response['Content-Disposition'] = 'attachment; filename="Customer Receipt Beforepay Report.pdf"'
+            # template_path = 'customer_receipt_beforepay.html'
+            # response = HttpResponse(content_type='application/pdf')
+            # response['Content-Disposition'] = 'attachment; filename="Customer Receipt Beforepay Report.pdf"'
             
             cart_date = timezone.now().date()
             cust_id = self.request.GET.get('cust_id', None)
@@ -11560,7 +11593,9 @@ class CustomerReceiptPrintBeforeCheckoutList(generics.ListAPIView):
 
             queryset = ItemCart.objects.filter(isactive=True).filter(cust_noid=cust_obj,cart_id=cart_id,cart_date=cart_date,
             cart_status="Inprogress",isactive=True,is_payment=False).exclude(type__in=type_ex).order_by('lineno')
+            print(queryset,"queryset")
             hdr = queryset[:1] 
+            print(hdr,"hdr")
 
             if not hdr or not queryset:
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Given Cart ID data does not exist!!",'error': True} 
@@ -11761,7 +11796,7 @@ class CustomerReceiptPrintBeforeCheckoutList(generics.ListAPIView):
             
             day = datetime.datetime.strptime(str(hdr[0].cart_date), '%Y-%m-%d').strftime('%a')
             taud_f = taud_data
-            # print(taud_f,"taud_f")
+            print(taud_f,"taud_f")
 
             treatopen_ids = False
             set_obj = False
@@ -11774,12 +11809,12 @@ class CustomerReceiptPrintBeforeCheckoutList(generics.ListAPIView):
             if custsign_ids and custsign_ids.cust_sig:
                 path_custsign = BASE_DIR + custsign_ids.cust_sig.url
             
-            custbal = customer_balanceoutstanding(self,request, hdr[0].cust_noid)
+            # custbal = customer_balanceoutstanding(self,request, hdr[0].cust_noid)
             # print(custbal,"custbal")
             # print(treatopen_ids,"treatopen_ids")
             
             first_sales = ','.join(list(set([v.display_name for v in hdr[0].sales_staff.filter() if v.display_name])))
-            
+            print("iff")
             data = {'name': title.trans_h1 if title and title.trans_h1 else '', 
             'address': title.trans_h2 if title and title.trans_h2 else '', 
             'footer1':title.trans_footer1 if title and title.trans_footer1 else '',
@@ -11803,54 +11838,99 @@ class CustomerReceiptPrintBeforeCheckoutList(generics.ListAPIView):
             'invoice_header' : invoice_header,
             }
             data.update(pdfsub_data)
-            data.update(custbal)
+            # data.update(custbal)
+            now1 = timezone.now()
+            print(str(now1.hour) + '  ' +  str(now1.minute) + '  ' +  str(now1.second),"Start hour, minute, second 2222222\n")
+       
+
+           
            
             template = get_template('customer_receipt_beforepay.html')
 
-            display = Display(visible=0, size=(800, 600))
-            display.start()
+            # display = Display(visible=0, size=(800, 600))
+            # display.start()
             html = template.render(data)
-            options = {
-                'margin-top': '.25in',
-                'margin-right': '.25in',
-                'margin-bottom': '.25in',
-                'margin-left': '.25in',
-                'encoding': "UTF-8",
-                'no-outline': None,
+            # options = {
+            #     'margin-top': '.25in',
+            #     'margin-right': '.25in',
+            #     'margin-bottom': '.25in',
+            #     'margin-left': '.25in',
+            #     'encoding': "UTF-8",
+            #     'no-outline': None,
                 
-            }
+            # }
             
             dst ="customer_receipt_beforepay_" + str(str(hdr[0].cart_id)) + ".pdf"
-           
-            p=pdfkit.from_string(html,False,options=options)
             PREVIEW_PATH = dst
-            pdf = FPDF() 
 
-            pdf.add_page() 
+            # def get_pdf_content_from_html(html_content, filename):
+            # temp_dir = tempfile.mkdtemp()
+            options = {
+                'page-size': 'A4',
+                'margin-top': '0in',
+                'margin-right': '0in',
+                'margin-bottom': '0in',
+                'margin-left': '0in',
+                'encoding': "UTF-8",
+                'no-outline': None,
+            }
             
-            pdf.set_font("Arial", size = 15) 
+            # file_path = os.path.join(settings.PDF_ROOT, PREVIEW_PATH)
+            # p = pdfkit.from_string(html, file_path, options=options)
+            # print(p,"p")
+            # with open(file_path, 'wb') as fh:
+            #     fh.write(p)
+            # encoded = base64.b64encode(data)
+            # # print(encoded,"encoded")
+            # if os.path.exists(file_path):
+            #     os.remove(file_path)
+            
             file_path = os.path.join(settings.PDF_ROOT, PREVIEW_PATH)
-            pdf.output(file_path) 
+            print(file_path,"file_path")
+            file = open(file_path, "w+b")
+            print(file,"file")
+            p = pdfkit.from_string(html, file_path, options=options)
+            # pdf = pisa.CreatePDF(html, dest=file, encoding="UTF-8")
+            # print(pdf,"pdf")
+            file.close()
+            ip_link = str(SITE_ROOT) + "pdf/customer_receipt_beforepay_"+str(hdr[0].cart_id)+".pdf"
+            print(ip_link,"ip_link")    
+            
+           
+            # p=pdfkit.from_string(html,False,options={})
+            # print(p,"p")
+           
+            # pdf = FPDF() 
 
-            if p:
-                file_path = os.path.join(settings.PDF_ROOT, PREVIEW_PATH)
-                report = os.path.isfile(file_path)
-                print(report,"report")
-                if report:
-                    file_path = os.path.join(settings.PDF_ROOT, PREVIEW_PATH)
-                    print("iff")
-                    with open(file_path, 'wb') as fh:
-                        fh.write(p)
-                    display.stop()
+            # pdf.add_page() 
+            
+            # pdf.set_font("Arial", size = 15) 
+            # file_path = os.path.join(settings.PDF_ROOT, PREVIEW_PATH)
+            # pdf.output(file_path) 
 
-                    ip_link = str(SITE_ROOT) + "pdf/customer_receipt_beforepay_"+str(hdr[0].cart_id)+".pdf"
-                    print(ip_link,"ip_link")
+            # if p:
+            #     file_path = os.path.join(settings.PDF_ROOT, PREVIEW_PATH)
+            #     report = os.path.isfile(file_path)
+            #     print(report,"report")
+            #     if report:
+            #         file_path = os.path.join(settings.PDF_ROOT, PREVIEW_PATH)
+            #         print("iff")
+            #         with open(file_path, 'wb') as fh:
+            #             fh.write(p)
+            #         # display.stop()
+
+            #         ip_link = str(SITE_ROOT) + "pdf/customer_receipt_beforepay_"+str(hdr[0].cart_id)+".pdf"
+            #         print(ip_link,"ip_link")
             
             state = status.HTTP_200_OK
             message = "Listed Succesfully"
             error = False
         
-           
+            now2 = timezone.now()
+            print(str(now2.hour) + '  ' +  str(now2.minute) + '  ' +  str(now2.second),"End hour, minute, second 3333333333\n")
+            totalh = now2.second - now.second
+            print(totalh,"total") 
+
             data = {'pdf_link': ip_link}
             result = {'status': state,"message":message,'error': error,
             'data': data}
@@ -19887,21 +19967,43 @@ class EmployeeSecuritySettings(APIView):
         return Response(result, status=status.HTTP_200_OK)
 
 
-@api_view(['GET', ])
-@permission_classes((AllowAny,))
-def MultiLanguage(request):
-    lang_qs = Language.objects.filter(itm_isactive=True)
+# @api_view(['GET', ])
+# @permission_classes((AllowAny,))
+# def MultiLanguage(request):
+#     lang_qs = Language.objects.filter(itm_isactive=True)
 
-    responseDict = {}
-    for lang in lang_qs:
-        qs = MultiLanguageWord.objects.filter(language=lang).values('wordCode', 'word')
-        responseDict[lang.itm_desc] = list(qs)
+#     responseDict = {}
+#     for lang in lang_qs:
+#         qs = MultiLanguageWord.objects.filter(language=lang).values('wordCode', 'word')
+#         responseDict[lang.itm_desc] = list(qs)
 
-    response_data = {
-        "language": responseDict,
-        "message": "Listed successfuly"
-    }
-    return JsonResponse(response_data, status=status.HTTP_200_OK)
+#     response_data = {
+#         "language": responseDict,
+#         "message": "Listed successfuly"
+#     }
+#     return JsonResponse(response_data, status=status.HTTP_200_OK)
+
+class MultiLanguage(GenericAPIView):
+    authentication_classes = ()
+    permission_classes = ()
+    serializer_class = []  
+
+    def get(self, request):
+        lang_qs = Language.objects.filter(itm_isactive=True)
+
+        responseDict = {}
+        for lang in lang_qs:
+            qs = MultiLanguageWord.objects.filter(language=lang).values('wordCode', 'word')
+            responseDict[lang.itm_desc] = list(qs)
+
+        response_data = {
+            'status': status.HTTP_200_OK,"message": "Listed successfuly",
+            'error': False,
+            "language": responseDict,
+        }
+        return JsonResponse(response_data, status=status.HTTP_200_OK)
+
+
 
 @api_view(['GET', ])
 @permission_classes((AllowAny,))
@@ -19923,6 +20025,7 @@ def MultiLanguage_list(request):
         "message": "Listed successfuly"
     }
     return JsonResponse(response_data, status=status.HTTP_200_OK)
+
 
 
 

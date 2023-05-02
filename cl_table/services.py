@@ -1233,8 +1233,13 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                         # else  
                                         # print(vo_obj,"vo_obj")
                                         #PrepaidAccountCondition Creation
-                                        if vo_obj:  
+                                        
+                                        if vo_obj: 
+                                            # v_incids = vo_obj.filter(p_itemtype="Inclusive")
+                                            # pc_conditiontype1 = ','.join(list(set([v.conditiontype1 for v in v_incids if v.conditiontype1])))
+                                                 
                                             for v in vo_obj:
+                                                itemdept_id = None ; itembrand_id = None 
                                                 rate = v.rate
                                                 if v.__class__.__name__ == 'PrepaidOpenCondition':
                                                     itemdept_id = v.itemdept_id
@@ -1244,12 +1249,16 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                                 elif v.__class__.__name__ == 'VoucherCondition':
                                                     amount = v.amount 
                                                     if v.conditiontype2 != 'All':
-                                                        itemdept_id = ItemDept.objects.filter(itm_desc__icontains=v.conditiontype2,
+                                                        itemdept_obj = ItemDept.objects.filter(itm_desc__icontains=v.conditiontype2,
                                                         is_service=True, itm_status=True).order_by('itm_seq').first()
-                                                        itembrand_id = ItemBrand.objects.filter(itm_desc__icontains=v.conditiontype2,
+                                                        if itemdept_obj:
+                                                            itemdept_id = itemdept_obj.pk
+                                                            
+                                                        itembrand_obj = ItemBrand.objects.filter(itm_desc__icontains=v.conditiontype2,
                                                         retail_product_brand=True, itm_status=True).order_by('itm_seq').first()
-                                                    else:
-                                                        itemdept_id = None ; itembrand_id = None
+                                                        if itembrand_obj:
+                                                            itembrand_id = itembrand_obj.pk
+                                                    
 
                                                 # condition_amount
                                                 ppacc = PrepaidAccountCondition(pp_no=sa_transacno,pp_type=itmstock.item_range if itmstock.item_range else None,
@@ -1262,11 +1271,12 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                                 ppacc.save()
                                                 # print(ppacc.pk,"ppacc")
                                                 if ppacc.p_itemtype == "Inclusive": 
-                                                    if v and v.prepaid_valid_period:
-                                                        pprepaid_valid_period = date.today() + timedelta(int(v.prepaid_valid_period)) 
+                                                    if v.__class__.__name__ == 'PrepaidOpenCondition':
+                                                        if v and v.prepaid_valid_period:
+                                                            pprepaid_valid_period = date.today() + timedelta(int(v.prepaid_valid_period)) 
 
                                                     PrepaidAccount.objects.filter(pk=paprepacc.pk).update(pp_type2=ppacc.pp_type,
-                                                    condition_type1=ppacc.conditiontype1,exp_date=pprepaid_valid_period)
+                                                    condition_type1=v.conditiontype1,exp_date=pprepaid_valid_period)
                                         else:
                                             ppacc = PrepaidAccountCondition(pp_no=sa_transacno,pp_type=itmstock.item_range if itmstock.item_range else None,
                                             pp_desc=ppdescval,p_itemtype="Inclusive",
@@ -1274,7 +1284,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                             conditiontype2="All",
                                             amount=itmstock.prepaid_value,rate="Amount$",use_amt=0,remain=pre_remain,
                                             pos_daud_lineno=c.lineno,lpackage=True,package_code=packhdr_ids.code,package_code_lineno=p.deposit_lineno,
-                                            itemdept_id=itemdept_id,itembrand_id=itembrand_id)
+                                            itemdept_id=None,itembrand_id=None)
                                             ppacc.save()
                                             PrepaidAccount.objects.filter(pk=paprepacc.pk).update(pp_type2=ppacc.pp_type,
                                                     condition_type1=ppacc.conditiontype1,exp_date=pprepaid_valid_period)
@@ -1693,8 +1703,8 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                             vo_obj = PrepaidOpenCondition.objects.filter(
                                 itemcart=c).order_by('pk')
                            
-
-                    if c.isopen_prepaid == True:
+                    # c.isopen_prepaid
+                    if c.itemcodeid.is_open_prepaid == True:
                         pp_amt = c.price
                         pp_total = c.prepaid_value
                         pp_bonus = c.prepaid_value - float(c.price)
@@ -1740,9 +1750,13 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                     # print(prepacc.pk,"prepacc")
 
                     #PrepaidAccountCondition Creation
-        
+                    sum_acc_remain = 0
                     if vo_obj:  
+                        # v_incids = vo_obj.filter(p_itemtype="Inclusive")
+                        # pc_conditiontype1 = ','.join(list(set([v.conditiontype1 for v in v_incids if v.conditiontype1])))
+                                  
                         for v in vo_obj:
+                            itemdept_id = None ; itembrand_id = None 
                             rate = v.rate
                             if v.__class__.__name__ == 'PrepaidOpenCondition':
                                 itemdept_id = v.itemdept_id
@@ -1752,41 +1766,54 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                             elif v.__class__.__name__ == 'VoucherCondition':
                                 amount = v.amount 
                                 if v.conditiontype2 != 'All':
-                                    itemdept_id = ItemDept.objects.filter(itm_desc__icontains=v.conditiontype2,
+                                    itemdept_obj = ItemDept.objects.filter(itm_desc__icontains=v.conditiontype2,
                                     is_service=True, itm_status=True).order_by('itm_seq').first()
-                                    itembrand_id = ItemBrand.objects.filter(itm_desc__icontains=v.conditiontype2,
-                                    retail_product_brand=True, itm_status=True).order_by('itm_seq').first()
-                                else:
-                                    itemdept_id = None ; itembrand_id = None
+                                    if itemdept_obj:
+                                        itemdept_id = itemdept_obj.pk
 
-                           
+                                    itembrand_obj = ItemBrand.objects.filter(itm_desc__icontains=v.conditiontype2,
+                                    retail_product_brand=True, itm_status=True).order_by('itm_seq').first()
+                                    if itembrand_obj:
+                                        itembrand_id = itembrand_obj.pk
+                                
+                            acc_remain = (amount * pp_total) / remain
+                            sum_acc_remain += int(acc_remain)
                             # print(pp_acc.pk,"pp_acc")
                            
                             # v_amount
+                            # remain,
                             pp_acc = PrepaidAccountCondition(pp_no=sa_transacno,pp_type=c.itemcodeid.item_range if c.itemcodeid.item_range else None,
                             pp_desc=pp_descval,p_itemtype=v.p_itemtype,
                             item_code=c.itemcodeid.item_code,conditiontype1=v.conditiontype1,
                             conditiontype2=v.conditiontype2,
-                            amount=amount,rate=rate,use_amt=0,remain=remain,
+                            amount=amount,rate=rate,use_amt=0,remain=int(acc_remain),
                             pos_daud_lineno=c.lineno,
                             itemdept_id=itemdept_id,itembrand_id=itembrand_id)
                             pp_acc.save()
                             # print(ppacc.pk,"ppacc")
                             if pp_acc.p_itemtype == "Inclusive":
-                                if v and v.prepaid_valid_period:
-                                    prepaid_valid_period = date.today() + timedelta(int(v.prepaid_valid_period))
+                                if v.__class__.__name__ == 'PrepaidOpenCondition':
+                                    if v and v.prepaid_valid_period:
+                                        prepaid_valid_period = date.today() + timedelta(int(v.prepaid_valid_period))
  
                                 PrepaidAccount.objects.filter(pk=prepacc.pk).update(pp_type2=pp_acc.pp_type,
-                                condition_type1=pp_acc.conditiontype1,exp_date=prepaid_valid_period)
- 
+                                condition_type1=v.conditiontype1,exp_date=prepaid_valid_period)
+                        
+                        bal_acc_remain = remain - sum_acc_remain
+                        inc_ids = PrepaidAccountCondition.objects.filter(pp_no=sa_transacno,
+                        pos_daud_lineno=c.lineno,p_itemtype="Inclusive").order_by('-pk').first()
+                        if inc_ids:
+                            inc_ids.remain = inc_ids.remain + bal_acc_remain
+                            inc_ids.save()
+                        
                     else:
                         pp_acc = PrepaidAccountCondition(pp_no=sa_transacno,pp_type=c.itemcodeid.item_range if c.itemcodeid.item_range else None,
                         pp_desc=pp_descval,p_itemtype="Inclusive",
                         item_code=c.itemcodeid.item_code,conditiontype1="All",
                         conditiontype2="All",
-                        amount=c.prepaid_value,rate="Amount$",use_amt=0,remain=remain,
+                        amount=c.prepaid_value if c.prepaid_value else c.itemcodeid.prepaid_value,rate="Amount$",use_amt=0,remain=remain,
                         pos_daud_lineno=c.lineno,
-                        itemdept_id=itemdept_id,itembrand_id=itembrand_id)
+                        itemdept_id=None,itembrand_id=None)
                         pp_acc.save()
                         PrepaidAccount.objects.filter(pk=prepacc.pk).update(pp_type2=pp_acc.pp_type,
                                 condition_type1=pp_acc.conditiontype1,exp_date=prepaid_valid_period)
@@ -2934,7 +2961,7 @@ def invoice_topup(self, request, topup_ids,sa_transacno, cust_obj, outstanding, 
                 prepaidacc.save()
                 # ,p_itemtype="Inclusive"
                 pacc_ids = list(set(PrepaidAccountCondition.objects.filter(pp_no=c.prepaid_account.pp_no,
-                pos_daud_lineno=c.prepaid_account.line_no).only('pp_no','pos_daud_lineno').values_list('id', flat=True).distinct()))
+                pos_daud_lineno=c.prepaid_account.line_no,p_itemtype="Inclusive").only('pp_no','pos_daud_lineno').values_list('id', flat=True).distinct()))
                 if pacc_ids != []:                                
                     acc = PrepaidAccountCondition.objects.filter(pk__in=pacc_ids).update(remain=remain)
 
