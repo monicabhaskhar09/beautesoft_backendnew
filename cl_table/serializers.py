@@ -9,7 +9,7 @@ DepositAccount, CustomerPoint, MrRewardItemType,Smsreceivelog,Systemsetup,Treatm
 CustomerTitle,ItemDiv,Tempcustsign,CustomerDocument,TreatmentPackage,ContactPerson,ItemFlexiservice,
 termsandcondition,Participants,ProjectDocument,Dayendconfirmlog,CustomerPointDtl,
 CustomerReferral,MGMPolicyCloud,sitelistip,DisplayCatalog,DisplayItem,ItemUomprice,ItemUom,
-ItemBatch,OutletRequestLog,PrepaidOpenCondition,PrepaidValidperiod)
+ItemBatch,OutletRequestLog,PrepaidOpenCondition,PrepaidValidperiod,ScheduleMonth)
 from cl_app.models import ItemSitelist, SiteGroup
 from custom.models import EmpLevel,Room,VoucherRecord,ItemCart
 from django.contrib.auth.models import User
@@ -3663,4 +3663,10 @@ class PrepaidValidperiodSerializer(serializers.ModelSerializer):
     class Meta:
         model = PrepaidValidperiod
         fields = ['id','prepaid_valid_code','prepaid_valid_desc','prepaid_valid_days',
-        'prepaid_valid_isactive']            
+        'prepaid_valid_isactive']  
+
+class ScheduleMonthSerializer(serializers.ModelSerializer):
+   
+    class Meta:
+        model = ScheduleMonth
+        fields = '__all__'                    

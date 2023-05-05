@@ -69,7 +69,7 @@ from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializ
                           DisplayCatalogSerializer,DisplayItemSerializer,DisplayItemStockSerializer,
                           DisplayItemlistSerializer,OutletRequestLogSerializer,
                           PrepaidValidperiodSerializer,ItemCartCustomerReceiptSerializer,
-                          ItemCartdaudSerializer)
+                          ItemCartdaudSerializer,ScheduleMonthSerializer)
 from datetime import date, timedelta, datetime
 import datetime
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
@@ -405,12 +405,12 @@ class CustomerViewset(viewsets.ModelViewSet):
                     k = serializer.save(site_code=site_obj.itemsite_code,cust_code=cus_code,
                     cust_sexes=gender.itm_code if gender else None, cust_joindate=timezone.now(),
                     join_status=True,cust_class=classobj.class_code if classobj and classobj.class_code else None,
-                    Cust_Classid=classobj,custallowsendsms=True)
+                    Cust_Classid=classobj,custallowsendsms=True,or_key=site_obj.itemsite_code)
                 else:
                     k = serializer.save(site_code=site.itemsite_code,Site_Codeid=site,cust_code=cus_code,
                     cust_sexes=gender.itm_code if gender else None, cust_joindate=timezone.now(),
                     join_status=True,cust_class=classobj.class_code if classobj and classobj.class_code else None,
-                    Cust_Classid=classobj,custallowsendsms=True)
+                    Cust_Classid=classobj,custallowsendsms=True,or_key=site.itemsite_code)
 
                 if k.pk:
                     control_obj.control_no = int(control_obj.control_no) + 1
@@ -8485,9 +8485,8 @@ class postaudViewset(viewsets.ModelViewSet):
 
     @transaction.atomic
     def create(self, request):
-        try:
+        # try:
             with transaction.atomic():
-
                 cart_date = timezone.now().date()
                 global type_ex
                 request = self.request
@@ -9021,8 +9020,16 @@ class postaudViewset(viewsets.ModelViewSet):
                                                 if "all" in conditiontype2_res:
                                                     allfilter_ids = list(set(whole_ids.values_list('pk', flat=True).distinct()))
                                                     cartid_lst += allfilter_ids
-                                                # else:
-                                                #     pass
+                                                else:
+                                                    alser_filter_ids = list(set(service_ids.filter(itemcodeid__Item_Deptid__pk=o.itemdept_id).values_list('pk', flat=True).distinct()))
+                                                    if alser_filter_ids:
+                                                        cartid_lst += alser_filter_ids
+
+                                                    if item_brand:
+                                                        alpro_filter_ids = list(set(product_ids.filter(itemcodeid__item_brand__in=item_brand).values_list('pk', flat=True).distinct())) 
+                                                        if alpro_filter_ids:
+                                                            cartid_lst +=  alpro_filter_ids      
+                                                    
                                             elif "serviceonly" in conditiontype1_res: 
                                                 if "all" in conditiontype2_res:
                                                     ser_filter_ids = list(set(service_ids.values_list('pk', flat=True).distinct()))
@@ -9066,11 +9073,14 @@ class postaudViewset(viewsets.ModelViewSet):
                                                         final_ids = use_final_ids.filter(~Q(itemcodeid__item_brand__in=itembrand_p))
                                                         use_final_ids = final_ids
                                         
-                                        # print(use_final_ids,"use_final_ids")
+                                        print(use_final_ids,"use_final_ids")
 
                                         
                                         used_amount = 0    
                                         check_amt = float(req['pay_amt'])
+                                        if prepaid_redeemlst != []:
+                                            use_final_ids = use_final_ids.filter(~Q(pk__in=prepaid_redeemlst))
+                                        print(use_final_ids,"use_final_ids 111")
                                         if use_final_ids:
                                             for i in use_final_ids:
                                                 # print(i,"ii")
@@ -9130,6 +9140,14 @@ class postaudViewset(viewsets.ModelViewSet):
                                                                 conditiontype2="All").first()
                                                                 if updopenall_ids:
                                                                     redeem_ppac = True; op_conditionobj=updopenall_ids
+
+                                                            if redeem_ppac == False:
+                                                                upda_dpall_ids = PrepaidAccountCondition.objects.filter(pp_no=pp_no,
+                                                                pos_daud_lineno=line_no,p_itemtype="Inclusive",conditiontype1="All",
+                                                                itemdept_id=i.itemcodeid.Item_Deptid.pk).first()
+                                                                if upda_dpall_ids:
+                                                                    redeem_ppac = True; op_conditionobj = upda_dpall_ids
+                                                                
                                                                     
                                                         elif int(i.itemcodeid.Item_Divid.itm_code) == 1:
                                                             item_brand_code = ItemBrand.objects.filter(itm_code=i.itemcodeid.item_brand,
@@ -9146,6 +9164,14 @@ class postaudViewset(viewsets.ModelViewSet):
                                                                     conditiontype2="All").first()
                                                                     if updproall_ids:
                                                                         redeem_ppac = True; op_conditionobj = updproall_ids
+
+                                                                if redeem_ppac == False:
+                                                                    upda_brall_ids = PrepaidAccountCondition.objects.filter(pp_no=pp_no,
+                                                                    pos_daud_lineno=line_no,p_itemtype="Inclusive",conditiontype1="All",
+                                                                    itembrand_id=item_brand_code.pk).first()
+                                                                    if upda_brall_ids:
+                                                                        redeem_ppac = True; op_conditionobj = upda_brall_ids
+                                                                        
 
                                                         if redeem_ppac == False:
                                                             upda_all_ids = PrepaidAccountCondition.objects.filter(pp_no=pp_no,
@@ -9168,13 +9194,13 @@ class postaudViewset(viewsets.ModelViewSet):
                                             # print(used_amount,"used_amount") 
                                             # print(redeem_allow,"redeem_allow")
                                             # print(prepaid_redeemlst,"prepaid_redeemlst")  
-                                            if used_amount > 0:
-                                                if used_amount < float(req['pay_amt']):
-                                                    msg = "Prepaid {0},line no {1},pp_no {2} pay amount is greater than use amount !".format(str(pac_ids.pp_desc),
-                                                    str(pac_ids.line_no),str(pac_ids.pp_no))
-                                                    result = {'status': status.HTTP_400_BAD_REQUEST,
-                                                    "message":msg,'error': True} 
-                                                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+                                            # if used_amount > 0:
+                                            #     if used_amount < float(req['pay_amt']):
+                                            #         msg = "Prepaid {0},line no {1},pp_no {2} pay amount is greater than use amount !".format(str(pac_ids.pp_desc),
+                                            #         str(pac_ids.line_no),str(pac_ids.pp_no))
+                                            #         result = {'status': status.HTTP_400_BAD_REQUEST,
+                                            #         "message":msg,'error': True} 
+                                            #         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
                                                 # float(req['pay_amt']) 
                                                 # p_itemtype="Inclusive"
@@ -9183,7 +9209,17 @@ class postaudViewset(viewsets.ModelViewSet):
                                                 # if ac_open_ids != []:    
                                                 #     acc = PrepaidAccountCondition.objects.filter(pk__in=ac_open_ids).update(use_amt=used_amount,
                                                 #     remain=remain)
-                                    
+
+                                        # else:
+                                        #     prmsg = "Prepaid {0},line no {1},pp_no {2} does't not have redeem item to use based on conditiontypes 1 & 2 !".format(str(pac_ids.pp_desc),
+                                        #     str(pac_ids.line_no),str(pac_ids.pp_no))
+                                        #     result = {'status': status.HTTP_400_BAD_REQUEST,
+                                        #     "message":prmsg,'error': True} 
+                                        #     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+
                                 check.remove("PREPAID")
                             # elif req['pay_typeid'] == 17:
                             elif payByCredit:
@@ -9439,13 +9475,13 @@ class postaudViewset(viewsets.ModelViewSet):
                                     taud_ids.append(taud.pk)
                 
                 # print(taud_ids,"taud_ids")
-                taud_prepaid_ids = PosTaud.objects.filter(sa_transacno=sa_transacno,itemsite_code=site.itemsite_code,
-                pay_type="PP")
-                if taud_prepaid_ids:
-                    if prepaid_redeemlst == []:
-                        result = {'status': status.HTTP_400_BAD_REQUEST,
-                        "message":"Pay Mode Prepaid Selected but no prepaid redeem SA usage records created in Prepaid Account!!",'error': True} 
-                        return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+                # taud_prepaid_ids = PosTaud.objects.filter(sa_transacno=sa_transacno,itemsite_code=site.itemsite_code,
+                # pay_type="PP")
+                # if taud_prepaid_ids:
+                #     if prepaid_redeemlst == []:
+                #         result = {'status': status.HTTP_400_BAD_REQUEST,
+                #         "message":"Pay Mode Prepaid Selected but no prepaid redeem SA usage records created in Prepaid Account!!",'error': True} 
+                #         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
 
                 # print(n)
@@ -9960,9 +9996,9 @@ class postaudViewset(viewsets.ModelViewSet):
                 result = {'status': state,"message":message,'error': error, 'data': {'sa_transacno':taud_d.sa_transacno if taud_d and taud_d.sa_transacno else ""}}
                 return Response(result, status=status.HTTP_201_CREATED)
 
-        except Exception as e:
-           invalid_message = str(e)
-           return general_error_response(invalid_message)
+        # except Exception as e:
+        #    invalid_message = str(e)
+        #    return general_error_response(invalid_message)
      
         # state = status.HTTP_400_BAD_REQUEST
         # message = "Invalid Input"
@@ -25469,3 +25505,94 @@ class PrepaidValidperiodAPIView(generics.ListAPIView):
             invalid_message = str(e)
             return general_error_response(invalid_message)      
 
+
+class AvailableTimeSlotsAPIView(GenericAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = []
+
+    # def check_slots():
+    #     if query_set.time07 == False and "07:00" not in val['time_slots']:
+    #         val['time_slots'].append("07:00")
+
+
+
+    def get(self, request):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True).first()
+            site = fmspw.loginsite
+            Item_Codeid = self.request.GET.get('Item_Codeid',None)
+            if not Item_Codeid:
+                raise ValueError("Please give Item_Codeid!!") 
+            given_date = self.request.GET.get('given_date',None)
+            if not given_date:
+                raise ValueError("Please select given_date!!") 
+            stock_obj = Stock.objects.filter(pk=Item_Codeid,item_isactive=True).first()
+            if stock_obj.srv_duration is None or stock_obj.srv_duration == 0.0:
+                srvduration = 60
+            else:
+                srvduration = stock_obj.srv_duration  
+            systemsetup_dur = Systemsetup.objects.filter(title='AppointmentServiceDurationAdd'
+            ,value_name='AppointmentServiceDurationAdd',isactive=True).first()       
+
+            if systemsetup_dur and systemsetup_dur.value_data:     
+                stkduration = int(srvduration) + int(systemsetup_dur.value_data)
+            else:
+                stkduration = int(srvduration)
+            # print(stkduration,"stkduration")
+            hrs = '{:02d}:{:02d}'.format(*divmod(stkduration, 60))
+            print(hrs,"hrs")
+            # dict_v['add_duration'] = hrs
+            # dict_v['srv_duration'] = str(srvduration)+" "+"Mins"
+            
+            emp_siteids = list(set(EmpSitelist.objects.filter(Site_Codeid__pk=site.pk,
+            isactive=True,Emp_Codeid__emp_isactive=True,Emp_Codeid__show_in_appt=True
+            ).values_list('Emp_Codeid', flat=True).distinct()))
+            print(emp_siteids,"emp_siteids")
+           
+            queryset = list(set(ScheduleMonth.objects.filter(itm_date=given_date,Emp_Codeid__pk__in=emp_siteids,
+            site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).values_list('Emp_Codeid', flat=True).distinct()))
+            print(queryset,"queryset")
+            main_lst = []
+            time_date ={'time07': "07:00", 'time0730': "07:30", 'time08': "08:00", 
+            'time0830': "08:30", 'time09': "09:00", 'time0930': "09:30", 'time10': "10:00", 
+            'time1030': "10:30", 'time11': "11:00", 'time1130': "11:30", 'time12': "12:00", 
+            'time1230': "12:30", 'time13': "13:00", 'time1330': "13:30", 'time14': "14:00", 
+            'time1430': "14:30", 'time15': "15:00", 'time1530': "15:30", 'time16': "16:00", 
+            'time1630': "16:30", 'time17': "17:00", 'time1730': "17:30", 'time18': "18:00", 
+            'time1830': "18:30", 'time19': "19:00", 'time1930': "19:30", 'time20': "20:00", 
+            'time2030': "20:30", 'time21': "21:00", 'time2130': "21:30", 'time22': "22:00", 
+            'time2230': "22:30", 'time23': "23:00", 'time2330': "23:30"}
+            for i in queryset:
+                empobj = Employee.objects.filter(pk=i,emp_isactive=True).first()
+                if empobj:
+                    val = {'emp_id': i,'emp_name': empobj.display_name, 'time_slots': [],
+                    }
+                    query_set = ScheduleMonth.objects.filter(itm_date=given_date,Emp_Codeid__pk=i,
+                    site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007')).first()
+                    if query_set:
+                        field_lst = ScheduleMonth.objects.filter(pk=query_set.pk
+                        ).values('time07','time0730','time08',
+                        'time0830','time09','time0930','time10','time1030','time11',
+                        'time1130','time12','time1230','time13','time1330','time14',
+                        'time1430','time15','time1530','time16','time1630','time17',
+                        'time1730','time18','time1830','time19','time1930','time20',
+                        'time2030','time21','time2130','time22','time2230','time23',
+                        'time2330')[0]
+
+                        print(field_lst,"field_lst")
+                        for key in field_lst:
+                            print(key,"key")
+                            if field_lst[key] == False and time_date[key] not in val['time_slots']:
+                                val['time_slots'].append(time_date[key])
+                        main_lst.append(val)            
+                     
+    
+            # serializer = ScheduleMonthSerializer(queryset, many=True)
+            
+            result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
+            'data':  main_lst,'add_duration': hrs}
+            return Response(data=result, status=status.HTTP_200_OK)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message) 

@@ -10,7 +10,7 @@ DeliveryOrderDetailModel,DeliveryOrderItemModel,DeliveryOrdersign,EquipmentDropd
 EquipmentUsageItemModel,Currencytable,QuotationPayment,ManualInvoicePayment,quotationsign,RoundSales,ManualInvoicesign)
 from cl_table.models import (Treatment, Stock, PackageDtl, ItemClass, ItemRange, Employee, Tmptreatment,
 TmpItemHelper,PosHaud,City, State, Country, Stock,Title,PayGroup,ItemDept,Systemsetup,PrepaidOpenCondition,
-PrepaidValidperiod)
+PrepaidValidperiod,VoucherCondition,ItemBrand)
 from cl_table.serializers import get_client_ip,PrepaidOpenConditionSerializer
 from django.db.models import Sum
 from datetime import date, timedelta, datetime
@@ -639,6 +639,42 @@ class CourseTmpSerializer(serializers.ModelSerializer):
         fields = ['id','cart_id','treatment_no','free_sessions','total_price','disc_amount',
         'disc_percent','unit_price','auto_propation']
 
+class VoucherConditionSerializer(serializers.ModelSerializer):
+    # id = serializers.IntegerField(source='pk',required=False)
+    op_id = serializers.SerializerMethodField() 
+ 
+    def get_op_id(self, obj):
+        return None 
+
+    class Meta:
+        model = VoucherCondition
+        fields = ['op_id','p_itemtype','item_code','conditiontype1','conditiontype2',
+        'rate']
+
+    def to_representation(self, instance):
+        data = super(VoucherConditionSerializer, self).to_representation(instance)
+       
+        data['prepaid_valid_period'] = None
+        data['membercardnoaccess'] = False
+        data['creditvalueshared'] = False
+        data['itemcart'] = None
+        data['prepaid_value'] = "{:.2f}".format(float(instance.amount)) if instance.amount else "0.00" 
+        data['prepaid_sell_amt'] = "{:.2f}".format(float(instance.amount)) if instance.amount else "0.00"               
+        itemdept_id = None ; itembrand_id = None 
+        if instance.conditiontype2 != 'All':
+            itemdept_obj = ItemDept.objects.filter(itm_desc__icontains=instance.conditiontype2,
+            is_service=True, itm_status=True).order_by('itm_seq').first()
+            if itemdept_obj:
+                itemdept_id = itemdept_obj.pk
+
+            itembrand_obj = ItemBrand.objects.filter(itm_desc__icontains=instance.conditiontype2,
+            retail_product_brand=True, itm_status=True).order_by('itm_seq').first()
+            if itembrand_obj:
+                itembrand_id = itembrand_obj.pk
+
+        data['itemdept_id'] = itemdept_id  
+        data['itembrand_id'] = itembrand_id    
+        return data 
 
 class CartPrepaidSerializer(serializers.ModelSerializer): 
 
@@ -657,14 +693,20 @@ class CartPrepaidSerializer(serializers.ModelSerializer):
             prepaid_value = "{:.2f}".format(obj.prepaid_value),
 
         pqueryset = PrepaidOpenCondition.objects.filter(itemcart=obj,
-            item_code=obj.itemcodeid.item_code).order_by('id')     
-        serializer = PrepaidOpenConditionSerializer(pqueryset, context={'request': request}, many=True)          
+            item_code=obj.itemcodeid.item_code).order_by('id')
+        serializer = PrepaidOpenConditionSerializer(pqueryset, context={'request': request}, many=True)       
+       
+        if not pqueryset:       
+            vo_ids = VoucherCondition.objects.filter(item_code=obj.itemcodeid.item_code,isactive=True).order_by('pk') 
+            if vo_ids:
+                serializer = VoucherConditionSerializer(vo_ids, context={'request': request}, many=True) 
+
         
-        isopen_prepaid = obj.isopen_prepaid 
-        if not obj.isopen_prepaid:
-            isopen_prepaid = True if obj.itemcodeid.is_open_prepaid == True else False
-        else:
-            isopen_prepaid = True if obj.isopen_prepaid == True else False
+        # isopen_prepaid = obj.isopen_prepaid 
+        # if not obj.isopen_prepaid:
+        #     isopen_prepaid = True if obj.itemcodeid.is_open_prepaid == True else False
+        # else:
+        #     isopen_prepaid = True if obj.isopen_prepaid == True else False
         
         prepaid_valid_period = ""
         if pqueryset and pqueryset[0].prepaid_valid_period:
@@ -683,7 +725,7 @@ class CartPrepaidSerializer(serializers.ModelSerializer):
             'trans_amt' : "{:.2f}".format(float(obj.trans_amt)),
             'deposit' : "{:.2f}".format(float(obj.deposit)),
             'prepaid_value' : prepaid_value[0],
-            'isopen_prepaid' : isopen_prepaid,
+            'isopen_prepaid' : True if obj.itemcodeid.is_open_prepaid == True else False,
             'openprepaid_condition': serializer.data,
             'prepaid_valid_period' :  prepaid_valid_period,
             'membercardnoaccess' : pqueryset[0].membercardnoaccess if pqueryset and pqueryset[0].membercardnoaccess else False

@@ -1218,17 +1218,19 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                         paprepacc.save()
                                         # print(paprepacc.pk,"paprepacc")
                                         
-                                        vo_obj = False 
-                                        if itmstock.is_open_prepaid == False:
-                                            vo_obj = VoucherCondition.objects.filter(item_code=itmstock.item_code,isactive=True).order_by('pk')
-                                            # condition_amount = vo_obj.first().amount
-                                            # rate = vo_obj.first().rate
-                                        else:
-                                            if itmstock.is_open_prepaid == True:
-                                                vo_obj = PrepaidOpenCondition.objects.filter(
-                                                itemcart=c).order_by('pk')
-                                                # condition_amount = vo_obj.first().prepaid_value  
-                                                # rate = vo_obj.first().rate 
+                                        vo_obj = VoucherCondition.objects.filter(item_code=itmstock.item_code,isactive=True).order_by('pk')
+
+                                        # vo_obj = False 
+                                        # if itmstock.is_open_prepaid == False:
+                                        #     vo_obj = VoucherCondition.objects.filter(item_code=itmstock.item_code,isactive=True).order_by('pk')
+                                        #     # condition_amount = vo_obj.first().amount
+                                        #     # rate = vo_obj.first().rate
+                                        # else:
+                                        #     if itmstock.is_open_prepaid == True:
+                                        #         vo_obj = PrepaidOpenCondition.objects.filter(
+                                        #         itemcart=c).order_by('pk')
+                                        #         # condition_amount = vo_obj.first().prepaid_value  
+                                        #         # rate = vo_obj.first().rate 
                                                 
                                         # else  
                                         # print(vo_obj,"vo_obj")
@@ -1247,7 +1249,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                                     amount = v.prepaid_value
 
                                                 elif v.__class__.__name__ == 'VoucherCondition':
-                                                    amount = v.amount 
+                                                    amount = float(v.amount) 
                                                     if v.conditiontype2 != 'All':
                                                         itemdept_obj = ItemDept.objects.filter(itm_desc__icontains=v.conditiontype2,
                                                         is_service=True, itm_status=True).order_by('itm_seq').first()
@@ -1695,36 +1697,43 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                     if c.itemcodeid and c.itemcodeid.prepaid_valid_period:
                         prepaid_valid_period = date.today() + timedelta(int(c.itemcodeid.prepaid_valid_period))
                     
-                    vo_obj = False
-                    if c.itemcodeid.is_open_prepaid == False:
+                    # vo_obj = False
+                    vo_obj = PrepaidOpenCondition.objects.filter(
+                    itemcart=c).order_by('pk')
+                    if not vo_obj:
                         vo_obj = VoucherCondition.objects.filter(item_code=c.itemcodeid.item_code,isactive=True).order_by('pk')
-                    else:
-                        if c.itemcodeid.is_open_prepaid == True:
-                            vo_obj = PrepaidOpenCondition.objects.filter(
-                                itemcart=c).order_by('pk')
+                        
+
+                    
+                    # if c.itemcodeid.is_open_prepaid == False:
+                    #     vo_obj = VoucherCondition.objects.filter(item_code=c.itemcodeid.item_code,isactive=True).order_by('pk')
+                    # else:
+                    #     if c.itemcodeid.is_open_prepaid == True:
+                    #         vo_obj = PrepaidOpenCondition.objects.filter(
+                    #             itemcart=c).order_by('pk')
                            
                     # c.isopen_prepaid
-                    if c.itemcodeid.is_open_prepaid == True:
-                        pp_amt = c.price
-                        pp_total = c.prepaid_value
-                        pp_bonus = c.prepaid_value - float(c.price)
-                        v_amount = c.prepaid_value
-                        v_remain = c.prepaid_value
-                        if outstanding_acc == 0:
-                            remain = c.prepaid_value
-                        else:
-                            remain = c.deposit
-                        
+                    # if c.itemcodeid.is_open_prepaid == True:
+                    pp_amt = c.price
+                    pp_total = c.prepaid_value
+                    pp_bonus = c.prepaid_value - float(c.price)
+                    v_amount = c.prepaid_value
+                    v_remain = c.prepaid_value
+                    if outstanding_acc == 0:
+                        remain = c.prepaid_value
                     else:
-                        pp_amt = c.itemcodeid.prepaid_sell_amt
-                        pp_total = c.itemcodeid.prepaid_value
-                        pp_bonus = c.itemcodeid.prepaid_value - c.itemcodeid.prepaid_sell_amt
-                        v_amount = vo_obj.first().amount if vo_obj else 0
-                        v_remain = c.trans_amt
-                        if outstanding_acc == 0:
-                            remain = c.itemcodeid.prepaid_value
-                        else:
-                            remain = c.deposit
+                        remain = c.deposit
+                        
+                    # else:
+                    #     pp_amt = c.itemcodeid.prepaid_sell_amt
+                    #     pp_total = c.itemcodeid.prepaid_value
+                    #     pp_bonus = c.itemcodeid.prepaid_value - c.itemcodeid.prepaid_sell_amt
+                    #     # v_amount = vo_obj.first().amount if vo_obj else 0
+                    #     v_remain = c.trans_amt
+                    #     if outstanding_acc == 0:
+                    #         remain = c.itemcodeid.prepaid_value
+                    #     else:
+                    #         remain = c.deposit
 
 
                     if c.is_foc == True:
@@ -1764,7 +1773,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                 amount = v.prepaid_value
 
                             elif v.__class__.__name__ == 'VoucherCondition':
-                                amount = v.amount 
+                                amount = float(v.amount) 
                                 if v.conditiontype2 != 'All':
                                     itemdept_obj = ItemDept.objects.filter(itm_desc__icontains=v.conditiontype2,
                                     is_service=True, itm_status=True).order_by('itm_seq').first()
@@ -1776,7 +1785,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                     if itembrand_obj:
                                         itembrand_id = itembrand_obj.pk
                                 
-                            acc_remain = (amount * pp_total) / remain
+                            acc_remain = (amount / pp_total) * remain
                             sum_acc_remain += int(acc_remain)
                             # print(pp_acc.pk,"pp_acc")
                            

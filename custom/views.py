@@ -3065,6 +3065,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                                     pos.save()
                     
                     if int(stock_obj.item_div) == 5 and stock_obj.Item_Divid.itm_desc == 'PREPAID':
+                        cart.prepaid_value = cart.itemcodeid.prepaid_value
                         if stock_obj.is_open_prepaid == True:
                             cart.isopen_prepaid = True
                         else:
@@ -9751,8 +9752,8 @@ class CartPrepaidViewset(viewsets.ModelViewSet):
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Service Prepaid is not applicable!!",'error': True} 
                 return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
-            if cart.itemcodeid.is_open_prepaid == False:
-                raise Exception('This Item Stock isopenprepaid checkbox is false!!')
+            # if cart.itemcodeid.is_open_prepaid == False:
+            #     raise Exception('This Item Stock isopenprepaid checkbox is false!!')
             
             serializer = CartPrepaidSerializer(cart, context={'request': self.request})
             # print(serializer.data,"serializer.data")
@@ -9770,8 +9771,8 @@ class CartPrepaidViewset(viewsets.ModelViewSet):
             fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
             site = fmspw.loginsite
             cart = self.get_object(pk)
-            if cart.itemcodeid.is_open_prepaid == False:
-                raise Exception('This Item Stock isopenprepaid checkbox is false!!')
+            # if cart.itemcodeid.is_open_prepaid == False:
+            #     raise Exception('This Item Stock isopenprepaid checkbox is false!!')
 
 
             serializer = self.get_serializer(cart, data=request.data, partial=True)

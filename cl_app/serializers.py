@@ -406,7 +406,7 @@ class PrepaidAccSerializer(serializers.ModelSerializer):
         model = PrepaidAccount
         fields = ['id','pp_no','pp_desc','last_update','sa_date','exp_date','exp_status',
         'pp_amt','pp_bonus','pp_total','use_amt','remain','voucher_no','topup_amt','outstanding',
-        'condition_type1','line_no','cust_code']
+        'condition_type1','line_no','cust_code','status']
 
 class PrepaidacSerializer(serializers.ModelSerializer):
 

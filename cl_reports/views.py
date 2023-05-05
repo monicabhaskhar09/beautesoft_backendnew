@@ -205,6 +205,7 @@ class PaymentPaytableListAPIView(GenericAPIView):
     def get_paytable(self):
         try:
             cursor = connection.cursor()
+            
             cursor.execute("SELECT Distinct pay_code [code],pay_description [name] FROM PAYTABLE WHERE pay_isactive='True'  ORDER BY pay_description;")
             res = dictfetchall(self, cursor)
             return res
@@ -257,7 +258,7 @@ class siteListingAPIView(GenericAPIView):
             invalid_message = str(e)
             return general_error_response(invalid_message)        
 
-class ReportTitleListAPIView(GenericAPIView):
+class ReportTitleAPIView(GenericAPIView):
     authentication_classes = [ExpiringTokenAuthentication]
     permission_classes = [IsAuthenticated & authenticated_only]
 
@@ -336,21 +337,100 @@ class ReportTitleListAPIView(GenericAPIView):
             return general_error_response(invalid_message)        
 
 
-class CollectionbyOutletViewset(viewsets.ModelViewSet):
+
+class CollectionbyOutletAPIView(GenericAPIView):
     authentication_classes = [ExpiringTokenAuthentication]
-    permission_classes = [IsAuthenticated & authenticated_only]
-    queryset = []
-    serializer_class = []
+    permission_classes = [IsAuthenticated & authenticated_only]    
 
-    def get_sales_collection(self):
-        pass
+   
 
-         
-      
+    def get_sales_collection(self,from_date,to_date,site_code_list,pay_code_list):
 
-        return queryset
+        cursor = connection.cursor()
+        # args = ['04/05/2023', '04/05/2023','JY01,JY02','Detail','']
+        # raw_q = "EXEC Web_SaleCollectionByOutlet '04/05/2023' , '04/05/2023' , 'JY01,JY02', 'Detail', ''"
+        # print(raw_q,"raw_q")
+        # with connection.cursor() as cursor:
+        #     cursor.execute(raw_q)
+        #     raw_qs = cursor.fetchall()
+        #     print(raw_qs,"raw_qs")
+            
+        # result_args = cursor.execute("exec Web_SaleCollectionByOutlet '04/05/2023', '04/05/2023','JY01,JY02','Detail','' ")
 
-    def list(self, request):
+        # result_args = cursor.callproc('Web_SaleCollectionByOutlet', args)
+        # print(result_args,"result_args")
+
+        # query = SELECT   
+        #         convert (varchar,pos_haud.sa_date,103)[payDate],   
+        #         Customer.Cust_name [customer],    
+        #         pos_haud.SA_TransacNo_Ref [invoiceRef],   
+        #         pos_haud.isVoid,  
+        #         pos_haud.sa_staffname [payRef],  
+        #         isnull(Customer.Cust_Refer,'') [CustRef],  
+        #         pos_taud.pay_Desc [payTypes],   
+        #         pos_taud.pay_actamt  [amt] ,   
+        #         0 [payContra],  
+        #         paytable.GT_Group [Group],  
+        #         Case When pos_taud.pay_type='CN' Then (pos_taud.pay_actamt) Else 0 End  [payCN],  
+        #         pos_taud.pay_actamt-(Case When pos_taud.pay_type='CN' Then (pos_taud.pay_actamt) Else 0 End )   [grossAmt],  
+
+        #         (case when paytable.GT_Group='GT1' and pos_taud.PAY_GST<>0 then round((pos_taud.pay_actamt /107)*7,2) else 0 end ) as [taxes],  
+        #         Convert(Decimal(19,0),CASE When (pos_taud.pay_actamt-pos_taud.PAY_GST)=0 Then 0 Else (pos_taud.PAY_GST/(pos_taud.pay_actamt-pos_taud.PAY_GST))*100 End) [gstRate],  
+        #         pos_taud.pay_actamt-(Case When pos_taud.pay_type='CN' Then (pos_taud.pay_actamt) Else 0 End )-pos_taud.PAY_GST [netAmt],  
+        #         0 [comm],  
+        #         round((isnull(bank_charges,0) * ( pos_taud.pay_actamt - pos_taud.PAY_GST) )/100 ,2) as [BankCharges],  
+        #         pos_taud.pay_actamt-(Case When pos_taud.pay_type='CN' Then (pos_taud.pay_actamt) Else 0 End )- (case when paytable.GT_Group='GT1' and pos_taud.PAY_GST<>0 then round((pos_taud.pay_actamt /107)*7,2) else 0 end ) - round((isnull(bank_charges,0) * ( pos_taud.pay_actamt - pos_taud.PAY_GST)
+
+        #         )/100 ,2) +0 [total],  
+        #         pos_haud.ItemSite_Code,Item_SiteList.ItemSite_Desc  ,isnull(paytable.Excel_Col_Seq,0) as Excel_Col_Seq
+        #         FROM pos_haud   
+        #         INNER JOIN pos_taud ON pos_haud.sa_transacno = pos_taud.sa_transacno     
+        #         INNER JOIN Customer ON pos_haud.sa_custno = Customer.Cust_code   
+        #         INNER JOIN Item_SiteList ON pos_haud.ItemSite_Code = Item_SiteList.ItemSite_Code   
+        #         INNER JOIN paytable ON pos_taud.PAY_TYPE=paytable.PAY_CODE and paytable.Pay_isactive=1 
+        #         Where convert(datetime,convert(varchar,pos_haud.sa_date,103),103)>=Convert(Datetime,'01/05/2023',103)
+        #         And convert(datetime,convert(varchar,pos_haud.sa_date,103),103)<=Convert(Datetime,'04/05/2023',103)
+        #         and paytable.pay_code in (select pay_code from paytable where GT_Group='GT1' )  and pos_haud.isVoid!=1  
+        #         And (('JY01,JY02'='') OR (('JY01,JY02'<>'') And pos_haud.ItemSite_Code In (Select Item From dbo.LISTTABLE('JY01,JY02',',')))) --Site  
+        #         And (('CS,'='') OR (('CS,'<>'') And pos_taud.pay_Type In (Select Item From dbo.LISTTABLE('CS,',',')))) --pay
+
+        # raw_q = "SELECT  " 
+        #         "convert (varchar,pos_haud.sa_date,103)[payDate],   "
+        #         "Customer.Cust_name [customer],    "
+        #         "pos_haud.SA_TransacNo_Ref [invoiceRef],   "
+        #         "pos_haud.isVoid,  "
+        #         "pos_haud.sa_staffname [payRef],  "
+        #         "isnull(Customer.Cust_Refer,'') [CustRef],  "
+        #         "pos_taud.pay_Desc [payTypes],   "
+        #         "pos_taud.pay_actamt  [amt] ,   "
+        #         "0 [payContra],  "
+        #         "paytable.GT_Group [Group],  "
+        #         "Case When pos_taud.pay_type='CN' Then (pos_taud.pay_actamt) Else 0 End  [payCN],  "
+        #         "pos_taud.pay_actamt-(Case When pos_taud.pay_type='CN' Then (pos_taud.pay_actamt) Else 0 End )   [grossAmt],  "
+
+        #         "(case when paytable.GT_Group='GT1' and pos_taud.PAY_GST<>0 then round((pos_taud.pay_actamt /107)*7,2) else 0 end ) as [taxes],  "
+        #         "Convert(Decimal(19,0),CASE When (pos_taud.pay_actamt-pos_taud.PAY_GST)=0 Then 0 Else (pos_taud.PAY_GST/(pos_taud.pay_actamt-pos_taud.PAY_GST))*100 End) [gstRate],  "
+        #         "pos_taud.pay_actamt-(Case When pos_taud.pay_type='CN' Then (pos_taud.pay_actamt) Else 0 End )-pos_taud.PAY_GST [netAmt],  "
+        #         "0 [comm],  "
+        #         "round((isnull(bank_charges,0) * ( pos_taud.pay_actamt - pos_taud.PAY_GST) )/100 ,2) as [BankCharges],  "
+        #         "pos_taud.pay_actamt-(Case When pos_taud.pay_type='CN' Then (pos_taud.pay_actamt) Else 0 End )- (case when paytable.GT_Group='GT1' and pos_taud.PAY_GST<>0 then round((pos_taud.pay_actamt /107)*7,2) else 0 end ) - round((isnull(bank_charges,0) * ( pos_taud.pay_actamt - pos_taud.PAY_GST))/100 ,2) +0 [total], " 
+        #         "pos_haud.ItemSite_Code,Item_SiteList.ItemSite_Desc  ,isnull(paytable.Excel_Col_Seq,0) as Excel_Col_Seq"
+        #         "FROM pos_haud   "
+        #         "INNER JOIN pos_taud ON pos_haud.sa_transacno = pos_taud.sa_transacno     "
+        #         "INNER JOIN Customer ON pos_haud.sa_custno = Customer.Cust_code   "
+        #         "INNER JOIN Item_SiteList ON pos_haud.ItemSite_Code = Item_SiteList.ItemSite_Code   "
+        #         "INNER JOIN paytable ON pos_taud.PAY_TYPE=paytable.PAY_CODE and paytable.Pay_isactive=1 "
+        #         "Where convert(datetime,convert(varchar,pos_haud.sa_date,103),103)>=Convert(Datetime,'01/05/2023',103)"
+        #         "And convert(datetime,convert(varchar,pos_haud.sa_date,103),103)<=Convert(Datetime,'04/05/2023',103)"
+        #         "and paytable.pay_code in (select pay_code from paytable where GT_Group='GT1' )  and pos_haud.isVoid!=1  "
+        #         "And (('JY01,JY02'='') OR (('JY01,JY02'<>'') And pos_haud.ItemSite_Code In (Select Item From dbo.LISTTABLE('JY01,JY02',',')))) --Site  "
+        #         "And (('CS,'='') OR (('CS,'<>'') And pos_taud.pay_Type In (Select Item From dbo.LISTTABLE('CS,',',')))) --pay"
+                   
+
+
+        return result_args
+
+    def post(self, request):
         try:
             fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
             site = fmspw[0].loginsite
@@ -360,24 +440,38 @@ class CollectionbyOutletViewset(viewsets.ModelViewSet):
                 raise Exception('Please give from_date !!') 
               
             if not to_date:
-                raise Exception('Please give to_date !!') 
+                raise Exception('Please give to_date !!')
 
-              
+            site_code = self.request.data.get("site_code") 
+            if site_code:
+                site_code_list = site_code.split(",")
+                print(site_code_list,"site_code_list")
+            else:
+                site_code_list = ItemSitelist.objects.filter(itemsite_isactive=True).filter(~Q(itemsite_code__icontains="HQ")).values_list('itemsite_code', flat=True)
+                print(site_code_list,"site_code_list")
 
-            start_date = datetime.datetime.strptime(request.GET.get("start"), "%Y-%m-%d").date()
-            end_date = datetime.datetime.strptime(request.GET.get("end"), "%Y-%m-%d").date()
+            pay_code = self.request.data.get("pay_code") 
+            if pay_code:
+                pay_code_list = pay_code.split(",")
+                print(pay_code_list,"pay_code_list")
+            else:
+                pay_code_list =  list(set(Paytable.objects.filter(pay_isactive=True).order_by('pk').values_list('pay_code', flat=True).distinct()))
+                print(pay_code_list,"pay_code_list") 
 
-            serializer_class = ReportmasterSerializer
+           
             
-            queryset = self.filter_queryset(self.get_queryset())
+            start_date = datetime.datetime.strptime(from_date, "%Y-%m-%d").date()
+            print(start_date,"start_date")
+            end_date = datetime.datetime.strptime(to_date, "%Y-%m-%d").date()
+            print(end_date,"end_date")
+ 
+            fk_id = self.get_sales_collection(from_date,to_date,site_code_list,pay_code_list)
+            
 
-            total = len(queryset)
-            state = status.HTTP_200_OK
-            message = "Listed Succesfully"
-            error = False
-            data = None
+           
 
-            result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+            result = {'status': status.HTTP_200_OK , "message": "Listed Succesfully",
+            'error': False,'data': fk_id}
 
             return Response(result, status=status.HTTP_200_OK) 
         except Exception as e:

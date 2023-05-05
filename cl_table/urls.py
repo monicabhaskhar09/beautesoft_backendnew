@@ -128,5 +128,7 @@ urlpatterns = [
     path('api/customerinvoicetemplatefiledownload/', views.customerinvoicetemplatefiledownload.as_view(), name='customerinvoicetemplatefiledownload'),
     path('api/prepaidvalidperiod/', views.PrepaidValidperiodAPIView.as_view(), name='prepaidvalidperiod'),
     path('api/customerreceiptprintbeforecheckout/', views.CustomerReceiptPrintBeforeCheckoutList.as_view(), name='customerreceiptprintbeforecheckout'),
+    path('api/availableservicetimeslots/', views.AvailableTimeSlotsAPIView.as_view(), name='availableservicetimeslots'),
+
 
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
