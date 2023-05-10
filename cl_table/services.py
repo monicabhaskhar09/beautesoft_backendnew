@@ -1737,9 +1737,11 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
 
 
                     if c.is_foc == True:
-                        pp_descval = c.itemcodeid.item_name+" "+"(FOC)"
+                        # c.itemcodeid.item_name+" "+"(FOC)"
+                        pp_descval = c.itemdesc+" "+"(FOC)"
                     else:
-                        pp_descval = c.itemcodeid.item_name
+                        # c.itemcodeid.item_name
+                        pp_descval = c.itemdesc
 
                     prepacc = PrepaidAccount(pp_no=sa_transacno,pp_type=c.itemcodeid.item_range if c.itemcodeid.item_range else None, 
                     pp_desc=pp_descval,exp_date=prepaid_valid_period,cust_code=cust_obj.cust_code,
@@ -2798,7 +2800,7 @@ def invoice_topup(self, request, topup_ids,sa_transacno, cust_obj, outstanding, 
                
                 
                 dtl = PosDaud(sa_transacno=sa_transacno,dt_status="SA",dt_itemnoid=c.itemcodeid,
-                dt_itemno=str(c.itemcodeid.item_code)+"0000",dt_itemdesc=c.itemcodeid.item_name,
+                dt_itemno=str(c.itemcodeid.item_code)+"0000",dt_itemdesc=c.itemdesc,
                 dt_price="{:.2f}".format(float(c.price)),dt_promoprice="{:.2f}".format(float(c.discount_price)),dt_amt="{:.2f}".format(float(c.trans_amt)),dt_qty=c.quantity,
                 dt_discamt="{:.2f}".format(float(totaldisc)),dt_discpercent=dt_discPercent,dt_Staffnoid=sales_staff,
                 dt_staffno=','.join([v.emp_code for v in salesstaff if v.emp_code]),
@@ -2828,7 +2830,7 @@ def invoice_topup(self, request, topup_ids,sa_transacno, cust_obj, outstanding, 
                 outstanding_acc =  float(acc_ids.outstanding) - float(c.deposit)
 
                 dtl = PosDaud(sa_transacno=sa_transacno,dt_status="SA",dt_itemnoid=c.itemcodeid,
-                dt_itemno=topup_code,dt_itemdesc=c.itemcodeid.item_name,
+                dt_itemno=topup_code,dt_itemdesc=c.itemdesc,
                 dt_price=c.price,dt_promoprice="{:.2f}".format(float(c.discount_price)),dt_amt="{:.2f}".format(float(c.trans_amt)),dt_qty=c.quantity,
                 dt_discamt="{:.2f}".format(float(totaldisc)),dt_discpercent=dt_discPercent,dt_Staffnoid=sales_staff,
                 dt_staffno=','.join([v.emp_code for v in salesstaff if v.emp_code]),
@@ -2952,7 +2954,7 @@ def invoice_topup(self, request, topup_ids,sa_transacno, cust_obj, outstanding, 
 
 
                 prepaidacc = PrepaidAccount(pp_no=c.prepaid_account.pp_no,pp_type=c.itemcodeid.item_range if c.itemcodeid.item_range else None,
-                pp_desc=c.itemcodeid.item_name,exp_date=prepaid_valid_period,Cust_Codeid=cust_obj,
+                pp_desc=c.itemdesc if c.itemdesc else c.itemcodeid.item_name,exp_date=prepaid_valid_period,Cust_Codeid=cust_obj,
                 cust_code=cust_obj.cust_code,cust_name=cust_obj.cust_name,pp_amt= c.prepaid_account.pp_amt,
                 pp_total=c.prepaid_account.pp_total, pp_bonus=c.prepaid_account.pp_bonus,transac_no="",item_no="",
                 use_amt=0,remain=remain,ref1="",ref2="",status=True,site_code=site.itemsite_code,
@@ -4327,7 +4329,7 @@ def invoice_exchange(self, request, exchange_ids, sa_transacno, cust_obj, outsta
 
 
             dtl = PosDaud(sa_transacno=sa_transacno,dt_status="EX",dt_itemnoid=c.itemcodeid,
-            dt_itemno=str(c.itemcodeid.item_code)+"0000",dt_itemdesc=c.itemcodeid.item_name,dt_price=c.price,
+            dt_itemno=str(c.itemcodeid.item_code)+"0000",dt_itemdesc=c.itemdesc,dt_price=c.price,
             dt_promoprice="{:.2f}".format(float(c.discount_price)),
             dt_amt=-float("{:.2f}".format(float(c.trans_amt))),dt_qty=c.quantity,
             dt_discamt=0,dt_discpercent=0,dt_Staffnoid=sales_staff,dt_staffno=','.join([v.emp_code for v in salesstaff if v.emp_code]),

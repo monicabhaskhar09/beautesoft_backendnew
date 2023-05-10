@@ -2800,17 +2800,26 @@ class itemCartViewset(viewsets.ModelViewSet):
 
                         valuedata = 'TRUE'
 
-                        sys_ids = Systemsetup.objects.filter(title='Stock Available',value_name='Stock Available').first() 
+                        sys_ids = Systemsetup.objects.filter(title='Stock Available',
+                        value_name='Stock Available',isactive=True).first() 
                         if sys_ids:
                             valuedata = sys_ids.value_data
                             #raise Exception('Retail Product System Setup setting for Stock Available does not exist') 
-                            
+
+                        # ser_valuedata = 'True'
+                        # retailbatchsno_setup = Systemsetup.objects.filter(title='RetailBatchSerialno',
+                        # value_name='RetailBatchSerialno',isactive=True).first()
+                        # if retailbatchsno_setup:
+                        #     ser_valuedata = retailbatchsno_setup.value_data
+    
                         uom_obj = ItemUom.objects.filter(id=req['item_uom'],uom_isactive=True).first() 
                         if not uom_obj:
                             raise Exception('ItemUom ID does not exist!!')
 
                         batchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=str(stock_obj.item_code),
                         uom=uom_obj.uom_code).order_by('pk').last() 
+                        if not batchids:
+                            raise Exception('Inventory Onhand ItemBatch does not exist!!')
 
                         # if valuedata == 'TRUE' and batchids:
                         #     if int(req['qty']) > int(batchids.qty):
@@ -2826,17 +2835,30 @@ class itemCartViewset(viewsets.ModelViewSet):
                             obatchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=str(stock_obj.item_code),
                             uom=uomprice_ids.item_uom).order_by('pk').last() 
                             if obatchids and int(obatchids.qty) <= 0:
-                                if valuedata == 'TRUE':
-                                    raise Exception('Inventory Onhand is not available for this retail product &  Multi UOM')
+                                flag = False
+                                # if valuedata == 'TRUE':
+                                #     raise Exception('Inventory Onhand is not available for this retail product &  Multi UOM')
+                                # if 'batch_sno' in req and req['batch_sno']:
+                                #     raise Exception('Inventory Onhand is not available for this Batch SNo retail product &  Multi UOM')
+
                             else:
                                 if obatchids and int(obatchids.qty) > 0:
                                     flag = True
 
 
-                        if valuedata == 'TRUE' and (flag == False or batchids and int(req['qty']) > int(batchids.qty)):
-                            raise Exception('Inventory Onhand is not available for this Selected UOM retail product') 
+                        if valuedata == 'TRUE':
+                            if batchids and int(req['qty']) > int(batchids.qty):
+                                if flag == False:
+                                    raise Exception('Inventory Onhand is not available for this Selected UOM retail product') 
+        
+                        if 'batch_sno' in req and req['batch_sno']:
+                            if batchids and int(req['qty']) > int(batchids.qty):
+                                if flag == False:
+                                    raise Exception('Inventory Onhand is not available for this Selected Batch SNo UOM retail product') 
         
 
+
+                            
                         quantity = 1
                         #if int(quantity) > int(stock_obj.onhand_qty):
                         #    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Retail Product cart qty should not be greater than onhand qty ",'error': True} 
@@ -3435,6 +3457,9 @@ class itemCartViewset(viewsets.ModelViewSet):
                     if not acc_obj:
                         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Prepaid Account ID does not exist!!",'error': True} 
                         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
+                    itemdesc = acc_obj.pp_desc if acc_obj else stock_obj.item_desc
+    
 
                     carttp_ids = ItemCart.objects.filter(isactive=True,cust_noid=cust_obj,cart_date=cartdate,
                     cart_id=cart_id,cart_status="Inprogress",is_payment=False,sitecodeid=site,
@@ -7170,7 +7195,7 @@ class ExchangeProductConfirmAPIView(generics.CreateAPIView):
                             gst_amt_collect = c.deposit * (gst.item_value / 100) if gst and gst.item_value else 0.0
 
                         dtl = PosDaud(sa_transacno=sa_transacno,dt_status=dt_status,dt_itemnoid=c.itemcodeid,
-                        dt_itemno=str(c.itemcodeid.item_code)+"0000",dt_itemdesc=c.itemcodeid.item_name,dt_price=c.price,
+                        dt_itemno=str(c.itemcodeid.item_code)+"0000",dt_itemdesc=c.itemdesc,dt_price=c.price,
                         dt_promoprice="{:.2f}".format(float(c.discount_price)),
                         dt_amt=-float("{:.2f}".format(float(c.trans_amt))) if c.type == "Exchange" else "{:.2f}".format(float(c.trans_amt)),dt_qty=c.quantity,
                         dt_discamt=0,dt_discpercent=0,dt_Staffnoid=sales_staff,dt_staffno=','.join([v.emp_code for v in salesstaff if v.emp_code]),
@@ -7448,7 +7473,7 @@ class ExchangeProductConfirmAPIView(generics.CreateAPIView):
                             gst_amt_collect = c.deposit * (gst.item_value / 100) if gst and gst.item_value else 0.0
 
                         dtl = PosDaud(sa_transacno=sa_transacno,dt_status=dt_status,dt_itemnoid=c.itemcodeid,
-                        dt_itemno=str(c.itemcodeid.item_code)+"0000",dt_itemdesc=c.itemcodeid.item_name,dt_price=c.price,
+                        dt_itemno=str(c.itemcodeid.item_code)+"0000",dt_itemdesc=c.itemdesc,dt_price=c.price,
                         dt_promoprice="{:.2f}".format(float(c.discount_price)),
                         dt_amt=-float("{:.2f}".format(float(c.trans_amt))) if c.type == "Exchange" else "{:.2f}".format(float(c.trans_amt)),dt_qty=c.quantity,
                         dt_discamt=0,dt_discpercent=0,dt_Staffnoid=sales_staff,dt_staffno=','.join([v.emp_code for v in salesstaff if v.emp_code]),

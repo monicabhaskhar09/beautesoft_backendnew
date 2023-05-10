@@ -9,7 +9,7 @@ DepositAccount, CustomerPoint, MrRewardItemType,Smsreceivelog,Systemsetup,Treatm
 CustomerTitle,ItemDiv,Tempcustsign,CustomerDocument,TreatmentPackage,ContactPerson,ItemFlexiservice,
 termsandcondition,Participants,ProjectDocument,Dayendconfirmlog,CustomerPointDtl,
 CustomerReferral,MGMPolicyCloud,sitelistip,DisplayCatalog,DisplayItem,ItemUomprice,ItemUom,
-ItemBatch,OutletRequestLog,PrepaidOpenCondition,PrepaidValidperiod,ScheduleMonth)
+ItemBatch,OutletRequestLog,PrepaidOpenCondition,PrepaidValidperiod,ScheduleMonth,ItemBatchSno)
 from cl_app.models import ItemSitelist, SiteGroup
 from custom.models import EmpLevel,Room,VoucherRecord,ItemCart
 from django.contrib.auth.models import User
@@ -3593,6 +3593,8 @@ class DisplayItemStockSerializer(serializers.ModelSerializer):
 
                     batch = ItemBatch.objects.filter(item_code=stock.item_code,site_code=site.itemsite_code,
                     uom=itemuom.uom_code).order_by('-pk').last()
+                    batchso_ids = ItemBatchSno.objects.filter(item_code__icontains=stock.item_code,
+                    availability=True,site_code=site.itemsite_code).order_by('pk').first()
 
                     uom = {
                             "itemuomprice_id": int(i.id),
@@ -3601,7 +3603,8 @@ class DisplayItemStockSerializer(serializers.ModelSerializer):
                             "item_price": "{:.2f}".format(float(i.item_price)),
                             "itemuom_id": itemuom_id, 
                             "itemuom_desc" : itemuom_desc,
-                            "onhand_qty": int(batch.qty) if batch else 0
+                            "onhand_qty": int(batch.qty) if batch else 0,
+                            "serial_no": batchso_ids.batch_sno if batchso_ids and batchso_ids.batch_sno else ""
                             }
                     uomlst.append(uom)
             

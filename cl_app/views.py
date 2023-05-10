@@ -694,6 +694,9 @@ class RetailStockListViewset(viewsets.ModelViewSet):
 
                         batch = ItemBatch.objects.filter(item_code=stock.item_code,site_code=site.itemsite_code,
                         uom=itemuom.uom_code).order_by('-pk').last()
+                        batchso_ids = ItemBatchSno.objects.filter(item_code__icontains=stock.item_code,
+                        availability=True,site_code=site.itemsite_code).order_by('pk').first()
+
 
                         uom = {
                                 "itemuomprice_id": int(i.id),
@@ -702,7 +705,8 @@ class RetailStockListViewset(viewsets.ModelViewSet):
                                 "item_price": "{:.2f}".format(float(i.item_price)),
                                 "itemuom_id": itemuom_id, 
                                 "itemuom_desc" : itemuom_desc,
-                                "onhand_qty": int(batch.qty) if batch else 0
+                                "onhand_qty": int(batch.qty) if batch else 0,
+                                "serial_no": batchso_ids.batch_sno if batchso_ids and batchso_ids.batch_sno else ""
                                 }
                         uomlst.append(uom)
                 
@@ -1237,6 +1241,8 @@ class CatalogSearchViewset(viewsets.ModelViewSet):
                             batch = ItemBatch.objects.filter(item_code=stock.item_code,site_code=site.itemsite_code,
                             uom=itemuom.uom_code).order_by('-pk').last()
                             # print(batch,"batch")
+                            batchso_ids = ItemBatchSno.objects.filter(item_code__icontains=stock.item_code,
+                            availability=True,site_code=site.itemsite_code).order_by('pk').first()
 
                             uom = {
                                     "itemuomprice_id": int(i.id),
@@ -1245,7 +1251,8 @@ class CatalogSearchViewset(viewsets.ModelViewSet):
                                     "item_price": "{:.2f}".format(float(i.item_price)),
                                     "itemuom_id": itemuom_id, 
                                     "itemuom_desc" : itemuom_desc,
-                                    "onhand_qty": int(batch.qty) if batch else 0
+                                    "onhand_qty": int(batch.qty) if batch else 0,
+                                    "serial_no": batchso_ids.batch_sno if batchso_ids and batchso_ids.batch_sno else ""
                                     }
                             uomlst.append(uom)
 
@@ -1265,13 +1272,13 @@ class CatalogSearchViewset(viewsets.ModelViewSet):
                 availability=True,site_code=site.itemsite_code)
                 if batchso_ids:
                     for b in batchso_ids:
-                        a = b.item_code
-                        v = a[-4:]
-                        # print(v,type(v),"v")
-                        if v == '0000':
-                            code = str(b.item_code)[:-4]
-                        else:
-                            code = str(b.item_code)    
+                        # a = b.item_code
+                        # v = a[-4:]
+                        # # print(v,type(v),"v")
+                        # if v == '0000':
+                        #     code = str(b.item_code)[:-4]
+                        # else:
+                        code = str(b.item_code)    
                         
                         stockobj = Stock.objects.filter(item_isactive=True, item_code=code).first()
                         if stockobj:
@@ -1997,8 +2004,14 @@ class TopupCombinedViewset(viewsets.ModelViewSet):
                                 pdata["total_amount"] = "{:.2f}".format(float(acc_ids.pp_total)) if acc_ids.pp_total else "0.00"
                                 if pdata["remain"]:
                                     pdata["balance"] = "{:.2f}".format(float(pdata['remain']))
+                                else:
+                                    pdata["balance"] = "0.00"
+
                                 if pdata["outstanding"]:
                                     pdata["outstanding"] = "{:.2f}".format(float(pdata['outstanding']))
+                                else:
+                                    pdata["outstanding"] = "0.00"
+
                                 pdata['sa_staffname'] = ','.join([i.display_name for i in pemp_ids if i.display_name]) if pemp_ids else ""
                                 pdata.update({'type':"Prepaid"})             
                                 lst.append(pdata) 
@@ -4134,6 +4147,7 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
 
             # queryset = TmpItemHelper.objects.filter(treatment=trmt_obj).order_by('id')
             queryset = h_obj
+             
             serializer = self.get_serializer(queryset, many=True)
             final = []
             if queryset:
@@ -4146,6 +4160,30 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                     s['add_duration'] =  "01:30"
                     s['session'] = "{:.2f}".format(float(s['session'])) if s['session'] else ""
                     final.append(s)
+            else:
+                donetreat_ids = Treatment.objects.filter(pk__in=arrtreatmentid,
+                status='Done')
+                if donetreat_ids:
+                    treatment_code_ids = list(set(donetreat_ids.values_list('treatment_code', flat=True).distinct()))
+                    if treatment_code_ids:
+                        ihelper_ids = list(set(ItemHelper.objects.filter(
+                        item_code__in=treatment_code_ids).values_list('helper_transacno', flat=True).distinct()))
+                        if ihelper_ids:
+                            check_haudids  = PosHaud.objects.filter(isvoid=True,sa_transacno__in=ihelper_ids).order_by('-pk')
+                            if check_haudids:
+                                raise Exception("Change Staffs Can't do!")
+                            else:
+                                # month_treatids = Treatment.objects.filter(site_code=site.itemsite_code,
+                                # treatment_code__in=refer_lstmonth,status='Done').order_by('-pk').values('item_code',
+                                # ).order_by('item_code').annotate(total_qty=Count('item_code'),total_unitamt=Sum('unit_amount')).order_by('-total_qty')
+                            
+                                helper_ids = ItemHelper.objects.filter(item_code__in=treatment_code_ids).order_by('-pk').values('helper_code'
+                                ).order_by('helper_code').annotate(session=F('session')
+                                ,helper_name=F('helper_name'),helper_id=F('helper_id'),wp1=Sum('wp1'))
+                                print(helper_ids)
+                                if helper_ids:
+                                    final.append(helper_ids)
+
             
             
             result = {'status': status.HTTP_200_OK,"message": "Listed Succesfully",'error': False, 
@@ -7126,8 +7164,12 @@ class VoidViewset(viewsets.ModelViewSet):
                                 check_ids = PrepaidAccount.objects.filter(pp_no=haudobj.sa_transacno,
                                 cust_code=haudobj.sa_custno,line_no=i.dt_lineno,use_amt__gt=0,sa_status="SA")
                                 if check_ids:
-                                    msg = "Can't do void prepaid product line no {0} has use amount".format(str(i.dt_lineno))
-                                    raise Exception(msg)
+                                    transac_no = list(set(check_ids.values_list('transac_no', flat=True).distinct()))
+                                    if transac_no : 
+                                        check_haudids  = PosHaud.objects.filter(isvoid=False,sa_transacno__in=transac_no).order_by('-pk')
+                                        if check_haudids:
+                                            msg = "Can't do void prepaid product line no {0} has use amount".format(str(i.dt_lineno))
+                                            raise Exception(msg)
                         
                         if int(i.itemcart.itemcodeid.item_div) == 1:
                             if i.itemcart.type == 'Deposit':
@@ -7192,32 +7234,36 @@ class VoidViewset(viewsets.ModelViewSet):
                             last_preids = PrepaidAccount.objects.filter(pp_no=ppno,line_no=lineno,
                             cust_code=haudobj.sa_custno).order_by('-pk').first()
                             if last_preids and last_preids.status == True:
-                                last_preids.status=False
-                                last_preids.save()
-
-                                remain = float(last_preids.remain) + float(t.pay_amt)
-
-                                prepacc = PrepaidAccount(pp_no=last_preids.pp_no,pp_type=last_preids.pp_type,
-                                pp_desc=last_preids.pp_desc,exp_date=last_preids.exp_date,cust_code=last_preids.cust_code,
-                                cust_name=last_preids.cust_name,pp_amt=last_preids.pp_amt,pp_total=last_preids.pp_total,
-                                pp_bonus=last_preids.pp_bonus,transac_no=sa_transacno,item_no=depoprepaid_ids.item_no if depoprepaid_ids and depoprepaid_ids.item_no else None,use_amt=0,
-                                remain=remain,ref1=last_preids.ref1,ref2=last_preids.ref2,status=True,site_code=site.itemsite_code,sa_status="VT",exp_status=last_preids.exp_status,
-                                voucher_no=last_preids.voucher_no,isvoucher=last_preids.isvoucher,has_deposit=last_preids.has_deposit,topup_amt=0,
-                                outstanding=last_preids.outstanding if last_preids and last_preids.outstanding is not None and last_preids.outstanding > 0 else 0,active_deposit_bonus=last_preids.active_deposit_bonus,topup_no="",topup_date=None,
-                                line_no=last_preids.line_no,staff_name=None,staff_no=None,
-                                pp_type2=last_preids.pp_type2,condition_type1=last_preids.condition_type1,pos_daud_lineno=last_preids.line_no,Cust_Codeid=last_preids.Cust_Codeid,Site_Codeid=last_preids.Site_Codeid,
-                                Item_Codeid=depoprepaid_ids.Item_Codeid if depoprepaid_ids and depoprepaid_ids.Item_Codeid else None,
-                                item_code=depoprepaid_ids.item_code if depoprepaid_ids and depoprepaid_ids.item_code else None)
-                                prepacc.save()
-                                prepacc.sa_date = cart_date
-                                prepacc.start_date = cart_date
-                                prepacc.save()
+                                
 
                                 use_preids = PrepaidAccount.objects.filter(pp_no=ppno,line_no=lineno,
                                 cust_code=haudobj.sa_custno,transac_no=haudobj.sa_transacno,sa_status="SA").order_by('pk')
                                 print(use_preids,"use_preids")  
                                 if use_preids:
                                     for u in use_preids:
+                                        ulast_preids = PrepaidAccount.objects.filter(pp_no=ppno,line_no=lineno,
+                                        cust_code=haudobj.sa_custno).order_by('-pk').first()
+                                        ulast_preids.status=False
+                                        ulast_preids.save()
+
+                                        remain = float(ulast_preids.remain) + float(u.use_amt)
+
+                                        prepacc = PrepaidAccount(pp_no=last_preids.pp_no,pp_type=last_preids.pp_type,
+                                        pp_desc=last_preids.pp_desc,exp_date=last_preids.exp_date,cust_code=last_preids.cust_code,
+                                        cust_name=last_preids.cust_name,pp_amt=last_preids.pp_amt,pp_total=last_preids.pp_total,
+                                        pp_bonus=last_preids.pp_bonus,transac_no=sa_transacno,item_no=u.item_no,use_amt=-u.use_amt,
+                                        remain=remain,ref1=last_preids.ref1,ref2=last_preids.ref2,status=True,site_code=site.itemsite_code,sa_status="VT",exp_status=last_preids.exp_status,
+                                        voucher_no=last_preids.voucher_no,isvoucher=last_preids.isvoucher,has_deposit=last_preids.has_deposit,topup_amt=0,
+                                        outstanding=last_preids.outstanding if last_preids and last_preids.outstanding is not None and last_preids.outstanding > 0 else 0,active_deposit_bonus=last_preids.active_deposit_bonus,topup_no="",topup_date=None,
+                                        line_no=last_preids.line_no,staff_name=None,staff_no=None,
+                                        pp_type2=last_preids.pp_type2,condition_type1=last_preids.condition_type1,pos_daud_lineno=last_preids.line_no,Cust_Codeid=last_preids.Cust_Codeid,Site_Codeid=last_preids.Site_Codeid,
+                                        Item_Codeid=depoprepaid_ids.Item_Codeid if depoprepaid_ids and depoprepaid_ids.Item_Codeid else None,
+                                        item_code=depoprepaid_ids.item_code if depoprepaid_ids and depoprepaid_ids.item_code else None)
+                                        prepacc.save()
+                                        prepacc.sa_date = cart_date
+                                        prepacc.start_date = cart_date
+                                        prepacc.save()
+
                                         use_stockobj = Stock.objects.filter(item_code=u.item_no).first()
                                         redeem_ppac = False; op_conditionobj = False
                                         if use_stockobj:
@@ -7259,9 +7305,10 @@ class VoidViewset(viewsets.ModelViewSet):
                                             
                                             if op_conditionobj:
                                                 op_cond_remain = float(op_conditionobj.remain) + float(u.use_amt)
-                                                print(op_cond_remain,"op_cond_remain")
+                                                # print(op_cond_remain,"op_cond_remain")
+                                                op_cond_useamount = float(op_conditionobj.use_amt) - float(u.use_amt)
                                                 upd_preacc = PrepaidAccountCondition.objects.filter(pk=op_conditionobj.pk).update(remain=op_cond_remain,
-                                                use_amt=0)
+                                                use_amt=op_cond_useamount)
 
 
                 
@@ -7271,12 +7318,7 @@ class VoidViewset(viewsets.ModelViewSet):
                                 # if pacc_ids != []:                                
                                 #     acc = PrepaidAccountCondition.objects.filter(pk__in=pacc_ids).update(use_amt=0,remain=remain)
 
-                                vtlast_preids = PrepaidAccount.objects.filter(pp_no=ppno,line_no=lineno,
-                                cust_code=haudobj.sa_custno,transac_no=haudobj.sa_transacno).order_by('-pk')
-                                if vtlast_preids:
-                                    for v in vtlast_preids:
-                                        v.sa_status = "VT"
-                                        v.save()
+                               
 
                             # # pac_ids = PrepaidAccount.objects.filter(transac_no=haudobj.sa_transacno,sa_status='SA',
                             # # cust_code=haudobj.sa_custno,site_code=site.itemsite_code)
@@ -8088,15 +8130,23 @@ class VoidViewset(viewsets.ModelViewSet):
                                 check_ids = PrepaidAccount.objects.filter(pp_no=haudobj.sa_transacno,
                                 cust_code=haudobj.sa_custno,line_no=d.dt_lineno,use_amt__gt=0,sa_status="SA")
                                 if not check_ids: 
-                                    for pa in pacc_ids:
-                                        PrepaidAccount.objects.filter(pk=pa.pk).update(remain=0.0,status=False,sa_status="VT",updated_at=timezone.now(),
-                                        cust_code=haudobj.sa_custno)
+                                    if pacc_ids:
+                                        for pa in pacc_ids:
+                                            PrepaidAccount.objects.filter(pk=pa.pk).update(remain=0.0,status=False,sa_status="VT",updated_at=timezone.now(),
+                                            cust_code=haudobj.sa_custno)
 
-                                    paccids = PrepaidAccount.objects.filter(pp_no=haudobj.sa_transacno,
-                                    cust_code=haudobj.sa_custno,line_no=d.dt_lineno)
+                                        paccids = PrepaidAccount.objects.filter(pp_no=haudobj.sa_transacno,
+                                        cust_code=haudobj.sa_custno,line_no=d.dt_lineno)
 
-                                    for p in paccids:
-                                        PrepaidAccount.objects.filter(pk=p.pk).update(status=False)
+                                        for p in paccids:
+                                            PrepaidAccount.objects.filter(pk=p.pk).update(status=False)
+                                        
+                                        # dppacc_ids = list(set(PrepaidAccountCondition.objects.filter(pp_no=pt.pp_no,
+                                        # pos_daud_lineno=pt.line_no,p_itemtype="Inclusive").only('pp_no','pos_daud_lineno').values_list('id', flat=True).distinct()))
+                                        # if pacc_ids != []:                                
+                                        #     acc = PrepaidAccountCondition.objects.filter(pk__in=pacc_ids).update(remain=remain)
+    
+
                             elif d.itemcart.type == 'Top Up':
                                 ptacc_ids = PrepaidAccount.objects.filter(topup_no=haudobj.sa_transacno,sa_status='TOPUP',
                                 cust_code=haudobj.sa_custno,line_no=d.itemcart.prepaid_account.line_no).first()
@@ -8138,6 +8188,12 @@ class VoidViewset(viewsets.ModelViewSet):
                                         pcts.sa_date = cart_date 
                                         pcts.start_date = cart_date
                                         pcts.save()
+
+                                        pacc_ids = list(set(PrepaidAccountCondition.objects.filter(pp_no=pt.pp_no,
+                                        pos_daud_lineno=pt.line_no,p_itemtype="Inclusive").only('pp_no','pos_daud_lineno').values_list('id', flat=True).distinct()))
+                                        if pacc_ids != []:                                
+                                            acc = PrepaidAccountCondition.objects.filter(pk__in=pacc_ids).update(remain=remain)
+
 
 
                         elif int(d.itemcart.itemcodeid.item_div) == 4:
@@ -10664,7 +10720,7 @@ class PrepaidAccPaymentListViewset(viewsets.ModelViewSet):
             if queryset:
                 serializer = self.get_serializer(queryset, many=True)
                 lst = []; id_lst = []; product_type = 0; service_type = 0; all_type = 0
-                pre_cartlst = [] ; pp_datalst = []
+                pre_cartlst = [] 
                 for data in serializer.data:
                     data.pop('voucher_no'); data.pop('condition_type1')
                     preobj = PrepaidAccount.objects.filter(pk=data["id"]).only('pk').first()
@@ -10775,8 +10831,8 @@ class PrepaidAccPaymentListViewset(viewsets.ModelViewSet):
                         ol_open_ids = PrepaidAccountCondition.objects.filter(pp_no=preobj.pp_no,
                         pos_daud_lineno=preobj.line_no).order_by('pk')
 
-                        data["redeem_amount"] = 0.00
-                        cartid_lst = [] ;pre_cartids = [] 
+                        data["redeem_amount"] = 0.00 ; data["cartuse_ids"] = []
+                        cartid_lst = [] 
                         if ol_open_ids:
                             inc_ids = ol_open_ids.filter(p_itemtype="Inclusive")
                             if inc_ids:
@@ -10853,7 +10909,7 @@ class PrepaidAccPaymentListViewset(viewsets.ModelViewSet):
                                 
                                 if use_final_ids:
                                     pre_cartids = list(set(use_final_ids.values_list('pk',flat=True).distinct()))
-                                    print(pre_cartids,"pre_cartids")
+                                    # print(pre_cartids,"pre_cartids")
                                     data["cartuse_ids"] = pre_cartids
                                     pre_cartlst += pre_cartids
                                     # pre = [pre_cartlst.append(x) for x in pre_cartids if x not in pre_cartlst]
@@ -10873,8 +10929,7 @@ class PrepaidAccPaymentListViewset(viewsets.ModelViewSet):
                                 is_allowprepaid = False
                             data["is_allowprepaid"] = is_allowprepaid
 
-                        pp_data = {'pp_id': preobj.pk, 'pp_lst': pre_cartids}
-                        pp_datalst.append(pp_data)    
+                       
                         lst.append(data)
 
                 # current_date = datetime.datetime.strptime(str(date.today()), "%Y-%m-%d").strftime("%d-%m-%Y")
@@ -10889,10 +10944,10 @@ class PrepaidAccPaymentListViewset(viewsets.ModelViewSet):
                 #     # logo = "http://"+request.META['HTTP_HOST']+title.logo_pic.url
                 #     logo = str(SITE_ROOT) + str(title.logo_pic)
             
-                print(list(set(pre_cartlst)),"pre_cartlst")
+                # print(list(set(pre_cartlst)),"pre_cartlst")
                 cartdepo_amtids = ItemCart.objects.filter(pk__in=list(set(pre_cartlst)))
                 sum_deposit = sum([i.deposit for i in cartdepo_amtids])
-                print(sum_deposit,"sum_deposit")
+                # print(sum_deposit,"sum_deposit")
                 if lst != []:
                     header_data = {"balance_producttype" : "{:.2f}".format(float(product_type)), 
                     "balance_servicetype" : "{:.2f}".format(float(service_type)),
@@ -10928,6 +10983,8 @@ class PrepaidAccPaymentListViewset(viewsets.ModelViewSet):
             total_cartuse_ids = request.data.get('total_cartuse_ids')
             print(total_cartuse_ids,"total_cartuse_ids")
             selprepaid_cartids = request.data.get('selprepaid_cartids')
+            if selprepaid_cartids == [] or total_cartuse_ids == []:
+                raise Exception('Prepaid not allowed!') 
 
             use_cartids = []
             for i in payment_box:
@@ -10949,9 +11006,10 @@ class PrepaidAccPaymentListViewset(viewsets.ModelViewSet):
                     f.append(j)
                     
             if f == []:
-                result = {'status': status.HTTP_200_OK, 
-                "message": "Prepaid not allowed!!", 'error': True}
-                return Response(data=result, status=status.HTTP_200_OK)
+                raise Exception('Prepaid not allowed!') 
+                # result = {'status': status.HTTP_200_OK, 
+                # "message": "Prepaid not allowed!!", 'error': True}
+                # return Response(data=result, status=status.HTTP_200_OK)
             else:
                 result = {'status': status.HTTP_200_OK,"message":"Prepaid Select",
                 'error': False, 
@@ -11178,13 +11236,31 @@ class PrepaidAccListViewset(viewsets.ModelViewSet):
                 ).only('sa_custno','sa_transacno','sa_transacno_type','itemsite_code').order_by('pk').first()
            
                 for v in serializer.data:
+                    ppobj = PrepaidAccount.objects.filter(pk=v["id"]).first()
                     if pos_haud:
                         v['prepaid_ref'] = pos_haud.sa_transacno_ref
                     else:
                         v['prepaid_ref'] = "" 
 
+                    if ppobj.item_no:  
+                        stockobj = Stock.objects.filter(item_code=ppobj.item_no).only('item_code').first()
+                        if stockobj:
+                            v['item_name'] = stockobj.item_name if stockobj.item_name else "-"
+                        else:
+                            v['item_name'] = "-"   
+                    v['item_no'] = ppobj.item_no if ppobj.item_no else "-" 
+
+                    if ppobj.transac_no:
+                        poshaud = PosHaud.objects.filter(sa_custno=account.cust_code,
+                        sa_transacno=ppobj.transac_no).only('sa_custno','sa_transacno').order_by('pk').first()
+                        if poshaud:
+                            v['old_transaction'] = poshaud.sa_transacno
+                            v['transaction_ref'] = poshaud.sa_transacno_ref
+                        else:
+                            v['old_transaction'] = "-"
+                            v['transaction_ref'] = "-"       
+
                     
-                    ppobj = PrepaidAccount.objects.filter(pk=v["id"]).first()
                     if ppobj.sa_status in ['DEPOSIT']:
                         v['old_transaction'] = "-"
                         v['transaction_ref'] = "-"
@@ -11203,28 +11279,18 @@ class PrepaidAccListViewset(viewsets.ModelViewSet):
                                 v['transaction_ref'] = "-"
                             
                     elif ppobj.sa_status == 'SA':
-                        if ppobj.transac_no:
-                            poshaud = PosHaud.objects.filter(sa_custno=account.cust_code,
-                            sa_transacno=ppobj.transac_no).only('sa_custno','sa_transacno').order_by('pk').first()
-                            if poshaud:
-                                v['old_transaction'] = poshaud.sa_transacno
-                                v['transaction_ref'] = poshaud.sa_transacno_ref
-                            else:
-                                v['old_transaction'] = "-"
-                                v['transaction_ref'] = "-"
-
                         v['voucher#'] = "-"
-                        v['item_no'] = ppobj.item_no if ppobj.item_no else "-"
-                        stockobj = Stock.objects.filter(item_code=ppobj.item_no).only('item_code').first()
-                        if stockobj:
-                            v['item_name'] = stockobj.item_name if stockobj.item_name else "-"
-                        else:
-                            v['item_name'] = "-"  
+                        
+                    elif ppobj.sa_status == 'VT':
+                        v['voucher#'] = "-"
+                        
+
                     else:
                         v['old_transaction'] = "-";v['transaction_ref'] = "-";v['voucher#'] = "-";v['item_no'] = "-"
                         v['item_name'] = "-";
 
                     v['use_amt'] = "{:.2f}".format(float(v['use_amt'])) if v['use_amt'] else 0.00
+
                     if ppobj.sa_status == 'DEPOSIT':
                         v['topup_amt'] = "-"
                         v['topup_no'] = "-"
@@ -11245,6 +11311,11 @@ class PrepaidAccListViewset(viewsets.ModelViewSet):
                         # v['status'] = "-"
                         v['status'] = "Redeem"
                         v['use_amt'] = "{:.2f}".format(-float(v['use_amt'])) if v['use_amt'] else 0.00
+                    elif ppobj.sa_status == 'VT': 
+                        # print(ppobj.sa_status)
+                        v['topup_amt'] = "-";v['topup_no'] = "-";v['topup_date'] = "-";v['status'] = "Void" 
+                        v['use_amt'] = "{:.2f}".format(abs(float(v['use_amt']))) if v['use_amt'] else 0.00
+
                     else:
                         v['topup_amt'] = "-";v['topup_no'] = "-";v['topup_date'] = "-";v['status'] = "-"
 

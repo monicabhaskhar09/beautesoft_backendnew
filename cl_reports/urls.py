@@ -14,7 +14,7 @@ urlpatterns = [
     path('api/', include(router.urls)),
     path('api/listpaytable/', views.PaymentPaytableListAPIView.as_view(), name='listpaytable'),
     path('api/sitelisting/', views.siteListingAPIView.as_view(), name='sitelisting'),
-    path('api/report-title/', views.ReportTitleAPIView.as_view(), name='report-title'),
+    # path('api/report-title/', views.ReportTitleAPIView.as_view(), name='report-title'),
     path('api/collectionbyoutlet/', views.CollectionbyOutletAPIView.as_view(), name='collectionbyoutlet'),
 
 

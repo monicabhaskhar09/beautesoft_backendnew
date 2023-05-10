@@ -2782,8 +2782,8 @@ def schedulemonth_time(self, date, emp, site, start, end, type_v, appt, sc_value
     if end > "11:00" and start < "11:30":
         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=emp.pk,
         site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007')).update(time11=sc_value)
-        if month:
-            ScheduleMonth.objects.filter(pk=month.pk).update(time11=sc_value)
+        # if month:
+        #     ScheduleMonth.objects.filter(pk=month.pk).update(time11=sc_value)
 
     if end > "11:30" and start < "12:00":
         month = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=emp.pk,
@@ -8485,7 +8485,7 @@ class postaudViewset(viewsets.ModelViewSet):
 
     @transaction.atomic
     def create(self, request):
-        # try:
+        try:
             with transaction.atomic():
                 cart_date = timezone.now().date()
                 global type_ex
@@ -9184,9 +9184,10 @@ class postaudViewset(viewsets.ModelViewSet):
                                                             PrepaidAccount.objects.filter(pk=prepacc.pk).update(pp_type2=op_conditionobj.conditiontype2,
                                                             condition_type1=op_conditionobj.conditiontype1)
                                                             op_cond_remain = float(op_conditionobj.remain) - float(prepacc.use_amt)
+                                                            op_cond_useamount = float(op_conditionobj.use_amt) + float(prepacc.use_amt)
                                                            
                                                             upd_preacc = PrepaidAccountCondition.objects.filter(pk=op_conditionobj.pk).update(remain=op_cond_remain,
-                                                            use_amt=prepacc.use_amt)
+                                                            use_amt=op_cond_useamount)
 
 
                            
@@ -9996,9 +9997,9 @@ class postaudViewset(viewsets.ModelViewSet):
                 result = {'status': state,"message":message,'error': error, 'data': {'sa_transacno':taud_d.sa_transacno if taud_d and taud_d.sa_transacno else ""}}
                 return Response(result, status=status.HTTP_201_CREATED)
 
-        # except Exception as e:
-        #    invalid_message = str(e)
-        #    return general_error_response(invalid_message)
+        except Exception as e:
+           invalid_message = str(e)
+           return general_error_response(invalid_message)
      
         # state = status.HTTP_400_BAD_REQUEST
         # message = "Invalid Input"

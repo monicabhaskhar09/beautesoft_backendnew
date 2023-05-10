@@ -303,3 +303,62 @@ And ((@Site='') OR ((@Site<>'') And pos_haud.ItemSite_Code In (Select Item From 
 And ((@PayMode='') OR ((@PayMode<>'') And pos_taud.pay_Type In (Select Item From dbo.LISTTABLE(@PayMode,',')))) --pay  
 )X  
 Group By X.payDate,X.customer,X.invoiceRef,X.payTypes,X.ItemSite_Code,X.ItemSite_Desc,[payRef],[CustRef],X.[Group],X.isVoid ,X.Excel_Col_Seq
+
+# api key outputs
+# payDate = row["payDate"].ToString();
+# customer = row["customer"].ToString();
+# invoiceRef = row["invoiceRef"].ToString();
+# payTypes = row["payTypes"].ToString();
+# SalesGroup = row["SalesGroup"].ToString();
+# loginResult.siteCode = row["siteCode"].ToString();
+# loginResult.siteName = row["siteName"].ToString();
+# loginResult.amt = Convert.ToDecimal(row["amt"].ToString());
+# loginResult.payContra = Convert.ToDecimal(row["payContra"].ToString());
+# loginResult.payCN = Convert.ToDecimal(row["payCN"].ToString());
+# loginResult.grossAmt = Convert.ToDecimal(row["grossAmt"].ToString());                         
+# loginResult.taxes = Convert.ToDecimal(row["taxes"].ToString());
+# loginResult.gstRate = Convert.ToDecimal(row["gstRate"].ToString());
+# loginResult.netAmt = Convert.ToDecimal(row["netAmt"].ToString());
+# loginResult.comm = Convert.ToDecimal(row["comm"].ToString());
+# loginResult.total = Convert.ToDecimal(row["total"].ToString());
+# loginResult.payRef = row["payRef"].ToString();
+# loginResult.CustRef = row["CustRef"].ToString();
+# loginResult.BankCharges = Convert.ToDecimal(row["BankCharges"].ToString());
+# loginResult.ReportUrl = loginInputOut.ReportUrl;
+# loginResult.GroupOrder = row["GroupOrder"].ToString();
+# loginResult.excelSeq = Convert.ToDouble(row["Excel_Col_Seq"].ToString());
+
+# subquery
+# raw_q = "SELECT convert (varchar,pos_haud.sa_date,103)[payDate],   " \
+#         "Customer.Cust_name [customer],    " \
+#         "pos_haud.SA_TransacNo_Ref [invoiceRef],   " \
+#         "pos_haud.isVoid,  " \
+#         "pos_haud.sa_staffname [payRef],  " \
+#         "isnull(Customer.Cust_Refer,'') [CustRef],  " \
+#         "pos_taud.pay_Desc [payTypes],   " \
+#         "pos_taud.pay_actamt  [amt] ,   " \
+#         "0 [payContra],  " \
+#         "paytable.GT_Group [Group],  " \
+#         "Case When pos_taud.pay_type='CN' Then (pos_taud.pay_actamt) Else 0 End  [payCN],  " \
+#         "pos_taud.pay_actamt-(Case When pos_taud.pay_type='CN' Then (pos_taud.pay_actamt) Else 0 End )   [grossAmt],  " \
+#         "(case when paytable.GT_Group='GT1' and pos_taud.PAY_GST<>0 then round((pos_taud.pay_actamt /107)*7,2) else 0 end ) as [taxes],  "  \
+#         "Convert(Decimal(19,0),CASE When (pos_taud.pay_actamt-pos_taud.PAY_GST)=0 Then 0 Else (pos_taud.PAY_GST/(pos_taud.pay_actamt-pos_taud.PAY_GST))*100 End) [gstRate],  " \
+#         "pos_taud.pay_actamt-(Case When pos_taud.pay_type='CN' Then (pos_taud.pay_actamt) Else 0 End )-pos_taud.PAY_GST [netAmt],  " \
+#         "0 [comm],  " \
+#         "round((isnull(bank_charges,0) * ( pos_taud.pay_actamt - pos_taud.PAY_GST) )/100 ,2) as [BankCharges],  " \
+#         "pos_taud.pay_actamt-(Case When pos_taud.pay_type='CN' Then (pos_taud.pay_actamt) Else 0 End )- (case when paytable.GT_Group='GT1' and pos_taud.PAY_GST<>0 then round((pos_taud.pay_actamt /107)*7,2) else 0 end ) - round((isnull(bank_charges,0) * ( pos_taud.pay_actamt - pos_taud.PAY_GST))/100 ,2) +0 [total], pos_haud.ItemSite_Code,Item_SiteList.ItemSite_Desc  ,isnull(paytable.Excel_Col_Seq,0) as Excel_Col_Seq FROM pos_haud   " \
+#         "INNER JOIN pos_taud ON pos_haud.sa_transacno = pos_taud.sa_transacno     " \
+#         "INNER JOIN Customer ON pos_haud.sa_custno = Customer.Cust_code   " \
+#         "INNER JOIN Item_SiteList ON pos_haud.ItemSite_Code = Item_SiteList.ItemSite_Code   " \
+#         "INNER JOIN paytable ON pos_taud.PAY_TYPE=paytable.PAY_CODE and paytable.Pay_isactive=1" \
+#         "Where convert(datetime,convert(varchar,pos_haud.sa_date,103),103)>=Convert(Datetime,'01/05/2023',103)" \
+#         "And convert(datetime,convert(varchar,pos_haud.sa_date,103),103)<=Convert(Datetime,'04/05/2023',103)" \
+#         "and paytable.pay_code in (select pay_code from paytable where GT_Group='GT1' )  and pos_haud.isVoid!=1 And (('JY01,JY02'='') OR (('JY01,JY02'<>'') And pos_haud.ItemSite_Code In (Select Item From dbo.LISTTABLE('JY01,JY02',',')))) --Site " \
+#         "And (('CS,'='') OR (('CS,'<>'') And pos_taud.pay_Type In (Select Item From dbo.LISTTABLE('CS,',',')))) --pay" 
+
+ # {'payDate': '05/05/2023', 'customer': 'Yuzuha', 'invoiceRef': 'INVJY01101507',
+                #  'payRef': 'Santhosh', 'CustRef': '', 'payTypes': 'CASH', 'SalesGroup': 'Sales',
+                #   'GroupOrder': 'Group1', 'Excel_Col_Seq': 0, 'siteCode': 'JY01', 'siteName': 'BSB', 
+                #   'amt': 682.0, 'payCN': 0.0, 'payContra': 0, 'grossAmt': 682.0, 'taxes': 0.0,
+                #    'gstRate': Decimal('0'), 'netAmt': 682.0, 'BankCharges': 0.0, 'comm': 0, 
+                #    'total': 682.0}
