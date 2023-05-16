@@ -8031,7 +8031,7 @@ class ChangeStaffViewset(viewsets.ModelViewSet):
                                     helper_obj = Employee.objects.filter(emp_isactive=True,pk=s['emp_id']).first()
                                     if s['tmp_workid']:
                                         TmpItemHelper.objects.filter(id=s['tmp_workid']).update(
-                                        percent=s['work_percentage'],work_amt=s['work_amount'],wp1=s['wp'],sa_date=date.today())
+                                        percent=s['work_percentage'],work_amt=s['work_amount'],wp1=s['wp'],sa_date=poshaud_v.sa_date)
                                     elif s['tmp_workid'] == None:
                                         
                                         if helper_obj: 
@@ -8042,7 +8042,7 @@ class ChangeStaffViewset(viewsets.ModelViewSet):
                                                 helper_name=helper_obj.display_name,helper_code=helper_obj.emp_code,
                                                 site_code=site.itemsite_code,times=str(itemcart.quantity).zfill(2),
                                                 treatment_no=str(itemcart.quantity).zfill(2),wp1=s['wp'],wp2=0.0,wp3=0.0,itemcart=itemcart,
-                                                percent=s['work_percentage'],work_amt=s['work_amount'],sa_date=date.today()) 
+                                                percent=s['work_percentage'],work_amt=s['work_amount'],sa_date=poshaud_v.sa_date) 
                                                 temph.save() 
 
                                     serviceStaffChangeLog(sa_transacno=sa_transacno,item_code=s['item_code'] if 'item_code' in s and s['item_code'] else None,
@@ -8116,16 +8116,17 @@ class ChangeStaffViewset(viewsets.ModelViewSet):
                                     itemcart.helper_ids.add(t) 
                                     itemcart.service_staff.add(helper_obj.pk) 
 
+                            acc_ids = TreatmentAccount.objects.filter(type="Deposit",itemcart=itemcart).first()
+                            if not acc_ids:
+                                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Treatment Account Does not exist for cart lineno {0} .".format(str(itemcart.lineno)),
+                                'error': True}
+                                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+                            treatment_parentcode = acc_ids.treatment_parentcode
+ 
 
                             for i in range(1,int(itemcart.quantity)+1):
-                                acc_ids = TreatmentAccount.objects.filter(type="Deposit",itemcart=itemcart).first()
-                                if not acc_ids:
-                                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Treatment Account Does not exist for cart lineno {0} .".format(str(itemcart.lineno)),
-                                    'error': True}
-                                    return Response(result, status=status.HTTP_400_BAD_REQUEST)
-
-                                treatment_parentcode = acc_ids.treatment_parentcode
-
+                                
                                 times = str(i).zfill(2)
                                 Unit_Amount = itemcart.trans_amt / itemcart.quantity
                                 for idx, h in enumerate(itemcart.helper_ids.all().filter(times=times), start=1):
@@ -8148,15 +8149,18 @@ class ChangeStaffViewset(viewsets.ModelViewSet):
                                     
                                     # "{:.2f}".format(float(share_amt))
                                     # Item helper create
-                                    helper = ItemHelper(item_code=treatment_parentcode+"-"+str(times),item_name=itemcart.itemcodeid.item_desc,
-                                    line_no=itemcart.lineno,sa_transacno=sa_transacno,amount="{:.2f}".format(float(Unit_Amount)),
-                                    helper_name=h.helper_name if h.helper_name else None,helper_code=h.helper_code if h.helper_code else None,
-                                    site_code=site.itemsite_code,share_amt=share_amt,helper_transacno=sa_transacno,
-                                    wp1=wp1,wp2=0.0,wp3=0.0,percent=h.percent,work_amt="{:.2f}".format(float(h.work_amt)) if h.work_amt else h.work_amt,session=h.session,
-                                    times=h.times,treatment_no=h.treatment_no)
-                                    helper.save()
-                                    helper.sa_date = date.today()
-                                    helper.save()
+                                    hobj_ids = ItemHelper.objects.filter(item_code=treatment_parentcode+"-"+str(times),
+                                    helper_code=h.helper_code)
+                                    if hobj_ids:
+                                        helper = ItemHelper(item_code=treatment_parentcode+"-"+str(times),item_name=itemcart.itemcodeid.item_desc,
+                                        line_no=itemcart.lineno,sa_transacno=sa_transacno,amount="{:.2f}".format(float(Unit_Amount)),
+                                        helper_name=h.helper_name if h.helper_name else None,helper_code=h.helper_code if h.helper_code else None,
+                                        site_code=site.itemsite_code,share_amt=share_amt,helper_transacno=sa_transacno,
+                                        wp1=wp1,wp2=0.0,wp3=0.0,percent=h.percent,work_amt="{:.2f}".format(float(h.work_amt)) if h.work_amt else h.work_amt,session=h.session,
+                                        times=h.times,treatment_no=h.treatment_no)
+                                        helper.save()
+                                        helper.sa_date = poshaud_v.sa_date
+                                        helper.save()
                                 
 
                             tmpids = TmpItemHelper.objects.filter(itemcart=itemcart).order_by('pk').aggregate(Sum('wp1'))
@@ -8182,6 +8186,11 @@ class ChangeStaffViewset(viewsets.ModelViewSet):
                             if daud_ids:
                                 daud_ids.staffs = sales +" "+"/"+" "+ service
                                 daud_ids.save()
+
+                            tmpsearchhids = TmpItemHelperSession.objects.filter(treatment_parentcode=treatment_parentcode,
+                            sa_date__date=date.today()) 
+                            if tmpsearchhids:
+                                tmpsearchhids.delete()     
 
                             
                         elif itemcart.type == 'Sales' and int(itemcart.itemcodeid.item_div) == 3:
@@ -8231,16 +8240,19 @@ class ChangeStaffViewset(viewsets.ModelViewSet):
                                         
                                         # "{:.2f}".format(float(share_amt))
                                         # Item helper create
-                                        helper = ItemHelper(item_code=cl.treatment_code,item_name=itemcart.itemcodeid.item_name,
-                                        line_no=itemcart.lineno,sa_transacno=itemcart.treatment.sa_transacno,amount=cl.unit_amount,
-                                        helper_name=h.helper_name,helper_code=h.helper_code,sa_date=poshaud_v.sa_date,
-                                        site_code=site.itemsite_code,share_amt=share_amt,helper_transacno=sa_transacno,
-                                        wp1=wp1,wp2=0.0,wp3=0.0,percent=h.percent,work_amt="{:.2f}".format(float(h.work_amt)) if h.work_amt else h.work_amt,
-                                        session=h.session,times=h.times,treatment_no=h.treatment_no)
-                                        helper.save()
-                                        helper.sa_date = date.today()
-                                        helper.save()
-                                        # print(helper.id,"helper")
+                                        hsobj_ids = ItemHelper.objects.filter(item_code=cl.treatment_code,
+                                        helper_code=h.helper_code)
+                                        if hsobj_ids:
+                                            helper = ItemHelper(item_code=cl.treatment_code,item_name=itemcart.itemcodeid.item_name,
+                                            line_no=itemcart.lineno,sa_transacno=itemcart.treatment.sa_transacno,amount=cl.unit_amount,
+                                            helper_name=h.helper_name,helper_code=h.helper_code,sa_date=poshaud_v.sa_date,
+                                            site_code=site.itemsite_code,share_amt=share_amt,helper_transacno=sa_transacno,
+                                            wp1=wp1,wp2=0.0,wp3=0.0,percent=h.percent,work_amt="{:.2f}".format(float(h.work_amt)) if h.work_amt else h.work_amt,
+                                            session=h.session,times=h.times,treatment_no=h.treatment_no)
+                                            helper.save()
+                                            helper.sa_date = poshaud_v.sa_date
+                                            helper.save()
+                                            # print(helper.id,"helper")
 
 
                         
@@ -8272,7 +8284,13 @@ class ChangeStaffViewset(viewsets.ModelViewSet):
                             if daudids:
                                 daudids.staffs = "/"+" "+ service
                                 daudids.save()
- 
+                            
+                            if itemcart.multi_treat.all().exists():
+                                ct = itemcart.multi_treat.all()[0]
+                                tmpsearchhids = TmpItemHelperSession.objects.filter(treatment_parentcode=ct.treatment_parentcode,
+                                sa_date__date=date.today()) 
+                                if tmpsearchhids:
+                                    tmpsearchhids.delete()       
 
 
                             #         if s['tmp_workid']:
@@ -9473,11 +9491,11 @@ class CourseTmpAPIView(generics.ListCreateAPIView):
                             
                         tmp_ids = Tmptreatment.objects.filter(itemcart=cartobj).order_by('pk')
                         unit_amount = float(request.data['total_price']) / int(treatmentno)
-                        print(unit_amount,"unit_amount")
+                        # print(unit_amount,"unit_amount")
                      
 
                         cartobj.is_total = True
-                        cartobj.price=unit_amount
+                        # cartobj.price=unit_amount
                         cartobj.total_price = float(request.data['total_price'])
                         cartobj.discount_price = unit_amount
                         cartobj.trans_amt = float(request.data['total_price'])

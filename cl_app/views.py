@@ -4026,8 +4026,11 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
     
     def list(self, request):
         try:
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+            site = fmspw[0].loginsite
+            cartdate = timezone.now().date()
             # print(request.GET.get('treatmentid',None),"request.GET.get('treatmentid',None)")
-            if request.GET.get('treatmentid',None) is None:
+            if request.GET.get('treatmentid',None) is None or not request.GET.get('treatmentid',None):
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give Treatment Record ID",'error': False}
                 return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
@@ -4115,7 +4118,7 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                 'times':trmt_obj.times if trmt_obj.times else "",'add_duration':hrs,
                 'flexipoints': int(trmt_obj.flexipoints) if trmt_obj.flexipoints else None,
                 'item_code': trmt_obj.service_itembarcode[:-4] if trmt_obj.service_itembarcode else "",
-                'remarks':trmt_obj.remarks  if trmt_obj.remarks else ""}
+                'remarks':trmt_obj.remarks  if trmt_obj.remarks else "",'session': len(arrtreatmentid)}
                 if h_obj:
                     # if not h_obj.Room_Codeid is None:
                     #     value['room_id'] = h_obj.Room_Codeid.pk
@@ -4146,8 +4149,50 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                 
 
             # queryset = TmpItemHelper.objects.filter(treatment=trmt_obj).order_by('id')
-            queryset = h_obj
-             
+            queryset_c = h_obj
+            if not queryset_c:
+                if self.request.GET.get('invoice_done',None) == "1":
+                    donetreat_ids = Treatment.objects.filter(pk__in=arrtreatmentid,
+                    status='Done')
+                    if donetreat_ids:
+                        treatment_code_ids = list(set(donetreat_ids.values_list('treatment_code', flat=True).distinct()))
+                        if treatment_code_ids:
+                            ihelper_ids = list(set(ItemHelper.objects.filter(
+                            item_code__in=treatment_code_ids).values_list('helper_transacno', flat=True).distinct()))
+                            if ihelper_ids:
+                                check_haudids  = PosHaud.objects.filter(isvoid=True,sa_transacno__in=ihelper_ids).order_by('-pk')
+                                if check_haudids:
+                                    raise Exception("Change Staffs Can't do!")
+                                else:
+                                    # month_treatids = Treatment.objects.filter(site_code=site.itemsite_code,
+                                    # treatment_code__in=refer_lstmonth,status='Done').order_by('-pk').values('item_code',
+                                    # ).order_by('item_code').annotate(total_qty=Count('item_code'),total_unitamt=Sum('unit_amount')).order_by('-total_qty')
+                                
+                                    helper_ids = ItemHelper.objects.filter(item_code__in=treatment_code_ids).order_by('-pk').values('helper_code'
+                                    ).order_by('helper_code').annotate(session=F('session')
+                                    ,helper_name=F('helper_name'),wp1=Sum('wp1'))
+                                    # print(helper_ids)
+                                    # final = helper_ids
+                                    # if helper_ids:
+                                    #     final.append(helper_ids)
+                                    if helper_ids:
+                                        for hel in helper_ids:
+                                            help_obj = Employee.objects.filter(emp_isactive=True,emp_code=hel['helper_code']).first()
+                                            if help_obj:
+                                                alemp_ids = TmpItemHelperSession.objects.filter(treatment_parentcode=trmt_obj.treatment_parentcode,
+                                                helper_id=help_obj,sa_date__date=cartdate).order_by('pk')
+                                                if not alemp_ids:
+                                                    temph = TmpItemHelperSession(treatment_parentcode=trmt_obj.treatment_parentcode,
+                                                    helper_id=help_obj,
+                                                    helper_name=help_obj.display_name,helper_code=help_obj.emp_code,
+                                                    site_code=site.itemsite_code,
+                                                    wp1=workcommpoints,sa_date=cartdate,
+                                                    session=hel['session']).save()
+
+
+            queryset = TmpItemHelperSession.objects.filter(treatment_parentcode=trmt_obj.treatment_parentcode,
+            sa_date__date=date.today()).order_by('-pk')
+ 
             serializer = self.get_serializer(queryset, many=True)
             final = []
             if queryset:
@@ -4160,31 +4205,7 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                     s['add_duration'] =  "01:30"
                     s['session'] = "{:.2f}".format(float(s['session'])) if s['session'] else ""
                     final.append(s)
-            else:
-                donetreat_ids = Treatment.objects.filter(pk__in=arrtreatmentid,
-                status='Done')
-                if donetreat_ids:
-                    treatment_code_ids = list(set(donetreat_ids.values_list('treatment_code', flat=True).distinct()))
-                    if treatment_code_ids:
-                        ihelper_ids = list(set(ItemHelper.objects.filter(
-                        item_code__in=treatment_code_ids).values_list('helper_transacno', flat=True).distinct()))
-                        if ihelper_ids:
-                            check_haudids  = PosHaud.objects.filter(isvoid=True,sa_transacno__in=ihelper_ids).order_by('-pk')
-                            if check_haudids:
-                                raise Exception("Change Staffs Can't do!")
-                            else:
-                                # month_treatids = Treatment.objects.filter(site_code=site.itemsite_code,
-                                # treatment_code__in=refer_lstmonth,status='Done').order_by('-pk').values('item_code',
-                                # ).order_by('item_code').annotate(total_qty=Count('item_code'),total_unitamt=Sum('unit_amount')).order_by('-total_qty')
-                            
-                                helper_ids = ItemHelper.objects.filter(item_code__in=treatment_code_ids).order_by('-pk').values('helper_code'
-                                ).order_by('helper_code').annotate(session=F('session')
-                                ,helper_name=F('helper_name'),helper_id=F('helper_id'),wp1=Sum('wp1'))
-                                print(helper_ids)
-                                if helper_ids:
-                                    final.append(helper_ids)
-
-            
+              
             
             result = {'status': status.HTTP_200_OK,"message": "Listed Succesfully",'error': False, 
             'value': value,'data':  final}
@@ -4416,10 +4437,10 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                     if serializer.is_valid():
                         # trmt_obj.Item_Codeid.item_desc
                         
-                        if trmt_obj.treatment_account and trmt_obj.treatment_account.itemcart and trmt_obj.treatment_account.itemcart.itemcodeid and trmt_obj.treatment_account.itemcart.itemcodeid.item_type and trmt_obj.treatment_account.itemcart.itemcodeid.item_type == 'PACKAGE':
-                            item_name = trmt_obj.course
-                        else:
-                            item_name = trmt_obj.treatment_account.itemcart.itemdesc if trmt_obj.treatment_account and trmt_obj.treatment_account.itemcart and trmt_obj.treatment_account.itemcart.itemdesc else trmt_obj.course
+                        # if trmt_obj.treatment_account and trmt_obj.treatment_account.itemcart and trmt_obj.treatment_account.itemcart.itemcodeid and trmt_obj.treatment_account.itemcart.itemcodeid.item_type and trmt_obj.treatment_account.itemcart.itemcodeid.item_type == 'PACKAGE':
+                        #     item_name = trmt_obj.course
+                        # else:
+                        #     item_name = trmt_obj.treatment_account.itemcart.itemdesc if trmt_obj.treatment_account and trmt_obj.treatment_account.itemcart and trmt_obj.treatment_account.itemcart.itemdesc else trmt_obj.course
 
                         
                         # temph = serializer.save(item_name=item_name,helper_id=helper_obj,
@@ -4610,6 +4631,8 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
                     trmtobj.remarks = request.GET.get('remarks',None)
                     trmtobj.save()
+
+                    helpr_ids = TmpItemHelper.objects.filter(treatment__pk__in=arrtreatmentid).delete()
                 
                     queryset = TmpItemHelperSession.objects.filter(treatment_parentcode=trmtobj.treatment_parentcode,
                     sa_date__date=date.today()).order_by('-pk')
@@ -4655,7 +4678,7 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                                     'treatment': orid}
                                     totlist.append(val)
                     
-                    print(totlist,"totlist")
+                    # print(totlist,"totlist")
                         
                         
                     for e in totlist:
@@ -4828,13 +4851,16 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                             return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
                     
                     if self.request.GET.get('clear_all',None) == "1":
-                        tqueryset = TmpItemHelperSession.objects.filter(treatment_parentcode=trmtobj.treatment_parentcode).order_by('id').delete()
+                        # print(trmtobj.treatment_parentcode,"trmtobj.treatment_parentcode")
+                        tqueryset = TmpItemHelperSession.objects.filter(treatment_parentcode=trmtobj.treatment_parentcode).order_by('id')
+                        tquery = tqueryset.delete()
+                        # print(tquery,"tquery")
                         queryset = TmpItemHelper.objects.filter(treatment__pk__in=arrtreatmentid).order_by('id').delete()
                         
                     elif self.request.GET.get('clear_all',None) == "0":
                         q = TmpItemHelperSession.objects.filter(treatment_parentcode=trmtobj.treatment_parentcode).order_by('id').first()
                         queryset = TmpItemHelper.objects.filter(treatment__pk__in=arrtreatmentid,helper_id=q.helper_id).order_by('id').delete()
-                        tqueryset = q.delete()
+                        t_queryset = q.delete()
 
 
                     # workcommpoints = 0.0
@@ -7159,7 +7185,7 @@ class VoidViewset(viewsets.ModelViewSet):
                 finalsatrasc  = False
                 if haudobj.sa_transacno_type in ['Receipt','Non Sales','Redeem Service']:
                     for i in daud_ids:
-                        if int(i.itemcart.itemcodeid.item_div) == 5:
+                        if int(i.itemcart.itemcodeid.item_div) in [5,3]:
                             if i.itemcart.type == 'Deposit':
                                 check_ids = PrepaidAccount.objects.filter(pp_no=haudobj.sa_transacno,
                                 cust_code=haudobj.sa_custno,line_no=i.dt_lineno,use_amt__gt=0,sa_status="SA")
@@ -7238,7 +7264,7 @@ class VoidViewset(viewsets.ModelViewSet):
 
                                 use_preids = PrepaidAccount.objects.filter(pp_no=ppno,line_no=lineno,
                                 cust_code=haudobj.sa_custno,transac_no=haudobj.sa_transacno,sa_status="SA").order_by('pk')
-                                print(use_preids,"use_preids")  
+                                # print(use_preids,"use_preids")  
                                 if use_preids:
                                     for u in use_preids:
                                         ulast_preids = PrepaidAccount.objects.filter(pp_no=ppno,line_no=lineno,
@@ -7622,9 +7648,10 @@ class VoidViewset(viewsets.ModelViewSet):
                                     pacc_ids = PrepaidAccount.objects.filter(pp_no=haudobj.sa_transacno,sa_status='DEPOSIT',
                                     cust_code=haudobj.sa_custno,line_no=d.dt_lineno)
 
-                                    check_ids = PrepaidAccount.objects.filter(pp_no=haudobj.sa_transacno,
-                                    cust_code=haudobj.sa_custno,line_no=d.dt_lineno,use_amt__gt=0,sa_status="SA")
-                                    if not check_ids: 
+                                    # check_ids = PrepaidAccount.objects.filter(pp_no=haudobj.sa_transacno,
+                                    # cust_code=haudobj.sa_custno,line_no=d.dt_lineno,use_amt__gt=0,sa_status="SA")
+                                    # if not check_ids: 
+                                    if pacc_ids:
                                         for pa in pacc_ids:
                                             PrepaidAccount.objects.filter(pk=pa.pk).update(remain=0.0,status=False,sa_status="VT",updated_at=timezone.now(),
                                             cust_code=haudobj.sa_custno)
@@ -8127,25 +8154,25 @@ class VoidViewset(viewsets.ModelViewSet):
                                 pacc_ids = PrepaidAccount.objects.filter(pp_no=haudobj.sa_transacno,sa_status='DEPOSIT',
                                 cust_code=haudobj.sa_custno,line_no=d.dt_lineno)
 
-                                check_ids = PrepaidAccount.objects.filter(pp_no=haudobj.sa_transacno,
-                                cust_code=haudobj.sa_custno,line_no=d.dt_lineno,use_amt__gt=0,sa_status="SA")
-                                if not check_ids: 
-                                    if pacc_ids:
-                                        for pa in pacc_ids:
-                                            PrepaidAccount.objects.filter(pk=pa.pk).update(remain=0.0,status=False,sa_status="VT",updated_at=timezone.now(),
-                                            cust_code=haudobj.sa_custno)
+                                # check_ids = PrepaidAccount.objects.filter(pp_no=haudobj.sa_transacno,
+                                # cust_code=haudobj.sa_custno,line_no=d.dt_lineno,use_amt__gt=0,sa_status="SA")
+                                # if not check_ids: 
+                                if pacc_ids:
+                                    for pa in pacc_ids:
+                                        PrepaidAccount.objects.filter(pk=pa.pk).update(remain=0.0,status=False,sa_status="VT",updated_at=timezone.now(),
+                                        cust_code=haudobj.sa_custno)
 
-                                        paccids = PrepaidAccount.objects.filter(pp_no=haudobj.sa_transacno,
-                                        cust_code=haudobj.sa_custno,line_no=d.dt_lineno)
+                                    paccids = PrepaidAccount.objects.filter(pp_no=haudobj.sa_transacno,
+                                    cust_code=haudobj.sa_custno,line_no=d.dt_lineno)
 
-                                        for p in paccids:
-                                            PrepaidAccount.objects.filter(pk=p.pk).update(status=False)
-                                        
-                                        # dppacc_ids = list(set(PrepaidAccountCondition.objects.filter(pp_no=pt.pp_no,
-                                        # pos_daud_lineno=pt.line_no,p_itemtype="Inclusive").only('pp_no','pos_daud_lineno').values_list('id', flat=True).distinct()))
-                                        # if pacc_ids != []:                                
-                                        #     acc = PrepaidAccountCondition.objects.filter(pk__in=pacc_ids).update(remain=remain)
-    
+                                    for p in paccids:
+                                        PrepaidAccount.objects.filter(pk=p.pk).update(status=False)
+                                    
+                                    # dppacc_ids = list(set(PrepaidAccountCondition.objects.filter(pp_no=pt.pp_no,
+                                    # pos_daud_lineno=pt.line_no,p_itemtype="Inclusive").only('pp_no','pos_daud_lineno').values_list('id', flat=True).distinct()))
+                                    # if pacc_ids != []:                                
+                                    #     acc = PrepaidAccountCondition.objects.filter(pk__in=pacc_ids).update(remain=remain)
+
 
                             elif d.itemcart.type == 'Top Up':
                                 ptacc_ids = PrepaidAccount.objects.filter(topup_no=haudobj.sa_transacno,sa_status='TOPUP',
@@ -10962,7 +10989,7 @@ class PrepaidAccPaymentListViewset(viewsets.ModelViewSet):
                     }
                     
                     result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
-                    'header_data':header_data, 'data': lst,'pp_datalst': pp_datalst}
+                    'header_data':header_data, 'data': lst}
                     return Response(data=result, status=status.HTTP_200_OK)
                 else:
                     result = {'status': status.HTTP_204_NO_CONTENT, 'message': "No Content", 'error': False, 'data': []}

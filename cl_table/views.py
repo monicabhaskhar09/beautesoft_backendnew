@@ -9172,14 +9172,15 @@ class postaudViewset(viewsets.ModelViewSet):
                                                                     if upda_brall_ids:
                                                                         redeem_ppac = True; op_conditionobj = upda_brall_ids
                                                                         
-
+                                                        # print(redeem_ppac,"redeem_ppac")
                                                         if redeem_ppac == False:
                                                             upda_all_ids = PrepaidAccountCondition.objects.filter(pp_no=pp_no,
                                                             pos_daud_lineno=line_no,p_itemtype="Inclusive",conditiontype1="All",
                                                             conditiontype2="All").first()
+                                                            # print(upda_all_ids,"upda_all_ids")
                                                             if upda_all_ids:
                                                                 redeem_ppac = True; op_conditionobj = upda_all_ids
-                                                        
+
                                                         if op_conditionobj:
                                                             PrepaidAccount.objects.filter(pk=prepacc.pk).update(pp_type2=op_conditionobj.conditiontype2,
                                                             condition_type1=op_conditionobj.conditiontype1)
@@ -19537,28 +19538,32 @@ class RedeemPolicyViewSet(viewsets.ModelViewSet):
         if serializer.is_valid():
             k = serializer.save()
             if item_divids:
-                if ',' in item_divids:
-                    res = item_divids.split(',')
-                elif item_divids == "0":
+                # if ',' in item_divids:
+                #     print("iff")
+                #     res = item_divids.split(',')
+                if item_divids == "0":
                     res = ItemDiv.objects.filter(itm_isactive=True,issellable=True).filter(~Q(itm_code=2)).order_by('-itm_seq')
                 else:
-                    res = item_divids.split(' ')
+                    res = item_divids.split(',')
                 for div in res:
                     k.item_divids.add(div)
             
             if dept_ids:
-                if ',' in dept_ids:
-                    dep_res = dept_ids.split(',') 
-                else:
-                    dep_res =  dept_ids.split(' ')
+                dep_res = dept_ids.split(',') 
+                # if ',' in dept_ids:
+                #     dep_res = dept_ids.split(',') 
+                # else:
+                #     dep_res =  dept_ids.split(' ')
+                    
                 for dept in dep_res:
                     k.dept_ids.add(dept)  
             
             if brand_ids:
-                if ',' in brand_ids:
-                    brand_res = brand_ids.split(',')
-                else:
-                    brand_res = brand_ids.split(' ') 
+                brand_res = brand_ids.split(',')
+                # if ',' in brand_ids:
+                #     brand_res = brand_ids.split(',')
+                # else:
+                #     brand_res = brand_ids.split(' ') 
 
                 for brand in brand_res:
                     k.brand_ids.add(brand)      
@@ -21600,6 +21605,8 @@ class CustomerPointsViewsets(viewsets.ModelViewSet):
                 redeem_currency = 0
                 for t in custredeem_ids:
                     bro_obj = RedeemPolicy.objects.filter(pk=t.pk).order_by('-pk').first()
+                    # check_div = list(set(bro_obj.item_divids.filter().values_list('itm_code', flat=True).distinct()))
+                    # print(check_div,"kk")
                     if bro_obj and bro_obj.point_value and bro_obj.point_value > 0 and bro_obj.cur_value and bro_obj.cur_value > 0:
                         item_div_desc = '';dept_ids_desc='';brand_ids_desc=''
                         item_divids = bro_obj.item_divids.filter(issellable=True)
@@ -21621,8 +21628,8 @@ class CustomerPointsViewsets(viewsets.ModelViewSet):
 
                         useamt = 0
                         if bro_obj.item_divids.filter(itm_code=3).exists():
-                            print(bro_obj.item_divids)
-                            print( bro_obj.cur_value," bro_obj.cur_value")  
+                            # print(bro_obj.item_divids)
+                            # print( bro_obj.cur_value," bro_obj.cur_value")  
                             if bro_obj.cur_value < service_only:
                                 redeem_currency += bro_obj.cur_value
                                 val.update({'useamt':  "{:.2f}".format(bro_obj.cur_value)})

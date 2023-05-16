@@ -1574,8 +1574,8 @@ class PrepaidAccountCondition(models.Model):
     pp_desc = models.CharField(db_column='PP_DESC', max_length=50, blank=True, null=True)  # Field name made lowercase.
     p_itemtype = models.CharField(db_column='P_ItemType', max_length=50, null=True)  # Field name made lowercase.
     item_code = models.CharField(max_length=20, null=True)
-    conditiontype1 = models.CharField(db_column='ConditionType1', max_length=500, null=True)  # Field name made lowercase.
-    conditiontype2 = models.CharField(db_column='ConditionType2', max_length=500, null=True)  # Field name made lowercase.
+    conditiontype1 = models.CharField(db_column='ConditionType1', max_length=80, null=True)  # Field name made lowercase.
+    conditiontype2 = models.CharField(db_column='ConditionType2', max_length=80, null=True)  # Field name made lowercase.
     amount = models.DecimalField(db_column='Amount', max_digits=19, decimal_places=4, blank=True, null=True)  # Field name made lowercase.
     rate = models.CharField(db_column='Rate', max_length=20, blank=True, null=True)  # Field name made lowercase.
     membercardnoaccess = models.BooleanField(db_column='MemberCardNoAccess', null=True)  # Field name made lowercase.
@@ -2087,7 +2087,7 @@ class ItemHelper(models.Model):
     amount = models.FloatField(db_column='Amount', blank=True, null=True)  # Field name made lowercase.
     helper_name = models.CharField(db_column='Helper_Name', max_length=600, blank=True, null=True)  # Field name made lowercase.
     helper_code = models.CharField(db_column='Helper_Code', max_length=200, null=True)  # Field name made lowercase.
-    sa_date = models.DateTimeField( null=True,auto_now=True)
+    sa_date = models.DateTimeField( null=True)
     site_code = models.CharField(db_column='Site_code', max_length=10, null=True)  # Field name made lowercase.
     # cas_logno = models.CharField(db_column='Cas_logno', max_length=20, blank=True, null=True)  # Field name made lowercase.
     share_amt = models.FloatField(db_column='Share_Amt', blank=True, null=True)  # Field name made lowercase.
@@ -2946,8 +2946,8 @@ class PrepaidOpenCondition(models.Model):
     id = models.AutoField(db_column='ID',primary_key=True)  # Field name made lowercase.
     p_itemtype = models.CharField(db_column='P_ItemType', max_length=20, null=True)  # Field name made lowercase.
     item_code = models.CharField(max_length=20, null=True)
-    conditiontype1 = models.CharField(db_column='ConditionType1', max_length=20, null=True)  # Field name made lowercase.
-    conditiontype2 = models.CharField(db_column='ConditionType2', max_length=20, null=True)  # Field name made lowercase.
+    conditiontype1 = models.CharField(db_column='ConditionType1', max_length=80, null=True)  # Field name made lowercase.
+    conditiontype2 = models.CharField(db_column='ConditionType2', max_length=80, null=True)  # Field name made lowercase.
     prepaid_value = models.FloatField(db_column='Prepaid_Value', blank=True, null=True)  # Field name made lowercase.
     prepaid_sell_amt = models.FloatField(db_column='Prepaid_Sell_Amt', blank=True, null=True)  # Field name made lowercase.
     prepaid_valid_period = models.CharField(db_column='Prepaid_Valid_Period', max_length=20, null=True)  # Field name made lowercase.

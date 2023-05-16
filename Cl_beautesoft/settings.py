@@ -131,6 +131,7 @@ WSGI_APPLICATION = 'Cl_beautesoft.wsgi.application'
 #microsoft sql local server
 # healspahq_backup9
 # Local Database Connection
+
 # DATABASES = {
 #     'default': {
 #         'ENGINE': 'sql_server.pyodbc',
@@ -146,6 +147,7 @@ WSGI_APPLICATION = 'Cl_beautesoft.wsgi.application'
 # }
 
 # Staging Database Connection
+
 DATABASES = {
     'default': {
         'ENGINE': 'sql_server.pyodbc',

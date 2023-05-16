@@ -344,7 +344,7 @@ class CollectionbyOutletAPIView(GenericAPIView):
 
 
     def get_sales_collection(self,start_date,end_date,site_code,pay_code):
-        raw_q = "Select X.payDate,X.customer,X.invoiceRef,[payRef],[CustRef], " \
+        raw_q = "Select X.payDate,X.customer,X.invoiceRef,X.sa_transacno,[payRef],[CustRef], " \
                 "X.payTypes [payTypes],  " \
                 "(case when X.[isVoid]=1 then 'Voided Sales'  when X.[Group]='GT1' and X.[isVoid]=0 and isnull(SUM(X.total),0)<>0 then 'Sales' when ((X.[Group]='GT2' and X.[isVoid]=0) or (isnull(SUM(X.total),0)=0)) then 'Non-Sales' else '' end) as SalesGroup,  " \
                 "'Group1' as GroupOrder,X.Excel_Col_Seq [Excel_Col_Seq]," \
@@ -362,7 +362,7 @@ class CollectionbyOutletAPIView(GenericAPIView):
                 "isnull(SUM(X.total),0) total    " \
                 "from (SELECT convert (varchar,pos_haud.sa_date,103)[payDate],   " \
                 "Customer.Cust_name [customer],    " \
-                "pos_haud.SA_TransacNo_Ref [invoiceRef],   " \
+                "pos_haud.SA_TransacNo_Ref [invoiceRef], pos_haud.sa_transacno [sa_transacno],  " \
                 "pos_haud.isVoid,  " \
                 "pos_haud.sa_staffname [payRef],  " \
                 "isnull(Customer.Cust_Refer,'') [CustRef],  " \
@@ -385,7 +385,7 @@ class CollectionbyOutletAPIView(GenericAPIView):
                 f"Where convert(datetime,convert(varchar,pos_haud.sa_date,103),103)>=Convert(Datetime,'{start_date}',103)" \
                 f"And convert(datetime,convert(varchar,pos_haud.sa_date,103),103)<=Convert(Datetime,'{end_date}',103)" \
                 f"and paytable.pay_code in (select pay_code from paytable where GT_Group='GT1' )  and pos_haud.isVoid!=1 And (('{site_code}'='') OR (('{site_code}'<>'') And pos_haud.ItemSite_Code In (Select Item From dbo.LISTTABLE('{site_code}',',')))) " \
-                f"And (('{pay_code}'='') OR (('{pay_code}'<>'') And pos_taud.pay_Type In (Select Item From dbo.LISTTABLE('{pay_code}',','))))  )X  Group By X.payDate,X.customer,X.invoiceRef,X.payTypes,X.ItemSite_Code,X.ItemSite_Desc,[payRef],[CustRef],X.[Group],X.isVoid ,X.Excel_Col_Seq "
+                f"And (('{pay_code}'='') OR (('{pay_code}'<>'') And pos_taud.pay_Type In (Select Item From dbo.LISTTABLE('{pay_code}',','))))  )X  Group By X.payDate,X.customer,X.invoiceRef,X.payTypes,X.ItemSite_Code,X.ItemSite_Desc,[payRef],[CustRef],X.[Group],X.isVoid ,X.Excel_Col_Seq,X.sa_transacno "
 
         # print(raw_q,"raw_q")
         with connection.cursor() as cursor:
@@ -457,21 +457,20 @@ class CollectionbyOutletAPIView(GenericAPIView):
                 raise Exception('Please give to_date !!')
 
             site_code = self.request.data.get("site_code") 
-            site_codelst = site_code.split(",")
-            site_least = ItemSitelist.objects.filter(itemsite_code__in=site_codelst).order_by('itemsite_id').first()
-            if not site_least:
-                raise Exception('Selected site doesnt exist !!') 
-
+            
             # site_code_list = site_code.split(",")
             # print(site_code,"site_code")
             # site_code_q = ', '.join(['\''+str(code)+'\'' for code in site_code_list])
             # print(site_code_q,"site_code_q")
-            # if site_code:
-            #     site_code_list = site_code.split(",")
-            #     print(site_code_list,"site_code_list")
-            # else:
-            #     site_code_list = ItemSitelist.objects.filter(itemsite_isactive=True).filter(~Q(itemsite_code__icontains="HQ")).values_list('itemsite_code', flat=True)
-            #     print(site_code_list,"site_code_list")
+            if site_code:
+                site_code_list = site_code.split(",")
+            else:
+                site_code_list = ItemSitelist.objects.filter(itemsite_isactive=True).filter(~Q(itemsite_code__icontains="HQ")).values_list('itemsite_code', flat=True)
+
+            site_least = ItemSitelist.objects.filter(itemsite_code__in=site_code_list).order_by('itemsite_id').first()
+            if not site_least:
+                raise Exception('Selected site doesnt exist !!') 
+    
 
             pay_code = self.request.data.get("pay_code") 
             # print(pay_code,"pay_code")
@@ -487,6 +486,7 @@ class CollectionbyOutletAPIView(GenericAPIView):
             end_date = datetime.datetime.strptime(to_date, "%Y-%m-%d").strftime("%d/%m/%Y")
             now = datetime.datetime.now()
             dt_string = now.strftime("%d/%m/%Y | %H:%M:%S %I:%M:%S %p") 
+            
             title = Title.objects.filter(product_license=site_least.itemsite_code).order_by("pk").values('product_license',
             'id','title','comp_title1','comp_title2','comp_title3','comp_title4','footer_1','footer_2','footer_3','footer_4')
             vals = {'report_title': "Collection By Outlet",'outlet': site.itemsite_desc,
@@ -499,36 +499,37 @@ class CollectionbyOutletAPIView(GenericAPIView):
                 "comp_title3": "","comp_title4": "","footer_1": "","footer_2": "","footer_3": "",
                 "footer_4": ""})
 
-            if self.request.data.get("report_url"):
-                # print("igg")
-                final = self.get_sales_collection(start_date,end_date,site_code,pay_code)
-                resData = final
-            else: 
-                final = self.get_sales_collection_storeproc(start_date,end_date,site_code,pay_code)
+            # if self.request.data.get("report_url"):
+            #     print("igg")
+            #     final = self.get_sales_collection(start_date,end_date,site_code,pay_code)
+            #     resData = final
+            # else: 
+            #     final = self.get_sales_collection_storeproc(start_date,end_date,site_code,pay_code)
 
-                full_tot = len(final)
-                limit = int(self.request.data.get("limit",12))
-                page = int(self.request.data.get("page",1))
-                paginator = Paginator(final, limit)
-                total_page = paginator.num_pages
+            final = self.get_sales_collection(start_date,end_date,site_code,pay_code)  
+            full_tot = len(final)
+            limit = int(self.request.data.get("limit",12))
+            page = int(self.request.data.get("page",1))
+            paginator = Paginator(final, limit)
+            total_page = paginator.num_pages
 
-                try:
-                    queryset = paginator.page(page)
-                    # print(queryset,"queryset")
-                except (EmptyPage, InvalidPage):
-                    queryset = paginator.page(total_page) # last page
-            
+            try:
+                queryset = paginator.page(page)
+                # print(queryset,"queryset")
+            except (EmptyPage, InvalidPage):
+                queryset = paginator.page(total_page) # last page
+        
 
-                resData = {
-                    'dataList': queryset.object_list,
-                    'pagination': {
-                            "per_page":limit,
-                            "current_page":page,
-                            "total":full_tot,
-                            "total_pages":total_page
-                        }
-                    
-                }
+            resData = {
+                'dataList': queryset.object_list,
+                'pagination': {
+                        "per_page":limit,
+                        "current_page":page,
+                        "total":full_tot,
+                        "total_pages":total_page
+                    }
+                
+            }
                 
             result = {'status': status.HTTP_200_OK , "message": "Listed Succesfully",
             'error': False,'data': resData,'company_header': vals}
