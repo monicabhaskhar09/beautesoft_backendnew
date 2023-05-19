@@ -9073,14 +9073,14 @@ class postaudViewset(viewsets.ModelViewSet):
                                                         final_ids = use_final_ids.filter(~Q(itemcodeid__item_brand__in=itembrand_p))
                                                         use_final_ids = final_ids
                                         
-                                        print(use_final_ids,"use_final_ids")
+                                        # print(use_final_ids,"use_final_ids")
 
                                         
                                         used_amount = 0    
                                         check_amt = float(req['pay_amt'])
                                         if prepaid_redeemlst != []:
                                             use_final_ids = use_final_ids.filter(~Q(pk__in=prepaid_redeemlst))
-                                        print(use_final_ids,"use_final_ids 111")
+                                        # print(use_final_ids,"use_final_ids 111")
                                         if use_final_ids:
                                             for i in use_final_ids:
                                                 # print(i,"ii")
@@ -9247,7 +9247,7 @@ class postaudViewset(viewsets.ModelViewSet):
 
                                 check.remove("CREDIT")
                             # elif req['pay_typeid'] == 9:
-                            elif str(paytable.pay_code).upper() == 'VC':    
+                            elif str(paytable.pay_code).upper() == 'VCPM':    
                                 card_no = req['pay_rem1']
                                 # crdobj = CreditNote.objects.filter(credit_code=req['pay_rem1'],cust_code=cust_obj.cust_code,site_code=site.itemsite_code).first()
                                 # crdobj = CreditNote.objects.filter(credit_code=req['pay_rem1'],cust_code=cust_obj.cust_code).first()
@@ -9282,14 +9282,18 @@ class postaudViewset(viewsets.ModelViewSet):
 
                                 check.remove("CASH")
                             elif 'points' in req and req['points'] == True:
+                                cust_class = cust_obj.cust_class
+                                cust_redeem_ids = RedeemPolicy.objects.filter(cust_type=cust_class,isactive=True).order_by('pk').first()
                                 now_point = custnow_point
-                                if now_point > 0:        
-                                    now_point -= req['pay_amt']        
-                        
+                                if now_point > 0 and cust_redeem_ids:        
+                                    
+                                    cal_point =  (req['pay_amt'] / cust_redeem_ids.cur_value) * cust_redeem_ids.point_value     
+                                    now_point -= cal_point 
+
                                     rct = CustomerPointDtl(type="Redeem",cust_code=cust_obj.cust_code,
                                     cust_name=cust_obj.cust_name,parent_code=None,parent_desc=None,
                                     parent_display=None,itm_code=paytable.pay_code,itm_desc=paytable.pay_description,
-                                    point=req['pay_amt'],now_point=now_point,remark=None,remark_code=None,
+                                    point=cal_point,now_point=now_point,remark=None,remark_code=None,
                                     remark_desc=None,isvoid=False,void_referenceno=None,isopen=True,qty=1,
                                     seq=False,sa_status="SA",bal_acc2=req['cur_value'],point_acc1=None,
                                     point_acc2=None,locid=False)
@@ -9714,6 +9718,8 @@ class postaudViewset(viewsets.ModelViewSet):
                 else:
                     dt_depositamt = "0.00" 
 
+                # print(payment_amt,dt_depositamt,"uu")
+
                 if float(payment_amt) <= float(dt_depositamt):
                     pickamt = float(payment_amt)
                 elif float(dt_depositamt) < float(payment_amt):
@@ -9771,7 +9777,7 @@ class postaudViewset(viewsets.ModelViewSet):
                         if not departreward_ids or not brandreward_ids:
                             # print("if not dept brand")
                             eachreward_ids = RewardPolicy.objects.filter(cust_type=cust_class,isactive=True,
-                            item_divids__itm_code=int(ecl.dt_itemnoid.item_div),dept_ids=None,brand_ids=None).order_by('-pk')[:1]
+                            item_divids__itm_code=int(ecl.dt_itemnoid.item_div)).order_by('-pk')[:1]
                             # print(eachreward_ids,"eachreward_ids")
                             
                         # print(eachreward_ids,"eachreward_ids")
@@ -21580,7 +21586,7 @@ class CustomerPointsViewsets(viewsets.ModelViewSet):
             if not queryset:
                 raise Exception('Itemcart is does not exist!!')   
 
-            print(service_only,product_only)
+            # print(service_only,product_only)
             enterpt_amt = float(request.GET.get('enter_pointamt',0))
 
             now_point = 0;
@@ -21602,7 +21608,7 @@ class CustomerPointsViewsets(viewsets.ModelViewSet):
             if custredeem_ids and now_point > 0:
 
                 # table_list = [ for i in custredeem_ids]
-                redeem_currency = 0
+                redeem_currency = 0; enter_amount = []
                 for t in custredeem_ids:
                     bro_obj = RedeemPolicy.objects.filter(pk=t.pk).order_by('-pk').first()
                     # check_div = list(set(bro_obj.item_divids.filter().values_list('itm_code', flat=True).distinct()))
@@ -21612,55 +21618,50 @@ class CustomerPointsViewsets(viewsets.ModelViewSet):
                         item_divids = bro_obj.item_divids.filter(issellable=True)
                         
                         if item_divids.exists():
-                            item_div_desc = ','.join([v.itm_desc for v in item_divids if v.itm_desc])
+                            item_div_desc = ','.join(list(set([v.itm_desc for v in item_divids if v.itm_desc])))
 
                         if bro_obj.dept_ids.all().exists():
-                            dept_ids_desc = ','.join([i.itm_desc for i in bro_obj.dept_ids.all() if i.itm_desc])
+                            dept_ids_desc = ','.join(list(set([i.itm_desc for i in bro_obj.dept_ids.all() if i.itm_desc])))
 
                         if bro_obj.brand_ids.all().exists():
-                            brand_ids_desc = ','.join([i.itm_desc for i in bro_obj.brand_ids.all() if i.itm_desc]) 
+                            brand_ids_desc = ','.join(list(set([i.itm_desc for i in bro_obj.brand_ids.all() if i.itm_desc]))) 
     
                         val = {'id': bro_obj.pk,'cust_type':bro_obj.cust_type,
                             'cur_value':"{:.2f}".format(float(bro_obj.cur_value)) if bro_obj.cur_value  else "0.00",
                             'point_value': "{:.2f}".format(float(bro_obj.point_value)) if bro_obj.point_value  else "0.00",
                             'useamt': "0.00",'item_divids_desc':item_div_desc,'dept_ids_desc':dept_ids_desc,
                             'brand_ids_desc':brand_ids_desc}
+                        
+                        #total currency available enter_amount
+                        currency_avail = int(now_point / bro_obj.point_value) * bro_obj.cur_value
+                        redeem_currency += currency_avail 
 
+                        #enter_amount ranges
+                        # cur_value = bro_obj.cur_value
+                        # if now_point >= cur_value:
+                        #     if cur_value not in enter_amount:
+                        #         enter_amount.append(cur_value)
+                        #         cur_value 
+                        
+                        #useamount calculation
                         useamt = 0
                         if bro_obj.item_divids.filter(itm_code=3).exists():
                             # print(bro_obj.item_divids)
                             # print( bro_obj.cur_value," bro_obj.cur_value")  
                             if bro_obj.cur_value < service_only:
-                                redeem_currency += bro_obj.cur_value
                                 val.update({'useamt':  "{:.2f}".format(bro_obj.cur_value)})
                             elif service_only < bro_obj.cur_value:
-                                redeem_currency += service_only
                                 val.update({'useamt':  "{:.2f}".format(service_only)})    
                         elif bro_obj.item_divids.filter(itm_code=1).exists():
                             if bro_obj.cur_value < product_only:
-                                redeem_currency += bro_obj.cur_value
                                 val.update({'useamt':  "{:.2f}".format(bro_obj.cur_value)})
                             elif product_only < bro_obj.cur_value:
-                                redeem_currency += product_only
                                 val.update({'useamt':  "{:.2f}".format(product_only)}) 
-                        
-                        # if enterpt_amt == bro_obj.point_value:
-                        #     val.update({'useamt':  "{:.2f}".format(bro_obj.cur_value)})
-                        # elif enterpt_amt < bro_obj.point_value:
-                        #     val.update({'useamt': "0.00"}) 
-                        # elif enterpt_amt > bro_obj.point_value: 
-                        #     useamt = 0    
-                        #     amt = enterpt_amt
-                        #     while amt >= bro_obj.point_value:
-                        #         useamt += bro_obj.cur_value
-                        #         amt = amt - bro_obj.point_value
-
-                        #     val.update({'useamt': "{:.2f}".format(useamt)}) 
-                        
+                                
                                  
                         if val != {}:
                             table_list.append(val)
-                            header_data.update({'redeem_currency': "{:.2f}".format(redeem_currency)})
+                            header_data.update({'redeem_currency': redeem_currency})
 
 
                 result = {'status': status.HTTP_200_OK,"message": "Listed Succesfully",'error': False, 

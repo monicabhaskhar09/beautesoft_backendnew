@@ -7194,9 +7194,26 @@ class VoidViewset(viewsets.ModelViewSet):
                                     if transac_no : 
                                         check_haudids  = PosHaud.objects.filter(isvoid=False,sa_transacno__in=transac_no).order_by('-pk')
                                         if check_haudids:
-                                            msg = "Can't do void prepaid product line no {0} has use amount".format(str(i.dt_lineno))
+                                            msg = "Can't do void prepaid product Deposit line no {0} has use amount".format(str(i.dt_lineno))
                                             raise Exception(msg)
-                        
+
+                            elif i.itemcart.type == 'Top Up':
+                                ptacc_ids = PrepaidAccount.objects.filter(topup_no=haudobj.sa_transacno,sa_status='TOPUP',
+                                cust_code=haudobj.sa_custno,line_no=i.itemcart.prepaid_account.line_no).order_by('pk').first()
+                                if ptacc_ids:
+                                    check_ids = PrepaidAccount.objects.filter(pp_no=i.itemcart.prepaid_account.pp_no,
+                                    cust_code=haudobj.sa_custno,line_no=i.itemcart.prepaid_account.line_no,use_amt__gt=0,sa_status="SA",
+                                    id__gt=ptacc_ids.id)
+                                    if check_ids:
+                                        transac_no = list(set(check_ids.values_list('transac_no', flat=True).distinct()))
+                                        if transac_no : 
+                                            check_haudids  = PosHaud.objects.filter(isvoid=False,sa_transacno__in=transac_no).order_by('-pk')
+                                            if check_haudids:
+                                                msg = "Can't do void prepaid product Top Up line no {0} has use amount".format(str(i.dt_lineno))
+                                                raise Exception(msg)
+
+
+                                  
                         if int(i.itemcart.itemcodeid.item_div) == 1:
                             if i.itemcart.type == 'Deposit':
                                 close_ids = Holditemdetail.objects.filter(sa_transacno=haudobj.sa_transacno,status='CLOSE',hi_lineno=i.dt_lineno)
@@ -7255,11 +7272,11 @@ class VoidViewset(viewsets.ModelViewSet):
                             lineno = spltn[1]
 
                             depoprepaid_ids = PrepaidAccount.objects.filter(pp_no=ppno,line_no=lineno,
-                            cust_code=haudobj.sa_custno,sa_status='DEPOSIT').order_by('-pk').first()
+                            cust_code=haudobj.sa_custno,sa_status='DEPOSIT').order_by('id').first()
 
                             last_preids = PrepaidAccount.objects.filter(pp_no=ppno,line_no=lineno,
                             cust_code=haudobj.sa_custno).order_by('-pk').first()
-                            if last_preids and last_preids.status == True:
+                            if depoprepaid_ids and depoprepaid_ids.terminate_prepaid != True:
                                 
 
                                 use_preids = PrepaidAccount.objects.filter(pp_no=ppno,line_no=lineno,
@@ -7646,12 +7663,12 @@ class VoidViewset(viewsets.ModelViewSet):
                                     #prepaid
 
                                     pacc_ids = PrepaidAccount.objects.filter(pp_no=haudobj.sa_transacno,sa_status='DEPOSIT',
-                                    cust_code=haudobj.sa_custno,line_no=d.dt_lineno)
+                                    cust_code=haudobj.sa_custno,line_no=d.dt_lineno).order_by('id')
 
                                     # check_ids = PrepaidAccount.objects.filter(pp_no=haudobj.sa_transacno,
                                     # cust_code=haudobj.sa_custno,line_no=d.dt_lineno,use_amt__gt=0,sa_status="SA")
                                     # if not check_ids: 
-                                    if pacc_ids:
+                                    if pacc_ids and pacc_ids[0].terminate_prepaid != True:
                                         for pa in pacc_ids:
                                             PrepaidAccount.objects.filter(pk=pa.pk).update(remain=0.0,status=False,sa_status="VT",updated_at=timezone.now(),
                                             cust_code=haudobj.sa_custno)
@@ -8027,11 +8044,6 @@ class VoidViewset(viewsets.ModelViewSet):
                                                     Treatmentids(treatment_parentcode=ct.treatment_parentcode,
                                                                 treatment_int=j).save()
                     
-        
-  
-
-                                
-                                
                            
                         elif int(d.itemcart.itemcodeid.item_div) == 1:
                             if d.itemcart.type == 'Deposit':
@@ -8152,12 +8164,12 @@ class VoidViewset(viewsets.ModelViewSet):
                         elif int(d.itemcart.itemcodeid.item_div) == 5:
                             if d.itemcart.type == 'Deposit':
                                 pacc_ids = PrepaidAccount.objects.filter(pp_no=haudobj.sa_transacno,sa_status='DEPOSIT',
-                                cust_code=haudobj.sa_custno,line_no=d.dt_lineno)
+                                cust_code=haudobj.sa_custno,line_no=d.dt_lineno).order_by('id')
 
                                 # check_ids = PrepaidAccount.objects.filter(pp_no=haudobj.sa_transacno,
                                 # cust_code=haudobj.sa_custno,line_no=d.dt_lineno,use_amt__gt=0,sa_status="SA")
                                 # if not check_ids: 
-                                if pacc_ids:
+                                if pacc_ids and pacc_ids[0].terminate_prepaid != True:
                                     for pa in pacc_ids:
                                         PrepaidAccount.objects.filter(pk=pa.pk).update(remain=0.0,status=False,sa_status="VT",updated_at=timezone.now(),
                                         cust_code=haudobj.sa_custno)
@@ -8175,51 +8187,54 @@ class VoidViewset(viewsets.ModelViewSet):
 
 
                             elif d.itemcart.type == 'Top Up':
-                                ptacc_ids = PrepaidAccount.objects.filter(topup_no=haudobj.sa_transacno,sa_status='TOPUP',
-                                cust_code=haudobj.sa_custno,line_no=d.itemcart.prepaid_account.line_no).first()
-                                
-                                # for pt in ptacc_ids:
-                                if ptacc_ids:
-                                    pt = ptacc_ids
+                                depacc_ids = PrepaidAccount.objects.filter(pp_no=d.itemcart.prepaid_account.pp_no,sa_status='DEPOSIT',
+                                cust_code=haudobj.sa_custno,line_no=d.itemcart.prepaid_account.line_no).order_by('id').first()
+                                if depacc_ids and depacc_ids.terminate_prepaid != True:
+                                    ptacc_ids = PrepaidAccount.objects.filter(topup_no=haudobj.sa_transacno,sa_status='TOPUP',
+                                    cust_code=haudobj.sa_custno,line_no=d.itemcart.prepaid_account.line_no).first()
                                     
-                                    
-                                    pre_acc_ids = PrepaidAccount.objects.filter(pp_no=pt.pp_no,
-                                    line_no=pt.line_no).order_by('-id').first()
-
-                                    if pre_acc_ids.status == True: 
-
-                                        PrepaidAccount.objects.filter(pk=pre_acc_ids.pk).update(status=False,updated_at=timezone.now())
-                                    
-                                        if pre_acc_ids and pre_acc_ids.outstanding == 0.0:
-                                            or_remain = pre_acc_ids.remain - pre_acc_ids.pp_bonus
-                                        else:
-                                            or_remain = pre_acc_ids.remain    
+                                    # for pt in ptacc_ids:
+                                    if ptacc_ids:
+                                        pt = ptacc_ids
                                         
-                                        outstanding = pre_acc_ids.outstanding + pt.topup_amt
-                                        remain = or_remain - pt.topup_amt
+                                        
+                                        pre_acc_ids = PrepaidAccount.objects.filter(pp_no=pt.pp_no,
+                                        line_no=pt.line_no).order_by('-id').first()
 
-                                        pcts = PrepaidAccount(pp_no=pt.pp_no,pp_type=pt.pp_type,pp_desc=pt.pp_desc,exp_date=pt.exp_date,
-                                        cust_code=pt.cust_code,cust_name=pt.cust_name,pp_amt=pt.pp_amt,pp_bonus=pt.pp_bonus,
-                                        pp_total=pt.pp_total,transac_no=pt.transac_no,item_no=pt.item_no,use_amt=pt.use_amt,
-                                        remain=remain,ref1=pt.ref1,ref2=pt.ref2,status=True,site_code=pt.site_code,
-                                        sa_status='TOPUP',exp_status=pt.exp_status,voucher_no=pt.voucher_no,isvoucher=pt.isvoucher,
-                                        has_deposit=pt.has_deposit,topup_amt=-pt.topup_amt,outstanding=outstanding if outstanding is not None and outstanding > 0 else 0,
-                                        active_deposit_bonus=pt.active_deposit_bonus,topup_no=sa_transacno,topup_date=pt.topup_date,
-                                        line_no=pt.line_no,staff_name=pt.staff_name,staff_no=pt.staff_no,pp_type2=pt.pp_type2,
-                                        condition_type1=pt.condition_type1,pos_daud_lineno=pt.pos_daud_lineno,mac_uid_ref=pt.mac_uid_ref,
-                                        lpackage=pt.lpackage,package_code=pt.package_code,package_code_lineno=pt.package_code_lineno,
-                                        prepaid_disc_type=pt.prepaid_disc_type,prepaid_disc_percent=pt.prepaid_disc_percent,
-                                        Cust_Codeid=pt.Cust_Codeid,Site_Codeid=pt.Site_Codeid,Item_Codeid=pt.Item_Codeid,
-                                        item_code=pt.item_code)
-                                        pcts.save()
-                                        pcts.sa_date = cart_date 
-                                        pcts.start_date = cart_date
-                                        pcts.save()
+                                        if pre_acc_ids: 
 
-                                        pacc_ids = list(set(PrepaidAccountCondition.objects.filter(pp_no=pt.pp_no,
-                                        pos_daud_lineno=pt.line_no,p_itemtype="Inclusive").only('pp_no','pos_daud_lineno').values_list('id', flat=True).distinct()))
-                                        if pacc_ids != []:                                
-                                            acc = PrepaidAccountCondition.objects.filter(pk__in=pacc_ids).update(remain=remain)
+                                            PrepaidAccount.objects.filter(pk=pre_acc_ids.pk).update(status=False,updated_at=timezone.now())
+                                        
+                                            if pre_acc_ids and pre_acc_ids.outstanding == 0.0:
+                                                or_remain = pre_acc_ids.remain - pre_acc_ids.pp_bonus
+                                            else:
+                                                or_remain = pre_acc_ids.remain    
+                                            
+                                            outstanding = pre_acc_ids.outstanding + pt.topup_amt
+                                            remain = or_remain - pt.topup_amt
+
+                                            pcts = PrepaidAccount(pp_no=pt.pp_no,pp_type=pt.pp_type,pp_desc=pt.pp_desc,exp_date=pt.exp_date,
+                                            cust_code=pt.cust_code,cust_name=pt.cust_name,pp_amt=pt.pp_amt,pp_bonus=pt.pp_bonus,
+                                            pp_total=pt.pp_total,transac_no=pt.transac_no,item_no=pt.item_no,use_amt=pt.use_amt,
+                                            remain=remain,ref1=pt.ref1,ref2=pt.ref2,status=True,site_code=pt.site_code,
+                                            sa_status='TOPUP',exp_status=pt.exp_status,voucher_no=pt.voucher_no,isvoucher=pt.isvoucher,
+                                            has_deposit=pt.has_deposit,topup_amt=-pt.topup_amt,outstanding=outstanding if outstanding is not None and outstanding > 0 else 0,
+                                            active_deposit_bonus=pt.active_deposit_bonus,topup_no=sa_transacno,topup_date=pt.topup_date,
+                                            line_no=pt.line_no,staff_name=pt.staff_name,staff_no=pt.staff_no,pp_type2=pt.pp_type2,
+                                            condition_type1=pt.condition_type1,pos_daud_lineno=pt.pos_daud_lineno,mac_uid_ref=pt.mac_uid_ref,
+                                            lpackage=pt.lpackage,package_code=pt.package_code,package_code_lineno=pt.package_code_lineno,
+                                            prepaid_disc_type=pt.prepaid_disc_type,prepaid_disc_percent=pt.prepaid_disc_percent,
+                                            Cust_Codeid=pt.Cust_Codeid,Site_Codeid=pt.Site_Codeid,Item_Codeid=pt.Item_Codeid,
+                                            item_code=pt.item_code)
+                                            pcts.save()
+                                            pcts.sa_date = cart_date 
+                                            pcts.start_date = cart_date
+                                            pcts.save()
+
+                                            pacc_ids = list(set(PrepaidAccountCondition.objects.filter(pp_no=pt.pp_no,
+                                            pos_daud_lineno=pt.line_no,p_itemtype="Inclusive").only('pp_no','pos_daud_lineno').values_list('id', flat=True).distinct()))
+                                            if pacc_ids != []:                                
+                                                acc = PrepaidAccountCondition.objects.filter(pk__in=pacc_ids).update(remain=remain)
 
 
 
@@ -11489,6 +11504,13 @@ class PrepaidAccListViewset(viewsets.ModelViewSet):
                     
                     AuditLog(user_loginid=fmspw_c,username=fmspw_c.pw_userlogin,
                     created_at=timezone.now(),pp_no=pp_obj.pp_no,line_no=pp_obj.line_no).save()
+
+                    pre_ids = PrepaidAccount.objects.filter(pp_no=pp_obj.pp_no,
+                    line_no=pp_obj.line_no,Item_Codeid__pk=pp_obj.Item_Codeid.pk).order_by('pk')
+                    if pre_ids:
+                        for i in pre_ids:
+                            i.terminate_prepaid = True
+                            i.save()
 
 
 

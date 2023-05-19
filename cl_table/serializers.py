@@ -3247,6 +3247,18 @@ class TempcustsignSerializer(serializers.ModelSerializer):
         model = Tempcustsign
         fields = ['id','cust_code','transaction_no','cust_sig','site_code','cart_id']  
 
+    def to_representation(self, obj):
+        request = self.context['request']
+        data = super(TempcustsignSerializer, self).to_representation(obj)
+        
+        ip = str(SITE_ROOT)
+        file = ""
+        if obj.cust_sig:
+            file = ip+str(obj.cust_sig)
+
+        data['cust_sig'] = file
+        return data    
+
 class CustomerDocumentSerializer(serializers.ModelSerializer):
 
     class Meta:

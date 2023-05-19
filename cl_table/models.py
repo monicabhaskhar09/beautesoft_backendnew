@@ -1507,7 +1507,8 @@ class PrepaidAccount(models.Model):
     Site_Codeid = models.ForeignKey('cl_app.ItemSitelist', on_delete=models.PROTECT, null=True)
     Item_Codeid = models.ForeignKey('cl_table.Stock', on_delete=models.PROTECT, null=True) 
     item_code = models.CharField(db_column='Item_Code', max_length=20, blank=True, null=True)  # Field name made lowercase.
-    
+    terminate_prepaid = models.BooleanField(default=False)  # Field name made lowercase.
+
     class Meta:
         db_table = 'Prepaid_Account'
         # unique_together = (('pp_no', 'pp_type', 'transac_no', 'item_no', 'use_amt', 'remain', 'site_code', 'topup_no', 'line_no', 'edit_date'),)
