@@ -235,7 +235,7 @@ class siteListingAPIView(GenericAPIView):
     def get_sitelisting(self,empcode):
         try:
             cursor = connection.cursor()
-            cursor.execute("SELECT TOP(100) ItemSite_Code as itemcode, ItemSite_Desc as itemdesc FROM Item_SiteList WHERE ItemSite_Isactive='True' AND itemsite_code in (SELECT Site_Code from Emp_SiteList WHERE emp_code = %s and isactive=1) ORDER BY itemdesc;",[empcode])
+            cursor.execute("SELECT TOP(100) itemsite_id, ItemSite_Code as itemcode, ItemSite_Desc as itemdesc FROM Item_SiteList WHERE ItemSite_Isactive='True' AND itemsite_code in (SELECT Site_Code from Emp_SiteList WHERE emp_code = %s and isactive=1) ORDER BY itemsite_id ASC;",[empcode])
             res = dictfetchall(self, cursor)
             return res
         except Paytable.DoesNotExist:
@@ -334,11 +334,49 @@ class siteListingAPIView(GenericAPIView):
     
 #         except Exception as e:
 #             invalid_message = str(e)
-#             return general_error_response(invalid_message)        
+#             return general_error_response(invalid_message)     
+
+def report_title_details(self,site_code_list,from_date,to_date,fmspw,site):   
+    site_least = ItemSitelist.objects.filter(itemsite_code__in=site_code_list).order_by('itemsite_id').first()
+    if not site_least:
+        raise Exception('Selected site doesnt exist !!') 
+    
+    site_descids = list(set(ItemSitelist.objects.filter(itemsite_code__in=site_code_list).values_list('itemsite_desc', flat=True).distinct()))
+
+    now = datetime.datetime.now()
+    dt_string = now.strftime("%d/%m/%Y | %H:%M:%S %I:%M:%S %p")
+    # 'report_title': "Collection By Outlet",
+    
+    title = Title.objects.filter(product_license=site_least.itemsite_code).order_by("pk").values('product_license',
+    'id','title','comp_title1','comp_title2','comp_title3','comp_title4','footer_1','footer_2','footer_3','footer_4')
+    vals = {'outlet': site.itemsite_desc,
+        'from_date': from_date, 'to_date':to_date ,'print_by': fmspw.pw_userlogin,
+        'print_time': dt_string,'site': ','.join([v for v in site_descids if v]) }
+    if title:
+        vals.update(title[0])
+    else:
+        vals.update({"product_license": "","id": "","title":"","comp_title1": "","comp_title2": "",
+        "comp_title3": "","comp_title4": "","footer_1": "","footer_2": "","footer_3": "",
+        "footer_4": ""})
+
+    return vals 
+
+def site_staffbased(self,site_code,empcode):  
+    if site_code:
+        site_code_list = site_code.split(",")
+        # print(site_code_list,"site_code_list")
+    else:
+        # site_code_list = list(set(ItemSitelist.objects.filter(itemsite_isactive=True).filter(~Q(itemsite_code__icontains="HQ")).values_list('itemsite_code', flat=True).distinct()))
+        site_codeqs = siteListingAPIView.get_sitelisting(self,empcode)
+        site_code_list = list(set([v['itemcode'] for v in site_codeqs if v['itemcode']]))
+        # print(site_code_list,"site_code_list")
+
+    return site_code_list    
+   
 
 
 
-class CollectionbyOutletAPIView(GenericAPIView):
+class CollectionbyOutletReportAPIView(GenericAPIView):
     authentication_classes = [ExpiringTokenAuthentication]
     permission_classes = [IsAuthenticated & authenticated_only]    
 
@@ -447,7 +485,7 @@ class CollectionbyOutletAPIView(GenericAPIView):
     def post(self, request):
         try:
             fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True).first()
-            site = fmspw.loginsite
+            site = fmspw.loginsite ; empcode = fmspw.Emp_Codeid.emp_code
             from_date = self.request.data.get('from_date',None)
             to_date = self.request.data.get('to_date',None)
             if not from_date:
@@ -457,20 +495,10 @@ class CollectionbyOutletAPIView(GenericAPIView):
                 raise Exception('Please give to_date !!')
 
             site_code = self.request.data.get("site_code") 
+            site_code_list = site_staffbased(self,site_code,empcode)    
+            print(site_code_list,"site_code_list")
+            site_code = ','.join([v for v in site_code_list if v])
             
-            # site_code_list = site_code.split(",")
-            # print(site_code,"site_code")
-            # site_code_q = ', '.join(['\''+str(code)+'\'' for code in site_code_list])
-            # print(site_code_q,"site_code_q")
-            if site_code:
-                site_code_list = site_code.split(",")
-            else:
-                site_code_list = ItemSitelist.objects.filter(itemsite_isactive=True).filter(~Q(itemsite_code__icontains="HQ")).values_list('itemsite_code', flat=True)
-
-            site_least = ItemSitelist.objects.filter(itemsite_code__in=site_code_list).order_by('itemsite_id').first()
-            if not site_least:
-                raise Exception('Selected site doesnt exist !!') 
-    
 
             pay_code = self.request.data.get("pay_code") 
             # print(pay_code,"pay_code")
@@ -484,21 +512,7 @@ class CollectionbyOutletAPIView(GenericAPIView):
            
             start_date = datetime.datetime.strptime(from_date, "%Y-%m-%d").strftime("%d/%m/%Y")
             end_date = datetime.datetime.strptime(to_date, "%Y-%m-%d").strftime("%d/%m/%Y")
-            now = datetime.datetime.now()
-            dt_string = now.strftime("%d/%m/%Y | %H:%M:%S %I:%M:%S %p") 
-            
-            title = Title.objects.filter(product_license=site_least.itemsite_code).order_by("pk").values('product_license',
-            'id','title','comp_title1','comp_title2','comp_title3','comp_title4','footer_1','footer_2','footer_3','footer_4')
-            vals = {'report_title': "Collection By Outlet",'outlet': site.itemsite_desc,
-                'from_date': from_date, 'to_date':to_date ,'print_by': fmspw.pw_userlogin,
-                'print_time': dt_string ,'site': site_code}
-            if title:
-                vals.update(title[0])
-            else:
-                vals.update({"product_license": "","id": "","title":"","comp_title1": "","comp_title2": "",
-                "comp_title3": "","comp_title4": "","footer_1": "","footer_2": "","footer_3": "",
-                "footer_4": ""})
-
+           
             # if self.request.data.get("report_url"):
             #     print("igg")
             #     final = self.get_sales_collection(start_date,end_date,site_code,pay_code)
@@ -530,9 +544,10 @@ class CollectionbyOutletAPIView(GenericAPIView):
                     }
                 
             }
-                
+            
+            header = report_title_details(self,site_code_list,from_date,to_date,fmspw,site)    
             result = {'status': status.HTTP_200_OK , "message": "Listed Succesfully",
-            'error': False,'data': resData,'company_header': vals}
+            'error': False,'data': resData,'company_header': header}
 
             return Response(result, status=status.HTTP_200_OK) 
         except Exception as e:
@@ -540,4 +555,138 @@ class CollectionbyOutletAPIView(GenericAPIView):
             return general_error_response(invalid_message)
     
 
-   
+class TreatmentDoneReportAPIView(GenericAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+
+    def get_treatmentdone(self,start_date,end_date,site_code):
+
+        # --And ((@Site='') OR ((@Site<>'') And pos_daud.ItemSite_Code In (Select Item From dbo.LISTTABLE(@Site,',')))) --Site                    
+        # --And ((@Staff='') OR ((@Staff<>'') And Item_Helper.Helper_Code In (Select Item From dbo.LISTTABLE(@Staff,',')))) --Site                    
+
+
+        raw_q = "select Treatment_code,invoiceDate,usageDate,usageRef,invoiceRef,Site_Code,[site],custName,custRef,createdBy,category,subCategory,itemName,skuCode,             "\
+                "duration,usageQty,therapists,numTherapists,SerPtType,SerPt,remarks,Ref_Transacno,sum(unitValue) as unitValue " \
+                "from(SELECT   distinct     Treatment.Treatment_ParentCode as Treatment_code,       "\
+                "Convert(Date,pos_haud.sa_date,103) AS [usageDate],              " \
+                "Convert(Date,pos_haud_1.sa_date,103) AS [invoiceDate],              " \
+                "pos_haud.SA_TransacNo_Ref AS [usageRef],              " \
+                "pos_haud_1.SA_TransacNo_Ref AS [invoiceRef],            " \
+                "pos_haud.ItemSIte_Code as [Site_Code],               " \
+                "(select ItemSite_Desc from Item_SiteList where ItemSite_code=pos_haud_1.ItemSite_Code) AS [site],   " \
+                "Customer.Cust_name [custName],              " \
+                "isnull(Customer.Cust_Refer,'') [custRef],              " \
+                "pos_haud.sa_staffname [createdBy],             " \
+                "(item_Class.itm_desc) [category],             " \
+                "isnull((Item_Range.itm_desc),'')  [subCategory],                " \
+                "Item_helper.Item_name [itemName],             " \
+                "Item_helper.Item_code," \
+                "Treatment.Service_ItemBarcode [skuCode],             " \
+                "isnull(Treatment.Duration,0) [duration],      " \
+                "pos_daud.sa_transacno as Ref_Transacno," \
+                "pos_daud.dt_qty [usageQty],             " \
+                "Item_helper.Share_Amt [unitValue]," \
+                "isnull(Item_Helper.Helper_Name,'') [therapists],                " \
+                "(Select Count(*) from Item_Helper Where Helper_transacno=pos_daud.sa_transacno And Line_No=pos_daud.dt_LineNo)  [numTherapists],             " \
+                "isnull(dt_PromoPrice,0) [SerPtType]," \
+                "isnull((Select distinct Item_Helper.WP1 from Item_Helper t1 Where t1.Helper_transacno=pos_daud.sa_transacno  " \
+                "And t1.Line_No=pos_daud.dt_LineNo and t1.Helper_Code=Item_Helper.Helper_Code),0)  [SerPt],'' [remarks] " \
+                "from pos_daud " \
+                "INNER JOIN Item_Helper  on Item_Helper.Helper_transacno=pos_daud.sa_transacno and Item_Helper.Line_No=pos_daud.dt_LineNo and isnull(Item_Helper.IsDelete,0)<>1" \
+                "INNER JOIN Treatment ON Treatment.Treatment_Code=Item_Helper.Item_Code And Treatment.status='Done' " \
+                "INNER JOIN pos_haud ON pos_daud.sa_transacno = pos_haud.sa_transacno " \
+                "INNER JOIN pos_haud AS pos_haud_1 ON Item_Helper.sa_transacno = pos_haud_1.sa_transacno " \
+                "INNER JOIN Customer ON pos_haud.sa_custno = Customer.Cust_code " \
+                "INNER JOIN Stock ON Stock.item_code+'0000'=Treatment.Service_ItemBarcode " \
+                "INNER JOIN item_Class ON item_Class.itm_code=Stock.Item_Class " \
+                "LEFT JOIN  Item_Range ON Item_Range.itm_code=Stock.Item_Range where "\
+                "((pos_daud.Record_Detail_Type='TD') OR (pos_daud.Record_Detail_Type='SERVICE' and pos_daud.First_Trmt_Done=1)) and " \
+                "pos_haud.isVoid=0" \
+                f"And convert(datetime,convert(varchar,pos_daud.sa_date,103),103)>=Convert(Datetime,'{start_date}' + ' 00:00:00.000',103)" \
+                f"And convert(datetime,convert(varchar,pos_daud.sa_date,103),103)<=Convert(Datetime,'{end_date}' + ' 00:00:00.000',103) )A " \
+                "group by Treatment_code,invoiceDate,usageDate,usageRef,invoiceRef,Site_Code,[site],custName,custRef,createdBy,category,subCategory,itemName,skuCode,             " \
+                "duration,usageQty,therapists,numTherapists,SerPtType,SerPt,remarks,Ref_Transacno " \
+                "order by therapists,custName"
+
+       
+        print(raw_q,"raw_q")
+        with connection.cursor() as cursor:
+            cursor.execute(raw_q)
+            raw_qs = cursor.fetchall()  
+            # print(raw_qs,"raw_qs")
+            desc = cursor.description
+            data_list = []
+            for i,row in enumerate(raw_qs):
+                d = dict(zip([col[0] for col in desc], row))
+                # print(d,"_d")
+                
+                d['SerPtType'] = "{:.2f}".format(float(d['SerPtType']))
+                d['SerPt'] = "{:.2f}".format(float(d['SerPt']))
+                d['unitValue'] = "{:.2f}".format(float(d['unitValue']))
+                d['share_amt'] = "0.00"
+              
+                data_list.append(d)
+
+        return data_list
+
+
+    def post(self, request):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True).first()
+            site = fmspw.loginsite
+            empcode = fmspw.Emp_Codeid.emp_code
+            from_date = self.request.data.get('from_date',None)
+            to_date = self.request.data.get('to_date',None)
+            if not from_date:
+                raise Exception('Please give from_date !!') 
+              
+            if not to_date:
+                raise Exception('Please give to_date !!')
+
+            site_code = self.request.data.get("site_code") 
+            site_code_list = site_staffbased(self,site_code,empcode)    
+            # print(site_code_list,"site_code_list")
+            site_code = ','.join([v for v in site_code_list if v])
+            # print(site_code,"site_code")
+            
+            
+           
+            start_date = datetime.datetime.strptime(from_date, "%Y-%m-%d").strftime("%d/%m/%Y")
+            end_date = datetime.datetime.strptime(to_date, "%Y-%m-%d").strftime("%d/%m/%Y")
+           
+            final = self.get_treatmentdone(start_date,end_date,site_code)  
+            full_tot = len(final)
+            limit = int(self.request.data.get("limit",12))
+            page = int(self.request.data.get("page",1))
+            paginator = Paginator(final, limit)
+            total_page = paginator.num_pages
+
+            try:
+                queryset = paginator.page(page)
+                # print(queryset,"queryset")
+            except (EmptyPage, InvalidPage):
+                queryset = paginator.page(total_page) # last page
+        
+
+            resData = {
+                'dataList': queryset.object_list,
+                'pagination': {
+                        "per_page":limit,
+                        "current_page":page,
+                        "total":full_tot,
+                        "total_pages":total_page
+                    }
+                
+            }
+            
+            header = report_title_details(self,site_code_list,from_date,to_date,fmspw,site)    
+            result = {'status': status.HTTP_200_OK , "message": "Listed Succesfully",
+            'error': False,'data': resData,'company_header': header}
+
+            return Response(result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+     
+
+

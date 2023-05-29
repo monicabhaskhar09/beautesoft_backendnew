@@ -1696,7 +1696,7 @@ class ReceiptPdfSendSMSAPIView(APIView):
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give customer mobile number!!",'error': True} 
                 return Response(data=result, status=status.HTTP_400_BAD_REQUEST)  
             
-            smpt_ids = SmtpSettings.objects.filter(site_code=site.itemsite_code).order_by('pk').first()
+            smpt_ids = SmtpSettings.objects.filter(site_code=site.itemsite_code,isactive=True).order_by('pk').first()
             if not smpt_ids:
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"SmtpSettings does not exist!!",'error': True} 
                 return Response(data=result, status=status.HTTP_400_BAD_REQUEST)  
@@ -4152,6 +4152,14 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
             queryset_c = h_obj
             if not queryset_c:
                 if self.request.GET.get('invoice_done',None) == "1":
+                    # cart_ids = ItemCart.objects.filter(multi_treat__pk__in=arrtreatmentid).first()
+                    # if cart_ids:
+                    #     daud_ids = PosDaud.objects.filter(sa_transacno=cart_ids.sa_transacno,dt_lineno=cart_ids.lineno).first()
+                    #     if daud_ids:
+                    #         mesg = "Work Staff is not allowed for this item {0} cart lineno {1} .".format(str(cart_ids.itemdesc),str(cart_ids.lineno))
+                    #         raise Exception(mesg)     
+            
+
                     donetreat_ids = Treatment.objects.filter(pk__in=arrtreatmentid,
                     status='Done')
                     if donetreat_ids:
@@ -4322,11 +4330,11 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                         workcommpoints = request.GET.get('workcommpoints',None)  
 
                     tmp = []
-                    # h_obj = TmpItemHelper.objects.filter(treatment__pk=trmt_obj.pk).order_by('pk')
+                    h_obj = TmpItemHelperSession.objects.filter(treatment_parentcode=trmt_obj.treatment_parentcode).order_by('pk')
 
                     count = 1;Source_Codeid=None;Room_Codeid=None;new_remark=None;appt_fr_time=None;appt_to_time=None;add_duration=None
-                    session=1
-                    # session = len(arrtreatmentid)
+                    # session=1
+                    session = len(arrtreatmentid)
                     if trmt_obj.Item_Codeid.srv_duration is None or float(trmt_obj.Item_Codeid.srv_duration) == 0.0:
                         stk_duration = 60
                     else:
@@ -4353,8 +4361,8 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"This Employee already selected!!",'error': True} 
                         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
             
-                    # if h_obj:
-                    #     count = int(h_obj.count()) + 1
+                    if h_obj:
+                        count = int(h_obj.count()) + 1
                     #     Source_Codeid = h_obj[0].Source_Codeid
                     #     Room_Codeid = h_obj[0].Room_Codeid
                     #     new_remark = h_obj[0].new_remark
@@ -4371,67 +4379,67 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                     #     appt_to_time = endtime if endtime else None
                     
                     # wp1 = float(workcommpoints) / float(count)
-                    # wp11 = float(workcommpoints)
-                    # wp12 = 0
-                    # wp13 = 0
-                    # wp14 = 0
+                    wp11 = float(workcommpoints)
+                    wp12 = 0
+                    wp13 = 0
+                    wp14 = 0
                     wp1 = float(workcommpoints)
-                    # if wp1 > 0 :
-                    #     wp11 = float(workcommpoints) / float(count)
-                    #     if count == 2:
-                    #         wp12 = float(workcommpoints) / float(count)
-                    #     if count == 3:
-                    #         wp12 = float(workcommpoints) / float(count)
-                    #         wp13 = float(workcommpoints) / float(count)
-                    #     if count == 4:
-                    #         wp12 = float(workcommpoints) / float(count)
-                    #         wp13 = float(workcommpoints) / float(count)
-                    #         wp14 = float(workcommpoints) / float(count)
+                    if wp1 > 0 :
+                        wp11 = float(workcommpoints) / float(count)
+                        if count == 2:
+                            wp12 = float(workcommpoints) / float(count)
+                        if count == 3:
+                            wp12 = float(workcommpoints) / float(count)
+                            wp13 = float(workcommpoints) / float(count)
+                        if count == 4:
+                            wp12 = float(workcommpoints) / float(count)
+                            wp13 = float(workcommpoints) / float(count)
+                            wp14 = float(workcommpoints) / float(count)
             
-                    #     if count == 2 and wp1 == 3:
-                    #         wp11 = 2
-                    #         wp12 = 1
-                    #     if count == 2 and wp1 == 5:
-                    #         wp11 = 3
-                    #         wp12 = 2
-                    #     if count == 2 and wp1 == 7:
-                    #         wp11 = 4
-                    #         wp12 = 3
-                    #     if count == 2 and wp1 == 9:
-                    #         wp11 = 5
-                    #         wp12 = 4
-                    #     if count == 2 and wp1 == 11:
-                    #         wp11 = 6
-                    #         wp12 = 5
+                        if count == 2 and wp1 == 3:
+                            wp11 = 2
+                            wp12 = 1
+                        if count == 2 and wp1 == 5:
+                            wp11 = 3
+                            wp12 = 2
+                        if count == 2 and wp1 == 7:
+                            wp11 = 4
+                            wp12 = 3
+                        if count == 2 and wp1 == 9:
+                            wp11 = 5
+                            wp12 = 4
+                        if count == 2 and wp1 == 11:
+                            wp11 = 6
+                            wp12 = 5
 
-                    #     if count == 3 and wp1 == 2:
-                    #         wp11 = 1
-                    #         wp12 = 1
-                    #         wp13 = 0
-                    #     if count == 3 and wp1 == 4:
-                    #         wp11 = 2
-                    #         wp12 = 1
-                    #         wp13 = 1
-                    #     if count == 3 and wp1 == 5:
-                    #         wp11 = 2
-                    #         wp12 = 2
-                    #         wp13 = 1
-                    #     if count == 3 and wp1 == 7:
-                    #         wp11 = 3
-                    #         wp12 = 2
-                    #         wp13 = 2
-                    #     if count == 3 and wp1 == 8:
-                    #         wp11 = 3
-                    #         wp12 = 3
-                    #         wp13 = 2
-                    #     if count == 3 and wp1 == 10:
-                    #         wp11 = 4
-                    #         wp12 = 3
-                    #         wp13 = 3
-                    #     if count == 3 and wp1 == 11:
-                    #         wp11 = 4
-                    #         wp12 = 4
-                    #         wp13 = 3
+                        if count == 3 and wp1 == 2:
+                            wp11 = 1
+                            wp12 = 1
+                            wp13 = 0
+                        if count == 3 and wp1 == 4:
+                            wp11 = 2
+                            wp12 = 1
+                            wp13 = 1
+                        if count == 3 and wp1 == 5:
+                            wp11 = 2
+                            wp12 = 2
+                            wp13 = 1
+                        if count == 3 and wp1 == 7:
+                            wp11 = 3
+                            wp12 = 2
+                            wp13 = 2
+                        if count == 3 and wp1 == 8:
+                            wp11 = 3
+                            wp12 = 3
+                            wp13 = 2
+                        if count == 3 and wp1 == 10:
+                            wp11 = 4
+                            wp12 = 3
+                            wp13 = 3
+                        if count == 3 and wp1 == 11:
+                            wp11 = 4
+                            wp12 = 4
+                            wp13 = 3
             
                     serializer = self.get_serializer(data=request.data)
                     if serializer.is_valid():
@@ -4451,7 +4459,7 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                         # add_duration=add_duration,workcommpoints=workcommpoints,session=session)
                         # trmt_obj.helper_ids.add(temph.id) 
                         
-
+                        # session
                         temph = serializer.save(treatment_parentcode=trmt_obj.treatment_parentcode,
                         helper_id=helper_obj,
                         helper_name=helper_obj.display_name,helper_code=helper_obj.emp_code,
@@ -4460,30 +4468,30 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                         session=session)
                         tmp.append(temph.id)
 
-                        # runx=1
-                        # for h in TmpItemHelper.objects.filter(treatment__pk=trmt_obj.pk).order_by('pk'):
-                        #     # TmpItemHelper.objects.filter(id=h.id).update(wp1=wp1)
-                        #     if runx == 1:
-                        #         TmpItemHelper.objects.filter(id=h.id).update(wp1=wp11)
-                        #     if runx == 2:
-                        #         TmpItemHelper.objects.filter(id=h.id).update(wp1=wp12)
-                        #     if runx == 3:
-                        #         TmpItemHelper.objects.filter(id=h.id).update(wp1=wp13)
-                        #     if runx == 4:
-                        #         TmpItemHelper.objects.filter(id=h.id).update(wp1=wp14)
-                        #     runx = runx + 1
+                        runx=1
+                        for h in TmpItemHelperSession.objects.filter(treatment_parentcode=trmt_obj.treatment_parentcode).order_by('pk'):
+                            # TmpItemHelper.objects.filter(id=h.id).update(wp1=wp1)
+                            if runx == 1:
+                                TmpItemHelperSession.objects.filter(id=h.id).update(wp1=wp11)
+                            if runx == 2:
+                                TmpItemHelperSession.objects.filter(id=h.id).update(wp1=wp12)
+                            if runx == 3:
+                                TmpItemHelperSession.objects.filter(id=h.id).update(wp1=wp13)
+                            if runx == 4:
+                                TmpItemHelperSession.objects.filter(id=h.id).update(wp1=wp14)
+                            runx = runx + 1
 
 
-                        # wp = float(workcommpoints) / float(count)
-                        # v = str(wp).split('.')
-                        # c = float(v[0]+"."+v[1][:2])
-                        # r = count - 1
-                        # x = float(workcommpoints) -  (c * r)
-                        # last_rec = TmpItemHelper.objects.filter(treatment__pk=trmt_obj.pk).order_by('pk').last()
-                        # for j in TmpItemHelper.objects.filter(treatment__pk=trmt_obj.pk).order_by('pk').exclude(pk=last_rec.pk):
-                        #     TmpItemHelper.objects.filter(id=j.id).update(wp1=c)
-                        # last_rec.wp1 = x   
-                        # last_rec.save()    
+                        wp = float(workcommpoints) / float(count)
+                        v = str(wp).split('.')
+                        c = float(v[0]+"."+v[1][:2])
+                        r = count - 1
+                        x = float(workcommpoints) -  (c * r)
+                        last_rec = TmpItemHelperSession.objects.filter(treatment_parentcode=trmt_obj.treatment_parentcode).order_by('pk').last()
+                        for j in TmpItemHelperSession.objects.filter(treatment_parentcode=trmt_obj.treatment_parentcode).order_by('pk').exclude(pk=last_rec.pk):
+                            TmpItemHelperSession.objects.filter(id=j.id).update(wp1=c)
+                        last_rec.wp1 = x   
+                        last_rec.save()    
 
                     else:
                         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Invalid Input",'error': True, 
@@ -4682,6 +4690,7 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                         
                         
                     for e in totlist:
+                        tmp_sessionids = TmpItemHelperSession.objects.filter(pk=e['id']).first()
                         for t in e['treatment']:
                             trmt_obj = Treatment.objects.filter(status__in=["Open","Done"],pk=t).first()
                             if not trmt_obj:
@@ -4702,7 +4711,7 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                                     temph = TmpItemHelper(item_name=item_name,helper_id=helper_obj,
                                     helper_name=helper_obj.display_name,helper_code=helper_obj.emp_code,
                                     site_code=site.itemsite_code,times=trmt_obj.times,treatment_no=trmt_obj.treatment_no,
-                                    wp1=c.wp1,wp2=0.0,wp3=0.0,itemcart=None,treatment=trmt_obj,
+                                    wp1=tmp_sessionids.wp1 if tmp_sessionids and tmp_sessionids.wp1 else 0,wp2=0.0,wp3=0.0,itemcart=None,treatment=trmt_obj,
                                     session=e['session'])
                                     temph.save()
                                     trmt_obj.helper_ids.add(temph.id) 
@@ -4863,136 +4872,136 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                         t_queryset = q.delete()
 
 
-                    # workcommpoints = 0.0
+                        workcommpoints = 0.0
 
-                    # for tt in arrtreatmentid:
-                    #     trmt_obj = Treatment.objects.filter(status__in=["Open","Done"],pk=tt).first()
-                    #     if not trmt_obj:
-                    #         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Treatment ID does not exist!!",'error': True} 
-                    #         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-                    
-                    #     state = status.HTTP_204_NO_CONTENT
-                    #     tmp_ids = TmpItemHelper.objects.filter(treatment=trmt_obj).values_list('id')
-                    #     if not tmp_ids:
-                    #         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Tmp Item Helper records is not present for this Treatment record id!!",'error': True} 
-                    #         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+                        # for tt in arrtreatmentid:
+                        #     trmt_obj = Treatment.objects.filter(status__in=["Open","Done"],pk=tt).first()
+                        #     if not trmt_obj:
+                        #         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Treatment ID does not exist!!",'error': True} 
+                        #         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+                        
+                        #     state = status.HTTP_204_NO_CONTENT
+                        #     tmp_ids = TmpItemHelper.objects.filter(treatment=trmt_obj).values_list('id')
+                        #     if not tmp_ids:
+                        #         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Tmp Item Helper records is not present for this Treatment record id!!",'error': True} 
+                        #         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
-                    #     if self.request.GET.get('clear_all',None) == "1":
-                    #         queryset = TmpItemHelper.objects.filter(treatment=trmt_obj).order_by('id').delete()
-                            
-                    #     elif self.request.GET.get('clear_all',None) == "0":
-                    #         queryset = TmpItemHelper.objects.filter(treatment=trmt_obj).order_by('id').first().delete()
+                        #     if self.request.GET.get('clear_all',None) == "1":
+                        #         queryset = TmpItemHelper.objects.filter(treatment=trmt_obj).order_by('id').delete()
+                                
+                        #     elif self.request.GET.get('clear_all',None) == "0":
+                        #         queryset = TmpItemHelper.objects.filter(treatment=trmt_obj).order_by('id').first().delete()
 
-                    #         if trmt_obj.Item_Codeid.workcommpoints == None or trmt_obj.Item_Codeid.workcommpoints == 0.0:
-                    #             workcommpoints = 0.0
-                    #         else:
-                    #             workcommpoints = trmt_obj.Item_Codeid.workcommpoints
-                    #         h_obj = TmpItemHelper.objects.filter(treatment__pk=trmt_obj.pk).order_by('pk')
-                    #         count = 1
-                    #         if h_obj:
-                    #             count = int(h_obj.count())
+                        if trmtobj.Item_Codeid.workcommpoints == None or trmtobj.Item_Codeid.workcommpoints == 0.0:
+                            workcommpoints = 0.0
+                        else:
+                            workcommpoints = trmtobj.Item_Codeid.workcommpoints
+                        h_obj = TmpItemHelperSession.objects.filter(treatment_parentcode=trmtobj.treatment_parentcode).order_by('id')
+                        count = 1
+                        if h_obj:
+                            count = int(h_obj.count())
 
-                    #         wp11 = float(workcommpoints)
-                    #         wp12 = 0
-                    #         wp13 = 0
-                    #         wp14 = 0
-                    #         wp1 = float(workcommpoints)
-                    #         if wp1 > 0 :
-                    #             wp11 = float(workcommpoints) / float(count)
-                    #             if count == 2:
-                    #                 wp12 = float(workcommpoints) / float(count)
-                    #             if count == 3:
-                    #                 wp12 = float(workcommpoints) / float(count)
-                    #                 wp13 = float(workcommpoints) / float(count)
-                    #             if count == 4:
-                    #                 wp12 = float(workcommpoints) / float(count)
-                    #                 wp13 = float(workcommpoints) / float(count)
-                    #                 wp14 = float(workcommpoints) / float(count)
+                        wp11 = float(workcommpoints)
+                        wp12 = 0
+                        wp13 = 0
+                        wp14 = 0
+                        wp1 = float(workcommpoints)
+                        if wp1 > 0 :
+                            wp11 = float(workcommpoints) / float(count)
+                            if count == 2:
+                                wp12 = float(workcommpoints) / float(count)
+                            if count == 3:
+                                wp12 = float(workcommpoints) / float(count)
+                                wp13 = float(workcommpoints) / float(count)
+                            if count == 4:
+                                wp12 = float(workcommpoints) / float(count)
+                                wp13 = float(workcommpoints) / float(count)
+                                wp14 = float(workcommpoints) / float(count)
 
-                    #             if count == 2 and wp1 == 3:
-                    #                 wp11 = 2
-                    #                 wp12 = 1
-                    #             if count == 2 and wp1 == 5:
-                    #                 wp11 = 3
-                    #                 wp12 = 2
-                    #             if count == 2 and wp1 == 7:
-                    #                 wp11 = 4
-                    #                 wp12 = 3
-                    #             if count == 2 and wp1 == 9:
-                    #                 wp11 = 5
-                    #                 wp12 = 4
-                    #             if count == 2 and wp1 == 11:
-                    #                 wp11 = 6
-                    #                 wp12 = 5
+                            if count == 2 and wp1 == 3:
+                                wp11 = 2
+                                wp12 = 1
+                            if count == 2 and wp1 == 5:
+                                wp11 = 3
+                                wp12 = 2
+                            if count == 2 and wp1 == 7:
+                                wp11 = 4
+                                wp12 = 3
+                            if count == 2 and wp1 == 9:
+                                wp11 = 5
+                                wp12 = 4
+                            if count == 2 and wp1 == 11:
+                                wp11 = 6
+                                wp12 = 5
 
-                    #             if count == 3 and wp1 == 2:
-                    #                 wp11 = 1
-                    #                 wp12 = 1
-                    #                 wp13 = 0
-                    #             if count == 3 and wp1 == 4:
-                    #                 wp11 = 2
-                    #                 wp12 = 1
-                    #                 wp13 = 1
-                    #             if count == 3 and wp1 == 5:
-                    #                 wp11 = 2
-                    #                 wp12 = 2
-                    #                 wp13 = 1
-                    #             if count == 3 and wp1 == 7:
-                    #                 wp11 = 3
-                    #                 wp12 = 2
-                    #                 wp13 = 2
-                    #             if count == 3 and wp1 == 8:
-                    #                 wp11 = 3
-                    #                 wp12 = 3
-                    #                 wp13 = 2
-                    #             if count == 3 and wp1 == 10:
-                    #                 wp11 = 4
-                    #                 wp12 = 3
-                    #                 wp13 = 3
-                    #             if count == 3 and wp1 == 11:
-                    #                 wp11 = 4
-                    #                 wp12 = 4
-                    #                 wp13 = 3
+                            if count == 3 and wp1 == 2:
+                                wp11 = 1
+                                wp12 = 1
+                                wp13 = 0
+                            if count == 3 and wp1 == 4:
+                                wp11 = 2
+                                wp12 = 1
+                                wp13 = 1
+                            if count == 3 and wp1 == 5:
+                                wp11 = 2
+                                wp12 = 2
+                                wp13 = 1
+                            if count == 3 and wp1 == 7:
+                                wp11 = 3
+                                wp12 = 2
+                                wp13 = 2
+                            if count == 3 and wp1 == 8:
+                                wp11 = 3
+                                wp12 = 3
+                                wp13 = 2
+                            if count == 3 and wp1 == 10:
+                                wp11 = 4
+                                wp12 = 3
+                                wp13 = 3
+                            if count == 3 and wp1 == 11:
+                                wp11 = 4
+                                wp12 = 4
+                                wp13 = 3
 
-                    #             runx=1
-                    #             for h in TmpItemHelper.objects.filter(treatment__pk=trmt_obj.pk).order_by('pk'):
-                    #                 if runx == 1:
-                    #                     TmpItemHelper.objects.filter(id=h.id).update(wp1=wp11)
-                    #                 if runx == 2:
-                    #                     TmpItemHelper.objects.filter(id=h.id).update(wp1=wp12)
-                    #                 if runx == 3:
-                    #                     TmpItemHelper.objects.filter(id=h.id).update(wp1=wp13)
-                    #                 if runx == 4:
-                    #                     TmpItemHelper.objects.filter(id=h.id).update(wp1=wp14)
-                    #                 runx = runx + 1
-
-
-
-                    # oldobj = TmpItemHelper.objects.filter(treatment__pk__in=arrtreatmentid).order_by('pk')
-                    # tr_lst = list(set([i.treatment.pk for i in oldobj]))
-                    # for j in tr_lst:
-                    #     trmtobj = Treatment.objects.filter(status="Open",pk=j).first()
-                    #     if not trmtobj:
-                    #         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Treatment ID does not exist!!",'error': True} 
-                    #         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-                    
-                    #     hobj = TmpItemHelper.objects.filter(treatment__pk=trmtobj.pk).order_by('pk')
-                    #     scount = 1
-                    #     if hobj:
-                    #         scount = int(hobj.count())
+                            runx=1
+                            for h in TmpItemHelperSession.objects.filter(treatment_parentcode=trmtobj.treatment_parentcode).order_by('id'):
+                                if runx == 1:
+                                    TmpItemHelperSession.objects.filter(id=h.id).update(wp1=wp11)
+                                if runx == 2:
+                                    TmpItemHelperSession.objects.filter(id=h.id).update(wp1=wp12)
+                                if runx == 3:
+                                    TmpItemHelperSession.objects.filter(id=h.id).update(wp1=wp13)
+                                if runx == 4:
+                                    TmpItemHelperSession.objects.filter(id=h.id).update(wp1=wp14)
+                                runx = runx + 1
 
 
-                    #     if workcommpoints and float(workcommpoints) > 0:
-                    #         wp = float(workcommpoints) / float(scount)
-                    #         v = str(wp).split('.')
-                    #         c = float(v[0]+"."+v[1][:2])
-                    #         r = count - 1
-                    #         x = float(workcommpoints) -  (c * r)
-                    #         last_rec = TmpItemHelper.objects.filter(treatment__pk=trmtobj.pk).order_by('pk').last()
-                    #         for j in TmpItemHelper.objects.filter(treatment__pk=trmtobj.pk).order_by('pk').exclude(pk=last_rec.pk):
-                    #             TmpItemHelper.objects.filter(id=j.id).update(wp1=c)
-                    #         last_rec.wp1 = x   
-                    #         last_rec.save()     
+
+                        # oldobj = TmpItemHelper.objects.filter(treatment__pk__in=arrtreatmentid).order_by('pk')
+                        # tr_lst = list(set([i.treatment.pk for i in oldobj]))
+                        # for j in tr_lst:
+                        #     trmtobj = Treatment.objects.filter(status="Open",pk=j).first()
+                        #     if not trmtobj:
+                        #         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Treatment ID does not exist!!",'error': True} 
+                        #         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+                        
+                        #     hobj = TmpItemHelper.objects.filter(treatment__pk=trmtobj.pk).order_by('pk')
+                        #     scount = 1
+                        #     if hobj:
+                        #         scount = int(hobj.count())
+
+
+                        if workcommpoints and float(workcommpoints) > 0:
+                            wp = float(workcommpoints) / float(count)
+                            v = str(wp).split('.')
+                            c = float(v[0]+"."+v[1][:2])
+                            r = count - 1
+                            x = float(workcommpoints) -  (c * r)
+                            last_rec = TmpItemHelperSession.objects.filter(treatment_parentcode=trmtobj.treatment_parentcode).order_by('pk').last()
+                            for j in TmpItemHelperSession.objects.filter(treatment_parentcode=trmtobj.treatment_parentcode).order_by('pk').exclude(pk=last_rec.pk):
+                                TmpItemHelperSession.objects.filter(id=j.id).update(wp1=c)
+                            last_rec.wp1 = x   
+                            last_rec.save()     
                     
                     oldobj = TmpItemHelperSession.objects.filter(treatment_parentcode=trmtobj.treatment_parentcode).order_by('pk')
                     if not oldobj:
@@ -8346,7 +8355,7 @@ class VoidViewset(viewsets.ModelViewSet):
                                 time=haud.sa_time,cust_name=cust_obj.cust_name,cust_code=cust_obj.cust_code,type="Reward Return",
                                 refno=haudobj.sa_transacno,ref_source="Sales Return",isvoid=True,sa_status="VT",void_referenceno=haudobj.sa_transacno,
                                 total_point=-total_invpts,now_point=nopoint,seq=None,remarks=None,
-                                bal_point=nopoint,expired=False,expired_date=None,mac_code=False,logno=False,
+                                bal_point=now_point,expired=False,expired_date=None,mac_code=False,logno=False,
                                 approval_user=fmspw[0].pw_userlogin,cardno=False,bdate=None,pdate=None,expired_point=0,
                                 postransactionno=sa_transacno,postotalamt=haud.sa_depositamt,locid=False,mgm_refno=None,tdate=None).save()
                                 for cds in pttl_lst:
@@ -8375,8 +8384,8 @@ class VoidViewset(viewsets.ModelViewSet):
                                 rptdtl.void_referenceno = sa_transacno
                                 rptdtl.isopen = False
                                 rptdtl.save()
-                                deduct_pt = no_point + rptdtl.point
-                                no_point += rptdtl.point
+                                deduct_pt = no_point + abs(rptdtl.point)
+                                no_point += abs(rptdtl.point)
 
                                 rpct = CustomerPointDtl(type="Redeem Return",cust_code=rptdtl.cust_code,
                                 cust_name=rptdtl.cust_name,parent_code=None,parent_desc=None,
@@ -8408,7 +8417,7 @@ class VoidViewset(viewsets.ModelViewSet):
                                 time=haud.sa_time,cust_name=cust_obj.cust_name,cust_code=cust_obj.cust_code,type="Redeem Return",
                                 refno=haudobj.sa_transacno,ref_source="Sales Return",isvoid=True,sa_status="VT",void_referenceno=haudobj.sa_transacno,
                                 total_point=-total_redmpts,now_point=no_point,seq=None,remarks=None,
-                                bal_point=no_point,expired=False,expired_date=None,mac_code=False,logno=False,
+                                bal_point=now_point,expired=False,expired_date=None,mac_code=False,logno=False,
                                 approval_user=fmspw[0].pw_userlogin,cardno=False,bdate=None,pdate=None,expired_point=0,
                                 postransactionno=sa_transacno,postotalamt=haud.sa_depositamt,locid=False,mgm_refno=None,tdate=None).save()
                                 for rcds in repttl_lst:
@@ -10766,7 +10775,7 @@ class PrepaidAccPaymentListViewset(viewsets.ModelViewSet):
                 for data in serializer.data:
                     data.pop('voucher_no'); data.pop('condition_type1')
                     preobj = PrepaidAccount.objects.filter(pk=data["id"]).only('pk').first()
-                    print(preobj.pk,preobj.pp_desc,"pp_desc")
+                    # print(preobj.pk,preobj.pp_desc,"pp_desc")
                     if data["id"]:
                         id_lst.append(data["id"])
                     
@@ -11023,24 +11032,33 @@ class PrepaidAccPaymentListViewset(viewsets.ModelViewSet):
             site = fmspw.loginsite
             payment_box = request.data.get('payment_box')
             total_cartuse_ids = request.data.get('total_cartuse_ids')
-            print(total_cartuse_ids,"total_cartuse_ids")
+            # print(total_cartuse_ids,"total_cartuse_ids")
             selprepaid_cartids = request.data.get('selprepaid_cartids')
             if selprepaid_cartids == [] or total_cartuse_ids == []:
                 raise Exception('Prepaid not allowed!') 
 
-            use_cartids = []
+            cartdepo_amtids = ItemCart.objects.filter(pk__in=total_cartuse_ids)
+            total_useamt = sum([i.deposit for i in cartdepo_amtids])    
+
+            use_cartids = [];total_payamt = 0
             for i in payment_box:
                 if i['prepaid'] == True:
+                    total_payamt += i['pay_amt']
                     use_cartids = [i for i in i['cartuse_ids'] if i not in use_cartids]
+                   
+
                     
-            print(use_cartids,"use_cartids")
+            # print(use_cartids,total_payamt,"use_cartids")
+            
+            bal_payamt = total_useamt - total_payamt
+            # print(bal_payamt,"bal_payamt")
 
             if payment_box == []:
                 balance_cartuse_ids = total_cartuse_ids
             else:
                 balance_cartuse_ids = [i for i in total_cartuse_ids if i not in use_cartids]
 
-            print(balance_cartuse_ids,"balance_cartuse_ids")
+            # print(balance_cartuse_ids,"balance_cartuse_ids")
 
             f = []
             for j in balance_cartuse_ids:
@@ -11048,10 +11066,22 @@ class PrepaidAccPaymentListViewset(viewsets.ModelViewSet):
                     f.append(j)
                     
             if f == []:
-                raise Exception('Prepaid not allowed!') 
-                # result = {'status': status.HTTP_200_OK, 
-                # "message": "Prepaid not allowed!!", 'error': True}
-                # return Response(data=result, status=status.HTTP_200_OK)
+                allow = False
+                for ck in selprepaid_cartids:
+                    if ck in total_cartuse_ids:
+                        if bal_payamt > 0:
+                            allow = True
+                            
+                if allow == True:
+                    result = {'status': status.HTTP_200_OK,"message":"Prepaid Select",
+                    'error': False, 
+                    'data': f}
+                    return Response(data=result, status=status.HTTP_200_OK)
+                else: 
+                    raise Exception('Prepaid not allowed!') 
+                    # result = {'status': status.HTTP_200_OK, 
+                    # "message": "Prepaid not allowed!!", 'error': True}
+                    # return Response(data=result, status=status.HTTP_200_OK)
             else:
                 result = {'status': status.HTTP_200_OK,"message":"Prepaid Select",
                 'error': False, 

@@ -348,6 +348,8 @@ class SmtpSettings(models.Model):
     site_code = models.CharField(db_column='Site_Code', max_length=50, blank=True, null=True)  # Field name made lowercase.
     updated_at  = models.DateTimeField(auto_now=True,null=True)
     created_at = models.DateTimeField(auto_now_add=True,null=True)
+    isactive = models.BooleanField(db_column='Isactive', default=True)  # Field name made lowercase.
+
     
     class Meta:
         db_table = 'smtp_settings'
@@ -424,7 +426,7 @@ class payModeChangeLog(models.Model):
     payamt = models.FloatField(blank=True, null=True)
     newpaytype = models.CharField(max_length=30, blank=True, null=True)
     newpayamt = models.FloatField(blank=True, null=True)
-    taudid = models.ForeignKey('cl_table.PosTaud', on_delete=models.PROTECT, null=True)
+    # taudid = models.ForeignKey('cl_table.PosTaud', on_delete=models.PROTECT, null=True)
     dt_lineno = models.IntegerField( null=True)
     itemsite_code = models.CharField(db_column='itemsite_code', max_length=10, null=True)  # Field name made lowercase.
     updated_at = models.DateTimeField(auto_now=True, null=True)

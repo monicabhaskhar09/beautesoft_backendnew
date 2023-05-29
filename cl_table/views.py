@@ -8366,11 +8366,23 @@ class postaudViewset(viewsets.ModelViewSet):
                 depotype_ids = DepositType.objects.filter(sa_transacno=sa_transacno,
                 site_code=site.itemsite_code).delete()
 
-                  
+                for idx, reqt in enumerate(request.data, start=1): 
+                    paytable_obj = Paytable.objects.filter(pk=reqt['pay_typeid'],pay_isactive=True).first()
+                    if not paytable_obj:
+                        raise Exception('Paytable ID does not exist') 
+
+                    if float(reqt['pay_amt']) == 0: 
+                        if poshaud_v.sa_transacno_type in ['Redeem Service','Non Sales']:
+                            if paytable_obj.pay_code != 'CS':
+                                raise Exception("$0 payamt is not allowed for {0} payment mode!!!".format(str(paytable_obj.pay_description))) 
+                        elif poshaud_v.sa_transacno_type in ['Receipt']:
+                            raise Exception("$0 payamt is not allowed for {0} payment mode!!!".format(str(paytable_obj.pay_description))) 
+
+
                 for idx, req in enumerate(request.data, start=1): 
                     paytable = Paytable.objects.filter(pk=req['pay_typeid'],pay_isactive=True).first()
-                    if not paytable:
-                        raise Exception('Paytable ID does not exist') 
+                    # if not paytable:
+                    #     raise Exception('Paytable ID does not exist') 
                         
                         
                     pay_amt += float(req['pay_amt'])
@@ -8459,10 +8471,11 @@ class postaudViewset(viewsets.ModelViewSet):
                                 if taud:
                                     taud_ids.append(taud.pk)
                         
+                        # taudid=taud,
                         payModeChangeLog(sa_transacno=sa_transacno,paytype=req['old_paytype'] if 'old_paytype' in req else None,
                         payamt="{:.2f}".format(float(req['old_payamt'])) if 'old_payamt' in req else None,newpaytype=paytable.pay_code,
                         newpayamt="{:.2f}".format(float(req['pay_amt'])),
-                        taudid=taud,dt_lineno=idx,itemsite_code=site.itemsite_code).save()
+                        dt_lineno=idx,itemsite_code=site.itemsite_code).save()
 
                 if taud_ids !=[]:
                     state = status.HTTP_201_CREATED
@@ -9078,8 +9091,8 @@ class postaudViewset(viewsets.ModelViewSet):
                                         
                                         used_amount = 0    
                                         check_amt = float(req['pay_amt'])
-                                        if prepaid_redeemlst != []:
-                                            use_final_ids = use_final_ids.filter(~Q(pk__in=prepaid_redeemlst))
+                                        # if prepaid_redeemlst != []:
+                                        #     use_final_ids = use_final_ids.filter(~Q(pk__in=prepaid_redeemlst))
                                         # print(use_final_ids,"use_final_ids 111")
                                         if use_final_ids:
                                             for i in use_final_ids:
@@ -9089,7 +9102,7 @@ class postaudViewset(viewsets.ModelViewSet):
                                                     checkamt = check_amt
                                                     # print(checkamt,"checkamt 111")
                                                     
-                                                    if i.pk not in prepaid_redeemlst:
+                                                    if i.pk in req['cartuse_ids']:
                                                         p_pac_ids = PrepaidAccount.objects.filter(pp_no=pp_no,line_no=line_no,
                                                         cust_code=cust_obj.cust_code,status=True).only('pp_no','line_no','site_code','cust_code','status').order_by('pk').last()
                                                         
@@ -9124,7 +9137,7 @@ class postaudViewset(viewsets.ModelViewSet):
                                                         prepacc.sa_date = pay_date 
                                                         prepacc.start_date = pay_date
                                                         prepacc.save()
-                                                        prepaid_redeemlst.append(i.pk) 
+                                                        # prepaid_redeemlst.append(i.pk) 
 
                                                         redeem_ppac = False; op_conditionobj = False
 
@@ -9293,7 +9306,7 @@ class postaudViewset(viewsets.ModelViewSet):
                                     rct = CustomerPointDtl(type="Redeem",cust_code=cust_obj.cust_code,
                                     cust_name=cust_obj.cust_name,parent_code=None,parent_desc=None,
                                     parent_display=None,itm_code=paytable.pay_code,itm_desc=paytable.pay_description,
-                                    point=cal_point,now_point=now_point,remark=None,remark_code=None,
+                                    point=-cal_point,now_point=now_point,remark=None,remark_code=None,
                                     remark_desc=None,isvoid=False,void_referenceno=None,isopen=True,qty=1,
                                     seq=False,sa_status="SA",bal_acc2=req['cur_value'],point_acc1=None,
                                     point_acc2=None,locid=False)
@@ -9490,13 +9503,12 @@ class postaudViewset(viewsets.ModelViewSet):
                 #         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
 
-                # print(n)
                 if rcdtl_lst != []:
                     # print("True")
                     redeempy_ids = CustomerPointDtl.objects.filter(pk__in=rcdtl_lst)
 
                     total_redempts = sum([i.point for i in redeempy_ids])
-                    custpoint_value = custnow_point - total_redempts
+                    custpoint_value = custnow_point - abs(total_redempts)
                     cust_obj.cust_point_value = custpoint_value
                     cust_obj.save()
 
@@ -9509,7 +9521,7 @@ class postaudViewset(viewsets.ModelViewSet):
                     time=pay_time,cust_name=cust_obj.cust_name,cust_code=cust_obj.cust_code,type="Redeem",
                     refno=sa_transacno,ref_source="Sales",isvoid=False,sa_status="SA",void_referenceno=None,
                     total_point=total_redempts,now_point=custpoint_value,seq=None,remarks=None,
-                    bal_point=custpoint_value,expired=False,expired_date=None,mac_code=False,logno=False,
+                    bal_point=custnow_point,expired=False,expired_date=None,mac_code=False,logno=False,
                     approval_user=fmspw.pw_userlogin,cardno=False,bdate=None,pdate=None,expired_point=0,
                     postransactionno=sa_transacno,postotalamt="{:.2f}".format(float(value['deposit_amt'])),locid=False,mgm_refno=None,tdate=None).save()
                     for cds in rcdtl_lst:
@@ -11606,7 +11618,7 @@ class CustomerReceiptPrintBeforeCheckoutList(generics.ListCreateAPIView):
     def post(self, request):
         # try:
             now = timezone.now()
-            print(str(now.hour) + '  ' +  str(now.minute) + '  ' +  str(now.second),"Start hour, minute, second 11111\n")
+            # print(str(now.hour) + '  ' +  str(now.minute) + '  ' +  str(now.second),"Start hour, minute, second 11111\n")
        
             global type_ex
             if not request.GET.get('cart_id',None):
@@ -11614,7 +11626,7 @@ class CustomerReceiptPrintBeforeCheckoutList(generics.ListCreateAPIView):
                 return Response(result, status=status.HTTP_400_BAD_REQUEST) 
 
             cart_id = request.GET.get('cart_id',None)
-            print(cart_id,"cart_id")
+            # print(cart_id,"cart_id")
            
             fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
             site = fmspw.loginsite
@@ -11637,9 +11649,9 @@ class CustomerReceiptPrintBeforeCheckoutList(generics.ListCreateAPIView):
 
             queryset = ItemCart.objects.filter(isactive=True).filter(cust_noid=cust_obj,cart_id=cart_id,cart_date=cart_date,
             cart_status="Inprogress",isactive=True,is_payment=False).exclude(type__in=type_ex).order_by('lineno')
-            print(queryset,"queryset")
+            # print(queryset,"queryset")
             hdr = queryset[:1] 
-            print(hdr,"hdr")
+            # print(hdr,"hdr")
 
             if not hdr or not queryset:
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Given Cart ID data does not exist!!",'error': True} 
@@ -11840,7 +11852,7 @@ class CustomerReceiptPrintBeforeCheckoutList(generics.ListCreateAPIView):
             
             day = datetime.datetime.strptime(str(hdr[0].cart_date), '%Y-%m-%d').strftime('%a')
             taud_f = taud_data
-            print(taud_f,"taud_f")
+            # print(taud_f,"taud_f")
 
             treatopen_ids = False
             set_obj = False
@@ -11858,7 +11870,7 @@ class CustomerReceiptPrintBeforeCheckoutList(generics.ListCreateAPIView):
             # print(treatopen_ids,"treatopen_ids")
             
             first_sales = ','.join(list(set([v.display_name for v in hdr[0].sales_staff.filter() if v.display_name])))
-            print("iff")
+            # print("iff")
             data = {'name': title.trans_h1 if title and title.trans_h1 else '', 
             'address': title.trans_h2 if title and title.trans_h2 else '', 
             'footer1':title.trans_footer1 if title and title.trans_footer1 else '',
@@ -11884,16 +11896,59 @@ class CustomerReceiptPrintBeforeCheckoutList(generics.ListCreateAPIView):
             data.update(pdfsub_data)
             # data.update(custbal)
             now1 = timezone.now()
-            print(str(now1.hour) + '  ' +  str(now1.minute) + '  ' +  str(now1.second),"Start hour, minute, second 2222222\n")
+            # print(str(now1.hour) + '  ' +  str(now1.minute) + '  ' +  str(now1.second),"Start hour, minute, second 2222222\n")
        
 
            
            
             template = get_template('customer_receipt_beforepay.html')
 
+            display = Display(visible=0, size=(800, 600))
+            display.start()
+            html = template.render(data)
+            options = {
+                'margin-top': '.25in',
+                'margin-right': '.25in',
+                'margin-bottom': '.25in',
+                'margin-left': '.25in',
+                'encoding': "UTF-8",
+                'no-outline': None,
+                
+            }
+            
+            # existing = os.listdir(settings.PDF_ROOT)
+            dst ="customer_receipt_beforepay_" + str(str(hdr[0].cart_id)) + ".pdf"
+
+            # src = settings.PDF_ROOT + existing[0] 
+            # dst = settings.PDF_ROOT + dst 
+                
+            # os.rename(src, dst) 
+            p=pdfkit.from_string(html,False,options=options)
+            PREVIEW_PATH = dst
+            pdf = FPDF() 
+
+            pdf.add_page() 
+            
+            pdf.set_font("Arial", size = 15) 
+            file_path = os.path.join(settings.PDF_ROOT, PREVIEW_PATH)
+            pdf.output(file_path) 
+
+            if p:
+                file_path = os.path.join(settings.PDF_ROOT, PREVIEW_PATH)
+                report = os.path.isfile(file_path)
+                if report:
+                    file_path = os.path.join(settings.PDF_ROOT, PREVIEW_PATH)
+                    with open(file_path, 'wb') as fh:
+                        fh.write(p)
+                    display.stop()
+
+                    # ip_link = "http://"+request.META['HTTP_HOST']+"/media/pdf/customer_receipt_"+str(hdr[0].sa_transacno_ref)+".pdf"
+                    ip_link = str(SITE_ROOT) + "pdf/customer_receipt_beforepay_"+str(hdr[0].cart_id)+".pdf"
+
+
             # display = Display(visible=0, size=(800, 600))
             # display.start()
-            html = template.render(data)
+            # html = template.render(data)
             # options = {
             #     'margin-top': '.25in',
             #     'margin-right': '.25in',
@@ -11904,20 +11959,20 @@ class CustomerReceiptPrintBeforeCheckoutList(generics.ListCreateAPIView):
                 
             # }
             
-            dst ="customer_receipt_beforepay_" + str(str(hdr[0].cart_id)) + ".pdf"
-            PREVIEW_PATH = dst
+            # dst ="customer_receipt_beforepay_" + str(str(hdr[0].cart_id)) + ".pdf"
+            # PREVIEW_PATH = dst
 
-            # def get_pdf_content_from_html(html_content, filename):
-            # temp_dir = tempfile.mkdtemp()
-            options = {
-                'page-size': 'A4',
-                'margin-top': '0in',
-                'margin-right': '0in',
-                'margin-bottom': '0in',
-                'margin-left': '0in',
-                'encoding': "UTF-8",
-                'no-outline': None,
-            }
+            # # def get_pdf_content_from_html(html_content, filename):
+            # # temp_dir = tempfile.mkdtemp()
+            # options = {
+            #     'page-size': 'A4',
+            #     'margin-top': '0in',
+            #     'margin-right': '0in',
+            #     'margin-bottom': '0in',
+            #     'margin-left': '0in',
+            #     'encoding': "UTF-8",
+            #     'no-outline': None,
+            # }
             
             # file_path = os.path.join(settings.PDF_ROOT, PREVIEW_PATH)
             # p = pdfkit.from_string(html, file_path, options=options)
@@ -11929,16 +11984,16 @@ class CustomerReceiptPrintBeforeCheckoutList(generics.ListCreateAPIView):
             # if os.path.exists(file_path):
             #     os.remove(file_path)
             
-            file_path = os.path.join(settings.PDF_ROOT, PREVIEW_PATH)
-            print(file_path,"file_path")
-            file = open(file_path, "w+b")
-            print(file,"file")
-            p = pdfkit.from_string(html, file_path, options=options)
-            # pdf = pisa.CreatePDF(html, dest=file, encoding="UTF-8")
-            # print(pdf,"pdf")
-            file.close()
-            ip_link = str(SITE_ROOT) + "pdf/customer_receipt_beforepay_"+str(hdr[0].cart_id)+".pdf"
-            print(ip_link,"ip_link")    
+            # file_path = os.path.join(settings.PDF_ROOT, PREVIEW_PATH)
+            # print(file_path,"file_path")
+            # file = open(file_path, "w+b")
+            # print(file,"file")
+            # p = pdfkit.from_string(html, file_path, options=options)
+            # # pdf = pisa.CreatePDF(html, dest=file, encoding="UTF-8")
+            # # print(pdf,"pdf")
+            # file.close()
+            # ip_link = str(SITE_ROOT) + "pdf/customer_receipt_beforepay_"+str(hdr[0].cart_id)+".pdf"
+            # print(ip_link,"ip_link")    
             
            
             # p=pdfkit.from_string(html,False,options={})
@@ -11966,17 +12021,17 @@ class CustomerReceiptPrintBeforeCheckoutList(generics.ListCreateAPIView):
             #         ip_link = str(SITE_ROOT) + "pdf/customer_receipt_beforepay_"+str(hdr[0].cart_id)+".pdf"
             #         print(ip_link,"ip_link")
             
-            state = status.HTTP_200_OK
-            message = "Listed Succesfully"
-            error = False
+            # state = status.HTTP_200_OK
+            # message = "Listed Succesfully"
+            # error = False
         
             now2 = timezone.now()
-            print(str(now2.hour) + '  ' +  str(now2.minute) + '  ' +  str(now2.second),"End hour, minute, second 3333333333\n")
+            # print(str(now2.hour) + '  ' +  str(now2.minute) + '  ' +  str(now2.second),"End hour, minute, second 3333333333\n")
             totalh = now2.second - now.second
-            print(totalh,"total") 
+            # print(totalh,"total") 
 
             data = {'pdf_link': ip_link}
-            result = {'status': state,"message":message,'error': error,
+            result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False,
             'data': data}
             return Response(data=result, status=status.HTTP_200_OK)
         # except Exception as e:
@@ -13551,10 +13606,10 @@ class CustApptAPI(generics.ListAPIView):
         
         asystem_setup = Systemsetup.objects.filter(title='Customeroutletrestrict',
         value_name='Customeroutletrestrict',isactive=True).first()
-        if asystem_setup and asystem_setup.value_data == 'True':
-            queryset = Customer.objects.filter(cust_isactive=True,or_key=site.itemsite_code).only('cust_isactive').order_by('-pk')
-        else:
-            queryset = Customer.objects.filter(cust_isactive=True).exclude(site_code__isnull=True).only('cust_isactive').order_by('-pk')
+        # if asystem_setup and asystem_setup.value_data == 'True':
+        #     queryset = Customer.objects.filter(cust_isactive=True,or_key=site.itemsite_code).only('cust_isactive').order_by('-pk')
+        # else:
+        #     queryset = Customer.objects.filter(cust_isactive=True).exclude(site_code__isnull=True).only('cust_isactive').order_by('-pk')
         
         if self.request.GET.get('customeroutletrestrict',None) == '1':
             if asystem_setup and asystem_setup.value_data == 'True':
@@ -18272,12 +18327,12 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
         else:
             queryset = Customer.objects.filter(cust_isactive=True,site_code=site.itemsite_code).only('cust_isactive').order_by('-pk')
         
-        asystem_setup = Systemsetup.objects.filter(title='Customeroutletrestrict',
-        value_name='Customeroutletrestrict',isactive=True).first()
-        if asystem_setup and asystem_setup.value_data == 'True':
-            queryset = Customer.objects.filter(cust_isactive=True,or_key=site.itemsite_code).only('cust_isactive').order_by('-pk')
-        else:
-            queryset = Customer.objects.filter(cust_isactive=True).exclude(site_code__isnull=True).only('cust_isactive').order_by('-pk')
+        # asystem_setup = Systemsetup.objects.filter(title='Customeroutletrestrict',
+        # value_name='Customeroutletrestrict',isactive=True).first()
+        # if asystem_setup and asystem_setup.value_data == 'True':
+        #     queryset = Customer.objects.filter(cust_isactive=True,or_key=site.itemsite_code).only('cust_isactive').order_by('-pk')
+        # else:
+        #     queryset = Customer.objects.filter(cust_isactive=True).exclude(site_code__isnull=True).only('cust_isactive').order_by('-pk')
         
 
         q = self.request.GET.get('search', None)
@@ -18600,6 +18655,8 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
                                                 
                     if k.pk:
                         if control_check == False:
+                            # result_3 = str(int(result_2) + 1).zfill(6)
+
                             control_obj.control_no = int(control_obj.control_no) + 1
                             control_obj.save()
 
@@ -25405,10 +25462,10 @@ class OutletRequestCustomerViewset(viewsets.ModelViewSet):
                 
                 
                 # site_obj = ItemSitelist.objects.filter(pk=site_id,itemsite_isactive=True).order_by('-pk').first()
-                if cust_obj.site_code == site.itemsite_code:
-                    result = {'status': status.HTTP_400_BAD_REQUEST,
-                    "message":"Customer Sitecode and logined sitecode same so can't transfer!!",'error': True} 
-                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST) 
+                # if cust_obj.site_code == site.itemsite_code:
+                #     result = {'status': status.HTTP_400_BAD_REQUEST,
+                #     "message":"Customer Sitecode and logined sitecode same so can't transfer!!",'error': True} 
+                #     return Response(data=result, status=status.HTTP_400_BAD_REQUEST) 
                 
                 haud_ids =  PosHaud.objects.filter(isvoid=False,sa_custno=cust_obj.cust_code,
                 itemsite_code=site.itemsite_code).order_by("-pk").first()
@@ -25431,7 +25488,8 @@ class OutletRequestCustomerViewset(viewsets.ModelViewSet):
                         log.last_transaction_date = haud_ids.sa_date
                         log.save()
 
-                    checkex_ids = CustomerExtended.objects.filter(cust_codeid__pk=cust_obj.pk).first()
+                    checkex_ids = CustomerExtended.objects.filter(cust_codeid__pk=cust_obj.pk,
+                    cust_code=cust_obj.cust_code).first()
                     if not checkex_ids:
                         CustomerExtended(cust_code=cust_obj.cust_code,cust_codeid=cust_obj,
                         cust_name=cust_obj.cust_name,site_code=site.itemsite_code

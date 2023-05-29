@@ -297,11 +297,13 @@ class ExchangeProductSerializer(serializers.Serializer):
 class SmtpSettingsSerializer(serializers.ModelSerializer):
 
     sitecode = serializers.CharField(source='site_codeid.itemsite_code',required=False)
+    site_codeid = serializers.CharField(source='site_codeid.itemsite_desc',required=False)
 
     class Meta:
         model = SmtpSettings
         fields = ['id','sender_name','sender_address','smtp_serverhost','port','user_email','user_password',
-        'email_use_ssl','email_use_tls','email_subject','email_content','sms_content','site_codeid','sitecode']
+        'email_use_ssl','email_use_tls','email_subject','email_content','sms_content','site_codeid','sitecode',
+        'isactive']
 
    
 

@@ -6361,11 +6361,11 @@ class ReceiptPdfSend(APIView):
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give customer email!!",'error': True} 
                 return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
-            regex = '^[a-z0-9]+[\._]?[a-z0-9]+[@]\w+[.]\w{2,3}$'
+            # regex = '^[a-z0-9]+[\._]?[a-z0-9]+[@]\w+[.]\w{2,3}$'
 
-            if not re.search(regex, hdr[0].sa_custnoid.cust_email):
-                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give Valid customer email!!",'error': True} 
-                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+            # if not re.search(regex, hdr[0].sa_custnoid.cust_email):
+            #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give Valid customer email!!",'error': True} 
+            #     return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
             # if hdr[0].sa_custnoid.cust_maillist == False:
             #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer dont Wish to receive email!!",'error': True} 
@@ -6660,7 +6660,7 @@ class ReceiptPdfSend(APIView):
             p=pdfkit.from_string(html,False,options=options)
             
             
-            smpt_ids = SmtpSettings.objects.filter(email_subject='Customer Invoice').order_by('pk').first()
+            smpt_ids = SmtpSettings.objects.filter(email_subject='Customer Invoice',isactive=True).order_by('pk').first()
             subject = smpt_ids.email_subject
             to = hdr[0].sa_custnoid.cust_email
             cust_name = hdr[0].sa_custnoid.cust_name
@@ -7862,7 +7862,6 @@ class SmtpSettingsViewset(viewsets.ModelViewSet):
             fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
             site = fmspw.loginsite
             smtp = self.get_object(pk)
-
             serializer = self.get_serializer(smtp, data=request.data, partial=True)
             if serializer.is_valid():
                 serializer.save(updated_at=timezone.now())
@@ -7959,6 +7958,11 @@ class ChangeStaffViewset(viewsets.ModelViewSet):
                             result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Sent Valid Cart ID",'error': True} 
                             return Response(result, status=status.HTTP_400_BAD_REQUEST) 
 
+                        work_staffval = item_cart.service_staff.filter()
+                        # print(work_staffval,"work_staffval")
+                            
+                        tsales_amount = 0; tsales_percentage = 0
+
                         for s in reqt['data']:
                             if s['work'] == True:
                                 if s['work_percentage'] == "":
@@ -7968,6 +7972,21 @@ class ChangeStaffViewset(viewsets.ModelViewSet):
                                 if s['wp'] == "":
                                     raise Exception('wp Should not be empty') 
 
+                                if item_cart.type == 'Deposit' and int(item_cart.itemcodeid.item_div) == 3:
+                                    daud_ids = PosDaud.objects.filter(sa_transacno=item_cart.sa_transacno,dt_lineno=item_cart.lineno).first()
+                                    if daud_ids:
+                                        if daud_ids.first_trmt_done == False:
+                                            mesg = "Work Staff is not allowed for this item {0} cart lineno {1} .".format(str(item_cart.itemdesc),str(item_cart.lineno))
+                                            raise Exception(mesg)   
+    
+                                elif itemcart.type in ['Deposit','Top Up','Exchange'] and int(itemcart.itemcodeid.item_div) != 3:
+                                    mesg = "Work Staff is not allowed for this item {0} cart lineno {1} .".format(str(item_cart.itemdesc),str(item_cart.lineno))
+                                    raise Exception(mesg) 
+                                elif itemcart.type in ['Top Up']:  
+                                    mesg = "Work Staff is not allowed for this item {0} cart lineno {1} .".format(str(item_cart.itemdesc),str(item_cart.lineno))
+                                    raise Exception(mesg)   
+
+
                             if s['sales'] == True:
                                 if s['sales_percentage'] == "":
                                     raise Exception('Sales Percentage Should not be empty') 
@@ -7975,6 +7994,19 @@ class ChangeStaffViewset(viewsets.ModelViewSet):
                                     raise Exception('Sales Amount Should not be empty') 
                                 if s['sp'] == "":
                                     raise Exception('sp Should not be empty') 
+                                tsales_amount += float(s['sales_amount'])
+                                tsales_percentage += float(s['sales_percentage'])
+                        
+                        if item_cart.type != 'Sales':
+                            if tsales_percentage < float(item_cart.ratio) or tsales_percentage > float(item_cart.ratio):
+                                m_sg = "Sales Percentage sum should be equal to Cart Ratio {0} % cart item {1} & lineno {2} .".format(str(float(item_cart.ratio)),str(item_cart.itemdesc),str(item_cart.lineno))
+                                raise Exception(m_sg) 
+
+                            if tsales_amount < float(item_cart.trans_amt) or tsales_amount > float(item_cart.trans_amt):
+                                mt_sg = "Sales Amount sum should be equal to Cart Transac Amt $ {0} cart item {1} & lineno {2} .".format(str(float(item_cart.trans_amt)),str(item_cart.itemdesc),str(item_cart.lineno))
+                                raise Exception(mt_sg) 
+    
+
 
                         multi_ids = Multistaff.objects.filter(sa_transacno=sa_transacno,
                         dt_lineno=item_cart.lineno,item_code=str(item_cart.itemcodeid.item_code)+"0000").order_by('pk')
@@ -8025,6 +8057,7 @@ class ChangeStaffViewset(viewsets.ModelViewSet):
                         itemcart = ItemCart.objects.filter(id=req['id']).first()
                     
                         if itemcart.type == 'Deposit' and int(itemcart.itemcodeid.item_div) == 3:
+                            wtimes = 0 ; tscount = 0
                             for i, s in enumerate(req['data'], start=1):
                                 if s['work'] == True:
                                     # if itemcart.sessiondone != None:
@@ -8042,8 +8075,10 @@ class ChangeStaffViewset(viewsets.ModelViewSet):
                                                 helper_name=helper_obj.display_name,helper_code=helper_obj.emp_code,
                                                 site_code=site.itemsite_code,times=str(itemcart.quantity).zfill(2),
                                                 treatment_no=str(itemcart.quantity).zfill(2),wp1=s['wp'],wp2=0.0,wp3=0.0,itemcart=itemcart,
-                                                percent=s['work_percentage'],work_amt=s['work_amount'],sa_date=poshaud_v.sa_date) 
+                                                percent=s['work_percentage'],work_amt=s['work_amount'],sa_date=poshaud_v.sa_date,session=1) 
                                                 temph.save() 
+                                                wtimes = str(itemcart.quantity).zfill(2)
+                                                tscount += 1
 
                                     serviceStaffChangeLog(sa_transacno=sa_transacno,item_code=s['item_code'] if 'item_code' in s and s['item_code'] else None,
                                     emp_code=s['old_emp'] if 'old_emp' in s and s['old_emp'] else None,
@@ -8133,25 +8168,32 @@ class ChangeStaffViewset(viewsets.ModelViewSet):
                                 
                                     # wp1 = h.workcommpoints / float(c.helper_ids.all().filter(times=times).count())
                                     wp1 = h.wp1
-                                    share_amt_val = float(Unit_Amount) / float(itemcart.helper_ids.all().filter(times=times).count())
-                                    
-                                    totlen = len(itemcart.helper_ids.all().filter(times=times))
+                                    if int(wtimes) == int(times):
+                                        # print("iff")
+                                        share_amt_val = float(Unit_Amount) / float(itemcart.helper_ids.all().filter(times=times).count() + tscount)
+                                        totlen = len(itemcart.helper_ids.all().filter(times=times)) + tscount
+                                    else:
+                                        share_amt_val = float(Unit_Amount) / float(itemcart.helper_ids.all().filter(times=times).count())
+                                        totlen = len(itemcart.helper_ids.all().filter(times=times))
+
                                     share_amt = calculate_shareamt(share_amt_val,totlen,idx,Unit_Amount)
 
                                     if h.work_amt and h.work_amt > 0:
                                         share_amt = h.work_amt
+
+                                    tmp_treids = Tmptreatment.objects.filter(itemcart=itemcart,times=times).order_by('pk').first()    
                                     
 
                                     TmpItemHelper.objects.filter(id=h.id).update(item_code=treatment_parentcode+"-"+str(times),
                                     item_name=itemcart.itemcodeid.item_name,line_no=itemcart.lineno,sa_transacno=sa_transacno,
                                     amount=Unit_Amount,sa_date=poshaud_v.sa_date,site_code=site.itemsite_code,
-                                    wp1=wp1,wp2=0.0,wp3=0.0)
+                                    wp1=wp1,wp2=0.0,wp3=0.0,tmptreatment=tmp_treids if tmp_treids else None)
                                     
                                     # "{:.2f}".format(float(share_amt))
                                     # Item helper create
                                     hobj_ids = ItemHelper.objects.filter(item_code=treatment_parentcode+"-"+str(times),
                                     helper_code=h.helper_code)
-                                    if hobj_ids:
+                                    if not hobj_ids:
                                         helper = ItemHelper(item_code=treatment_parentcode+"-"+str(times),item_name=itemcart.itemcodeid.item_desc,
                                         line_no=itemcart.lineno,sa_transacno=sa_transacno,amount="{:.2f}".format(float(Unit_Amount)),
                                         helper_name=h.helper_name if h.helper_name else None,helper_code=h.helper_code if h.helper_code else None,
@@ -8242,7 +8284,7 @@ class ChangeStaffViewset(viewsets.ModelViewSet):
                                         # Item helper create
                                         hsobj_ids = ItemHelper.objects.filter(item_code=cl.treatment_code,
                                         helper_code=h.helper_code)
-                                        if hsobj_ids:
+                                        if not hsobj_ids:
                                             helper = ItemHelper(item_code=cl.treatment_code,item_name=itemcart.itemcodeid.item_name,
                                             line_no=itemcart.lineno,sa_transacno=itemcart.treatment.sa_transacno,amount=cl.unit_amount,
                                             helper_name=h.helper_name,helper_code=h.helper_code,sa_date=poshaud_v.sa_date,
@@ -10038,6 +10080,13 @@ class CourseTmpItemHelperViewset(viewsets.ModelViewSet):
             if not cartobj:
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"cart id does not exist!!",'error': True} 
                 return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
+            if cartobj.cart_status == "Completed":
+                daud_ids = PosDaud.objects.filter(sa_transacno=cartobj.sa_transacno,dt_lineno=cartobj.lineno).first()
+                if daud_ids:
+                    if daud_ids.first_trmt_done == False:
+                        mesg = "Work Staff is not allowed for this item {0} cart lineno {1} .".format(str(cartobj.itemdesc),str(cartobj.lineno))
+                        raise Exception(mesg)     
             
             # qty = cartobj.treatment_no if cartobj.treatment_no else cartobj.quantity
             qty = Tmptreatment.objects.filter(itemcart=cartobj).order_by('pk').count() 
@@ -10063,6 +10112,7 @@ class CourseTmpItemHelperViewset(viewsets.ModelViewSet):
             
             
             arrtreatmentid = [i.pk for i in tmp_treatids]
+            # print(arrtreatmentid,"arrtreatmentid")
             for t in arrtreatmentid:
                 trmt_obj = Tmptreatment.objects.filter(status="Open",pk=t).first()
                 if not trmt_obj:
@@ -10089,6 +10139,7 @@ class CourseTmpItemHelperViewset(viewsets.ModelViewSet):
 
             
                 h_obj = TmpItemHelper.objects.filter(tmptreatment=trmt_obj,itemcart=cartobj).first()
+                # print(h_obj,"h_obj")
                 value = {'Item':trmt_obj.course,'Price':"{:.2f}".format(float(trmt_obj.unit_amount)),
                 'work_point':"{:.2f}".format(float(workcommpoints)),'room_id':None,'room_name':None,
                 'source_id': None,'source_name':None,'new_remark':None,
@@ -10107,7 +10158,16 @@ class CourseTmpItemHelperViewset(viewsets.ModelViewSet):
                     if h_obj.times:
                         value['times']  = trmt_obj.times
             
-            queryset = TmpItemHelper.objects.filter(tmptreatment=trmt_obj,itemcart=cartobj).order_by('id')
+            query_ids = TmpItemHelper.objects.filter(tmptreatment__in=arrtreatmentid,itemcart=cartobj).order_by('id')
+            help_lst = [];tmp_qu_lst = []
+            for q in query_ids:
+                if q.helper_id.pk not in help_lst:
+                    tmp_qu_lst.append(q.pk)
+                    help_lst.append(q.helper_id.pk)
+
+
+            queryset = TmpItemHelper.objects.filter(tmptreatment__in=arrtreatmentid,itemcart=cartobj,pk__in=tmp_qu_lst).order_by('id')
+            # print(queryset,"queryset")
             serializer = self.get_serializer(queryset, many=True)
             final = []
             if queryset:

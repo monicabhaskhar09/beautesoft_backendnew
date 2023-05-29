@@ -1262,7 +1262,7 @@ class CustomerExtended(models.Model):
         db_table = 'CustomerExtended'
         # unique_together = (('cust_code','cust_email','cust_phone1'),)
         # unique_together = (('cust_code','cust_email','cust_phone1','cust_phone2'),)
-        unique_together = (('cust_code'),)
+        unique_together = (('cust_code','cust_name'),)
 
 
     def __str__(self):

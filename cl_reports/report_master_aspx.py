@@ -362,3 +362,55 @@ Group By X.payDate,X.customer,X.invoiceRef,X.payTypes,X.ItemSite_Code,X.ItemSite
                 #   'amt': 682.0, 'payCN': 0.0, 'payContra': 0, 'grossAmt': 682.0, 'taxes': 0.0,
                 #    'gstRate': Decimal('0'), 'netAmt': 682.0, 'BankCharges': 0.0, 'comm': 0, 
                 #    'total': 682.0}
+
+Treatment done report query
+
+select Treatment_code,invoiceDate,usageDate,usageRef,invoiceRef,Site_Code,[site],custName,custRef,createdBy,category,subCategory,itemName,skuCode,             
+duration,usageQty,therapists,numTherapists,SerPtType,SerPt,remarks,Ref_Transacno,sum(unitValue) as unitValue
+from
+(SELECT   distinct     Treatment.Treatment_ParentCode as Treatment_code,       
+Convert(Date,pos_haud.sa_date,103) AS [usageDate],              
+Convert(Date,pos_haud_1.sa_date,103) AS [invoiceDate],              
+pos_haud.SA_TransacNo_Ref AS [usageRef],              
+pos_haud_1.SA_TransacNo_Ref AS [invoiceRef],            
+pos_haud.ItemSIte_Code as [Site_Code],               
+(select ItemSite_Desc from Item_SiteList where ItemSite_code=pos_haud_1.ItemSite_Code) AS [site],   
+Customer.Cust_name [custName],              
+isnull(Customer.Cust_Refer,'') [custRef],              
+pos_haud.sa_staffname [createdBy],             
+(item_Class.itm_desc) [category],             
+isnull((Item_Range.itm_desc),'')  [subCategory],                
+Item_helper.Item_name [itemName],             
+Item_helper.Item_code,
+Treatment.Service_ItemBarcode [skuCode],             
+isnull(Treatment.Duration,0) [duration],      
+pos_daud.sa_transacno as Ref_Transacno,
+pos_daud.dt_qty [usageQty],             
+Item_helper.Share_Amt [unitValue],
+isnull(Item_Helper.Helper_Name,'') [therapists],                
+(Select Count(*) from Item_Helper Where Helper_transacno=pos_daud.sa_transacno And Line_No=pos_daud.dt_LineNo)  [numTherapists],             
+isnull(dt_PromoPrice,0) [SerPtType],
+isnull((Select distinct Item_Helper.WP1 from Item_Helper t1 Where t1.Helper_transacno=pos_daud.sa_transacno  
+And t1.Line_No=pos_daud.dt_LineNo and t1.Helper_Code=Item_Helper.Helper_Code),0)  [SerPt],              
+'' [remarks] 
+from pos_daud 
+INNER JOIN Item_Helper  on Item_Helper.Helper_transacno=pos_daud.sa_transacno and Item_Helper.Line_No=pos_daud.dt_LineNo and isnull(Item_Helper.IsDelete,0)<>1
+INNER JOIN Treatment ON Treatment.Treatment_Code=Item_Helper.Item_Code And Treatment.status='Done' 
+INNER JOIN pos_haud ON pos_daud.sa_transacno = pos_haud.sa_transacno 
+INNER JOIN pos_haud AS pos_haud_1 ON Item_Helper.sa_transacno = pos_haud_1.sa_transacno 
+INNER JOIN Customer ON pos_haud.sa_custno = Customer.Cust_code 
+INNER JOIN Stock ON Stock.item_code+'0000'=Treatment.Service_ItemBarcode 
+INNER JOIN item_Class ON item_Class.itm_code=Stock.Item_Class 
+LEFT JOIN  Item_Range ON Item_Range.itm_code=Stock.Item_Range             
+where 
+((pos_daud.Record_Detail_Type='TD') OR (pos_daud.Record_Detail_Type='SERVICE' and pos_daud.First_Trmt_Done=1)) and 
+pos_haud.isVoid=0
+And convert(datetime,convert(varchar,pos_daud.sa_date,103),103)>=Convert(Datetime,'01/05/2023' + ' 00:00:00.000',103)
+And convert(datetime,convert(varchar,pos_daud.sa_date,103),103)<=Convert(Datetime,'19/05/2023' + ' 00:00:00.000',103)
+--And ((@Site='') OR ((@Site<>'') And pos_daud.ItemSite_Code In (Select Item From dbo.LISTTABLE(@Site,',')))) --Site                    
+--And ((@Staff='') OR ((@Staff<>'') And Item_Helper.Helper_Code In (Select Item From dbo.LISTTABLE(@Staff,',')))) --Site                    
+)A
+group by Treatment_code,invoiceDate,usageDate,usageRef,invoiceRef,Site_Code,[site],custName,custRef,createdBy,category,subCategory,itemName,skuCode,             
+duration,usageQty,therapists,numTherapists,SerPtType,SerPt,remarks,Ref_Transacno
+order by therapists,custName
+

@@ -1893,11 +1893,19 @@ class CustApptSerializer(serializers.ModelSerializer):
         fmspw = Fmspw.objects.filter(user=request.user, pw_isactive=True).order_by('-pk')
         site = fmspw[0].loginsite
 
-        iscurrent = ""
+        iscurrent = False
         if instance.site_code == site.itemsite_code:
             iscurrent = True
         elif instance.site_code != site.itemsite_code:
             iscurrent = False
+
+        isoutlet_restrict = False
+        if instance.or_key:
+            if instance.or_key == site.itemsite_code:
+                isoutlet_restrict = True
+            elif instance.or_key != site.itemsite_code:
+                isoutlet_restrict = False    
+
         contactperson = []
 
         if instance.cust_corporate == True:
@@ -1922,7 +1930,7 @@ class CustApptSerializer(serializers.ModelSerializer):
         'cust_corporate': instance.cust_corporate,
         'contactperson': contactperson,
         'outstanding_amt': "{:.2f}".format(float(instance.outstanding_amt)) if instance.outstanding_amt else "0.00",
-        'cust_joindate':cust_joindate,'or_key':instance.or_key }
+        'cust_joindate':cust_joindate,'or_key':instance.or_key,'isoutlet_resrict':isoutlet_restrict}
         return mapped_object    
 
    
@@ -2966,6 +2974,14 @@ class CustomerPlusSerializer(serializers.ModelSerializer):
         except:
             pass
 
+        isoutlet_restrict = False
+        if data['or_key']:
+            if data['or_key'] == site.itemsite_code:
+                isoutlet_restrict = True
+            elif data['or_key'] != site.itemsite_code:
+                isoutlet_restrict = False 
+
+        data['isoutlet_restrict'] = isoutlet_restrict
         return data
 
     class Meta:
@@ -2981,7 +2997,7 @@ class CustomerPlusSerializer(serializers.ModelSerializer):
                   'prepaid_card','cust_occupation', 'creditnote','voucher_available','oustanding_payment','cust_refer',
                   'custallowsendsms','cust_maillist','cust_title','cust_sexes','cust_class','cust_corporate',
                   'referredby_id','cust_referby_code','cust_nationality','cust_race','cust_marital',
-                  'is_pregnant','estimated_deliverydate','no_of_weeks_pregnant','no_of_children']
+                  'is_pregnant','estimated_deliverydate','no_of_weeks_pregnant','no_of_children','or_key']
         read_only_fields = ('cust_isactive','Site_Code','cust_code')
         extra_kwargs = {'cust_name': {'required': True},'cust_phone2': {'required': False},}
 
