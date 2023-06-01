@@ -402,6 +402,8 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                         service = service +","+ s.display_name 
 
 
+            dt_discdesc = ','.join(list(set([v.remark for v in c.pos_disc.filter() if v.remark])))
+            
             dtl = PosDaud(sa_transacno=sa_transacno,dt_status="SA",dt_itemnoid=c.itemcodeid,
             dt_itemno=str(c.itemcodeid.item_code)+"0000",dt_itemdesc=dt_itemdesc,dt_price=c.price,
             dt_promoprice="{:.2f}".format(float(c.discount_price)),dt_amt="{:.2f}".format(float(c.trans_amt)),dt_qty=c.quantity,
@@ -413,7 +415,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
             st_ref_treatmentcode=None,record_detail_type=record_detail_type,gst_amt_collect="{:.2f}".format(float(gst_amt_collect)),
             topup_outstanding=outstanding_acc if outstanding_acc is not None and outstanding_acc > 0 else 0,dt_remark=c.remark if c.remark else None,isfoc=isfoc,item_remarks=item_remarks,
             dt_uom=dt_uom,first_trmt_done=False,item_status_code=c.itemstatus.status_code if c.itemstatus and c.itemstatus.status_code else None,
-            staffs=sales +" "+"/"+" "+ service)
+            staffs=sales +" "+"/"+" "+ service,dt_discdesc=dt_discdesc)
             #appt_time=app_obj.appt_fr_time,                
             #st_ref_treatmentcode=treatment_parentcode,
             dtl.save()

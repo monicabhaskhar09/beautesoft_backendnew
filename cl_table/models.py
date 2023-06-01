@@ -1870,7 +1870,7 @@ class PosDaud(models.Model):
     dt_qty = models.IntegerField(blank=True, null=True)
     dt_discamt = models.FloatField(db_column='dt_discAmt', blank=True, null=True)  # Field name made lowercase.
     dt_discpercent = models.FloatField(db_column='dt_discPercent', blank=True, null=True)  # Field name made lowercase.
-    dt_discdesc = models.CharField(db_column='dt_discDesc', max_length=20, blank=True, null=True)  # Field name made lowercase.
+    dt_discdesc = models.CharField(db_column='dt_discDesc', max_length=200, blank=True, null=True)  # Field name made lowercase.
     dt_discno = models.CharField(max_length=10, blank=True, null=True)
     dt_remark = models.CharField(max_length=60, blank=True, null=True)
     dt_Staffnoid = models.ForeignKey(Employee, on_delete=models.PROTECT,  null=True)

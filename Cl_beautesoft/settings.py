@@ -148,6 +148,20 @@ WSGI_APPLICATION = 'Cl_beautesoft.wsgi.application'
 
 # Staging Database Connection
 
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'sql_server.pyodbc',
+#         'NAME': 'esthetic',
+#         'HOST': '103.253.14.235',
+#         'PORT': '8890',
+#         'USER': 'monica',
+#         'PASSWORD': 'bigtree',
+#         'OPTIONS': {
+#             'driver': 'ODBC Driver 17 for SQL Server',
+#         }
+#     }
+# }
+
 DATABASES = {
     'default': {
         'ENGINE': 'sql_server.pyodbc',

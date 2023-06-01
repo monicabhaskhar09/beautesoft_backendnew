@@ -359,19 +359,27 @@ class CatalogItemRangeViewset(viewsets.ModelViewSet):
     def list(self, request):
         try:
             queryset = ItemRange.objects.none()
+            # if not  request.GET.get('type',None):
+            #     raise Exception('Please Give type') 
+
             if request.GET.get('Item_Deptid',None):  
                 if not request.GET.get('Item_Deptid',None) is None:
-                    item_id = ItemDept.objects.filter(pk=request.GET.get('Item_Deptid',None), itm_status=True).first() 
-                    if item_id:
-                        queryset = ItemRange.objects.filter(itm_dept=item_id.itm_code, isservice=True,itm_status=True).order_by('pk')
-                    if item_id is None:
-                        branditem_id = ItemBrand.objects.filter(pk=request.GET.get('Item_Deptid',None), itm_status=True).first()
-                        if branditem_id:
-                            queryset = ItemRange.objects.filter(itm_brand=branditem_id.itm_code,itm_status=True).order_by('pk')
-                    if not item_id and not branditem_id:
-                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Dept id does not exist!!",'error': True} 
-                        return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-           
+                    if request.GET.get('type',None):
+                        item_id = ItemDept.objects.none() 
+                        branditem_id =  ItemBrand.objects.none()
+                        if request.GET.get('type', None) in ['SERVICE','PACKAGE']:
+                            item_id = ItemDept.objects.filter(pk=request.GET.get('Item_Deptid',None), itm_status=True).first() 
+                            if item_id:
+                                queryset = ItemRange.objects.filter(itm_dept=item_id.itm_code, isservice=True,itm_status=True).order_by('pk')
+                        
+                        elif request.GET.get('type', None) in ['RETAIL','PREPAID','VOUCHER']:
+                            branditem_id = ItemBrand.objects.filter(pk=request.GET.get('Item_Deptid',None), itm_status=True).first()
+                            if branditem_id:
+                                queryset = ItemRange.objects.filter(itm_brand=branditem_id.itm_code,itm_status=True).order_by('pk')
+                        if not item_id and not branditem_id:
+                            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Dept id does not exist!!",'error': True} 
+                            return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+            
             if queryset:
                 serializer = self.get_serializer(queryset, many=True)
                 result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 'data': serializer.data}
@@ -4151,6 +4159,7 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
             # queryset = TmpItemHelper.objects.filter(treatment=trmt_obj).order_by('id')
             queryset_c = h_obj
             if not queryset_c:
+                count = len(arrtreatmentid)
                 if self.request.GET.get('invoice_done',None) == "1":
                     # cart_ids = ItemCart.objects.filter(multi_treat__pk__in=arrtreatmentid).first()
                     # if cart_ids:
@@ -4190,12 +4199,24 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                                                 alemp_ids = TmpItemHelperSession.objects.filter(treatment_parentcode=trmt_obj.treatment_parentcode,
                                                 helper_id=help_obj,sa_date__date=cartdate).order_by('pk')
                                                 if not alemp_ids:
+                                                    wp = float(workcommpoints) / float(count)
+                                                    v = str(wp).split('.')
+                                                    c = float(v[0]+"."+v[1][:2])
+
                                                     temph = TmpItemHelperSession(treatment_parentcode=trmt_obj.treatment_parentcode,
                                                     helper_id=help_obj,
                                                     helper_name=help_obj.display_name,helper_code=help_obj.emp_code,
                                                     site_code=site.itemsite_code,
-                                                    wp1=workcommpoints,sa_date=cartdate,
-                                                    session=hel['session']).save()
+                                                    wp1=c,sa_date=cartdate,
+                                                    session=hel['session'])
+                                                    temph.save()
+
+                                                   
+
+                                        r = count - 1
+                                        x = float(workcommpoints) -  (c * r)
+                                        temph.wp1 = x   
+                                        temph.save()
 
 
             queryset = TmpItemHelperSession.objects.filter(treatment_parentcode=trmt_obj.treatment_parentcode,
@@ -4722,6 +4743,8 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                     
                         trmt_obj = Treatment.objects.filter(status__in=["Open","Done"],pk=t)
                         if trmt_obj:
+                            workcommpoints = trmt_obj[0].Item_Codeid.workcommpoints if trmt_obj[0].Item_Codeid.workcommpoints else 0.0
+
                             tmp_ids = TmpItemHelper.objects.filter(treatment=trmt_obj[0])
                             if not tmp_ids:
                                 msg = "Staff is not assigned properly for selected {0} Sessions !!".format(str(len(arrtreatmentid)))
@@ -4751,8 +4774,19 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                                     cartobj.treatment.helper_ids.add(t) 
                                     if helper_obj:
                                         cartobj.service_staff.add(helper_obj.pk) 
+                            
+                            if tmp_ids.count() > 0:
+                                wp = float(workcommpoints) / float(tmp_ids.count())
+                                v = str(wp).split('.')
+                                c = float(v[0]+"."+v[1][:2])
+                                r = tmp_ids.count() - 1
+                                x = float(workcommpoints) -  (c * r)
+                                last_rec = TmpItemHelper.objects.filter(treatment=trmt_obj[0]).order_by('pk').last()
+                                for j in TmpItemHelper.objects.filter(treatment=trmt_obj[0]).order_by('pk').exclude(pk=last_rec.pk):
+                                    TmpItemHelper.objects.filter(id=j.id).update(wp1=c)
+                                last_rec.wp1 = x   
+                                last_rec.save()    
 
-                    
 
                     session_ids = list(set(TmpItemHelper.objects.filter(treatment__pk__in=arrtreatmentid).values_list('treatment', flat=True).distinct()))
                     # print(session_ids,"session_ids")

@@ -11372,9 +11372,21 @@ class CustomerReceiptPrintList(generics.ListAPIView):
                     h['invoice_header'] = "Void Transaction" 
                 else:
                     h['invoice_header'] = ''
+            
+            discreason_setup = Systemsetup.objects.filter(title='Invoice show discount reason',
+            value_name='Invoice show discount reason',isactive=True).first()
+            if discreason_setup and discreason_setup.value_data == 'True':
+                discreason = True
+            else:
+                discreason = False 
 
+            discper_setup = Systemsetup.objects.filter(title='Invoice show discount % $',
+            value_name='Invoice show discount % $',isactive=True).first()
+            if discper_setup and discper_setup.value_data == 'True':
+                discper = True
+            else:
+                discper = False      
                            
-
 
             dtl_serializer = PosdaudSerializer(daud, many=True)
             dtl_data = dtl_serializer.data
@@ -11432,6 +11444,15 @@ class CustomerReceiptPrintList(generics.ListAPIView):
                 #     line_no=d_obj.dt_lineno).values_list('times', flat=True).distinct()))
                 #     if helper_ids != []:
                 #         d['dt_itemdesc'] = d['dt_itemdesc']+" "+"TD - "+str(len(helper_ids))
+                
+                if discreason == True and d_obj.dt_discdesc:
+                    d['dt_itemdesc'] = d['dt_itemdesc'] +" "+"Discount Reason : "+ str(d_obj.dt_discdesc)
+
+                if discper == True and d_obj.dt_discpercent:
+                    d['dt_itemdesc'] = d['dt_itemdesc'] +" "+", Discount % : "+ str(int(d_obj.dt_discpercent)) +"%"
+                elif discper == True and d_obj.dt_discamt:
+                    d['dt_itemdesc'] = d['dt_itemdesc'] +" "+", Discount $ : "+ str(int(d_obj.dt_discamt)) +"$"
+
 
 
                 if d['dt_status'] == 'SA' and d['record_detail_type'] == "TD":
@@ -11609,66 +11630,78 @@ class CustomerReceiptPrintList(generics.ListAPIView):
            return general_error_response(invalid_message)   
 
 
-class CustomerReceiptPrintBeforeCheckoutList(generics.ListCreateAPIView):
+class CustomerReceiptPrintBeforeCheckoutList(APIView):
     authentication_classes = [ExpiringTokenAuthentication]
     permission_classes = [IsAuthenticated & authenticated_only]
-    queryset = ItemCart.objects.filter().order_by('-pk')
-    serializer_class = []
-   
-    def post(self, request):
-        # try:
-            now = timezone.now()
-            # print(str(now.hour) + '  ' +  str(now.minute) + '  ' +  str(now.second),"Start hour, minute, second 11111\n")
-       
-            global type_ex
-            if not request.GET.get('cart_id',None):
+
+    def post(self, request, format='json'):
+        try:
+            if request.GET.get('cart_id',None) is None:
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give cart_id!!",'error': True} 
                 return Response(result, status=status.HTTP_400_BAD_REQUEST) 
 
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True).first()
+            site = fmspw.loginsite  
             cart_id = request.GET.get('cart_id',None)
-            # print(cart_id,"cart_id")
-           
-            fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
-            site = fmspw.loginsite
+            cart_date = datetime.date.today()
+            cust_id = request.GET.get('cust_id',None)
 
-            # template_path = 'customer_receipt_beforepay.html'
-            # response = HttpResponse(content_type='application/pdf')
-            # response['Content-Disposition'] = 'attachment; filename="Customer Receipt Beforepay Report.pdf"'
-            
-            cart_date = timezone.now().date()
-            cust_id = self.request.GET.get('cust_id', None)
-            cust_obj = Customer.objects.filter(pk=request.GET.get('cust_id', None),cust_isactive=True).only('pk','cust_isactive').first()
+            cust_obj = Customer.objects.filter(pk=cust_id,cust_isactive=True).only('pk','cust_isactive').first()
             if not cust_obj:
-                result = {'status': status.HTTP_200_OK, "message": "Customer ID does not exist!!", 'error': True}
-                return Response(data=result, status=status.HTTP_200_OK)
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer ID does not exist!!",'error': True} 
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
             if not request.data:
-                result = {'status': status.HTTP_200_OK, 
-                "message": "Payment mode box should not be empty!!", 'error': True}
-                return Response(data=result, status=status.HTTP_200_OK)
+                result = {'status': status.HTTP_400_BAD_REQUEST,
+                "message":"Payment mode box should not be empty!!",'error': True} 
+                return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
+            type_ex = ['VT-Deposit','VT-Top Up','VT-Sales']
             queryset = ItemCart.objects.filter(isactive=True).filter(cust_noid=cust_obj,cart_id=cart_id,cart_date=cart_date,
             cart_status="Inprogress",isactive=True,is_payment=False).exclude(type__in=type_ex).order_by('lineno')
-            # print(queryset,"queryset")
+            print(queryset,"queryset")
             hdr = queryset[:1] 
             # print(hdr,"hdr")
-
-            if not hdr or not queryset:
+            if not queryset:
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Given Cart ID data does not exist!!",'error': True} 
                 return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+    
 
+            # data = dict()
+            # data["name"] = "ThePythonDjango.Com"
+            # data["DOB"] = "Jan 10, 2015"
+
+            # template = get_template('invoice.html')
+            # html = template.render(data)
+            # pdf = pdfkit.from_string(html, False)
+            # PREVIEW_PATH = "customer_receipt_beforepay_" + str(str(hdr[0].cart_id)) + ".pdf"
+
+            # file_path = os.path.join(settings.PDF_ROOT, PREVIEW_PATH)
+            # with open(file_path, 'wb') as fh:
+            #     fh.write(pdf)
+
+            # # ip_link = "http://"+request.META['HTTP_HOST']+"/media/pdf/customer_receipt_"+str(hdr[0].sa_transacno_ref)+".pdf"
+            # ip_link = str(SITE_ROOT) + "pdf/customer_receipt_beforepay_"+str(hdr[0].cart_id)+".pdf"
+
+
+        
+            # res_data = {'pdf_link': ip_link}
+            # result = {'status': status.HTTP_200_OK,"message":"Listed succesfully",
+            # 'error': False, 'data': res_data}
+            # return Response(data=result, status=status.HTTP_200_OK)
+
+          
+           
             title = Title.objects.filter(product_license=site.itemsite_code).order_by("pk").first()
             custsign_ids = Tempcustsign.objects.filter(cart_id=cart_id).order_by("-pk").first()
-            cust_sig = ""
-            if custsign_ids:
-                cust_sig = str(SITE_ROOT)+str(custsign_ids.cust_sig)
+           
 
             if title:
                 pic = False
                 if title.logo_pic:
                     # pic = str(ip)+str(title.logo_pic.url)
-                    pic = str(SITE_ROOT)+str(title.logo_pic)
-          
+                    pic = str(SITE_ROOT)+str(title.logo_pic) 
+
             taud_data  = [] ; checkgt = []
             tot_payamt = 0.0
             tot_gst = 0;sa_totgst = 0 ;pay_actamt = 0
@@ -11699,12 +11732,12 @@ class CustomerReceiptPrintBeforeCheckoutList(generics.ListCreateAPIView):
             
             taxable = pay_actamt - tot_gst
 
-            depositv_ids = queryset.filter().aggregate(deposit=Coalesce(Sum('deposit'), 0))
-            if depositv_ids:
-                if tot_payamt < depositv_ids['deposit']:
-                    result = {'status': status.HTTP_400_BAD_REQUEST,
-                    "message":"Pay amount should not be less than the Billable Amount!!",'error': True} 
-                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+            # depositv_ids = queryset.filter().aggregate(deposit=Coalesce(Sum('deposit'), 0))
+            # if depositv_ids:
+            #     if tot_payamt < depositv_ids['deposit']:
+            #         result = {'status': status.HTTP_400_BAD_REQUEST,
+            #         "message":"Pay amount should not be less than the Billable Amount!!",'error': True} 
+            #         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
                     
 
             hdr_serializer = ItemCartCustomerReceiptSerializer(hdr, many=True)
@@ -11828,20 +11861,21 @@ class CustomerReceiptPrintBeforeCheckoutList(generics.ListCreateAPIView):
              
             tax_amt = sa_totgst
           
-            value = postaud_calculation(self, request, queryset, paydate)
-            rounding = "{:.2f}".format(float(value['sa_Round']))
+            # value = postaud_calculation(self, request, queryset, paydate)
+            # rounding = "{:.2f}".format(float(value['sa_Round']))
+            rounding = 0
 
           
 
             gst_lable = ""; gstlable = ""
-            if site.site_is_gst == True:
-                if site.is_exclusive == True:
-                    if gst and gst.item_value:
-                        gst_lable = "GST (EXC "+str(int(gst.item_value))+"%)"
-                elif site.is_exclusive == False: 
-                    gstlable = "GST (INC)" 
+            # if site.site_is_gst == True:
+            #     if site.is_exclusive == True:
+            #         if gst and gst.item_value:
+            #             gst_lable = "GST (EXC "+str(int(gst.item_value))+"%)"
+            #     elif site.is_exclusive == False: 
+            #         gstlable = "GST (INC)" 
 
-            pdfsub_data = {'total_qty':str(tot_qty),'trans_amt':str("{:.2f}".format((tot_trans))),
+            sub_data = {'total_qty':str(tot_qty),'trans_amt':str("{:.2f}".format((tot_trans))),
             'deposit_amt':str("{:.2f}".format((tot_depo))),'total_balance':str("{:.2f}".format((tot_bal))),
             'subtotal':str("{:.2f}".format((tot_depo))),'billing_amount':"{:.2f}".format(float(tot_payamt)),
             'tot_disc':str("{:.2f}".format((tot_disc))),
@@ -11851,26 +11885,19 @@ class CustomerReceiptPrintBeforeCheckoutList(generics.ListCreateAPIView):
             }        
             
             day = datetime.datetime.strptime(str(hdr[0].cart_date), '%Y-%m-%d').strftime('%a')
-            taud_f = taud_data
-            # print(taud_f,"taud_f")
 
-            treatopen_ids = False
-            set_obj = False
+            # treatopen_ids = False
+            # set_obj = False
            
-            prepaid_amt = 0.0   
+            # prepaid_amt = 0.0   
             
-            credit_amt = "0.00"  
+            # credit_amt = "0.00"  
            
             path_custsign = None
             if custsign_ids and custsign_ids.cust_sig:
                 path_custsign = BASE_DIR + custsign_ids.cust_sig.url
             
-            # custbal = customer_balanceoutstanding(self,request, hdr[0].cust_noid)
-            # print(custbal,"custbal")
-            # print(treatopen_ids,"treatopen_ids")
-            
-            first_sales = ','.join(list(set([v.display_name for v in hdr[0].sales_staff.filter() if v.display_name])))
-            # print("iff")
+           
             data = {'name': title.trans_h1 if title and title.trans_h1 else '', 
             'address': title.trans_h2 if title and title.trans_h2 else '', 
             'footer1':title.trans_footer1 if title and title.trans_footer1 else '',
@@ -11879,71 +11906,44 @@ class CustomerReceiptPrintBeforeCheckoutList(generics.ListCreateAPIView):
             'footer4':title.trans_footer4 if title and title.trans_footer4 else '',
             'footer5':title.trans_footer5 if title and title.trans_footer5 else '',
             'footer6':title.trans_footer6 if title and title.trans_footer6 else '',
-            'hdr': hdr[0], 'daud':dtl_data,'taud_f':taud_f,'postaud':taud_f,'day':day,'fmspw':fmspw,
+            'hdr': hdr[0], 'daud':dtl_data,'postaud':taud_data,'day':day,'fmspw':fmspw,
             'date':date,'time':dtime,'percent':int(gst.item_value) if gst and gst.item_value else "0" ,'path':pic if pic else '','title':title if title else None,
-            'packages': str(packages),'site':site,'treatment': treatopen_ids,'settings': set_obj,
-            'tot_price':tot_price,'prepaid_balance': prepaid_amt,
-            'creditnote_balance': credit_amt,'total_netprice':str("{:.2f}".format((total_netprice))),
+            'packages': str(packages),'site':site,
+            'title': title,
             'custsign_ids':path_custsign if path_custsign else '',
             'gst_reg_no': title.gst_reg_no if title and title.gst_reg_no else '',
             'company_reg_no': title.company_reg_no if title and title.company_reg_no else '',
-            'gst_lable': gst_lable,'first_sales': first_sales,
-            'gstlable': gstlable,'trans_promo1': title.trans_promo1 if title and title.trans_promo1 else '',
-            'trans_promo2' : title.trans_promo2 if title and title.trans_promo2 else '',
-            'voucher_lst':[],'voucherbal':False,'gst':tax_amt,'rounding':float(value['sa_Round']),
+            'gst':tax_amt,'rounding':rounding,
             'invoice_header' : invoice_header,
             }
-            data.update(pdfsub_data)
-            # data.update(custbal)
-            now1 = timezone.now()
-            # print(str(now1.hour) + '  ' +  str(now1.minute) + '  ' +  str(now1.second),"Start hour, minute, second 2222222\n")
-       
+            data.update(sub_data)
 
-           
-           
             template = get_template('customer_receipt_beforepay.html')
-
-            display = Display(visible=0, size=(800, 600))
-            display.start()
             html = template.render(data)
-            options = {
-                'margin-top': '.25in',
-                'margin-right': '.25in',
-                'margin-bottom': '.25in',
-                'margin-left': '.25in',
-                'encoding': "UTF-8",
-                'no-outline': None,
-                
-            }
-            
-            # existing = os.listdir(settings.PDF_ROOT)
-            dst ="customer_receipt_beforepay_" + str(str(hdr[0].cart_id)) + ".pdf"
+            pdf = pdfkit.from_string(html, False)
+            PREVIEW_PATH = "customer_receipt_beforepay_" + str(str(hdr[0].cart_id)) + ".pdf"
 
-            # src = settings.PDF_ROOT + existing[0] 
-            # dst = settings.PDF_ROOT + dst 
-                
-            # os.rename(src, dst) 
-            p=pdfkit.from_string(html,False,options=options)
-            PREVIEW_PATH = dst
-            pdf = FPDF() 
-
-            pdf.add_page() 
-            
-            pdf.set_font("Arial", size = 15) 
             file_path = os.path.join(settings.PDF_ROOT, PREVIEW_PATH)
-            pdf.output(file_path) 
+            with open(file_path, 'wb') as fh:
+                fh.write(pdf)
 
-            if p:
-                file_path = os.path.join(settings.PDF_ROOT, PREVIEW_PATH)
-                report = os.path.isfile(file_path)
-                if report:
-                    file_path = os.path.join(settings.PDF_ROOT, PREVIEW_PATH)
-                    with open(file_path, 'wb') as fh:
-                        fh.write(p)
-                    display.stop()
+            ip_link = str(SITE_ROOT) + "pdf/customer_receipt_beforepay_"+str(hdr[0].cart_id)+".pdf"
 
-                    # ip_link = "http://"+request.META['HTTP_HOST']+"/media/pdf/customer_receipt_"+str(hdr[0].sa_transacno_ref)+".pdf"
-                    ip_link = str(SITE_ROOT) + "pdf/customer_receipt_beforepay_"+str(hdr[0].cart_id)+".pdf"
+
+        
+            res_data = {'pdf_link': ip_link}
+            result = {'status': status.HTTP_200_OK,"message":"Listed succesfully",
+            'error': False, 'data': res_data}
+            return Response(data=result, status=status.HTTP_200_OK)
+
+
+            # template = get_template('invoice.html')
+            # html = template.render(data)
+            # output= pdfkit.from_string(html, output_path=False)
+            # response = HttpResponse(content_type="application/pdf")
+            # response.write(output)
+            # return response
+
 
 
             # display = Display(visible=0, size=(800, 600))
@@ -11960,83 +11960,40 @@ class CustomerReceiptPrintBeforeCheckoutList(generics.ListCreateAPIView):
             # }
             
             # dst ="customer_receipt_beforepay_" + str(str(hdr[0].cart_id)) + ".pdf"
-            # PREVIEW_PATH = dst
 
-            # # def get_pdf_content_from_html(html_content, filename):
-            # # temp_dir = tempfile.mkdtemp()
-            # options = {
-            #     'page-size': 'A4',
-            #     'margin-top': '0in',
-            #     'margin-right': '0in',
-            #     'margin-bottom': '0in',
-            #     'margin-left': '0in',
-            #     'encoding': "UTF-8",
-            #     'no-outline': None,
-            # }
-            
-            # file_path = os.path.join(settings.PDF_ROOT, PREVIEW_PATH)
-            # p = pdfkit.from_string(html, file_path, options=options)
-            # print(p,"p")
-            # with open(file_path, 'wb') as fh:
-            #     fh.write(p)
-            # encoded = base64.b64encode(data)
-            # # print(encoded,"encoded")
-            # if os.path.exists(file_path):
-            #     os.remove(file_path)
-            
-            # file_path = os.path.join(settings.PDF_ROOT, PREVIEW_PATH)
-            # print(file_path,"file_path")
-            # file = open(file_path, "w+b")
-            # print(file,"file")
-            # p = pdfkit.from_string(html, file_path, options=options)
-            # # pdf = pisa.CreatePDF(html, dest=file, encoding="UTF-8")
-            # # print(pdf,"pdf")
-            # file.close()
-            # ip_link = str(SITE_ROOT) + "pdf/customer_receipt_beforepay_"+str(hdr[0].cart_id)+".pdf"
-            # print(ip_link,"ip_link")    
-            
-           
+                
             # p=pdfkit.from_string(html,False,options={})
-            # print(p,"p")
-           
-            # pdf = FPDF() 
+            # response= HttpResponse(p, content_type='application/pdf')
+            # response['Content-Disposition']= 'attachment'
+            # return response
+            # PREVIEW_PATH = dst
+            # # pdf = FPDF() 
 
-            # pdf.add_page() 
+            # # pdf.add_page() 
             
-            # pdf.set_font("Arial", size = 15) 
+            # # pdf.set_font("Arial", size = 15) 
             # file_path = os.path.join(settings.PDF_ROOT, PREVIEW_PATH)
-            # pdf.output(file_path) 
+            # # pdf.output(file_path) 
 
             # if p:
-            #     file_path = os.path.join(settings.PDF_ROOT, PREVIEW_PATH)
+            #     # file_path = os.path.join(settings.PDF_ROOT, PREVIEW_PATH)
             #     report = os.path.isfile(file_path)
-            #     print(report,"report")
             #     if report:
             #         file_path = os.path.join(settings.PDF_ROOT, PREVIEW_PATH)
-            #         print("iff")
             #         with open(file_path, 'wb') as fh:
             #             fh.write(p)
-            #         # display.stop()
 
+            #         # ip_link = "http://"+request.META['HTTP_HOST']+"/media/pdf/customer_receipt_"+str(hdr[0].sa_transacno_ref)+".pdf"
             #         ip_link = str(SITE_ROOT) + "pdf/customer_receipt_beforepay_"+str(hdr[0].cart_id)+".pdf"
-            #         print(ip_link,"ip_link")
-            
-            # state = status.HTTP_200_OK
-            # message = "Listed Succesfully"
-            # error = False
-        
-            now2 = timezone.now()
-            # print(str(now2.hour) + '  ' +  str(now2.minute) + '  ' +  str(now2.second),"End hour, minute, second 3333333333\n")
-            totalh = now2.second - now.second
-            # print(totalh,"total") 
 
-            data = {'pdf_link': ip_link}
-            result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False,
-            'data': data}
-            return Response(data=result, status=status.HTTP_200_OK)
-        # except Exception as e:
-        #    invalid_message = str(e)
-        #    return general_error_response(invalid_message)     
+        
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message) 
+
+
+
+  
 
 
 # class PayGroupViewset(viewsets.ModelViewSet):

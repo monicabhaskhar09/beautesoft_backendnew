@@ -4786,7 +4786,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                         # discount_amt = float(request.data['discount_amt'])
 
                         # value = float(itemcart.price) - discount_amt
-                        value = float(itemcart.discount_price) - discount_amt
+                        value = float(itemcart.discount_price) - float(request.data['discount_amt'])
                         amount = value * itemcart.quantity
                         if float(amount) <= 0.0:
                             result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Deposit Should not be negative!!",'error': True} 
@@ -4819,7 +4819,8 @@ class itemCartViewset(viewsets.ModelViewSet):
                             # discount_amt = float(request.data['discount_amt'])
                             
                             # value = float(itemcart.price) - discount_amt
-                            value = float(itemcart.discount_price) - discount_amt
+                            # print(itemcart.discount_price,"itemcart.discount_price")
+                            value = float(itemcart.discount_price) - float(request.data['discount_amt'])
                             # print(value,"value")
                             amount = value * itemcart.quantity
                             # print(amount,"amount")
@@ -6604,6 +6605,20 @@ class ReceiptPdfSend(APIView):
                     cval = {'creditnote_no':ce.credit_code,'balance':"{:.2f}".format(ce.balance) if ce.balance else "0.00"}
                     creditlst.append(cval)
 
+            discreason_setup = Systemsetup.objects.filter(title='Invoice show discount reason',
+            value_name='Invoice show discount reason',isactive=True).first()
+            if discreason_setup and discreason_setup.value_data == 'True':
+                discreason = True
+            else:
+                discreason = False 
+
+            discper_setup = Systemsetup.objects.filter(title='Invoice show discount % $',
+            value_name='Invoice show discount % $',isactive=True).first()
+            if discper_setup and discper_setup.value_data == 'True':
+                discper = True
+            else:
+                discper = False           
+
             custbal = customer_balanceoutstanding(self,request, hdr[0].sa_custno)
             # print(treatopen_ids,"treatopen_ids")
             data = {'name': title.trans_h1 if title and title.trans_h1 else '', 
@@ -6628,6 +6643,7 @@ class ReceiptPdfSend(APIView):
             'gstlable': gstlable,'trans_promo1': title.trans_promo1 if title and title.trans_promo1 else '',
             'trans_promo2' : title.trans_promo2 if title and title.trans_promo2 else '',
             'voucher_lst':voucher_lst,'voucherbal':voucherbal,
+            'discreason': discreason,'discper' : discper,
             }
             data.update(sub_data)
             data.update(custbal)
@@ -6698,7 +6714,9 @@ class ReceiptPdfSend(APIView):
 
         except Exception as e:
             invalid_message = str(e)
-            return general_error_response(invalid_message)     
+            return general_error_response(invalid_message) 
+
+
 
 class PaymentRemarksAPIView(generics.ListAPIView):
     authentication_classes = [ExpiringTokenAuthentication]
