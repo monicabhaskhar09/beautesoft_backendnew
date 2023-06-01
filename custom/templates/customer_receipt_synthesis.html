@@ -243,7 +243,18 @@ body{
             {% elif d.dt_status == "SA" and d.record_detail_type == 'TP SERVICE' or d.record_detail_type == 'TP PRODUCT' or d.record_detail_type == 'TP PREPAID' %}
               <td style="text-align: left;width: 40%">{{ d.record_detail_type }} &#8209; {{ d.dt_itemdesc }}</td>
             {% elif d.dt_status == "VT" %}
-              <td style="text-align: left;width: 40%">{{ d.dt_itemdesc }}</td>
+              <td style="text-align: left;width: 40%">{{ d.dt_itemdesc }}
+                {% if discreason and d.dt_discdesc %}
+                  Discount Reason : {{ d.dt_discdesc }} ,
+                {% endif %}
+                {% if discper  %}
+                  {% if d.dt_discpercent  %}
+                    Discount % : {{ d.dt_discpercent|floatformat:2 }} %
+                  {% elif d.dt_discamt  %} 
+                    Discount $ : {{ d.dt_discamt|floatformat:2 }} $
+                  {% endif %}  
+                {% endif %}
+              </td>
             {% elif d.dt_status == "VT" and d.record_detail_type == "TD"%}
               <td style="text-align: left;width: 40%">{{ d.dt_itemdesc }}</td>
             {% elif d.dt_status == "VT" and d.record_detail_type == 'TP SERVICE' or d.record_detail_type == 'TP PRODUCT' or d.record_detail_type == 'TP PREPAID' %}
