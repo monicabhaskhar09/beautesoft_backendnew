@@ -406,18 +406,18 @@ class CartStaffsSerializer(serializers.ModelSerializer):
 
         if obj.type in ['Deposit','Top Up','Exchange'] and int(obj.itemcodeid.item_div) == 3:  
             data = [{'work':False,'sales': True,'staff': i.emp_id.display_name,'emp_id': i.emp_id.pk,
-            'sales_percentage': int(i.ratio) if i.ratio else None,
+            'sales_percentage': float(i.ratio) if i.ratio else None,
             'sales_amount': "{:.2f}".format(float(i.salesamt)) if i.salesamt else None,
-            'sp': int(i.salescommpoints) if i.salescommpoints else 0,
+            'sp': float(i.salescommpoints) if i.salescommpoints else 0,
             'work_percentage': None,'work_amount': None,'wp': 0,
             'tmp_workid': None, 'tmp_saleid': i.pk} for i in obj.multistaff_ids.all()]
                           
 
         elif obj.type in ['Deposit','Top Up','Exchange'] and int(obj.itemcodeid.item_div) != 3: 
             data = [{'work':False,'sales': True,'staff': i.emp_id.display_name,'emp_id': i.emp_id.pk,
-            'sales_percentage': int(i.ratio) if i.ratio else None,
+            'sales_percentage': float(i.ratio) if i.ratio else None,
             'sales_amount': "{:.2f}".format(float(i.salesamt)) if i.salesamt else None,
-            'sp': int(i.salescommpoints) if i.salescommpoints else 0,
+            'sp': float(i.salescommpoints) if i.salescommpoints else 0,
             'work_percentage': None,'work_amount': None,'wp': 0,
             'tmp_workid': None, 'tmp_saleid': i.pk} for i in obj.multistaff_ids.all()]
         

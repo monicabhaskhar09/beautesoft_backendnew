@@ -20,6 +20,7 @@ from django.db.models.functions import Coalesce,Concat
 from django.db.models import Sum
 import time,math
 from django.db.models import Q
+from Cl_beautesoft.calculation import two_decimal_digit
 
 def truncate(f, n):
     res = math.floor(f * 10 ** n) / 10 ** n
@@ -237,7 +238,7 @@ def multiuom_adjsafter_stockopenup(b_uom_ids,oabatchids,site,itemcode,trn_docno,
 
 
 
-def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding, pay_date, pay_time):
+def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding, pay_date, pay_time,taud_gt1ids,cart_deposit):
     # try:
     if self:
         fmspw = Fmspw.objects.filter(user=request.user,pw_isactive=True).first()
@@ -442,15 +443,47 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
             #     dt_lineno=c.lineno)
             #     multi.save()
                 # print(multi.id,"multi")
+            
+            taud_gt1_deposit = 0
+            if taud_gt1ids and taud_gt1ids['pay_amt'] > 0.0:
+                taud_gt1_deposit = taud_gt1ids['pay_amt']
 
-            mdeposit = float(c.deposit) / float(c.multistaff_ids.all().count()) if c.multistaff_ids.all() else 0
+            # print(taud_gt1_deposit,"taud_gt1_deposit")    
+            
+            line_gt1amount = 0
+            if taud_gt1_deposit > 0:
+                gt1_percent = (taud_gt1_deposit / cart_deposit) * 100
+                line_gt1amount = (float(c.deposit)/100) * gt1_percent
+
+            # print(line_gt1amount,"line_gt1amount")    
+            tot_mdeposit = 0 ; tot_gt1deposit = 0
             for sale in c.multistaff_ids.all():
+                m_deposit = (float(c.deposit)/100) * float(sale.ratio) 
+                mdeposit = two_decimal_digit(m_deposit)
+                # print(mdeposit,"mdeposit")
+                tot_mdeposit += mdeposit
+                if line_gt1amount > 0:
+                    mgt1_deposit = (float(line_gt1amount)/100) * float(sale.ratio) 
+                    mgt1deposit = two_decimal_digit(mgt1_deposit)
+                    tot_gt1deposit += mgt1deposit
+                else:
+                    mgt1deposit = 0
+
                 multi = Multistaff(sa_transacno=sa_transacno,item_code=str(c.itemcodeid.item_code)+"0000",
                 emp_code=sale.emp_code,ratio=sale.ratio,salesamt="{:.2f}".format(float(sale.salesamt)),type=None,isdelete=False,role=1,
-                dt_lineno=c.lineno,salescommpoints=sale.salescommpoints,deposit="{:.2f}".format(float(mdeposit)))
+                dt_lineno=c.lineno,salescommpoints=sale.salescommpoints,deposit=mdeposit,gt1deposit=mgt1deposit)
                 multi.save()  
                 sale.sa_transacno = sa_transacno 
                 sale.save()
+            
+            # print(float(c.deposit),tot_mdeposit,"kgg")
+            bal_mdeposit = float(c.deposit) - tot_mdeposit
+            # print(bal_mdeposit,"bal_mdeposit")
+            multi.deposit = "{:.2f}".format(float(multi.deposit + bal_mdeposit))
+            if line_gt1amount > 0:
+                bal_mgt1deposit = float(line_gt1amount) - tot_gt1deposit
+                multi.gt1deposit = "{:.2f}".format(float(multi.gt1deposit + bal_mgt1deposit))
+            multi.save()
 
             if int(c.itemcodeid.item_div) == 3 and c.itemcodeid.item_type == 'PACKAGE':
                 packhdr_ids = PackageHdr.objects.filter(code=c.itemcodeid.item_code).first()
@@ -2660,7 +2693,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
     #     invalid_message = str(e)
     #     return general_error_response(invalid_message)
     
-def invoice_topup(self, request, topup_ids,sa_transacno, cust_obj, outstanding, pay_date, pay_time):
+def invoice_topup(self, request, topup_ids,sa_transacno, cust_obj, outstanding, pay_date, pay_time, taud_gt1ids,cart_deposit):
     # try:
     if self:
         fmspw = Fmspw.objects.filter(user=request.user,pw_isactive=True).first()
@@ -2871,15 +2904,46 @@ def invoice_topup(self, request, topup_ids,sa_transacno, cust_obj, outstanding, 
             #     dt_lineno=c.lineno)
             #     multi.save()
                 # print(multi.id,"multi")
+
+            taud_gt1_deposit = 0
+            if taud_gt1ids and taud_gt1ids['pay_amt'] > 0.0:
+                taud_gt1_deposit = taud_gt1ids['pay_amt']
+
+            # print(taud_gt1_deposit,"taud_gt1_deposit")    
             
-            mdeposit = float(c.deposit) / float(c.multistaff_ids.all().count()) 
+            line_gt1amount = 0
+            if taud_gt1_deposit > 0:
+                gt1_percent = (taud_gt1_deposit / cart_deposit) * 100
+                line_gt1amount = (float(c.deposit)/100) * gt1_percent
+
+            # print(line_gt1amount,"line_gt1amount")    
+            tot_mdeposit = 0 ; tot_gt1deposit = 0    
+            
             for sale in c.multistaff_ids.all():
+                m_deposit = (float(c.deposit)/100) * float(sale.ratio) 
+                mdeposit = two_decimal_digit(m_deposit)
+                # print(mdeposit,"mdeposit")
+                tot_mdeposit += mdeposit
+                if line_gt1amount > 0:
+                    mgt1_deposit = (float(line_gt1amount)/100) * float(sale.ratio) 
+                    mgt1deposit = two_decimal_digit(mgt1_deposit)
+                    tot_gt1deposit += mgt1deposit
+                else:
+                    mgt1deposit = 0
+
                 multi = Multistaff(sa_transacno=sa_transacno,item_code=str(c.itemcodeid.item_code)+"0000",
                 emp_code=sale.emp_code,ratio=sale.ratio,salesamt="{:.2f}".format(float(sale.salesamt)),type=None,isdelete=False,role=1,
-                dt_lineno=c.lineno,salescommpoints=sale.salescommpoints,deposit="{:.2f}".format(float(mdeposit)))
+                dt_lineno=c.lineno,salescommpoints=sale.salescommpoints,deposit=mdeposit,gt1deposit=mgt1deposit)
                 multi.save()
                 sale.sa_transacno = sa_transacno 
-                sale.save()    
+                sale.save() 
+
+            bal_mdeposit = float(c.deposit) - tot_mdeposit
+            multi.deposit = "{:.2f}".format(float(multi.deposit + bal_mdeposit))
+            if line_gt1amount > 0:
+                bal_mgt1deposit = float(line_gt1amount) - tot_gt1deposit
+                multi.gt1deposit = "{:.2f}".format(float(multi.gt1deposit + bal_mgt1deposit))
+            multi.save()       
 
 
             desc = "Top Up Amount: "+str("{:.2f}".format(float(c.deposit)))
@@ -3304,9 +3368,10 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                 count = c.sales_staff.all().count()
                 ratio = float(c.ratio) / float(count)
             
+            mdeposit = (float(c.deposit)/100) * float(c.ratio) 
             multi = Multistaff(sa_transacno=sa_transacno,item_code=str(c.itemcodeid.item_code)+"0000" if c.itemcodeid else None,
             emp_code=service_staff.emp_code if service_staff.emp_code else None,ratio=c.ratio if c.ratio else None,salesamt="{:.2f}".format(float(c.deposit)) if c.deposit else 0.0,type=None,isdelete=False,role=1,
-            dt_lineno=c.lineno if c.lineno else None,deposit="{:.2f}".format(float(c.deposit)) if c.deposit else 0.0)
+            dt_lineno=c.lineno if c.lineno else None,deposit="{:.2f}".format(float(mdeposit)),gt1deposit=0)
             multi.save()
             # print(multi.id,"multi")
 
@@ -4282,7 +4347,7 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
     #     return general_error_response(invalid_message)
     
 
-def invoice_exchange(self, request, exchange_ids, sa_transacno, cust_obj, outstanding, pay_date, pay_time):
+def invoice_exchange(self, request, exchange_ids, sa_transacno, cust_obj, outstanding, pay_date, pay_time, taud_gt1ids,cart_deposit):
     if self:
         fmspw = Fmspw.objects.filter(user=request.user,pw_isactive=True).first()
         site = fmspw.loginsite
@@ -4363,15 +4428,46 @@ def invoice_exchange(self, request, exchange_ids, sa_transacno, cust_obj, outsta
             #     dt_lineno=c.lineno)
             #     multi.save()
                 # print(multi.id,"multi")
+
+            taud_gt1_deposit = 0
+            if taud_gt1ids and taud_gt1ids['pay_amt'] > 0.0:
+                taud_gt1_deposit = taud_gt1ids['pay_amt']
+
+            # print(taud_gt1_deposit,"taud_gt1_deposit")    
             
-            mdeposit = float(c.deposit) / float(c.multistaff_ids.all().count()) 
+            line_gt1amount = 0
+            if taud_gt1_deposit > 0:
+                gt1_percent = (taud_gt1_deposit / cart_deposit) * 100
+                line_gt1amount = (float(c.deposit)/100) * gt1_percent
+
+            # print(line_gt1amount,"line_gt1amount")    
+            tot_mdeposit = 0 ; tot_gt1deposit = 0      
+            
             for sale in c.multistaff_ids.all():
+                m_deposit = (float(c.deposit)/100) * float(sale.ratio) 
+                mdeposit = two_decimal_digit(m_deposit)
+                # print(mdeposit,"mdeposit")
+                tot_mdeposit += mdeposit
+                if line_gt1amount > 0:
+                    mgt1_deposit = (float(line_gt1amount)/100) * float(sale.ratio) 
+                    mgt1deposit = two_decimal_digit(mgt1_deposit)
+                    tot_gt1deposit += mgt1deposit
+                else:
+                    mgt1deposit = 0
+
                 multi = Multistaff(sa_transacno=sa_transacno,item_code=str(c.itemcodeid.item_code)+"0000",
                 emp_code=sale.emp_code,ratio=sale.ratio,salesamt="{:.2f}".format(float(sale.salesamt)),type=None,isdelete=False,role=1,
-                dt_lineno=c.lineno,salescommpoints=sale.salescommpoints,deposit="{:.2f}".format(float(mdeposit)))
+                dt_lineno=c.lineno,salescommpoints=sale.salescommpoints,deposit=mdeposit,gt1deposit=mgt1deposit)
                 multi.save()  
                 sale.sa_transacno = sa_transacno 
                 sale.save()  
+
+            bal_mdeposit = float(c.deposit) - tot_mdeposit
+            multi.deposit = "{:.2f}".format(float(multi.deposit + bal_mdeposit))
+            if line_gt1amount > 0:
+                bal_mgt1deposit = float(line_gt1amount) - tot_gt1deposit
+                multi.gt1deposit = "{:.2f}".format(float(multi.gt1deposit + bal_mgt1deposit))
+            multi.save()      
 
             if int(c.itemcodeid.Item_Divid.itm_code) == 1 and c.itemcodeid.Item_Divid.itm_desc == 'RETAIL PRODUCT' and c.itemcodeid.Item_Divid.itm_isactive == True:
                 desc = "Total Product Amount : "+str("{:.2f}".format(float(c.trans_amt)))

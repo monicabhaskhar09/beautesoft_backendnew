@@ -9541,14 +9541,22 @@ class postaudViewset(viewsets.ModelViewSet):
                 #detail creation
                 id_lst = [] ; totQty = 0; discount_amt=0.0;additional_discountamt=0.0; total_disc = 0.0
                 outstanding_new = 0.0
+                
+                gt1_ids = Paytable.objects.filter(gt_group='GT1',pay_isactive=True).order_by('-pk') 
+                gt1_lst = list(set([i.pay_code for i in gt1_ids if i.pay_code]))
+                # print(gt1_lst,"gt1_lst")
+                taud_gt1ids = PosTaud.objects.filter(sa_transacno=sa_transacno,
+                pay_type__in=gt1_lst).order_by('pk').aggregate(pay_amt=Coalesce(Sum('pay_amt'), 0))
+                # print(taud_gt1ids,"taud_gt1ids")
+                cart_deposit = sum([i.deposit for i in cart_ids])
 
                 if depo_ids:
-                    depo = invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding, pay_date, pay_time)
+                    depo = invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding, pay_date, pay_time,taud_gt1ids,cart_deposit)
                     for dep in depo:
                         if dep not in id_lst:
                             id_lst.append(dep) 
                 if topup_ids:
-                    topup = invoice_topup(self, request, topup_ids, sa_transacno, cust_obj, outstanding , pay_date, pay_time)
+                    topup = invoice_topup(self, request, topup_ids, sa_transacno, cust_obj, outstanding , pay_date, pay_time,taud_gt1ids,cart_deposit)
                     for toup in topup:
                         if toup not in id_lst:
                             id_lst.append(toup) 
@@ -9560,11 +9568,11 @@ class postaudViewset(viewsets.ModelViewSet):
                             id_lst.append(sal) 
 
                 if exchange_ids:
-                    exproduct = invoice_exchange(self, request, exchange_ids, sa_transacno, cust_obj, outstanding , pay_date, pay_time)
+                    exproduct = invoice_exchange(self, request, exchange_ids, sa_transacno, cust_obj, outstanding , pay_date, pay_time,taud_gt1ids,cart_deposit)
                     for ex in exproduct:
                         if ex not in id_lst:
                             id_lst.append(ex) 
-
+                            
                 # if cart_ids.filter(type='Deposit').order_by('lineno').first():
                 #     alsales_staff = cart_ids.filter(type='Deposit').order_by('lineno').first().sales_staff.all().first()
                 # else:
@@ -9576,9 +9584,7 @@ class postaudViewset(viewsets.ModelViewSet):
                 totQty = int(sumqty['quantity__sum'])
                 ex_cart_ids = cart_ids.exclude(type='Exchange')
                 total_disc = sum([ca.discount_amt + ca.additional_discountamt for ca in ex_cart_ids if ca.discount_amt and ca.additional_discountamt])
-                gt1_ids = Paytable.objects.filter(gt_group='GT1',pay_isactive=True).order_by('-pk') 
-                gt1_lst = list(set([i.pay_code for i in gt1_ids if i.pay_code]))
-                # print(gt1_lst,"gt1_lst")
+               
 
                 if depotop_ids:
                     #header creation
@@ -9873,9 +9879,9 @@ class postaudViewset(viewsets.ModelViewSet):
                                 cdt.save()
 
 
-                taud_gt1ids = PosTaud.objects.filter(sa_transacno=sa_transacno,itemsite_code=site.itemsite_code,
-                pay_type__in=gt1_lst).order_by('pk').aggregate(pay_amt=Coalesce(Sum('pay_amt'), 0))
-                # print(taud_gt1ids,"taud_gt1ids")
+                # taud_gt1ids = PosTaud.objects.filter(sa_transacno=sa_transacno,itemsite_code=site.itemsite_code,
+                # pay_type__in=gt1_lst).order_by('pk').aggregate(pay_amt=Coalesce(Sum('pay_amt'), 0))
+                # # print(taud_gt1ids,"taud_gt1ids")
                 if taud_gt1ids and taud_gt1ids['pay_amt'] > 0.0:
                     mgm_ids = MGMPolicyCloud.objects.filter(site_ids__pk=site.pk,
                     minimum_purchase_amt__gte=0,point_value__gt=0,no_of_reward_times__gte=0).order_by('level') 
