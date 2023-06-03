@@ -85,6 +85,7 @@ from django.db.models import Case, When, Value, IntegerField,CharField, DateFiel
 from django.contrib.auth import authenticate, login , logout, get_user_model
 import json
 from cl_table.services import create_multiuom_transac,multiuom_adjsafter_stockopenup
+from Cl_beautesoft.calculation import two_decimal_digit
 
 
 type_ex = ['VT-Deposit','VT-Top Up','VT-Sales']
@@ -4059,16 +4060,19 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                 acc_ids = TreatmentAccount.objects.filter(ref_transacno=t_ids[0].sa_transacno,
                 treatment_parentcode=t_ids[0].treatment_parentcode).order_by('-sa_date','-sa_time','-id').first()
                 trids = t_ids.aggregate(amount=Coalesce(Sum('unit_amount'), 0))
+                # print(trids,"trids")
                 if acc_ids and acc_ids.balance:
                     # acc_balance = float("{:.2f}".format(acc_ids.balance))
-                    acc_balance = acc_ids.balance
+                    acc_balance = two_decimal_digit(acc_ids.balance)
                 else:
                     acc_balance = 0
 
                 if trids['amount'] and float(trids['amount']) > 0:
                     # tr_unitamt = float("{:.2f}".format(trids['amount']))
-                    tr_unitamt = trids['amount']
-                    if acc_balance < tr_unitamt:
+                    tr_unitamt = two_decimal_digit(trids['amount'])
+                    # print(tr_unitamt,"tr_unitamt")
+                    # print(acc_balance,"acc_balance")
+                    if acc_balance + 0.02 < tr_unitamt:
                         system_setup = Systemsetup.objects.filter(title='Treatment',value_name='Allow layaway',value_data='FALSE',isactive=True).first()
                         if system_setup:
                             result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Insufficient Amount in Treatment Account, Please Top Up!!",'error': True} 
@@ -4299,14 +4303,14 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                     trids = t_ids.aggregate(amount=Coalesce(Sum('unit_amount'), 0))
                     if acc_ids and acc_ids.balance:
                         # acc_balance = float("{:.2f}".format(acc_ids.balance))
-                        acc_balance = acc_ids.balance
+                        acc_balance = two_decimal_digit(acc_ids.balance)
                     else:
                         acc_balance = 0
                         
                     if trids['amount'] and trids['amount'] > 0:
                         # tr_unitamt = float("{:.2f}".format(trids['amount']))
-                        tr_unitamt = trids['amount']
-                        if acc_balance < tr_unitamt:
+                        tr_unitamt = two_decimal_digit(trids['amount'])
+                        if acc_balance + 0.02 < tr_unitamt:
                             system_setup = Systemsetup.objects.filter(title='Treatment',value_name='Allow layaway',value_data='FALSE',isactive=True).first()
                             if system_setup: 
                                 msg = "Treatment Account Balance is S{0} is not enough to TD ${1}, Please Topup".format(str("{:.2f}".format(acc_ids.balance)),str("{:.2f}".format(trids['amount'])))
@@ -4658,8 +4662,10 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                     if not trmtobj:
                         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Treatment ID does not exist/Status Should be in Open only!!",'error': True} 
                         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-                    trmtobj.remarks = request.GET.get('remarks',None)
-                    trmtobj.save()
+
+                    if request.GET.get('remarks',None):     
+                        trmtobj.remarks = request.GET.get('remarks',None)
+                        trmtobj.save()
 
                     helpr_ids = TmpItemHelper.objects.filter(treatment__pk__in=arrtreatmentid).delete()
                 
@@ -5087,14 +5093,14 @@ class TrmtTmpItemHelperViewsetOld(viewsets.ModelViewSet):
                 trids = t_ids.aggregate(amount=Coalesce(Sum('unit_amount'), 0))
                 if acc_ids and acc_ids.balance:
                     # acc_balance = float("{:.2f}".format(acc_ids.balance))
-                    acc_balance = acc_ids.balance
+                    acc_balance = two_decimal_digit(acc_ids.balance)
                 else:
                     acc_balance = 0
 
                 if trids['amount'] and float(trids['amount']) > 0:
                     # tr_unitamt = float("{:.2f}".format(trids['amount']))
-                    tr_unitamt = trids['amount']
-                    if acc_balance < tr_unitamt:
+                    tr_unitamt = two_decimal_digit(trids['amount'])
+                    if acc_balance + 0.02 < tr_unitamt:
                         system_setup = Systemsetup.objects.filter(title='Treatment',value_name='Allow layaway',value_data='FALSE',isactive=True).first()
                         if system_setup:
                             result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Insufficient Amount in Treatment Account, Please Top Up!!",'error': True} 
@@ -5222,14 +5228,14 @@ class TrmtTmpItemHelperViewsetOld(viewsets.ModelViewSet):
                 trids = t_ids.aggregate(amount=Coalesce(Sum('unit_amount'), 0))
                 if acc_ids and acc_ids.balance:
                     # acc_balance = float("{:.2f}".format(acc_ids.balance))
-                    acc_balance = acc_ids.balance
+                    acc_balance = two_decimal_digit(acc_ids.balance)
                 else:
                     acc_balance = 0
                     
                 if trids['amount'] and trids['amount'] > 0:
                     # tr_unitamt = float("{:.2f}".format(trids['amount']))
-                    tr_unitamt = trids['amount']
-                    if acc_balance < tr_unitamt:
+                    tr_unitamt = two_decimal_digit(trids['amount'])
+                    if acc_balance + 0.02 < tr_unitamt:
                         system_setup = Systemsetup.objects.filter(title='Treatment',value_name='Allow layaway',value_data='FALSE',isactive=True).first()
                         if system_setup: 
                             msg = "Treatment Account Balance is S{0} is not enough to TD ${1}, Please Topup".format(str("{:.2f}".format(acc_ids.balance)),str("{:.2f}".format(trids['amount'])))
