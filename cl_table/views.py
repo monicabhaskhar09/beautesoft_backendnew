@@ -6214,7 +6214,7 @@ class TreatmentApptAPI(generics.ListAPIView):
             site = fmspw[0].loginsite
             cust_id = self.request.GET.get('cust_id',None)
             now = timezone.now()
-            print(str(now.hour) + '  ' +  str(now.minute) + '  ' +  str(now.second),"Start hour, minute, second\n")
+            # print(str(now.hour) + '  ' +  str(now.minute) + '  ' +  str(now.second),"Start hour, minute, second\n")
             cust_obj = Customer.objects.filter(pk=cust_id,
             cust_isactive=True).first()
             if cust_obj is None:
@@ -6223,12 +6223,12 @@ class TreatmentApptAPI(generics.ListAPIView):
 
             tre_queryset = TreatmentPackage.objects.filter(cust_code=cust_obj.cust_code,
             open_session__gt=0).order_by('-pk')
-            print(tre_queryset,"tre_queryset")
+            # print(tre_queryset,"tre_queryset")
 
             # #prepaid account 
             pre_queryset = PrepaidAccount.objects.filter(cust_code=cust_obj.cust_code,
             status=True,remain__gt=0).only('site_code','cust_code','sa_status').order_by('-pk')
-            print(pre_queryset,"pre_queryset") 
+            # print(pre_queryset,"pre_queryset") 
             system_setup = Systemsetup.objects.filter(title='ApptPackagePrepaidBalanceList',
             value_name='ApptPackagePrepaidBalanceList',isactive=True).first()
             
@@ -6239,7 +6239,7 @@ class TreatmentApptAPI(generics.ListAPIView):
             # print(combined_ids,"combined_ids")
 
             
-            full_tot = combined_ids.count()
+            full_tot = len(combined_ids)
             try:
                 limit = int(request.GET.get("limit",12))
             except:
@@ -6329,6 +6329,15 @@ class TreatmentApptAPI(generics.ListAPIView):
                 else:
                     last_acc_ids = PrepaidAccount.objects.filter(pp_no=row.pp_no,
                     status=True,line_no=row.line_no).order_by('pk').last()
+                    purchase_date = ""
+                    oriacc_ids = PrepaidAccount.objects.filter(pp_no=row.pp_no,
+                    sa_status='DEPOSIT',line_no=row.line_no).only('pp_no','site_code','sa_status','line_no').first()
+                    if oriacc_ids:
+                        if oriacc_ids.sa_date:
+                            #purchase date
+                            splt_st = str(oriacc_ids.sa_date).split(" ")
+                            purchase_date = datetime.datetime.strptime(str(splt_st[0]), "%Y-%m-%d").strftime("%d-%m-%Y")
+   
 
                     if last_acc_ids:
                         pexpiry = ""
@@ -6340,15 +6349,15 @@ class TreatmentApptAPI(generics.ListAPIView):
                         'price': "{:.2f}".format(float(last_acc_ids.pp_total)),'expiry': pexpiry,
                         'balance': "{:.2f}".format(float(last_acc_ids.remain)) if last_acc_ids.remain else "0.00",
                         'outstanding': "{:.2f}".format(float(last_acc_ids.outstanding)) if last_acc_ids.outstanding else "0.00",
-                        'type':'prepaid'}
+                        'type':'prepaid','purchase_date': purchase_date}
 
                         data_list.append(pre)
             
             if data_list != []:
                 now1 = timezone.now()
-                print(str(now1.hour) + '  ' +  str(now1.minute) + '  ' +  str(now1.second),"End hour, minute, second\n")
+                # print(str(now1.hour) + '  ' +  str(now1.minute) + '  ' +  str(now1.second),"End hour, minute, second\n")
                 totalh = now1.second - now.second
-                print(totalh,"total")
+                # print(totalh,"total")
                 result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
                 'data': {'meta': {'pagination': {"per_page":limit,"current_page":page,"total":full_tot,
                 "total_pages":total_page}}, 'dataList': data_list},

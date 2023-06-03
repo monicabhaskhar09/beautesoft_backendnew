@@ -1383,8 +1383,8 @@ def create_tdstaff(cart,empobj,stock_obj,site):
 
     tmpp_treatids = Tmptreatment.objects.filter(itemcart=cart).order_by('pk')[0]
     if tmpp_treatids:
-        amount = float(tmpp_treatids.unit_amount)
-        deposit = float(cart.deposit)
+        amount = two_decimal_digit(tmpp_treatids.unit_amount)
+        deposit = two_decimal_digit(cart.deposit)
 
         if amount > float(deposit):
             system_setup = Systemsetup.objects.filter(title='Treatment',value_name='Allow layaway',value_data='FALSE',isactive=True).first()
@@ -4416,8 +4416,9 @@ class itemCartViewset(viewsets.ModelViewSet):
                             # print(cart.multi_treat.all(),"kkk")    
                             
                             treat_remark = cart.multi_treat.filter(~Q(remarks__isnull=True)).first()
-                            cart.remark = treat_remark.remarks
-                            cart.save()
+                            if treat_remark:
+                                cart.remark = treat_remark.remarks
+                                cart.save()
 
                             if req['ori_stockid']:
                                 cart.exchange_id = ex
@@ -10166,7 +10167,7 @@ class CourseTmpItemHelperViewset(viewsets.ModelViewSet):
             if not cart_obj:
                 raise Exception("Please Give Valid Cart ID")
 
-            deposit = float(request.GET.get('deposit',None)) if request.GET.get('deposit',None) else None
+            deposit = two_decimal_digit(request.GET.get('deposit',None)) if request.GET.get('deposit',None) else None
             if not deposit:
                 raise Exception("Please Give Cart Deposit")
 
@@ -10197,7 +10198,7 @@ class CourseTmpItemHelperViewset(viewsets.ModelViewSet):
                 return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
             
 
-            amount = sum([i.unit_amount for i in tmp_treatids])
+            amount = two_decimal_digit(float(sum([i.unit_amount for i in tmp_treatids])))
               
             if amount > float(deposit):
                 system_setup = Systemsetup.objects.filter(title='Treatment',value_name='Allow layaway',value_data='FALSE',isactive=True).first()
@@ -10302,7 +10303,7 @@ class CourseTmpItemHelperViewset(viewsets.ModelViewSet):
             if not cart_obj:
                 raise Exception("Please Give Valid Cart ID")
 
-            deposit = float(request.GET.get('deposit',None)) if request.GET.get('deposit',None) else None
+            deposit = two_decimal_digit(request.GET.get('deposit',None)) if request.GET.get('deposit',None) else None
             if not deposit:
                 raise Exception("Please Give Cart Deposit")
 
@@ -10323,7 +10324,7 @@ class CourseTmpItemHelperViewset(viewsets.ModelViewSet):
                 if done > int(qty):
                     raise Exception("Item Cart Done Session Should not be greater than Cart quantity!!")
 
-            amount = sum([i.unit_amount for i in tmp_treatids])
+            amount = two_decimal_digit(float(sum([i.unit_amount for i in tmp_treatids])))
 
             if amount > float(deposit):
                 system_setup = Systemsetup.objects.filter(title='Treatment',value_name='Allow layaway',value_data='FALSE',isactive=True).first()
@@ -10675,7 +10676,7 @@ class CourseTmpItemHelperViewset(viewsets.ModelViewSet):
             if not cart_obj:
                 raise Exception("Please Give Valid Cart ID")
 
-            deposit = float(request.GET.get('deposit',None)) if request.GET.get('deposit',None) else None
+            deposit = two_decimal_digit(request.GET.get('deposit',None)) if request.GET.get('deposit',None) else None
             if not deposit:
                 raise Exception("Please Give Valid Deposit")
 
@@ -10697,7 +10698,7 @@ class CourseTmpItemHelperViewset(viewsets.ModelViewSet):
                 if done > int(qty):
                     raise Exception("Item Cart Done Session Should not be greater than Cart quantity!!")
 
-            amount = sum([i.unit_amount for i in tmp_treatids])
+            amount = two_decimal_digit(float(sum([i.unit_amount for i in tmp_treatids])))
 
             if amount > float(deposit):
                 system_setup = Systemsetup.objects.filter(title='Treatment',value_name='Allow layaway',value_data='FALSE',isactive=True).first()
@@ -10988,7 +10989,7 @@ class PackageServiceTmpItemHelperViewset(viewsets.ModelViewSet):
             
 
             trasac = posobj.price * posobj.qty
-            deposit = posobj.deposit_amt
+            deposit = two_decimal_digit(posobj.deposit_amt)
 
             qty = posobj.qty
             if qty:
@@ -10996,7 +10997,7 @@ class PackageServiceTmpItemHelperViewset(viewsets.ModelViewSet):
                     raise Exception("Done Session Should not be greater than Package Details quantity!!")
 
 
-            amount = float(trasac / qty)
+            amount = two_decimal_digit(trasac / qty)
               
             if amount > float(deposit):
                 system_setup = Systemsetup.objects.filter(title='Treatment',value_name='Allow layaway',value_data='FALSE',isactive=True).first()
@@ -11082,11 +11083,11 @@ class PackageServiceTmpItemHelperViewset(viewsets.ModelViewSet):
                 raise Exception("Item Cart ID does not exist")
 
             trasac = posobj.price * posobj.qty
-            deposit = float(posobj.deposit_amt)
+            deposit = two_decimal_digit(posobj.deposit_amt)
 
             qty = posobj.qty
 
-            amount = float(trasac / qty)
+            amount = two_decimal_digit(trasac / qty)
 
             if amount > float(deposit):
                 system_setup = Systemsetup.objects.filter(title='Treatment',value_name='Allow layaway',value_data='FALSE',isactive=True).first()
@@ -11423,12 +11424,12 @@ class PackageServiceTmpItemHelperViewset(viewsets.ModelViewSet):
                 raise Exception("Item Cart ID does not exist")
 
             trasac = posobj.price * posobj.qty
-            deposit =  float(posobj.deposit_amt)
+            deposit =  two_decimal_digit(posobj.deposit_amt)
 
 
             qty = posobj.qty
 
-            amount = float(trasac / qty)
+            amount = two_decimal_digit(trasac / qty)
 
             if amount > float(deposit):
                 system_setup = Systemsetup.objects.filter(title='Treatment',value_name='Allow layaway',value_data='FALSE',isactive=True).first()
@@ -12083,8 +12084,8 @@ class AddRemoveSalesStaffViewset(viewsets.ModelViewSet):
 
                                         tmpp_treatids = Tmptreatment.objects.filter(itemcart=cartobj).order_by('pk')[0]
                                         if tmpp_treatids:
-                                            amount = float(tmpp_treatids.unit_amount)
-                                            deposit = float(cartobj.deposit)
+                                            amount = two_decimal_digit(tmpp_treatids.unit_amount)
+                                            deposit = two_decimal_digit(cartobj.deposit)
 
                                             if amount > float(deposit):
                                                 system_setup = Systemsetup.objects.filter(title='Treatment',value_name='Allow layaway',value_data='FALSE',isactive=True).first()
