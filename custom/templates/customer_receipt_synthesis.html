@@ -125,6 +125,8 @@ body{
 </style>
 </head>
 {% load static %}
+{% load custom_tags %}
+
 <body>
 
   
@@ -251,7 +253,7 @@ body{
                   {% if d.dt_discpercent  %}
                     Discount % : {{ d.dt_discpercent|floatformat:2 }} %
                   {% elif d.dt_discamt  %} 
-                    Discount $ : {{ d.dt_discamt|floatformat:2 }} $
+                    Discount % : {% disc_percent_calc d.dt_price d.dt_discamt %} %
                   {% endif %}  
                 {% endif %}
               </td>
@@ -268,7 +270,7 @@ body{
                   {% if d.dt_discpercent  %}
                     Discount % : {{ d.dt_discpercent|floatformat:2 }} %
                   {% elif d.dt_discamt  %} 
-                    Discount $ : {{ d.dt_discamt|floatformat:2 }} $
+                    Discount % : {% disc_percent_calc d.dt_price d.dt_discamt %} %
                   {% endif %}  
                 {% endif %}
               </td>
@@ -281,7 +283,7 @@ body{
                   {% if d.dt_discpercent  %}
                     Discount % : {{ d.dt_discpercent|floatformat:2 }} %
                   {% elif d.dt_discamt  %} 
-                    Discount $ : {{ d.dt_discamt|floatformat:2 }} $
+                    Discount % : {% disc_percent_calc d.dt_price d.dt_discamt %} %
                   {% endif %}  
                 {% endif %}
               </td>

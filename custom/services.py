@@ -26,6 +26,8 @@ from django.db.models.functions import Coalesce
 from django.db.models import Sum
 
 
+
+
 def round_calc(value):
     val = "{:.2f}".format(float(value))
     fractional = math.modf(float(val))

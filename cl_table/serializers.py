@@ -1898,13 +1898,22 @@ class CustApptSerializer(serializers.ModelSerializer):
             iscurrent = True
         elif instance.site_code != site.itemsite_code:
             iscurrent = False
-
+        
+        asystem_setup = Systemsetup.objects.filter(title='Customeroutletrestrict',
+        value_name='Customeroutletrestrict',isactive=True).first()
         isoutlet_restrict = False
         if instance.or_key:
-            if instance.or_key == site.itemsite_code:
-                isoutlet_restrict = True
-            elif instance.or_key != site.itemsite_code:
-                isoutlet_restrict = False    
+            if asystem_setup and asystem_setup.value_data == 'True':
+                if instance.or_key == site.itemsite_code:
+                    isoutlet_restrict = True
+                elif instance.or_key != site.itemsite_code:
+                    isoutlet_restrict = False  
+            else:
+                if asystem_setup and asystem_setup.value_data == 'False':
+                    isoutlet_restrict = True
+        else:
+            isoutlet_restrict = True
+
 
         contactperson = []
 
@@ -1917,20 +1926,32 @@ class CustApptSerializer(serializers.ModelSerializer):
         if instance.cust_joindate:
             splt = str(instance.cust_joindate).split(" ")
             cust_joindate = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d-%b-%y")
+        
+        site_code = instance.site_code
+        if instance.site_code:
+            ori_site_obj = ItemSitelist.objects.filter(itemsite_code=instance.site_code,itemsite_isactive=True).order_by('-pk').first()
+            if ori_site_obj:
+                site_code = ori_site_obj.itemsite_desc
 
+        or_key = instance.or_key   
+        if instance.or_key:
+            or_site_obj = ItemSitelist.objects.filter(itemsite_code=instance.or_key,itemsite_isactive=True).order_by('-pk').first()
+            if or_site_obj:
+                or_key = or_site_obj.itemsite_desc      
+       
         mapped_object = {'id':instance.pk,'cust_name':instance.cust_name if instance.cust_name else "",
         'cust_phone2': instance.cust_phone2 if instance.cust_phone2 else "",
         'cust_email': instance.cust_email if instance.cust_email else "",
         'cust_code': instance.cust_code if instance.cust_code else "",
         'cust_nric': instance.cust_nric if instance.cust_nric else "",
         'cust_phone1': instance.cust_phone1 if instance.cust_phone1 else "",
-        'site_code': instance.site_code,
+        'site_code': site_code,
         'cust_remark': instance.cust_remark if instance.cust_remark else "",
         'cust_refer': instance.cust_refer if instance.cust_refer else "",'iscurrent':iscurrent,
         'cust_corporate': instance.cust_corporate,
         'contactperson': contactperson,
         'outstanding_amt': "{:.2f}".format(float(instance.outstanding_amt)) if instance.outstanding_amt else "0.00",
-        'cust_joindate':cust_joindate,'or_key':instance.or_key,'isoutlet_resrict':isoutlet_restrict}
+        'cust_joindate':cust_joindate,'or_key':or_key,'isoutlet_resrict':isoutlet_restrict}
         return mapped_object    
 
    
@@ -2974,12 +2995,21 @@ class CustomerPlusSerializer(serializers.ModelSerializer):
         except:
             pass
 
+        asystem_setup = Systemsetup.objects.filter(title='Customeroutletrestrict',
+        value_name='Customeroutletrestrict',isactive=True).first()
+           
         isoutlet_restrict = False
         if data['or_key']:
-            if data['or_key'] == site.itemsite_code:
-                isoutlet_restrict = True
-            elif data['or_key'] != site.itemsite_code:
-                isoutlet_restrict = False 
+            if asystem_setup and asystem_setup.value_data == 'True':
+                if data['or_key'] == site.itemsite_code:
+                    isoutlet_restrict = True
+                elif data['or_key'] != site.itemsite_code:
+                    isoutlet_restrict = False 
+            else:
+                if asystem_setup and asystem_setup.value_data == 'False':  
+                    isoutlet_restrict = True
+        else:
+            isoutlet_restrict = True                        
 
         data['isoutlet_restrict'] = isoutlet_restrict
         return data

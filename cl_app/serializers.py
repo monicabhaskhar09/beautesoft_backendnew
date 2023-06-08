@@ -660,12 +660,13 @@ class PrepaidPaySerializer(serializers.ModelSerializer):
         open_ids = PrepaidAccountCondition.objects.filter(pp_no=instance.pp_no,
         pos_daud_lineno=instance.line_no,p_itemtype="Inclusive").only('pp_no','pos_daud_lineno').first()
         product = 0.00; service = 0.00; allval = 0.00
-        if open_ids.conditiontype1 == "Product Only":
-            product = "{:.2f}".format(float(instance.remain))
-        elif open_ids.conditiontype1 == "Service Only":
-            service = "{:.2f}".format(float(instance.remain))
-        elif open_ids.conditiontype1 == "All":
-            allval = "{:.2f}".format(float(instance.remain))
+        if open_ids:
+            if open_ids.conditiontype1 == "Product Only":
+                product = "{:.2f}".format(float(instance.remain))
+            elif open_ids.conditiontype1 == "Service Only":
+                service = "{:.2f}".format(float(instance.remain))
+            elif open_ids.conditiontype1 == "All":
+                allval = "{:.2f}".format(float(instance.remain))
 
         pac_ids = PrepaidAccount.objects.filter(pp_no=instance.pp_no,line_no=instance.line_no,
         cust_code=instance.cust_code,site_code=site.itemsite_code).only('pp_no','line_no').order_by('pk').aggregate(Sum('use_amt'))

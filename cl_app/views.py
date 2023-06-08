@@ -10905,19 +10905,20 @@ class PrepaidAccPaymentListViewset(viewsets.ModelViewSet):
                         # open_ids.conditiontype1 
                         # open_ids.conditiontype2
 
-                        data["conditiontype1"]= ','.join(list(set([v.conditiontype1 for v in in_open_ids if v.conditiontype1])))
-                        data["conditiontype2"]=  ','.join(list(set([v.conditiontype2 for v in in_open_ids if v.conditiontype2])))                            
+                        data["conditiontype1"]= ','.join(list(set([v.conditiontype1 for v in in_open_ids if v.conditiontype1]))) if in_open_ids else ""
+                        data["conditiontype2"]=  ','.join(list(set([v.conditiontype2 for v in in_open_ids if v.conditiontype2]))) if in_open_ids else ""                           
                         data["product"] = 0.00;data["service"] = 0.00;data["all"] = 0.00
-                        if open_ids.conditiontype1 == "Product Only":
-                            data["product"] = "{:.2f}".format(float(last_acc_ids.pp_amt))
-                            product_type += last_acc_ids.remain 
-                        elif open_ids.conditiontype1 == "Service Only":
-                            data["service"] = "{:.2f}".format(float(last_acc_ids.pp_amt))
-                            service_type += last_acc_ids.remain
-                        elif open_ids.conditiontype1 == "All":
-                            data["all"] = "{:.2f}".format(float(last_acc_ids.pp_amt))
-                            all_type += last_acc_ids.remain
-                        
+                        if open_ids:
+                            if open_ids.conditiontype1 == "Product Only":
+                                data["product"] = "{:.2f}".format(float(last_acc_ids.pp_amt))
+                                product_type += last_acc_ids.remain 
+                            elif open_ids.conditiontype1 == "Service Only":
+                                data["service"] = "{:.2f}".format(float(last_acc_ids.pp_amt))
+                                service_type += last_acc_ids.remain
+                            elif open_ids.conditiontype1 == "All":
+                                data["all"] = "{:.2f}".format(float(last_acc_ids.pp_amt))
+                                all_type += last_acc_ids.remain
+                            
                         #OP redeem_amount calculations
                         ol_open_ids = PrepaidAccountCondition.objects.filter(pp_no=preobj.pp_no,
                         pos_daud_lineno=preobj.line_no).order_by('pk')
@@ -11008,7 +11009,7 @@ class PrepaidAccPaymentListViewset(viewsets.ModelViewSet):
                                     # print(use_final_ids,"use_final_ids")
                                     use_amount_ids = use_final_ids.aggregate(deposit=Coalesce(Sum('deposit'), 0))   
                                     # print(use_amount_ids['deposit'],"kk")
-                                    if use_amount_ids['deposit']: 
+                                    if use_amount_ids and use_amount_ids['deposit']: 
                                         if last_acc_ids.remain >= use_amount_ids['deposit'] :
                                             data["redeem_amount"] = "{:.2f}".format(use_amount_ids['deposit'] )
                                         elif last_acc_ids.remain < use_amount_ids['deposit'] :
@@ -11251,18 +11252,19 @@ class PrepaidAccListViewset(viewsets.ModelViewSet):
 
                         open_ids = PrepaidAccountCondition.objects.filter(pp_no=preobj.pp_no,
                         pos_daud_lineno=preobj.line_no,p_itemtype="Inclusive").only('pp_no','pos_daud_lineno').first()
-                        data["conditiontype1"]=open_ids.conditiontype1               
+                        data["conditiontype1"]=open_ids.conditiontype1 if open_ids and open_ids.conditiontype1 else ""             
                         data["product"] = 0.00;data["service"] = 0.00;data["all"] = 0.00
-                        if open_ids.conditiontype1 == "Product Only":
-                            data["product"] = "{:.2f}".format(float(last_acc_ids.pp_amt))
-                            product_type += last_acc_ids.remain if last_acc_ids.status == True else 0
-                        elif open_ids.conditiontype1 == "Service Only":
-                            data["service"] = "{:.2f}".format(float(last_acc_ids.pp_amt))
-                            service_type += last_acc_ids.remain if last_acc_ids.status == True else 0
-                        elif open_ids.conditiontype1 == "All":
-                            data["all"] = "{:.2f}".format(float(last_acc_ids.pp_amt))
-                            all_type += last_acc_ids.remain if last_acc_ids.status == True else 0
-        
+                        if open_ids:
+                            if open_ids.conditiontype1 == "Product Only":
+                                data["product"] = "{:.2f}".format(float(last_acc_ids.pp_amt))
+                                product_type += last_acc_ids.remain if last_acc_ids.status == True else 0
+                            elif open_ids.conditiontype1 == "Service Only":
+                                data["service"] = "{:.2f}".format(float(last_acc_ids.pp_amt))
+                                service_type += last_acc_ids.remain if last_acc_ids.status == True else 0
+                            elif open_ids.conditiontype1 == "All":
+                                data["all"] = "{:.2f}".format(float(last_acc_ids.pp_amt))
+                                all_type += last_acc_ids.remain if last_acc_ids.status == True else 0
+            
                         lst.append(data)
 
                 current_date = datetime.datetime.strptime(str(date.today()), "%Y-%m-%d").strftime("%d-%m-%Y")
@@ -11330,12 +11332,13 @@ class PrepaidAccListViewset(viewsets.ModelViewSet):
             open_ids = PrepaidAccountCondition.objects.filter(pp_no=account.pp_no,
             pos_daud_lineno=account.line_no,p_itemtype="Inclusive").only('pp_no','pos_daud_lineno').first()
             product_type = 0.00; service_type = 0.00; all_type = 0.00
-            if open_ids.conditiontype1 == "Product Only":
-                product_type += last_acc_ids.remain 
-            elif open_ids.conditiontype1 == "Service Only":
-                service_type += last_acc_ids.remain
-            elif open_ids.conditiontype1 == "All":
-                all_type += last_acc_ids.remain
+            if open_ids:
+                if open_ids.conditiontype1 == "Product Only":
+                    product_type += last_acc_ids.remain 
+                elif open_ids.conditiontype1 == "Service Only":
+                    service_type += last_acc_ids.remain
+                elif open_ids.conditiontype1 == "All":
+                    all_type += last_acc_ids.remain
 
             if queryset:
                 last = queryset.last()

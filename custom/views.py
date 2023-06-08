@@ -11734,12 +11734,13 @@ class ChangePaymentDateViewset(viewsets.ModelViewSet):
                 # if preacc_ids:
                 #     PrepaidAccountCondition.objects.filter(pp_no=sa_transacno,pk__in=list(preacc_ids)).update(updated_at=pay_date,created_at=pay_date)
                 
-                for k in preacc_ids:
-                    kobj = PrepaidAccountCondition.objects.filter(pp_no=sa_transacno,pk=k).first()
-                    if kobj:
-                        kobj.updated_at = pay_date
-                        kobj.created_at = pay_time
-                        kobj.save()
+                if preacc_ids:
+                    for k in preacc_ids:
+                        kobj = PrepaidAccountCondition.objects.filter(pp_no=sa_transacno,pk=k).first()
+                        if kobj:
+                            kobj.updated_at = pay_date
+                            kobj.created_at = pay_time
+                            kobj.save()
 
 
                 voucher_ids = VoucherRecord.objects.filter(sa_transacno=sa_transacno).values_list('pk', flat=True).distinct()

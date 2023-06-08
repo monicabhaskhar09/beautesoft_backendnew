@@ -1460,7 +1460,7 @@ class PrepaidAccount(models.Model):
     id = models.BigAutoField(db_column='ID',primary_key=True)  # Field name made lowercase.
     pp_no = models.CharField(db_column='PP_NO',  max_length=50, null=True)  # Field name made lowercase.
     pp_type = models.CharField(db_column='PP_TYPE', max_length=50, null=True)  # Field name made lowercase.
-    pp_desc = models.CharField(db_column='PP_DESC', max_length=50, blank=True, null=True)  # Field name made lowercase.
+    pp_desc = models.CharField(db_column='PP_DESC', max_length=250, blank=True, null=True)  # Field name made lowercase.
     sa_date = models.DateTimeField(db_column='SA_DATE', blank=True, null=True,auto_now_add=True)  # Field name made lowercase.
     start_date = models.DateTimeField(db_column='START_DATE', blank=True, null=True,auto_now_add=True)  # Field name made lowercase.
     exp_date = models.DateTimeField(db_column='EXP_DATE', blank=True, null=True)  # Field name made lowercase.
@@ -1572,7 +1572,7 @@ class PrepaidAccountCondition(models.Model):
     id = models.AutoField(db_column='ID',primary_key=True)  # Field name made lowercase.
     pp_no = models.CharField(db_column='PP_NO',  max_length=50, null=True)  # Field name made lowercase.
     pp_type = models.CharField(db_column='PP_TYPE', max_length=50, null=True)  # Field name made lowercase.
-    pp_desc = models.CharField(db_column='PP_DESC', max_length=50, blank=True, null=True)  # Field name made lowercase.
+    pp_desc = models.CharField(db_column='PP_DESC', max_length=250, blank=True, null=True)  # Field name made lowercase.
     p_itemtype = models.CharField(db_column='P_ItemType', max_length=50, null=True)  # Field name made lowercase.
     item_code = models.CharField(max_length=20, null=True)
     conditiontype1 = models.CharField(db_column='ConditionType1', max_length=80, null=True)  # Field name made lowercase.
