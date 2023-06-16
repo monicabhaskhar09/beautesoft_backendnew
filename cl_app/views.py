@@ -7234,7 +7234,7 @@ class VoidViewset(viewsets.ModelViewSet):
                 finalsatrasc  = False
                 if haudobj.sa_transacno_type in ['Receipt','Non Sales','Redeem Service']:
                     for i in daud_ids:
-                        if int(i.itemcart.itemcodeid.item_div) in [5,3]:
+                        if int(i.itemcart.itemcodeid.item_div) in [5]:
                             if i.itemcart.type == 'Deposit':
                                 check_ids = PrepaidAccount.objects.filter(pp_no=haudobj.sa_transacno,
                                 cust_code=haudobj.sa_custno,line_no=i.dt_lineno,use_amt__gt=0,sa_status="SA")
@@ -15734,16 +15734,16 @@ class TransactionHistoryViewset(viewsets.ModelViewSet):
 
         cus_system_setup = Systemsetup.objects.filter(title='Customer Profile - Invoice History',
         value_name='allinvoiceviewsetting',isactive=True).first()
-        queryset = PosHaud.objects.filter(ItemSite_Codeid__pk=site.pk).order_by('-pk')
+        queryset = PosHaud.objects.filter(ItemSite_Codeid__pk=site.pk).order_by('-sa_date','-pk')
         if not cust_id:
             if system_setup and system_setup.value_data == 'True':
-                queryset = PosHaud.objects.filter().order_by('-pk')
+                queryset = PosHaud.objects.filter().order_by('-sa_date','-pk')
         else:
             if cust_id:
                 queryset = PosHaud.objects.filter(ItemSite_Codeid__pk=site.pk,
-                    sa_custnoid__pk=cust_id).order_by('-pk')
+                    sa_custnoid__pk=cust_id).order_by('-sa_date','-pk')
                 if cus_system_setup and cus_system_setup.value_data == 'True':
-                    queryset = PosHaud.objects.filter(sa_custnoid__pk=cust_id).order_by('-pk')
+                    queryset = PosHaud.objects.filter(sa_custnoid__pk=cust_id).order_by('-sa_date','-pk')
 
 
 
@@ -15753,42 +15753,42 @@ class TransactionHistoryViewset(viewsets.ModelViewSet):
         else:
             if from_date and to_date:
                 if invoice_type == "All": 
-                    queryset = queryset.filter(sa_date__date__gte=from_date,sa_date__date__lte=to_date).order_by('-pk')
+                    queryset = queryset.filter(sa_date__date__gte=from_date,sa_date__date__lte=to_date).order_by('-sa_date','-pk')
                 elif invoice_type == "Sales": 
                     queryset = queryset.filter(sa_date__date__gte=from_date,sa_date__date__lte=to_date,
-                    sa_transacno_type="Receipt").order_by('-pk')
+                    sa_transacno_type="Receipt").order_by('-sa_date','-pk')
                 elif invoice_type == "Void": 
                     queryset = queryset.filter(sa_date__date__gte=from_date,sa_date__date__lte=to_date,
-                    sa_transacno_type="Void Transaction").order_by('-pk')
+                    sa_transacno_type="Void Transaction").order_by('-sa_date','-pk')
                 elif invoice_type == "TD": 
                     queryset = queryset.filter(sa_date__date__gte=from_date,sa_date__date__lte=to_date,
-                    sa_transacno_type="Redeem Service").order_by('-pk')
+                    sa_transacno_type="Redeem Service").order_by('-sa_date','-pk')
                 elif invoice_type == "NonSales":
                     queryset = queryset.filter(sa_date__date__gte=from_date,sa_date__date__lte=to_date,
-                    sa_transacno_type="Non Sales").order_by('-pk') 
+                    sa_transacno_type="Non Sales").order_by('-sa_date','-pk') 
                 else:
-                    queryset = queryset.filter(sa_date__date__gte=from_date,sa_date__date__lte=to_date).order_by('-pk')
+                    queryset = queryset.filter(sa_date__date__gte=from_date,sa_date__date__lte=to_date).order_by('-sa_date','-pk')
 
 
          
             if transac_no:
                 if cust_id:
                     #queryset = PosHaud.objects.filter(ItemSite_Codeid__pk=site.pk,sa_date__date__gte=from_date,
-                    #sa_date__date__lte=to_date,sa_transacno_ref__icontains=transac_no,sa_custnoid__pk=cust_id).order_by('-pk')
+                    #sa_date__date__lte=to_date,sa_transacno_ref__icontains=transac_no,sa_custnoid__pk=cust_id).order_by('-sa_date','-pk')
                     queryset = PosHaud.objects.filter(sa_date__date__gte=from_date,
-                    sa_date__date__lte=to_date,sa_transacno_ref__icontains=transac_no,sa_custnoid__pk=cust_id).order_by('-pk')
+                    sa_date__date__lte=to_date,sa_transacno_ref__icontains=transac_no,sa_custnoid__pk=cust_id).order_by('-sa_date','-pk')
                 else:
                     #queryset = PosHaud.objects.filter(ItemSite_Codeid__pk=site.pk,sa_date__date__gte=from_date,
-                    #sa_date__date__lte=to_date,sa_transacno_ref__icontains=transac_no).order_by('-pk')
+                    #sa_date__date__lte=to_date,sa_transacno_ref__icontains=transac_no).order_by('-sa_date','-pk')
                     queryset = PosHaud.objects.filter(sa_date__date__gte=from_date,
-                    sa_date__date__lte=to_date,sa_transacno_ref__icontains=transac_no).order_by('-pk')
+                    sa_date__date__lte=to_date,sa_transacno_ref__icontains=transac_no).order_by('-sa_date','-pk')
 
             if cust_code:
-                queryset = queryset.filter(sa_custno__icontains=cust_code).order_by('-pk')
+                queryset = queryset.filter(sa_custno__icontains=cust_code).order_by('-sa_date','-pk')
             if cust_name:
-                queryset = queryset.filter(Q(sa_custname__icontains=cust_name) | Q(sa_custno__icontains=cust_name) | Q(sa_custnoid__cust_refer__icontains=cust_name)).order_by('-pk')
+                queryset = queryset.filter(Q(sa_custname__icontains=cust_name) | Q(sa_custno__icontains=cust_name) | Q(sa_custnoid__cust_refer__icontains=cust_name)).order_by('-sa_date','-pk')
             
-            fquery = list(queryset.filter().order_by('-pk').values_list('sa_transacno', flat=True).distinct())
+            fquery = list(queryset.filter().order_by('-sa_date','-pk').values_list('sa_transacno', flat=True).distinct())
             # print(queryset,"queryset11")
             #sales staffs
            
@@ -15817,7 +15817,7 @@ class TransactionHistoryViewset(viewsets.ModelViewSet):
                             sales_multi = Multistaff.objects.filter(emp_code__in=list(emp_ids),sa_transacno__in=fquery).order_by('-pk').values_list('sa_transacno', flat=True).distinct() 
                             # print(sales_multi,"sales_multi")
                             if sales_multi:
-                                squeryset = PosHaud.objects.filter(sa_transacno__in=list(sales_multi)).order_by('-pk').values_list('pk', flat=True).distinct()
+                                squeryset = PosHaud.objects.filter(sa_transacno__in=list(sales_multi)).order_by('-sa_date','-pk').values_list('pk', flat=True).distinct()
                                 # print(queryset,"queryset77")
                             
             
@@ -15828,22 +15828,22 @@ class TransactionHistoryViewset(viewsets.ModelViewSet):
                             helper_code=fmspw[0].Emp_Codeid.emp_code,sa_transacno__in=fquery).order_by('-pk').values_list('helper_transacno', flat=True).distinct() 
                             # print(help_ids,"help_ids")
                             if help_ids:
-                                wqueryset = PosHaud.objects.filter(sa_transacno__in=list(help_ids)).order_by('-pk').values_list('pk', flat=True).distinct()
+                                wqueryset = PosHaud.objects.filter(sa_transacno__in=list(help_ids)).order_by('-sa_date','-pk').values_list('pk', flat=True).distinct()
                                 # print(wqueryset,"wqueryset")
 
                         if squeryset and wqueryset:
                             # print("iff 11")
                             combined_list = list(chain(squeryset,wqueryset))
-                            queryset = PosHaud.objects.filter(pk__in=combined_list).order_by('-pk')
+                            queryset = PosHaud.objects.filter(pk__in=combined_list).order_by('-sa_date','-pk')
                             # print(queryset,"combined_list 8888")
                         elif squeryset:
                             # print("iff 22")
                             combined_list = squeryset
-                            queryset = PosHaud.objects.filter(pk__in=combined_list).order_by('-pk')
+                            queryset = PosHaud.objects.filter(pk__in=combined_list).order_by('-sa_date','-pk')
                         elif wqueryset:
                             # print("iff 33")
                             combined_list = wqueryset
-                            queryset = PosHaud.objects.filter(pk__in=combined_list).order_by('-pk') 
+                            queryset = PosHaud.objects.filter(pk__in=combined_list).order_by('-sa_date','-pk') 
                         elif not squeryset and not wqueryset:
                             queryset = PosHaud.objects.none()
 

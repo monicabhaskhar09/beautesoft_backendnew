@@ -1148,25 +1148,29 @@ class EmployeeCartAPI(viewsets.ModelViewSet):
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give sales_staff in parms!!",'error': True} 
                 return Response(result, status=status.HTTP_400_BAD_REQUEST) 
 
-            if not self.request.user.is_authenticated:
-                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Unauthenticated Users are not allowed!!",'error': True} 
-                return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+            # if not self.request.user.is_authenticated:
+            #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Unauthenticated Users are not allowed!!",'error': True} 
+            #     return Response(result, status=status.HTTP_400_BAD_REQUEST) 
 
-            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
-            if not self.request.GET.get('sitecodeid',None) is None:
-                site = ItemSitelist.objects.filter(pk=self.request.GET.get('sitecodeid',None),itemsite_isactive=True).first()
-                if not site:
-                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Item Site ID does not exist!!",'error': True} 
-                    return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-            else:
-                site = fmspw[0].loginsite
-            branch = ItemSitelist.objects.filter(pk=site.pk,itemsite_isactive=True).first() 
-            if not branch:
-                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Outlet Id does not exist!!",'error': True} 
-                return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True).first()
+            # if not self.request.GET.get('sitecodeid',None) is None:
+            #     site = ItemSitelist.objects.filter(pk=self.request.GET.get('sitecodeid',None),itemsite_isactive=True).first()
+            #     if not site:
+            #         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Item Site ID does not exist!!",'error': True} 
+            #         return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+            # else:
+            site = fmspw.loginsite
 
-            emp_siteids = EmpSitelist.objects.filter(Site_Codeid__pk=branch.pk,isactive=True)
-            staffs = list(set([e.Emp_Codeid.pk for e in emp_siteids if e.Emp_Codeid and e.Emp_Codeid.emp_isactive == True]))
+            # branch = ItemSitelist.objects.filter(pk=site.pk,itemsite_isactive=True).first() 
+            # if not branch:
+            #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Outlet Id does not exist!!",'error': True} 
+            #     return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+            
+
+            emp_siteids = list(set(EmpSitelist.objects.filter(Site_Codeid__pk=site.pk,isactive=True,Emp_Codeid__emp_isactive=True).values_list('Emp_Codeid', flat=True).distinct()))
+
+            # staffs = list(set([e.Emp_Codeid.pk for e in emp_siteids if e.Emp_Codeid and e.Emp_Codeid.emp_isactive == True]))
+            staffs = emp_siteids
             if self.request.GET.get('sales_staff',None) == "1":
                 queryset = Employee.objects.filter(pk__in=staffs,emp_isactive=True,show_in_sales=True).order_by('emp_seq_webappt')
             
@@ -1178,10 +1182,16 @@ class EmployeeCartAPI(viewsets.ModelViewSet):
                     Q(show_in_trmt=True) | Q(show_in_sales=True)).order_by('emp_seq_webappt')
                 wqueryset = Employee.objects.filter(pk__in=staffs,emp_isactive=True,show_in_trmt=True,
                 show_in_sales=True).order_by('emp_seq_webappt')  
-                combined_list = list(chain(squeryset,wqueryset))
+                # combined_list = list(chain(squeryset,wqueryset))
+                combined_list = squeryset | wqueryset
+                # print(combined_list,"combined_list")
                 queryset = combined_list
     
-
+            q = self.request.GET.get('search',None)
+            if q:
+                queryset = queryset.filter(Q(emp_name__icontains=q) | 
+                Q(display_name__icontains=q) | Q(emp_code__icontains=q))[:20]
+            
             
             serializer_class = EmployeeDropSerializer
             total = len(queryset)
@@ -1192,9 +1202,9 @@ class EmployeeCartAPI(viewsets.ModelViewSet):
             result = response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
             v = result.get('data')
             d = v.get("dataList")
-            for dat in d:
-                emp_obj = Employee.objects.filter(pk=dat['id']).first()
-                dat['emp_name'] = emp_obj.display_name
+            # for dat in d:
+            #     emp_obj = Employee.objects.filter(pk=dat['id']).first()
+            #     dat['emp_name'] = emp_obj.display_name
 
             if self.request.GET.get('check',None) == "TransacHistory":
                 dict_data = {'id':"0",'emp_name':"All",'emp_pic':""}
@@ -2578,7 +2588,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give Item price ",'error': False}
                     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
                 else:
-                    if 'price' in req and req['price'] is 0.0:
+                    if 'price' in req and req['price'] and float(req['price']) == 0.0:
                         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give Item price ",'error': False}
                         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
@@ -3401,7 +3411,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give Item price ",'error': False}
                     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
                 else:
-                    if req['price'] == 0.0 or not req['price']:
+                    if req['price'] and float(req['price']) == 0.0 or not req['price']:
                         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give Item price ",'error': False}
                         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
@@ -3816,7 +3826,7 @@ class itemCartViewset(viewsets.ModelViewSet):
     #                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give Item price ",'error': False}
     #                 return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
     #             else:
-    #                 if 'price' in req and req['price'] is 0.0:
+    #                 if 'price' in req and req['price'] and float(req['price']) == 0.0:
     #                     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give Item price ",'error': False}
     #                     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
@@ -4233,7 +4243,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give Item price ",'error': False}
                         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
                     else:
-                        if 'price' in req and req['price'] is 0.0:
+                        if 'price' in req and req['price'] and float(req['price']) == 0.0:
                             result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give Item price ",'error': False}
                             return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
@@ -6573,8 +6583,8 @@ class ReceiptPdfSend(APIView):
             
             prepaidlst = []
             postaud_ids = PosTaud.objects.filter(sa_transacno=sa_transacno,pay_group="PREPAID")
+            showprepaid = False
             if postaud_ids:
-                showprepaid = True
                 for po in postaud_ids:
                     spl_tn = str(po.pay_rem1).split("-")
                     ppno = spl_tn[0]
@@ -6582,12 +6592,10 @@ class ReceiptPdfSend(APIView):
                     prequeryset = PrepaidAccount.objects.filter(cust_code=hdr[0].sa_custno,
                     status=True,remain__gt=0,pp_no=ppno,line_no=lineno).only('site_code','cust_code','sa_status').order_by('-pk').first()
                     if prequeryset:
+                        showprepaid = True
                         pval = {'pp_desc':prequeryset.pp_desc,'remain':"{:.2f}".format(prequeryset.remain)}
                         prepaidlst.append(pval)
 
-
-            else:
-                showprepaid = False
             
             if hdr[0].isvoid == True and hdr[0].sa_status == "VT":
                 showvoidreason = True
@@ -27167,6 +27175,10 @@ class UserAuthorizationPopup(generics.CreateAPIView):
                     elif request.data['type'] == 'Payroll':
                         if fmspw_c and fmspw_c.flgpayroll == False:
                             raise Exception('Logined User not allowed to update Payroll !!')
+                    elif request.data['type'] == 'ApptBlock':
+                        if fmspw_c and fmspw_c.flgallowblockappointment == False:
+                            raise Exception('Logined User not allowed to do Block Appointment !!')
+                                
                         
 
                     log_emp = fmspw_c.Emp_Codeid

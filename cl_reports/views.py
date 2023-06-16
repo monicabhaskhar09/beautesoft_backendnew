@@ -336,7 +336,7 @@ class siteListingAPIView(GenericAPIView):
 #             invalid_message = str(e)
 #             return general_error_response(invalid_message)     
 
-def report_title_details(self,site_code_list,from_date,to_date,fmspw,site):   
+def report_title_details(self,site_code_list,start_date,end_date,fmspw,site):   
     site_least = ItemSitelist.objects.filter(itemsite_code__in=site_code_list).order_by('itemsite_id').first()
     if not site_least:
         raise Exception('Selected site doesnt exist !!') 
@@ -350,7 +350,7 @@ def report_title_details(self,site_code_list,from_date,to_date,fmspw,site):
     title = Title.objects.filter(product_license=site_least.itemsite_code).order_by("pk").values('product_license',
     'id','title','comp_title1','comp_title2','comp_title3','comp_title4','footer_1','footer_2','footer_3','footer_4')
     vals = {'outlet': site.itemsite_desc,
-        'from_date': from_date, 'to_date':to_date ,'print_by': fmspw.pw_userlogin,
+        'from_date': start_date, 'to_date':end_date ,'print_by': fmspw.pw_userlogin,
         'print_time': dt_string,'site': ','.join([v for v in site_descids if v]) }
     if title:
         vals.update(title[0])
@@ -496,7 +496,7 @@ class CollectionbyOutletReportAPIView(GenericAPIView):
 
             site_code = self.request.data.get("site_code") 
             site_code_list = site_staffbased(self,site_code,empcode)    
-            print(site_code_list,"site_code_list")
+            # print(site_code_list,"site_code_list")
             site_code = ','.join([v for v in site_code_list if v])
             
 
@@ -545,7 +545,7 @@ class CollectionbyOutletReportAPIView(GenericAPIView):
                 
             }
             
-            header = report_title_details(self,site_code_list,from_date,to_date,fmspw,site)    
+            header = report_title_details(self,site_code_list,start_date,end_date,fmspw,site)    
             result = {'status': status.HTTP_200_OK , "message": "Listed Succesfully",
             'error': False,'data': resData,'company_header': header}
 
@@ -564,12 +564,13 @@ class TreatmentDoneReportAPIView(GenericAPIView):
         # --And ((@Site='') OR ((@Site<>'') And pos_daud.ItemSite_Code In (Select Item From dbo.LISTTABLE(@Site,',')))) --Site                    
         # --And ((@Staff='') OR ((@Staff<>'') And Item_Helper.Helper_Code In (Select Item From dbo.LISTTABLE(@Staff,',')))) --Site                    
 
+        # "from (SELECT convert (varchar,pos_haud.sa_date,103)[payDate],   " \
 
         raw_q = "select Treatment_code,invoiceDate,usageDate,usageRef,invoiceRef,Site_Code,[site],custName,custRef,createdBy,category,subCategory,itemName,skuCode,             "\
                 "duration,usageQty,therapists,numTherapists,SerPtType,SerPt,remarks,Ref_Transacno,sum(unitValue) as unitValue " \
                 "from(SELECT   distinct     Treatment.Treatment_ParentCode as Treatment_code,       "\
-                "Convert(Date,pos_haud.sa_date,103) AS [usageDate],              " \
-                "Convert(Date,pos_haud_1.sa_date,103) AS [invoiceDate],              " \
+                "Convert(varchar,pos_haud.sa_date,103) AS [usageDate],              " \
+                "Convert(varchar,pos_haud_1.sa_date,103) AS [invoiceDate],              " \
                 "pos_haud.SA_TransacNo_Ref AS [usageRef],              " \
                 "pos_haud_1.SA_TransacNo_Ref AS [invoiceRef],            " \
                 "pos_haud.ItemSIte_Code as [Site_Code],               " \
@@ -609,7 +610,7 @@ class TreatmentDoneReportAPIView(GenericAPIView):
                 "order by therapists,custName"
 
        
-        print(raw_q,"raw_q")
+        # print(raw_q,"raw_q")
         with connection.cursor() as cursor:
             cursor.execute(raw_q)
             raw_qs = cursor.fetchall()  
@@ -679,7 +680,7 @@ class TreatmentDoneReportAPIView(GenericAPIView):
                 
             }
             
-            header = report_title_details(self,site_code_list,from_date,to_date,fmspw,site)    
+            header = report_title_details(self,site_code_list,start_date,end_date,fmspw,site)    
             result = {'status': status.HTTP_200_OK , "message": "Listed Succesfully",
             'error': False,'data': resData,'company_header': header}
 

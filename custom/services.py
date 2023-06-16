@@ -399,8 +399,8 @@ def GeneratePDF(self,request, sa_transacno):
     
     prepaidlst = []
     postaud_ids = PosTaud.objects.filter(sa_transacno=sa_transacno,pay_group="PREPAID")
+    showprepaid = False
     if postaud_ids:
-        showprepaid = True
         for po in postaud_ids:
             spl_tn = str(po.pay_rem1).split("-")
             ppno = spl_tn[0]
@@ -408,12 +408,10 @@ def GeneratePDF(self,request, sa_transacno):
             prequeryset = PrepaidAccount.objects.filter(cust_code=hdr[0].sa_custno,
             status=True,remain__gt=0,pp_no=ppno,line_no=lineno).only('site_code','cust_code','sa_status').order_by('-pk').first()
             if prequeryset:
+                showprepaid = True
                 pval = {'pp_desc':prequeryset.pp_desc,'remain':"{:.2f}".format(prequeryset.remain)}
                 prepaidlst.append(pval)
-
-
-    else:
-        showprepaid = False
+        
     
     if hdr[0].isvoid == True and hdr[0].sa_status == "VT":
         showvoidreason = True

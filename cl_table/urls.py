@@ -17,6 +17,9 @@ router.register(r'sitelistip', views.SitelistipViewset, basename='sitelistip')
 router.register(r'displaycatalog', views.DisplayCatalogViewset, basename='displaycatalog')
 router.register(r'displayItems', views.DisplayItemViewset, basename='displayItems')
 router.register(r'outletrequestcustomer', views.OutletRequestCustomerViewset, basename='outletrequestcustomer')
+router.register(r'manualrewardpoint', views.ManualRewardPointCustomerViewset, basename='manualrewardpoint')
+router.register(r'onlinebooking', views.OnlineBookingDateSlotsViewset, basename='onlinebooking')
+router.register(r'invoicetemplateconfig', views.InvoiceTemplateConfigViewset, basename='invoicetemplateconfig')
 
 
 urlpatterns = [
