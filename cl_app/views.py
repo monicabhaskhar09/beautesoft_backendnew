@@ -7371,6 +7371,14 @@ class VoidViewset(viewsets.ModelViewSet):
                                                     conditiontype2="All").first()
                                                     if updopenall_ids:
                                                         redeem_ppac = True; op_conditionobj=updopenall_ids
+
+                                                if redeem_ppac == False:
+                                                    upda_dpall_ids = PrepaidAccountCondition.objects.filter(pp_no=ppno,
+                                                    pos_daud_lineno=lineno,p_itemtype="Inclusive",conditiontype1="All",
+                                                    itemdept_id=use_stockobj.Item_Deptid.pk).first()
+                                                    if upda_dpall_ids:
+                                                        redeem_ppac = True; op_conditionobj = upda_dpall_ids
+                                                            
                                                         
                                             elif int(use_stockobj.Item_Divid.itm_code) == 1:
                                                 item_brand_code = ItemBrand.objects.filter(itm_code=use_stockobj.item_brand,
@@ -7387,6 +7395,14 @@ class VoidViewset(viewsets.ModelViewSet):
                                                         conditiontype2="All").first()
                                                         if updproall_ids:
                                                             redeem_ppac = True; op_conditionobj = updproall_ids
+
+                                                    if redeem_ppac == False:
+                                                        upda_brall_ids = PrepaidAccountCondition.objects.filter(pp_no=ppno,
+                                                        pos_daud_lineno=lineno,p_itemtype="Inclusive",conditiontype1="All",
+                                                        itembrand_id=item_brand_code.pk).first()
+                                                        if upda_brall_ids:
+                                                            redeem_ppac = True; op_conditionobj = upda_brall_ids
+                                                                    
 
                                             if redeem_ppac == False:
                                                 upda_all_ids = PrepaidAccountCondition.objects.filter(pp_no=ppno,
@@ -7472,7 +7488,7 @@ class VoidViewset(viewsets.ModelViewSet):
                                 CreditNote.objects.filter(pk=crdobj.pk).update(balance=crbalance,status=crstatus)
                         
                         #voucher
-                        if str(t.pay_type).upper() == 'VC':
+                        if str(t.pay_type).upper() == 'VCPM':
                             crdobj = VoucherRecord.objects.filter(voucher_no=t.pay_rem1,cust_code=haudobj.sa_custno).first()
                             #print(t.pay_rem1,"Voucher Reset")
                             if crdobj:
@@ -10766,9 +10782,11 @@ class PrepaidAccPaymentListViewset(viewsets.ModelViewSet):
             cart_ids = ItemCart.objects.filter(cust_noid=cust_obj,cart_id=cart_id,cart_date=cart_date,
             cart_status="Inprogress",isactive=True,is_payment=False).exclude(type__in=type_ex).order_by('id')
             
-            depo_ids = cart_ids.filter(type='Deposit') 
-            whole_ids = depo_ids.filter(itemcodeid__item_div__in=[3,1,4]).filter(~Q(itemcodeid__item_type='PACKAGE'))
-            service_ids = depo_ids.filter(itemcodeid__item_div=3).filter(~Q(itemcodeid__item_type='PACKAGE'))
+            depo_ids = cart_ids.filter(type__in=['Deposit','Top Up']) 
+            # .filter(~Q(itemcodeid__item_type='PACKAGE'))
+            whole_ids = depo_ids.filter(itemcodeid__item_div__in=[3,1,4,5])
+            # print(whole_ids,"whole_ids")
+            service_ids = depo_ids.filter(itemcodeid__item_div=3)
             product_ids = depo_ids.filter(itemcodeid__item_div=1).filter(~Q(itemcodeid__item_type='PACKAGE'))
             
             # all_only_ids = depo_ids.filter(itemcodeid__item_div__in=[3,1,4]).filter(~Q(itemcodeid__item_type='PACKAGE')).aggregate(deposit=Coalesce(Sum('deposit'), 0))
@@ -10998,7 +11016,9 @@ class PrepaidAccPaymentListViewset(viewsets.ModelViewSet):
                                             if itembrand_p:
                                                 final_ids = use_final_ids.filter(~Q(itemcodeid__item_brand__in=itembrand_p))
                                                 use_final_ids = final_ids
-                                
+
+                                use_final_ids = use_final_ids.filter(~Q(prepaid_account__pp_no=preobj.pp_no),~Q(prepaid_account__line_no=preobj.line_no))
+                                # print(use_final_ids,"use_final_ids 77")
                                 if use_final_ids:
                                     pre_cartids = list(set(use_final_ids.values_list('pk',flat=True).distinct()))
                                     # print(pre_cartids,"pre_cartids")

@@ -16,6 +16,17 @@ class WebConsultationHdrSerializer(serializers.ModelSerializer):
         model = WebConsultation_Hdr
         fields = '__all__'
 
+    def to_representation(self, obj):
+        data = super(WebConsultationHdrSerializer, self).to_representation(obj)
+
+        signature = ""
+        if obj.signature:
+            signature = str(SITE_ROOT)+str(obj.signature)
+         
+        data['signature'] = signature
+
+        return data     
+
 class WebConsultationDtlSerializer(serializers.ModelSerializer):
     
    
@@ -134,7 +145,7 @@ class TNCMasterSerializer(serializers.ModelSerializer):
  
     class Meta:
         model = TNC_Master
-        fields = ['id','sno','isactive','english','otherlanguage'] 
+        fields = ['id','sno','isactive','english','otherlanguage','tnctext1','tnctext2','is_declaration'] 
 
 class TNC_DetailSerializer(serializers.ModelSerializer):
     

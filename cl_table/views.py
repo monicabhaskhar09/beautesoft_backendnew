@@ -7773,10 +7773,10 @@ class UsersList(APIView):
             value_name='BlockAppointmentUsernamePopup',isactive=True).first()
             # onlinebookingstaff_setup = Systemsetup.objects.filter(title='onlinebookingstaff',
             # value_name='onlinebookingstaff',isactive=True).first()
+            ipadkey_setup = Systemsetup.objects.filter(title='ipadkey',
+            value_name='ipadkey',isactive=True).first()
        
        
-       
-
             
             walkinobj = ""
             if fmspw.loginsite and fmspw.loginsite.walkin_custid:
@@ -7894,7 +7894,8 @@ class UsersList(APIView):
             'customeroutletrestrict' : True if outletrestrict_setup and outletrestrict_setup.value_data == 'True' else False,  
             'courseautoproportion' : True if courseautopro_setup and courseautopro_setup.value_data == 'True' else False,  
             'blockapptusernamepopup' : True if blockapptusernamepopup_setup and blockapptusernamepopup_setup.value_data == 'True' else False,
-            # 'onlinebookingstaff_id' :  int(onlinebookingstaff_setup.value_data) if onlinebookingstaff_setup and onlinebookingstaff_setup.value_data else None, 
+            # 'onlinebookingstaff_id' :  int(onlinebookingstaff_setup.value_data) if onlinebookingstaff_setup and onlinebookingstaff_setup.value_data else None,
+            'ipadkey' : True if ipadkey_setup and ipadkey_setup.value_data == 'True' else False,
             }
 
 
@@ -8654,10 +8655,6 @@ class postaudViewset(viewsets.ModelViewSet):
                 if not redms_refcontrol_obj:
                     raise Exception("Redeem Sales ControlNo Does Not Exist!!")
 
-
-                
-                
-                
                 
                 depotop_ids = cart_ids.filter(type__in=['Deposit','Top Up'])
                 # print(depotop_ids,"depotop_ids")
@@ -8728,9 +8725,10 @@ class postaudViewset(viewsets.ModelViewSet):
                     
                         pacids = PrepaidAccount.objects.filter(pp_no=ppno,line_no=lineno,
                         cust_code=cust_obj.cust_code,status=True).only('pp_no','line_no','site_code','cust_code','status').order_by('pk').last()
+                        # print(pacids,"{:.2f}".format(pacids.remain),".remain")
                         if pacids and pacids.remain:
                             #if float(r['pay_amt']) > float(pac_ids.remain):
-                            if float(r['pay_amt']) > float(pacids.remain):
+                            if float(r['pay_amt']) > float("{:.2f}".format(pacids.remain)):
                                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Prepaid pay amt should not be greater than selected prepaid remain!!",'error': True} 
                                 return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
@@ -9051,9 +9049,10 @@ class postaudViewset(viewsets.ModelViewSet):
                                 pos_daud_lineno=line_no).order_by('pk')
 
                                 if pac_ids and ol_open_ids:
-                                    whole_ids = depo_ids.filter(itemcodeid__item_div__in=[3,1,4]).filter(~Q(itemcodeid__item_type='PACKAGE'))
-                                    service_ids = depo_ids.filter(itemcodeid__item_div=3).filter(~Q(itemcodeid__item_type='PACKAGE'))
-                                    product_ids = depo_ids.filter(itemcodeid__item_div=1).filter(~Q(itemcodeid__item_type='PACKAGE'))
+                                    # .filter(~Q(itemcodeid__item_type='PACKAGE'))
+                                    whole_ids = depotop_ids.filter(itemcodeid__item_div__in=[3,1,4,5])
+                                    service_ids = depotop_ids.filter(itemcodeid__item_div=3)
+                                    product_ids = depotop_ids.filter(itemcodeid__item_div=1).filter(~Q(itemcodeid__item_type='PACKAGE'))
             
                                     # if float(req['pay_amt']) > float(pac_ids.remain):
                                     #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Prepaid pay amt should not be greater than selected prepaid remain!!",'error': True} 
@@ -9142,6 +9141,8 @@ class postaudViewset(viewsets.ModelViewSet):
                                         # if prepaid_redeemlst != []:
                                         #     use_final_ids = use_final_ids.filter(~Q(pk__in=prepaid_redeemlst))
                                         # print(use_final_ids,"use_final_ids 111")
+                                        use_final_ids = use_final_ids.filter(~Q(prepaid_account__pp_no=pac_ids.pp_no),~Q(prepaid_account__line_no=pac_ids.line_no))
+                                        # print(use_final_ids,"use_final_ids 77")
                                         if use_final_ids:
                                             for i in use_final_ids:
                                                 # print(i,"ii")

@@ -3175,7 +3175,8 @@ class itemCartViewset(viewsets.ModelViewSet):
                     
                     autotdfor_setup = Systemsetup.objects.filter(title='autoTDForAlacarte',
                     value_name='autoTDForAlacarte',isactive=True).first()
-                    if  cart.type == 'Deposit' and int(stock_obj.item_div) == 3 and stock_obj.item_type != 'PACKAGE' and autotdfor_setup and autotdfor_setup.value_data == 'True' and req['is_service'] == True:
+                    if cart.type == 'Deposit' and int(stock_obj.item_div) == 3 and stock_obj.item_type != 'PACKAGE' and autotdfor_setup and autotdfor_setup.value_data == 'True' and req['is_service'] == True:
+                        print("iff")
                         empobj= fmspw[0].Emp_Codeid
                         tdf =create_tdstaff(cart,empobj,stock_obj,site)
 
@@ -5605,6 +5606,12 @@ class itemCartViewset(viewsets.ModelViewSet):
                 given_net = float(self.request.GET.get('net_amt',None)) 
                 # print(given_net,"given_net")
 
+                if given_net > totaltrans_amt:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Entered Net Amount Should not be greater than Total Net Amount!!",'error': True} 
+                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
+
+
                 balance = total_amount - other_disc
                 new_cart_ids = self.filter_queryset(self.get_queryset()).filter(itemcodeid__item_div__in=[1,3],itemcodeid__item_type='SINGLE',auto=True,is_foc=False).exclude(type__in=('Top Up','Sales')).order_by('pk')
                 
@@ -5633,7 +5640,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                             discvalamt += each_discline
 
                             if not any(d['cart_id'] == ct.pk for d in net_lst):
-                                net_lst.append({'cart_id':ct.pk,'cart_obj': ct,'additional_discount':0.0,'additional_discountamt': each_discline,
+                                net_lst.append({'cart_id':ct.pk,'cart_obj': ct,'additional_discount':0.0,'additional_discountamt': "{:.2f}".format(float(each_discline)) ,
                                 'discount_price':val_d,'deposit':new_trans,'trans_amt':new_trans})
                             
                             # n = str(float(new_nettrasamt)).split('.')
@@ -5656,7 +5663,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                             dprice = ct.discount_price - one
 
                             if not any(d['cart_id'] == ct.pk for d in net_lst):
-                                net_lst.append({'cart_id':ct.pk,'cart_obj': ct,'additional_discount':0.0,'additional_discountamt': one,
+                                net_lst.append({'cart_id':ct.pk,'cart_obj': ct,'additional_discount':0.0,'additional_discountamt': "{:.2f}".format(float(one)),
                                 'discount_price':dprice,'deposit':last_val,'trans_amt':last_val})
 
                 # print(discvalamt,"discvalamt")
@@ -11908,9 +11915,9 @@ class AddRemoveSalesStaffViewset(viewsets.ModelViewSet):
                     if not cartobj:
                         raise Exception("Cart id does not exist!!")
 
-                    if cartobj.type == 'Sales' and cartobj.itemcodeid.item_div == '3' and is_sales == True:
-                        tdmsg = "TD {0} Cart Line No {1}, No need to add Sales Staffs".format(str(cartobj.type),str(cartobj.lineno))
-                        raise Exception(tdmsg)
+                    # if cartobj.type == 'Sales' and cartobj.itemcodeid.item_div == '3' and is_sales == True:
+                    #     tdmsg = "TD {0} Cart Line No {1}, No need to add Sales Staffs".format(str(cartobj.type),str(cartobj.lineno))
+                    #     raise Exception(tdmsg)
 
                     if cartobj.type in ['Deposit','Top Up','Exchange'] and cartobj.itemcodeid.item_div != '3' and is_work == True:
                         wd_msg = "{0} Cart Line No {1}, No need to add Work Staffs".format(str(cartobj.type),str(cartobj.lineno))

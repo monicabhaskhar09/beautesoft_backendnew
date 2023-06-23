@@ -3011,12 +3011,17 @@ def invoice_topup(self, request, topup_ids,sa_transacno, cust_obj, outstanding, 
                 
                 c.prepaid_account.status = False
                 c.prepaid_account.save()
-                outstanding = float(c.prepaid_account.outstanding) - float(c.deposit)
+                ulast_preids = PrepaidAccount.objects.filter(pp_no=c.prepaid_account.pp_no,
+                line_no=c.prepaid_account.line_no,
+                cust_code=cust_obj.cust_code).order_by('-pk').first()
+                ulast_preids.status=False
+                ulast_preids.save()
+                outstanding = float(ulast_preids.outstanding) - float(c.deposit)
 
                 if outstanding == 0:
-                    remain = c.prepaid_account.remain + c.deposit + c.prepaid_account.pp_bonus
+                    remain = ulast_preids.remain + c.deposit + ulast_preids.pp_bonus
                 else:
-                    remain = c.prepaid_account.remain + c.deposit
+                    remain = ulast_preids.remain + c.deposit
 
 
                 prepaidacc = PrepaidAccount(pp_no=c.prepaid_account.pp_no,pp_type=c.itemcodeid.item_range if c.itemcodeid.item_range else None,

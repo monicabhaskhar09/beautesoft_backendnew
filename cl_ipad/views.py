@@ -79,8 +79,7 @@ class WebConsultationHdrViewset(viewsets.ModelViewSet):
             error = False
             data = None
 
-            aqueryset = WebConsultation_Question.objects.filter(isactive=False,question_group="Declaration").order_by('-pk').values('declaration_text',
-            'id')
+            aqueryset = WebConsultation_Question.objects.filter(isactive=False,question_group="Declaration").order_by('-pk').values('declaration_text','id')
           
 
             result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
@@ -2135,20 +2134,21 @@ class TNC_MasterViewset(viewsets.ModelViewSet):
                 fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
                 site = fmspw.loginsite
                 ref = self.get_object(pk)
-                if not 'sno' in request.data or not request.data['sno']:
-                    raise Exception('Please give SNo!!.') 
+                if ref.is_declaration == None or ref.is_declaration == False:
+                    if not 'sno' in request.data or not request.data['sno']:
+                        raise Exception('Please give SNo!!.') 
 
-                if not 'english' in request.data or not request.data['english']:
-                    raise Exception('Please give English!!.')
+                    if not 'english' in request.data or not request.data['english']:
+                        raise Exception('Please give English!!.')
 
-                if not 'otherlanguage' in request.data or not request.data['otherlanguage']:
-                    raise Exception('Please give OtherLanguage!!.')
+                    if not 'otherlanguage' in request.data or not request.data['otherlanguage']:
+                        raise Exception('Please give OtherLanguage!!.')
                 
                
-                check_ids = TNC_Master.objects.filter(~Q(pk=ref.pk)).filter(english=request.data['english']).order_by('-pk')
-                if check_ids:
-                    msg = "{0} already this record exist  !!".format(str(request.data['english']))
-                    raise Exception(msg) 
+                    check_ids = TNC_Master.objects.filter(~Q(pk=ref.pk)).filter(english=request.data['english']).order_by('-pk')
+                    if check_ids:
+                        msg = "{0} already this record exist  !!".format(str(request.data['english']))
+                        raise Exception(msg) 
                     
                 serializer = self.get_serializer(ref, data=request.data, partial=True)
                 if serializer.is_valid():
@@ -2192,12 +2192,13 @@ class TNC_MasterViewset(viewsets.ModelViewSet):
    
     def destroy(self, request, pk=None):
         try:
-            request.data["isactive"] = False
+            # request.data["isactive"] = False
             ref = self.get_object(pk)
             serializer = TNCMasterSerializer(ref, data=request.data ,partial=True)
             state = status.HTTP_204_NO_CONTENT
             if serializer.is_valid():
-                serializer.save()
+                # serializer.save()
+                ref.delete()
                 result = {'status': status.HTTP_200_OK,"message":"Deleted Succesfully",'error': False}
                 return Response(result, status=status.HTTP_200_OK)
             
