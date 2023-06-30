@@ -69,7 +69,7 @@ from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializ
                           DisplayCatalogSerializer,DisplayItemSerializer,DisplayItemStockSerializer,
                           DisplayItemlistSerializer,OutletRequestLogSerializer,
                           PrepaidValidperiodSerializer,ItemCartCustomerReceiptSerializer,
-                          ItemCartdaudSerializer,ScheduleMonthSerializer,invoicetemplateConfigSerializer)
+                          ItemCartdaudSerializer,ScheduleMonthSerializer,invoicetemplateConfigSerializer,ManualRewardPointSerializer)
 from datetime import date, timedelta, datetime
 import datetime
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
@@ -8546,6 +8546,10 @@ class postaudViewset(viewsets.ModelViewSet):
                 cart_date = timezone.now().date()
                 global type_ex
                 request = self.request
+                if not request.data:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Payload Should not be empty",'error': True}
+                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
                 if request.GET.get('cart_date',None) is None:
                     result = {'status': status.HTTP_204_NO_CONTENT,"message":"Please give cart date",'error': True}
                     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
@@ -8602,8 +8606,8 @@ class postaudViewset(viewsets.ModelViewSet):
                 
                 queryset = self.filter_queryset(self.get_queryset())
                 if not queryset:
-                    result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
-                    return Response(data=result, status=status.HTTP_200_OK)
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"No Content Cart should not be empty",'error': True}
+                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
                 
                 cart_ids = queryset
                 
@@ -9766,7 +9770,7 @@ class postaudViewset(viewsets.ModelViewSet):
                 taud_salesids = PosTaud.objects.filter(pk__in=taud_ids,itemsite_code=site.itemsite_code,
                 pay_type__in=gt1_lst).order_by('pk').aggregate(pay_amt=Coalesce(Sum('pay_amt'), 0))
                 # print(daily_taud_salesids,"daily_taud_salesids")
-                if taud_salesids['pay_amt'] > 0.0:
+                if taud_salesids and taud_salesids['pay_amt'] > 0.0:
                     payment_amt = "{:.2f}".format(taud_salesids['pay_amt'])
                 else:
                     payment_amt = "0.00"  
@@ -26004,8 +26008,41 @@ class InvoiceTemplateConfigViewset(viewsets.ModelViewSet):
 class ManualRewardPointCustomerViewset(viewsets.ModelViewSet):
     authentication_classes = [ExpiringTokenAuthentication]
     permission_classes = [IsAuthenticated & authenticated_only]
-    # queryset = []
-    # serializer_class = []
+    queryset = CustomerPoint.objects.filter(type="Manual Reward").order_by('-pk')
+    serializer_class = ManualRewardPointSerializer
+
+    def get_queryset(self):
+        cust_obj = Customer.objects.filter(pk=self.request.GET.get('cust_id',None),cust_isactive=True).first()
+        if not cust_obj:
+            raise Exception('Customer ID does not exist') 
+
+        queryset = CustomerPoint.objects.filter(type="Manual Reward",cust_code=cust_obj.cust_code).order_by('-pk')
+       
+        return queryset
+
+
+    def list(self, request):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+            site = fmspw[0].loginsite
+            if not self.request.GET.get('cust_id',None):
+                raise Exception('Please give Customer id!!.')
+
+            serializer_class = ManualRewardPointSerializer
+            
+            queryset = self.filter_queryset(self.get_queryset())
+
+            total = len(queryset) if queryset else 0
+            state = status.HTTP_200_OK
+            message = "Listed Succesfully"
+            error = False
+            data = None
+            result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+            return Response(result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+
 
     @transaction.atomic
     def create(self, request):
@@ -26017,19 +26054,124 @@ class ManualRewardPointCustomerViewset(viewsets.ModelViewSet):
                 if not 'cust_id' in request.data or not request.data['cust_id']:
                     raise Exception('Please give Customer id!!.') 
 
+                if not 'total_point' in request.data or not request.data['total_point']:
+                    raise Exception('Please give Point!!.') 
+
+                if not 'remarks' in request.data or not request.data['remarks']:
+                    raise Exception('Please give remark!!.') 
+                
+                if not 'ref_source' in request.data or not request.data['ref_source']:
+                    raise Exception('Please give ref source!!.') 
+        
+    
                 cust_id = request.data['cust_id'] 
 
                 cust_obj = Customer.objects.filter(pk=cust_id,cust_isactive=True).first()
                 if not cust_obj:
                     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer id Does't Exist!!",'error': True} 
                     return Response(data=result, status=status.HTTP_400_BAD_REQUEST) 
+
+                serializer = ManualRewardPointSerializer(data=request.data)
+                if serializer.is_valid():
+                    rew_refcontrol_obj = ControlNo.objects.filter(control_description__iexact="Reward Sales",Site_Codeid__pk=fmspw.loginsite.pk).first()
+                    if not rew_refcontrol_obj:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Reward Sales Control No does not exist!!",'error': True} 
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                    
+                    control_obj = ControlNo.objects.filter(control_description__iexact="Manual Reward Points",Site_Codeid__pk=fmspw.loginsite.pk).first()
+                    if not control_obj:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Manual Reward Points Control No does not exist!!",'error': True} 
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                    
+                    now_point = 0
+                    if cust_obj and cust_obj.cust_point_value == None: 
+                        now_point = 0
+                    else:
+                        if cust_obj and cust_obj.cust_point_value and cust_obj.cust_point_value > 0:
+                            now_point = cust_obj.cust_point_value
+
+                    
+                    rew_transacno = str(rew_refcontrol_obj.control_prefix)+str(rew_refcontrol_obj.Site_Codeid.itemsite_code)+str(rew_refcontrol_obj.control_no)
+                    rew_refcontrol_obj.control_no = int(rew_refcontrol_obj.control_no) + 1
+                    rew_refcontrol_obj.save()
+
+                    
+                    sa_transacno = str(control_obj.control_prefix)+str(control_obj.Site_Codeid.itemsite_code)+str(control_obj.control_no)
+                    control_obj.control_no = int(control_obj.control_no) + 1
+                    control_obj.save()  
+                    
+                    # itm_code=None,itm_desc=None
+
+                    now_point  += float(request.data['total_point'])
+
+                    ct = CustomerPointDtl(type="Manual Reward",cust_code=cust_obj.cust_code,
+                        cust_name=cust_obj.cust_name,parent_code=None,parent_desc=None,
+                        parent_display=None,itm_desc="Manual Reward Points",
+                        point="{:.2f}".format(float(request.data['total_point'])),now_point="{:.2f}".format(now_point),remark=request.data['remarks'],remark_code=None,
+                        remark_desc=None,isvoid=False,void_referenceno=None,isopen=True,qty=1,
+                        seq=False,sa_status="SA",bal_acc2=None,point_acc1=None,
+                        point_acc2=None,locid=False)
+                    ct.save()
+
+                    cust_obj.cust_point_value = "{:.2f}".format(now_point)
+                    cust_obj.save()
+
+                    custpt = CustomerPoint(transacno=rew_transacno,date=date.today(),username=fmspw.pw_userlogin,
+                    time=timezone.now(),cust_name=cust_obj.cust_name,cust_code=cust_obj.cust_code,type="Manual Reward",
+                    refno=sa_transacno,ref_source=request.data['ref_source'],isvoid=False,sa_status="SA",void_referenceno=None,
+                    total_point="{:.2f}".format(float(request.data['total_point'])),now_point="{:.2f}".format(now_point),seq=None,remarks=request.data['remarks'],
+                    bal_point="{:.2f}".format(now_point-float(request.data['total_point'])),expired=False,expired_date=None,mac_code=False,logno=False,
+                    approval_user=fmspw.pw_userlogin,cardno=False,bdate=None,pdate=None,expired_point=0,
+                    postransactionno=sa_transacno,postotalamt=0,locid=False,mgm_refno=None,tdate=None)
+                    custpt.save()
+                    rewd = self.get_object(custpt.pk)
+                    serializer_c = ManualRewardPointSerializer(rewd)
+                    
+                    if ct:
+                        ct.transacno = rew_transacno 
+                        ct.total_point = "{:.2f}".format(request.data['total_point'])
+                        ct.save()
+
+                    result = {'status': status.HTTP_201_CREATED,"message": "Created Succesfully",
+                    'error': False,'data': serializer_c.data}
+                    return Response(result, status=status.HTTP_201_CREATED)
+
+    
+                data = serializer.errors
+
+                if 'non_field_errors' in data:
+                    message = data['non_field_errors'][0]
+                else:
+                    first_key = list(data.keys())[0]
+                    message = str(first_key)+":  "+str(data[first_key][0])
+
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":message,
+                'error': True, 'data': serializer.errors}
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
                 
 
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)    
          
+    
+    def get_object(self, pk):
+        try:
+            return CustomerPoint.objects.get(pk=pk)
+        except CustomerPoint.DoesNotExist:
+            raise Exception('CustomerPoint ID Does not Exist') 
 
+    def retrieve(self, request, pk=None):
+        try:
+            rewd = self.get_object(pk)
+            serializer = ManualRewardPointSerializer(rewd)
+            result = {'status': status.HTTP_200_OK , "message": "Listed Succesfully", 'error': False, 'data':  serializer.data}
+            return Response(result, status=status.HTTP_200_OK)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+         
 
 
 

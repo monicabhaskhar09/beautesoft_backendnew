@@ -3175,8 +3175,8 @@ class itemCartViewset(viewsets.ModelViewSet):
                     
                     autotdfor_setup = Systemsetup.objects.filter(title='autoTDForAlacarte',
                     value_name='autoTDForAlacarte',isactive=True).first()
-                    if cart.type == 'Deposit' and int(stock_obj.item_div) == 3 and stock_obj.item_type != 'PACKAGE' and autotdfor_setup and autotdfor_setup.value_data == 'True' and req['is_service'] == True:
-                        print("iff")
+                    if cart.type == 'Deposit' and int(stock_obj.item_div) == 3 and stock_obj.item_type != 'PACKAGE' and autotdfor_setup and autotdfor_setup.value_data == 'True' and 'is_service' in req and req['is_service'] == True:
+                        # print("iff")
                         empobj= fmspw[0].Emp_Codeid
                         tdf =create_tdstaff(cart,empobj,stock_obj,site)
 

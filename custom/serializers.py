@@ -297,7 +297,7 @@ class ExchangeProductSerializer(serializers.Serializer):
 class SmtpSettingsSerializer(serializers.ModelSerializer):
 
     sitecode = serializers.CharField(source='site_codeid.itemsite_code',required=False)
-    site_codeid = serializers.CharField(source='site_codeid.itemsite_desc',required=False)
+    # site_codeid = serializers.CharField(source='site_codeid.itemsite_desc',required=False)
 
     class Meta:
         model = SmtpSettings

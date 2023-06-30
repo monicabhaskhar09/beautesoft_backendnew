@@ -1954,7 +1954,9 @@ class CustApptSerializer(serializers.ModelSerializer):
         'cust_corporate': instance.cust_corporate,
         'contactperson': contactperson,
         'outstanding_amt': "{:.2f}".format(float(instance.outstanding_amt)) if instance.outstanding_amt else "0.00",
-        'cust_joindate':cust_joindate,'or_key':or_key,'isoutlet_resrict':isoutlet_restrict}
+        'cust_joindate':cust_joindate,'or_key':or_key,'isoutlet_resrict':isoutlet_restrict,
+        'cust_point_value' : "{:.2f}".format(instance.cust_point_value) if instance.cust_point_value else "0.00"
+        }
         return mapped_object    
 
    
@@ -3741,4 +3743,39 @@ class invoicetemplateConfigSerializer(serializers.ModelSerializer):
     class Meta:
         model = invoicetemplate
         fields = ['id','name','isactive','checked',
-        'type']  
+        'type'] 
+
+# class ManualRewardPointDtlSerializer(serializers.ModelSerializer):
+   
+#     class Meta:
+#         model = CustomerPointDtl
+#         fields = ['id','itm_desc']         
+
+class ManualRewardPointSerializer(serializers.ModelSerializer):
+    date = serializers.DateTimeField(format="%d-%m-%Y",required=False)
+    time = serializers.DateTimeField(format='%I:%M %p',required=False)
+
+
+   
+    class Meta:
+        model = CustomerPoint
+        fields = ['id','transacno','date','username','time','cust_name','type','refno','ref_source',
+        'sa_status','total_point','now_point','remarks','bal_point','approval_user','postransactionno'] 
+        read_only_fields = ('transacno','time','refno','sa_status') 
+
+    def to_representation(self, instance):
+        data = super(ManualRewardPointSerializer, self).to_representation(instance)
+        cust_obj = Customer.objects.filter(cust_code=instance.cust_code,cust_isactive=True).first()
+
+        ptdtl_ids = CustomerPointDtl.objects.filter(transacno=instance.transacno,cust_code=instance.cust_code).order_by('pk').first()
+        # serializer = ManualRewardPointDtlSerializer(ptdtl_ids, many=True)     
+
+        # data['custpointdtl'] = serializer.data
+        data['customer_id'] = cust_obj.pk if cust_obj else ""
+        data['total_point'] = "{:.2f}".format(instance.total_point) if instance.total_point else "0.00" 
+        data['now_point'] = "{:.2f}".format(instance.now_point) if instance.now_point else "0.00" 
+        data['bal_point'] = "{:.2f}".format(instance.bal_point) if instance.bal_point else "0.00"
+        data['itm_desc'] = ptdtl_ids.itm_desc if ptdtl_ids and ptdtl_ids.itm_desc else ""
+        data['qty'] = ptdtl_ids.qty if ptdtl_ids and ptdtl_ids.qty else ""
+                        
+        return data      

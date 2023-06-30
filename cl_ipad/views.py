@@ -718,7 +718,7 @@ class WebConsultationQuestionMultichoiceViewset(viewsets.ModelViewSet):
 
         q_ids = WebConsultation_Question.objects.filter(id=questionid)  
         if not q_ids:
-            raise Exception('WebConsultation_Question ID does not') 
+            raise Exception('WebConsultation_Question ID does not exist') 
     
         
         queryset = WebConsultation_QuestionMultichoice.objects.filter(questionid__pk=questionid).order_by('-pk')

@@ -73,6 +73,11 @@ class WebConsultationQuestionSerializer(serializers.ModelSerializer):
         'options','sub_question_english','sub_question_chinese')
         data['sub_questions'] = qcho_ids
 
+        image = ""
+        if obj.image:
+            image = str(SITE_ROOT)+str(obj.image)
+         
+        data['image'] = image
 
         return data               
 
@@ -113,7 +118,25 @@ class WebConsultation_Referral_HdrSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = WebConsultation_Referral_Hdr
-        fields = '__all__'                        
+        fields = '__all__'            
+
+    def to_representation(self, obj):
+        data = super(WebConsultation_Referral_HdrSerializer, self).to_representation(obj)
+
+        signature_img = ""
+        if obj.signature_img:
+            signature_img = str(SITE_ROOT)+str(obj.signature_img)
+         
+        data['signature_img'] = signature_img
+
+        welcomedoor_signatureimg = ""
+        if obj.welcomedoor_signatureimg:
+            welcomedoor_signatureimg = str(SITE_ROOT)+str(obj.welcomedoor_signatureimg)
+         
+        data['welcomedoor_signatureimg'] = welcomedoor_signatureimg 
+
+        return data      
+                
 
 class TransactionCustomerSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source='pk',required=False)

@@ -373,10 +373,22 @@ class CatalogItemRangeViewset(viewsets.ModelViewSet):
                             if item_id:
                                 queryset = ItemRange.objects.filter(itm_dept=item_id.itm_code, isservice=True,itm_status=True).order_by('pk')
                         
-                        elif request.GET.get('type', None) in ['RETAIL','PREPAID','VOUCHER']:
+                        elif request.GET.get('type', None) == 'RETAIL':
                             branditem_id = ItemBrand.objects.filter(pk=request.GET.get('Item_Deptid',None), itm_status=True).first()
                             if branditem_id:
-                                queryset = ItemRange.objects.filter(itm_brand=branditem_id.itm_code,itm_status=True).order_by('pk')
+                                queryset = ItemRange.objects.filter(itm_brand=branditem_id.itm_code,itm_status=True,isproduct=True).order_by('pk')
+                        elif request.GET.get('type', None) == 'PREPAID':
+                            branditem_id = ItemBrand.objects.filter(pk=request.GET.get('Item_Deptid',None), itm_status=True).first()
+                            if branditem_id:
+                                queryset = ItemRange.objects.filter(itm_brand=branditem_id.itm_code,itm_status=True,isprepaid=True).order_by('pk')
+
+                        elif request.GET.get('type', None) == 'VOUCHER':
+                            branditem_id = ItemBrand.objects.filter(pk=request.GET.get('Item_Deptid',None), itm_status=True).first()
+                            if branditem_id:
+                                queryset = ItemRange.objects.filter(itm_brand=branditem_id.itm_code,itm_status=True,isvoucher=True).order_by('pk')
+
+
+                        
                         if not item_id and not branditem_id:
                             result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Dept id does not exist!!",'error': True} 
                             return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
