@@ -25698,7 +25698,7 @@ class AvailableTimeSlotsAPIView(GenericAPIView):
                         if field_lst:
                             for key in field_lst:
                                 # print(key,"key")
-                                if field_lst[key] == False and timedata[key] not in val['time_slots']:
+                                if (field_lst[key] == False or field_lst[key] == None) and timedata[key] not in val['time_slots']:
                                     val['time_slots'].append(timedata[key])
                             main_lst.append(val)            
                      
@@ -25762,7 +25762,7 @@ class OnlineBookingDateSlotsViewset(viewsets.ModelViewSet):
                         if field_lst:
                             for key in field_lst:
                                 # print(key,"key")
-                                if field_lst[key] == False and timedata[key] not in avail_timeslots:
+                                if (field_lst[key] == False or field_lst[key] == None) and timedata[key] not in avail_timeslots:
                                     avail_timeslots.append(timedata[key])
 
                 if avail_timeslots != []:                
@@ -25812,12 +25812,12 @@ class OnlineBookingDateSlotsViewset(viewsets.ModelViewSet):
                     if field_lst:
                         for key in field_lst:
                             # print(key,"key")
-                            if field_lst[key] == False and timedata[key] not in avail_timeslots:
+                            if (field_lst[key] == False or field_lst[key] == None) and timedata[key] not in avail_timeslots:
                                 avail_timeslots.append(timedata[key])
 
             
             result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
-            'data':  {"available_dates": avail_timeslots}}
+            'data':  {"available_slots": avail_timeslots}}
             return Response(data=result, status=status.HTTP_200_OK)
 
         except Exception as e:

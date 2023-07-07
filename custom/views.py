@@ -45,7 +45,7 @@ TreatmentAccount, PosDaud, ItemDept, DepositAccount, PrepaidAccount, ItemDiv, Sy
 PackageHdr,PackageDtl,Paytable,Multistaff,ItemBatch,Stktrn,ItemUomprice,Holditemdetail,CreditNote,
 CustomerClass,ItemClass,Tmpmultistaff,Tmptreatment,ExchangeDtl,ItemUom,ItemHelper,PrepaidAccountCondition,
 City, State, Country, Stock,PayGroup,Tempcustsign,Item_MembershipPrice,TreatmentPackage,PrepaidOpenCondition,
-ItemBrand)
+ItemBrand,CustomerPoint)
 from cl_app.models import ItemSitelist, SiteGroup, TmpTreatmentSession,TmpItemHelperSession
 from cl_table.serializers import (PostaudSerializer,StaffsAvailableSerializer,PosdaudSerializer,TmpItemHelperSerializer,
 PrepaidOpenConditionSerializer)
@@ -6541,7 +6541,7 @@ class ReceiptPdfSend(APIView):
                 prepaid_amt = 0.0   
             credit = CreditNote.objects.filter(cust_code=hdr[0].sa_custno, status='OPEN'
             ).only('cust_code','status').order_by('pk').aggregate(amount=Coalesce(Sum('balance'), 0))
-            if credit['amount'] > 0.0:
+            if credit and credit['amount'] > 0.0:
                 credit_amt = "{:.2f}".format(credit['amount'])
             else:
                 credit_amt = "0.00"  
@@ -6634,7 +6634,17 @@ class ReceiptPdfSend(APIView):
             if discper_setup and discper_setup.value_data == 'True':
                 discper = True
             else:
-                discper = False           
+                discper = False   
+            
+            today_date = timezone.now().date()
+
+            #today point
+            point_ids = CustomerPoint.objects.filter(cust_code=hdr[0].sa_custno,type="Reward",date__date=today_date,
+            ref_source="Sales",isvoid=False,sa_status="SA").order_by('pk').aggregate(total_point=Coalesce(Sum('total_point'), 0))
+            if point_ids and point_ids['total_point'] > 0.0:
+                today_point_amt = int(point_ids['total_point'])
+            else:
+                today_point_amt = 0                
 
             custbal = customer_balanceoutstanding(self,request, hdr[0].sa_custno)
             # print(treatopen_ids,"treatopen_ids")
@@ -6660,7 +6670,8 @@ class ReceiptPdfSend(APIView):
             'gstlable': gstlable,'trans_promo1': title.trans_promo1 if title and title.trans_promo1 else '',
             'trans_promo2' : title.trans_promo2 if title and title.trans_promo2 else '',
             'voucher_lst':voucher_lst,'voucherbal':voucherbal,
-            'discreason': discreason,'discper' : discper,
+            'discreason': discreason,'discper' : discper,'today_point_amt':today_point_amt,
+            'cust_point_value' : int(hdr[0].sa_custnoid.cust_point_value) if hdr[0].sa_custnoid and hdr[0].sa_custnoid.cust_point_value and hdr[0].sa_custnoid.cust_point_value > 0 else 0
             }
             data.update(sub_data)
             data.update(custbal)
