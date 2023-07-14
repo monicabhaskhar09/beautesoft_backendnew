@@ -105,10 +105,10 @@ WSGI_APPLICATION = 'Cl_beautesoft.wsgi.application'
 # DATABASES = {
 #     'default': {
 #         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-#         'NAME': 'beautesoft_db',
-#         'USER': 'admin',
-#         'PASSWORD': 'Doodle@123',
-#         'HOST': 'localhost',
+#         'NAME': 'jybeauty',
+#         'USER': 'monica',
+#         'PASSWORD': 'Monica@Doodle',
+#         'HOST': '103.253.14.235',
 #         'PORT': '5432',
 #     }
 # }
@@ -151,7 +151,7 @@ WSGI_APPLICATION = 'Cl_beautesoft.wsgi.application'
 # DATABASES = {
 #     'default': {
 #         'ENGINE': 'sql_server.pyodbc',
-#         'NAME': 'esthetic',
+#         'NAME': 'essentials',
 #         'HOST': '103.253.14.235',
 #         'PORT': '8890',
 #         'USER': 'monica',
@@ -287,7 +287,7 @@ EMAIL_USE_TLS = True
 EMAIL_USE_SSL = False
 EMAIL_PORT = 587
 EMAIL_HOST_USER = 'noreplybeautesoft@gmail.com'
-EMAIL_HOST_PASSWORD = 'vnyawmeuzdnmtlky'
+EMAIL_HOST_PASSWORD = 'wtdwakaibtuqctbi'
 
 SMS_SECRET_KEY = "JBSWY3DPEHPK3VAG"
 SMS_ACCOUNT_SID = 'AC908cc6d0a44dc2a10ad84fea39d791ae'

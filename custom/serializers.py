@@ -256,7 +256,7 @@ class PosPackagedepositSerializer(serializers.ModelSerializer):
 
     def get_net_amt(self, obj):
         if obj.price and obj.qty:
-            netamt = obj.price * obj.qty
+            netamt = round(obj.price * obj.qty)
         else:
             netamt =  0.00
         return netamt        
@@ -272,7 +272,6 @@ class PosPackagedepositSerializer(serializers.ModelSerializer):
                 return is_td
         else:
             return is_td
-        return netamt 
 
     class Meta:
         model = PosPackagedeposit

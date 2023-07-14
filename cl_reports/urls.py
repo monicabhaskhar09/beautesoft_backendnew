@@ -11,12 +11,12 @@ router.register(r'reportmaster', views.ReportmasterViewset, basename='reportmast
 
 
 urlpatterns = [
-    path('api/', include(router.urls)),
-    path('api/listpaytable/', views.PaymentPaytableListAPIView.as_view(), name='listpaytable'),
-    path('api/sitelisting/', views.siteListingAPIView.as_view(), name='sitelisting'),
-    # path('api/report-title/', views.ReportTitleAPIView.as_view(), name='report-title'),
-    path('api/collectionbyoutlet/', views.CollectionbyOutletReportAPIView.as_view(), name='collectionbyoutlet'),
-    path('api/treatmentdonereport/', views.TreatmentDoneReportAPIView.as_view(), name='treatmentdonereport'),
+    path('be/api/', include(router.urls)),
+    path('be/api/listpaytable/', views.PaymentPaytableListAPIView.as_view(), name='listpaytable'),
+    path('be/api/sitelisting/', views.siteListingAPIView.as_view(), name='sitelisting'),
+    # path('be/api/report-title/', views.ReportTitleAPIView.as_view(), name='report-title'),
+    path('be/api/collectionbyoutlet/', views.CollectionbyOutletReportAPIView.as_view(), name='collectionbyoutlet'),
+    path('be/api/treatmentdonereport/', views.TreatmentDoneReportAPIView.as_view(), name='treatmentdonereport'),
 
 
 

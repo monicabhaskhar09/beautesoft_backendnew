@@ -2861,9 +2861,9 @@ class TreatmentDoneNewViewset(viewsets.ModelViewSet):
 
     #new code given by yoouns
     def list(self, request):
-        # try:
+        try:
             now = timezone.now()
-            print(str(now.hour) + '  ' +  str(now.minute) + '  ' +  str(now.second),"Start hour, minute, second\n")
+            # print(str(now.hour) + '  ' +  str(now.minute) + '  ' +  str(now.second),"Start hour, minute, second\n")
            
             fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
             site = fmspw[0].loginsite
@@ -2936,8 +2936,11 @@ class TreatmentDoneNewViewset(viewsets.ModelViewSet):
 
             tmp_ids = list(set(TmpItemHelper.objects.filter(treatment__Cust_Codeid__pk=cust_obj.pk,
             site_code=site.itemsite_code,created_at__date=date.today(),line_no__isnull=True).values_list('treatment__treatment_parentcode', flat=True).distinct()))   
-             
 
+            parentcode_ids =  list(set(queryset.filter().order_by('-pk').values_list('treatment_parentcode', flat=True).distinct()))
+            treat_parids = list(set(Treatment.objects.filter(treatment_parentcode__in=parentcode_ids,status="Open").filter(~Q(sa_status='SU')).order_by('-pk').values_list('treatment_parentcode', flat=True).distinct()))    
+            queryset = TreatmentPackage.objects.filter(treatment_parentcode__in=treat_parids).order_by('-pk')
+            
             if queryset:
                 full_tot = queryset.count()
                 try:
@@ -2961,8 +2964,8 @@ class TreatmentDoneNewViewset(viewsets.ModelViewSet):
                 data_list= []
                 for row in queryset:
                     trmt_obj = row ;is_allow=False
-                    print(trmt_obj,trmt_obj.pk,"trmt_obj")
-                    print(trmt_obj.Item_Codeid,"trmt_obj.Item_Codeid")
+                    # print(trmt_obj,trmt_obj.pk,"trmt_obj")
+                    # print(trmt_obj.Item_Codeid,"trmt_obj.Item_Codeid")
                     a = row.item_code
                     v = a[-4:]
                     # print(v,type(v),"v")
@@ -3061,9 +3064,9 @@ class TreatmentDoneNewViewset(viewsets.ModelViewSet):
                     
                 }
                 now1 = timezone.now()
-                print(str(now1.hour) + '  ' +  str(now1.minute) + '  ' +  str(now1.second),"End hour, minute, second\n")
+                # print(str(now1.hour) + '  ' +  str(now1.minute) + '  ' +  str(now1.second),"End hour, minute, second\n")
                 totalh = now1.second - now.second
-                print(totalh,"total")
+                # print(totalh,"total")
 
                
                 result = {'status': status.HTTP_200_OK,"message": "Listed Succesfully",
@@ -3087,9 +3090,9 @@ class TreatmentDoneNewViewset(viewsets.ModelViewSet):
                 'totaltdlines' : len(tmp_ids),
                 }
             return Response(data=result, status=status.HTTP_200_OK) 
-        # except Exception as e:
-        #     invalid_message = str(e)
-        #     return general_error_response(invalid_message)          
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)          
 
 
     @transaction.atomic

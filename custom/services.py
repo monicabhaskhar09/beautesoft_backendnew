@@ -483,7 +483,8 @@ def GeneratePDF(self,request, sa_transacno):
     'trans_promo2' : title.trans_promo2 if title and title.trans_promo2 else '',
     'voucher_lst':voucher_lst,'voucherbal':voucherbal,
     'discreason': discreason,'discper' : discper,'today_point_amt':today_point_amt,
-    'cust_point_value' : int(hdr[0].sa_custnoid.cust_point_value) if hdr[0].sa_custnoid and hdr[0].sa_custnoid.cust_point_value and hdr[0].sa_custnoid.cust_point_value > 0 else 0
+    'cust_point_value' : int(hdr[0].sa_custnoid.cust_point_value) if hdr[0].sa_custnoid and hdr[0].sa_custnoid.cust_point_value and hdr[0].sa_custnoid.cust_point_value > 0 else 0,
+    'title': title
     }
     data.update(sub_data)
     data.update(custbal)

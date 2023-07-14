@@ -50,7 +50,7 @@ router.register(r'projectdocument', views.ProjectDocumentViewset, basename='proj
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api-auth/', include('rest_framework.urls')),
-    path('api/', include(router.urls)),
+    path('be/api/', include(router.urls)),
     path('', include('cl_table.urls')),
     path('', include('custom.urls')),
     path('', include('cl_app.urls')),

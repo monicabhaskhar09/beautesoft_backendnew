@@ -13,7 +13,7 @@ router.register(r'employeesalary', views.EmployeeSalaryViewset)
 
 # The API URLs are now determined automatically by the router.
 urlpatterns = [
-    path('api/', include(router.urls)),
+    path('be/api/', include(router.urls)),
     
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 

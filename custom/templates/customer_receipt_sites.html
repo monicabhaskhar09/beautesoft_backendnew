@@ -44,8 +44,8 @@ td {
   text-align: center;
 }
 th {
-  border-top: 1px solid black;
-  border-bottom: 1px solid black;
+  border-top: 1px dashed black;
+  border-bottom: 1px dashed black;
   text-align: center;
 }
 .split {
@@ -74,8 +74,7 @@ img.sticky {
   position: -webkit-sticky;
   position: sticky;
   top: 0;
-  /* width: 200px; */
-}
+  width: 200px;}
 .column {
   float: left;
   width: 33.33%;
@@ -97,21 +96,53 @@ fix {
     right: 15px;
     text-align: left;
 }
-/* .spaDetails img{ */
+.spaDetails img{
         /* border-radius: 50%; */
-        /* width: 8rem; */
-        /* height: 8rem; */
-/* } */
+        width: 8rem;
+        height: 8rem;
+}
 .spaDetails h4{
         font-weight: 700;
 }
 .spaDetails p{
         margin-bottom: 0;
-        font-size: 15px;
+        font-size: 14px;
 }
 body{
   padding: 20px;
 }
+/* #leftdiv {
+  height: 40px;
+  width: 68%;
+  float: left;
+}
+
+#rightdiv {
+    height: 40px;
+    width: 38%;
+    float: right;
+    text-align: right;
+} */
+#leftbox {
+      float:left;
+      /* background:Red; */
+      width:25%;
+      height:150px;
+  }
+#middlebox{
+      float:left;
+      /* background:Green; */
+      width:50%;
+      height:150px;
+  }
+#rightbox{
+      float:right;
+      /* background:blue; */
+      width:25%;
+      height:150px;
+  }
+
+
 </style>
 </head>
 {% load static %}
@@ -119,21 +150,22 @@ body{
 
 <body>
 
+  
   <div class="container-fluid">
-    <div class="container">
-      <div class="row  spaDetails" style="float: left;">
-        <div class="col-xs-4 d-flex" >
-          <img src="{{path}}" width="280" height="88" alt="">
-        </div>
-        <div class="col-xs-8 pl-3" style="text-align:center; margin-left: 40px;">
-          <h4><b>{{name}}</b></h4>
-          <p>
-            {% if company_reg_no %} <b>UEN :</b> {{ company_reg_no }} {% endif %} {% if gst_reg_no %} &nbsp; <b>GST Reg No :</b> {{ gst_reg_no }} {% endif %}
-          </p>
-          <p>{{address}}</p>
-        </div>
+    <div id = "boxes">
+      
+      <div id="leftbox" >
+        <img  src="{{path}}"  width="225" height="100" alt="">
       </div>
-      <div class="row  spaDetails" style="float: right; text-align: left; margin-right: 60px;">
+      <div id = "middlebox" style="font-size: 14px;">
+        <h5>{{name}}</h5>
+        <p>
+          {% if company_reg_no %} <b>UEN :</b> {{ company_reg_no }} {% endif %} {% if gst_reg_no %} &nbsp; <b>GST Reg No :</b> {{ gst_reg_no }} {% endif %}
+        </p>
+        <p>{{address}}</p>
+      </div>
+   
+      <div id="rightbox" style="text-align: right">
         {% if hdr.sa_transacno_type == "Receipt" %}
           <h5>TAX INVOICE</h5>
         {% elif hdr.sa_transacno_type == "Redeem Service" %}  
@@ -144,27 +176,21 @@ body{
           <h5>Void Transaction</h5>  
         {% else %}
           <h5></h5> 
-        {% endif %}    
+        {% endif %} 
+      
+        <p style="font-size: 15px;line-height: 6px;">Outstanding : {{ treatment_outstanding|floatformat:2 }}</p>  
+        <p style="font-size: 15px;line-height: 6px">Prepaid : {{ prepaid_bal|floatformat:2 }}</p> 
+        <!-- <p style="font-size: 15px;line-height: 6px">Credit Note : {{ creditnote_balance|floatformat:2 }}</p>   
+        <p style="font-size: 15px;line-height: 6px">Today Point : {{ today_point_amt }}</p>   
+        <p style="font-size: 15px;line-height: 6px">Total Point : {{ cust_point_value }}</p>    -->
+
       </div>  
     </div>
+   
 
-		<!-- <div>
-			<div>
-				<img src="{{path}}" width="85" height="85" alt="">
-      </div>
-      <div style="font-size: 14px;line-height: 10px;">
-        <h5>{{name}}</h5>
-        <p><b>UEN :</b> {{ company_reg_no }} &nbsp; <b>GST Reg No :</b> {{ gst_reg_no }}</p>
-        <p>{{address}}</p>
-      </div>
-    </div> -->
-    <br />
-    <br />
-    <br />
-    <br />
-    <div class="clearfix mt-5">
+    <div class="clearfix mt-5" >
       <div class="box">
-        <div class="split" style="font-size: 16px;line-height: 10px">
+        <div class="split" style="font-size: 15px;line-height: 10px">
           <br>
           <br>
           <p><b>Code:</b> {{ hdr.sa_custno }} </p>
@@ -182,7 +208,7 @@ body{
           {% endif %}
           </p>
         </div>
-        <div class="split right" style="font-size: 16px;line-height: 10px; text-align: right; margin-right: 40px;">
+        <div class="split right" style="font-size: 15px;line-height: 10px">
           <br>
           <br>
           <p><b>Trans #: </b> {{ hdr.sa_transacno_ref }} </p>
@@ -194,6 +220,7 @@ body{
     </div>
 
     {% load mathfilters %}
+
 
     <table cellspacing="15" cellpadding="10" style="font-size: 15px;" >
       <tr>
@@ -317,14 +344,13 @@ body{
         <th></th>
       </tr>
   
-
       <tr>
         <td></td>
         <td></td>
         <td></td>
         <td></td>
         <td></td>
-        <td colspan="2"><span style="font-weight:bold; font-size: 16px;"></span>Sub Total:</td>
+        <td colspan="2"><span style="font-weight:bold"></span>Sub Total:</td>
         {% if d.dt_status == "SA" and d.record_detail_type == "TD" %}
           <td><span style="font-weight:bold"></span>$ {{ "0.00" }}</td>
         {% else %}
@@ -333,15 +359,13 @@ body{
       </tr>
       </table>
 
-    <br />
-
       <div class="split">
-        <div >
+        <div class="box">
         <th></th>
         <table style="border-collapse: collapse;" cellspacing="2" cellpadding="5" width="20%">
           <tr>
             <th>No</th>
-            <th>Mode of payment</th>
+            <th>Type</th>
             <th>Amount</th>
           </tr>
           {% for taud in postaud %}
@@ -378,7 +402,7 @@ body{
       
      <br/>
      
-     <div style="padding-top: 20%">
+     <div class="box" style="padding-top: 30%">
       
       <div class="split" style="font-size: 15px;line-height: 10px">
         <td style="text-align: left;font-size: 15px;float: left;"><h5>Remarks:</h5>  <td>
@@ -454,27 +478,29 @@ body{
             {% if custsign_ids %}
               <img src="{{custsign_ids}}" width="85" height="85" alt="" style="padding-left: 30px;padding-bottom:20px;"> 
             {% endif %}
-              <p style="border-top: 1px dashed black;padding-top:10px;"><b>Customer Signature</b></p> 
+            <p style="border-top: 1px dashed black;padding-top:10px;"><b>Customer Signature</b></p> 
             </div>
         </div>
-        <div style="min-height: 5px;">
-
-          
-          {% for taud in postaud %}
-            <tr>
-              <p style="font-size: 14px;"> {% if taud.pay_rem4 %} {{ taud.pay_rem4 }} {% else %} {% endif %} </p>
-            </tr> 
-          {% endfor %} 
-
-          <p style="font-size: 14px;"> {% if footer1 %} {{ footer1 }} {% else %} {% endif %} </p>
-          <p style="font-size: 14px;"> {% if footer2 %} {{ footer2 }} {% else %} {% endif %} </p>
-          <p style="font-size: 14px;">{% if footer3 %} {{ footer3 }} {% else %} {% endif %} </p>
-          <p style="font-size: 14px;">{% if footer4 %} {{ footer4 }} {% else %} {% endif %}</p>
-          <p style="font-size: 14px;">{% if footer5 %} {{ footer5 }} {% else %} {% endif %}</p>
-          <p style="font-size: 14px;">{% if footer6 %} {{ footer6 }} {% else %} {% endif %}</p>
-        </div>
+       
   
       </div>
+     
+    </div>
+
+    <div style="padding-top: 25%" >
+
+      {% for taud in postaud %}
+        <tr>
+          <p style="font-size: 15px;line-height: 5px"> {% if taud.pay_rem4 %} {{ taud.pay_rem4 }} {% else %} {% endif %} </p>
+        </tr> 
+      {% endfor %} 
+
+      <p style="font-size: 15px;line-height: 5px"> {% if footer1 %} {{ footer1 }} {% else %} {% endif %} </p>
+      <p style="font-size: 15px;line-height: 5px"> {% if footer2 %} {{ footer2 }} {% else %} {% endif %} </p>
+      <p style="font-size: 15px;line-height: 5px">{% if footer3 %} {{ footer3 }} {% else %} {% endif %} </p>
+      <p style="font-size: 15px;line-height: 5px">{% if footer4 %} {{ footer4 }} {% else %} {% endif %}</p>
+      <p style="font-size: 15px;line-height: 5px">{% if title and title.trans_message1 %} {{ title.trans_message1 }} {% else %} {% endif %}</p>
+      <!-- <p style="font-size: 15px;">{% if footer6 %} {{ footer6 }} {% else %} {% endif %}</p> -->
     </div>
 
      

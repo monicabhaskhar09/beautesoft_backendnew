@@ -11360,13 +11360,14 @@ class CustomerReceiptPrintList(generics.ListAPIView):
                 
                 footer = {'remark':hdr[0].trans_remark if hdr[0].trans_remark else '','footer1':title.trans_footer1 if title.trans_footer1 else '','footer2':title.trans_footer2 if title.trans_footer2 else '',
                 'footer3':title.trans_footer3 if title.trans_footer3 else '','footer4':title.trans_footer4 if title.trans_footer4 else '',
-                'footer5':title.trans_footer5 if title.trans_footer5 else '','footer6':title.trans_footer6 if title.trans_footer6 else ''
+                'footer5':title.trans_footer5 if title.trans_footer5 else '','footer6':title.trans_footer6 if title.trans_footer6 else '',
+                'trans_message1': title.trans_message1 if title.trans_message1 else ''
                 }
             else:
                 company_hdr = {'logo':'','name':'','address':'','email': '',
                 'gst_reg_no': '','company_reg_no': '','cust_sig':cust_sig}
                 footer = {'remark':hdr[0].trans_remark if hdr[0].trans_remark else '','footer1':'','footer2':'','footer3':'','footer4':'',
-                'footer5':'','footer6':''}
+                'footer5':'','footer6':'','trans_message1':''}
                     
             company_hdr.update({'comp_title3': title.comp_title3 if title and title.comp_title3 else '',
             'comp_title4': title.comp_title4 if title and title.comp_title4 else ''}) 
@@ -25728,6 +25729,157 @@ class OnlineBookingDateSlotsViewset(viewsets.ModelViewSet):
 
             fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
             site = fmspw.loginsite 
+            startday_hour = site.startday_hour
+            # print(startday_hour,"startday_hour")
+            endday_hour = site.endday_hour
+            # print(endday_hour,"endday_hour")
+
+            start_date = date.today()
+            # print(start_date,"start_date")
+            n_days_ago = start_date - timedelta(days=2)
+            # print(n_days_ago,"n_days_ago")
+
+            # end_date = date.today() + timedelta(days=14)
+            end_date = date.today() + relativedelta.relativedelta(months=+2)
+            # print(end_date,"end_date")
+            date_range = [(n_days_ago + datetime.timedelta(days=i)).strftime('%Y-%m-%d') for i in range(0, (end_date - start_date).days + 1)]
+            # print(date_range,"date_range")
+
+            emp_siteids = list(set(EmpSitelist.objects.filter(Site_Codeid__pk=site.pk,isactive=True,Emp_Codeid__emp_isactive=True,Emp_Codeid__show_in_appt=True).values_list('Emp_Codeid', flat=True).distinct()))
+            # print(emp_siteids,"emp_siteids")
+            # emp_queryset = Employee.objects.filter(pk__in=emp_siteids,emp_isactive=True,
+            # show_in_appt=True,show_in_trmt=True) 
+            main_lst = []
+            
+            for i in date_range:
+                avail_timeslots = []
+                # print(i,"i")
+                month_ids = ScheduleMonth.objects.filter(itm_date__date=i,Emp_Codeid__pk__in=emp_siteids,
+                site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007'))
+                # print(month_ids,"month_ids")
+                if month_ids:
+                    for m in month_ids:
+                        field_lst = ScheduleMonth.objects.filter(pk=m.pk
+                            ).values('time07','time0730','time08',
+                            'time0830','time09','time0930','time10','time1030','time11',
+                            'time1130','time12','time1230','time13','time1330','time14',
+                            'time1430','time15','time1530','time16','time1630','time17',
+                            'time1730','time18','time1830','time19','time1930','time20',
+                            'time2030','time21','time2130','time22','time2230','time23',
+                            'time2330')[0] 
+                        # print(field_lst,"field_lst") 
+                        
+                        if field_lst and startday_hour and endday_hour:
+                            for key in field_lst:
+                                # print(key,"key")
+                                # print(float(startday_hour),float(endday_hour),"startday_hour")
+                                t = str(timedata[key]).split(':')
+                                d = float(t[0]+"."+t[1])
+                                # print(d,"d")
+                                # print(d >= float(startday_hour) and d <= float(endday_hour),"ll")
+                                if d >= float(startday_hour) and d <= float(endday_hour):
+                                    if (field_lst[key] == False or field_lst[key] == None) and timedata[key] not in avail_timeslots:
+                                        avail_timeslots.append(timedata[key])
+
+                if avail_timeslots != [] and i not in main_lst:                
+                    main_lst.append(i)       
+        
+
+            result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
+            'data':  {"available_dates": main_lst}}
+            return Response(data=result, status=status.HTTP_200_OK)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+
+
+    @action(detail=False, methods=['get'], name='getavailableslots')
+    def getavailableslots(self, request):
+        try: 
+            global timedata
+
+            fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+            site = fmspw.loginsite 
+            startday_hour = site.startday_hour
+            # print(startday_hour,"startday_hour")
+            endday_hour = site.endday_hour
+            # print(endday_hour,"endday_hour")
+
+            given_date = self.request.GET.get('given_date',None)
+            if not given_date:
+                raise ValueError("Please select given_date!!")
+
+            todaydate = timezone.now().date() 
+            n_days_ago = todaydate - timedelta(days=2)
+            # print(n_days_ago,"n_days_ago")
+            appt_date = datetime.datetime.strptime(str(given_date), "%Y-%m-%d").date()
+            
+
+            if appt_date < n_days_ago:
+                # apptprevious_setup = Systemsetup.objects.filter(title='AllowPreviousDateAppointment',
+                # value_name='AllowPreviousDateAppointment',isactive=True).first()
+
+                # if apptprevious_setup and apptprevious_setup.value_data == 'False':
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cant Book Appointments for Past 2 days time slots!!",'error': True} 
+                return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+     
+           
+            emp_siteids = list(set(EmpSitelist.objects.filter(Site_Codeid__pk=site.pk,isactive=True,Emp_Codeid__emp_isactive=True,Emp_Codeid__show_in_appt=True).values_list('Emp_Codeid', flat=True).distinct()))
+            # print(emp_siteids,"emp_siteids")
+            # emp_queryset = Employee.objects.filter(pk__in=emp_siteids,emp_isactive=True,
+            # show_in_appt=True,show_in_trmt=True) 
+            
+            avail_timeslots = []
+            month_ids = ScheduleMonth.objects.filter(itm_date__date=given_date,Emp_Codeid__pk__in=emp_siteids,
+            site_code=site.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007'))
+            # print(month_ids,"month_ids")
+            if month_ids:
+                for m in month_ids:
+                    field_lst = ScheduleMonth.objects.filter(pk=m.pk
+                        ).values('time07','time0730','time08',
+                        'time0830','time09','time0930','time10','time1030','time11',
+                        'time1130','time12','time1230','time13','time1330','time14',
+                        'time1430','time15','time1530','time16','time1630','time17',
+                        'time1730','time18','time1830','time19','time1930','time20',
+                        'time2030','time21','time2130','time22','time2230','time23',
+                        'time2330')[0] 
+                    # print(field_lst,"field_lst") 
+                    
+                    if field_lst and startday_hour and endday_hour:
+                        for key in field_lst:
+                            # print(key,"key")
+                            # print(float(startday_hour),float(endday_hour),"startday_hour")
+                            t = str(timedata[key]).split(':')
+                            d = float(t[0]+"."+t[1])
+                            # print(d,"d")
+                            # print(d >= float(startday_hour) and d <= float(endday_hour),"ll")
+                            if d >= float(startday_hour) and d <= float(endday_hour):
+                                if (field_lst[key] == False or field_lst[key] == None) and timedata[key] not in avail_timeslots:
+                                    avail_timeslots.append(timedata[key])
+
+            
+            result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
+            'data':  {"available_slots": avail_timeslots}}
+            return Response(data=result, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+
+
+class AppointBookingDateSlotsViewset(viewsets.ModelViewSet):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    # queryset = []
+    # serializer_class = []   
+
+    @action(detail=False, methods=['get'], name='getdates')
+    def getdates(self, request):
+        try: 
+            global timedata
+
+            fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+            site = fmspw.loginsite 
             start_date = date.today()
             # print(start_date,"start_date")
             end_date = date.today() + timedelta(days=14)
@@ -25765,7 +25917,7 @@ class OnlineBookingDateSlotsViewset(viewsets.ModelViewSet):
                                 if (field_lst[key] == False or field_lst[key] == None) and timedata[key] not in avail_timeslots:
                                     avail_timeslots.append(timedata[key])
 
-                if avail_timeslots != []:                
+                if avail_timeslots != [] and i not in main_lst:                
                     main_lst.append(i)       
         
 
@@ -25777,8 +25929,8 @@ class OnlineBookingDateSlotsViewset(viewsets.ModelViewSet):
             return general_error_response(invalid_message)
 
 
-    @action(detail=False, methods=['get'], name='getavailableslots')
-    def getavailableslots(self, request):
+    @action(detail=False, methods=['get'], name='getslots')
+    def getslots(self, request):
         try: 
             global timedata
 
@@ -25787,6 +25939,22 @@ class OnlineBookingDateSlotsViewset(viewsets.ModelViewSet):
             given_date = self.request.GET.get('given_date',None)
             if not given_date:
                 raise ValueError("Please select given_date!!") 
+            
+           
+            todaydate = timezone.now().date() 
+            n_days_ago = todaydate - timedelta(days=2)
+            # print(n_days_ago,"n_days_ago")
+            appt_date = datetime.datetime.strptime(str(given_date), "%Y-%m-%d").date()
+            
+
+            if appt_date < n_days_ago:
+                # apptprevious_setup = Systemsetup.objects.filter(title='AllowPreviousDateAppointment',
+                # value_name='AllowPreviousDateAppointment',isactive=True).first()
+
+                # if apptprevious_setup and apptprevious_setup.value_data == 'False':
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cant Book Appointments for 2 Past days time slots!!",'error': True} 
+                return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
            
             emp_siteids = list(set(EmpSitelist.objects.filter(Site_Codeid__pk=site.pk,isactive=True,Emp_Codeid__emp_isactive=True,Emp_Codeid__show_in_appt=True).values_list('Emp_Codeid', flat=True).distinct()))
             # print(emp_siteids,"emp_siteids")
@@ -25823,6 +25991,7 @@ class OnlineBookingDateSlotsViewset(viewsets.ModelViewSet):
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)
+
 
 class InvoiceTemplateConfigViewset(viewsets.ModelViewSet):
     authentication_classes = [ExpiringTokenAuthentication]

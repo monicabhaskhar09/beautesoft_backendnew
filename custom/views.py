@@ -3091,7 +3091,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                                     pos = PosPackagedeposit(code=padtl.code,description=padtl.description,price=padtl.price,
                                     discount=padtl.discount,package_code=padtl.package_code,package_description=packhdr_ids.description,
                                     qty=padtl.qty,unit_price=padtl.unit_price,ttl_uprice=padtl.ttl_uprice,site_code=site.itemsite_code,
-                                    dt_lineno=cart.lineno,status="PENDING",deposit_amt=padtl_deposit,deposit_lineno=padtl.line_no,
+                                    dt_lineno=cart.lineno,status="PENDING",deposit_amt=round(padtl_deposit),deposit_lineno=padtl.line_no,
                                     itemcart=cart)
                                     pos.save()
                                     pos.sa_date = date.today()
@@ -6671,7 +6671,8 @@ class ReceiptPdfSend(APIView):
             'trans_promo2' : title.trans_promo2 if title and title.trans_promo2 else '',
             'voucher_lst':voucher_lst,'voucherbal':voucherbal,
             'discreason': discreason,'discper' : discper,'today_point_amt':today_point_amt,
-            'cust_point_value' : int(hdr[0].sa_custnoid.cust_point_value) if hdr[0].sa_custnoid and hdr[0].sa_custnoid.cust_point_value and hdr[0].sa_custnoid.cust_point_value > 0 else 0
+            'cust_point_value' : int(hdr[0].sa_custnoid.cust_point_value) if hdr[0].sa_custnoid and hdr[0].sa_custnoid.cust_point_value and hdr[0].sa_custnoid.cust_point_value > 0 else 0,
+            'title': title
             }
             data.update(sub_data)
             data.update(custbal)
@@ -6705,12 +6706,16 @@ class ReceiptPdfSend(APIView):
             
             
             smpt_ids = SmtpSettings.objects.filter(email_subject='Customer Invoice',isactive=True).order_by('pk').first()
-            subject = smpt_ids.email_subject
+            subject = smpt_ids.email_subject if smpt_ids and smpt_ids.email_subject else "Customer Invoice"
             to = hdr[0].sa_custnoid.cust_email
             cust_name = hdr[0].sa_custnoid.cust_name
 
-            # html_message = '''Dear {0},\nKindly Find your receipt bill no {1}.\nThank You,'''.format(cust_name,sa_transacno)
-            html_message = smpt_ids.email_content.format(cust_name,sa_transacno)
+             
+            if smpt_ids and smpt_ids.email_content:
+                html_message = smpt_ids.email_content.format(cust_name,sa_transacno)
+            else:
+                html_message = '''Dear {0},\nKindly Find your receipt bill no {1}.\nThank You,'''.format(cust_name,sa_transacno)
+
             
             plain_message = strip_tags(html)
             # email = EmailMessage(subject , html_message, EMAIL_HOST_USER, [to])
@@ -6721,14 +6726,17 @@ class ReceiptPdfSend(APIView):
                 cc = [system_setup.value_data] if system_setup.value_data else []
             else:
                 cc = []  
-           
+            
 
-            connection = get_connection(host=smpt_ids.smtp_serverhost, 
-                                        port=smpt_ids.port, 
-                                        username=smpt_ids.user_email, 
-                                        password=smpt_ids.user_password, 
-                                        use_tls=smpt_ids.email_use_ssl)     
-            msg = EmailMultiAlternatives(subject, html_message, smpt_ids.user_email, [to], cc, connection=connection)
+            connection = get_connection(host=smpt_ids.smtp_serverhost if smpt_ids and smpt_ids.smtp_serverhost else settings.EMAIL_HOST, 
+                                        port=smpt_ids.port if smpt_ids and smpt_ids.port else settings.EMAIL_PORT, 
+                                        username=smpt_ids.user_email if smpt_ids and smpt_ids.user_email else settings.EMAIL_HOST_USER, 
+                                        password=smpt_ids.user_password if smpt_ids and smpt_ids.user_password else settings.EMAIL_HOST_PASSWORD, 
+                                        use_tls=smpt_ids.email_use_tls if smpt_ids and smpt_ids.email_use_tls else settings.EMAIL_USE_TLS)     
+            
+            user_email = smpt_ids.user_email if smpt_ids and smpt_ids.user_email else settings.EMAIL_HOST_USER
+
+            msg = EmailMultiAlternatives(subject, html_message, user_email , [to], cc, connection=connection)
             # msg = EmailMultiAlternatives(subject, html_message, smpt_ids.user_email, [to], cc)
             # msg.attach_alternative('Customer Receipt Report.pdf',result.getvalue(),'application/pdf')
             filename  = "customer_receipt_" + str(str(hdr[0].sa_transacno_ref)) + ".pdf"
