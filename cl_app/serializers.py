@@ -3,13 +3,14 @@ from .models import (SiteGroup,ItemSitelist,ReverseTrmtReason,VoidReason,Treatme
 Treatmentface,VoucherPromo,TmpItemHelperSession)
 from cl_table.models import (ItemDept, ItemRange, Stktrn, Stock, TreatmentAccount, Treatment,DepositAccount,
 PrepaidAccount,PosHaud,PosDaud, Customer, PosTaud,CreditNote,PrepaidAccountCondition,Fmspw,Holditemdetail,
-ItemLink,Systemsetup,Employee,Multistaff,ItemDiv,TreatmentPackage)
+ItemLink,Systemsetup,Employee,Multistaff,ItemDiv,TreatmentPackage,Title)
 from django.utils import timezone
 from django.db.models import Sum
 from custom.views import round_calc
 from custom.models import ItemCart,VoucherRecord,ManualInvoiceModel
 from datetime import date, timedelta, datetime
 import datetime
+from Cl_beautesoft.settings import SITE_ROOT
 
 class SiteGroupSerializer(serializers.ModelSerializer):
     class Meta:
@@ -979,3 +980,63 @@ class SessionTmpItemHelperSerializer(serializers.ModelSerializer):
         data['wp1'] = "{:.2f}".format(float(instance.wp1)) if instance.wp1 else "0.00"
 
         return data      
+
+
+class EcomDeptSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='pk',required=False)
+
+    class Meta:
+        model = ItemDept
+        fields = ['id','itm_code','itm_desc','deptpic']
+    
+    def to_representation(self, instance):
+        data = super(EcomDeptSerializer, self).to_representation(instance)
+        deptpic = ""
+        if instance.deptpic:
+            deptpic = str(SITE_ROOT)+str(instance.deptpic)
+         
+        data['deptpic'] = deptpic
+
+        return data 
+
+
+class EcomStockSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='pk',required=False)
+
+    class Meta:
+        model = Stock
+        fields = ['id','item_name','item_desc',
+        'Stock_PIC','item_code']
+    
+    def to_representation(self, instance):
+        data = super(EcomStockSerializer, self).to_representation(instance)
+        Stock_PIC = ""
+        if instance.Stock_PIC:
+            Stock_PIC = str(SITE_ROOT)+str(instance.Stock_PIC)
+         
+        data['Stock_PIC'] = Stock_PIC
+
+        return data         
+
+class EcomLocationSelectSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='pk',required=False)
+
+    class Meta:
+        model = ItemSitelist
+        fields = ['id','itemsite_code','itemsite_desc']
+    
+    def to_representation(self, instance):
+        # print(instance,"instance")
+        data = super(EcomLocationSelectSerializer, self).to_representation(instance)
+        title = Title.objects.filter(product_license=instance.itemsite_code).first()
+        location_name = "";location_addr = ""
+        if title:
+            if title.trans_h1:
+                location_name = title.trans_h1
+            if title.trans_h2:
+                location_addr = title.trans_h2     
+
+        data['location_name'] = location_name 
+        data['location_addr'] = location_addr 
+        data['item_description'] = ""
+        return data         

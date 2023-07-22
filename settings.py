@@ -51,6 +51,8 @@ INSTALLED_APPS = [
     'custom',
     'clpayroll',
     'cl_ipad',
+    'cl_reports',
+
 ]
 
 MIDDLEWARE = [
@@ -127,6 +129,21 @@ WSGI_APPLICATION = 'Cl_beautesoft.wsgi.application'
 # }
 
 #microsoft sql local server
+
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'sql_server.pyodbc',
+#         'NAME': 'essentials_train',
+#         'HOST': '103.253.14.235',
+#         'PORT': '8890',
+#         'USER': 'monica',
+#         'PASSWORD': 'bigtree',
+#         'OPTIONS': {
+#             'driver': 'ODBC Driver 17 for SQL Server',
+#         }
+#     }
+# }
+
 DATABASES = {
     'default': {
         'ENGINE': 'sql_server.pyodbc',

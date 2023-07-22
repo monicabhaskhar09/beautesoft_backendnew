@@ -56,6 +56,8 @@ router.register(r'transactioninvoices', views.TransactionInvoicesViewset, basena
 router.register(r'treatmentdonenew', views.TreatmentDoneNewViewset, basename='treatmentdonenew')
 router.register(r'voucherpromo', views.VoucherPromoViewset, basename='voucherpromo')
 # router.register(r'sessiontmpitemhelper', views.SessionTmpItemHelperViewset, basename='sessiontmpitemhelper')
+router.register(r'ecomservicesdept', views.EcomServicesDeptViewset, basename='ecomservicesdept')
+router.register(r'ecomservicestock', views.EcomServiceStockViewset, basename='ecomservicestock')
 
 
 
@@ -89,6 +91,7 @@ urlpatterns = [
     path('be/api/voucheraccpage/', views.VoucherAccListAPIView.as_view(), name='treatmentdoneaccpage'),
     path('be/api/holditemaccpage/', views.HoldItemListAPIView.as_view(), name='treatmentdoneaccpage'),
     path('be/api/creditnoteaccpage/', views.CreditNoteListAPIView.as_view(), name='creditnoteaccpage'),
+    path('be/api/ecomlocationselect/', views.EcomLocationSelectAPIView.as_view(), name='ecomlocationselect'),
 
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 

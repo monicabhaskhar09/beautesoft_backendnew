@@ -409,11 +409,20 @@ def GeneratePDF(self,request, sa_transacno):
             prequeryset = PrepaidAccount.objects.filter(cust_code=hdr[0].sa_custno,
             status=True,remain__gt=0,pp_no=ppno,line_no=lineno).only('site_code','cust_code','sa_status').order_by('-pk').first()
             if prequeryset:
-                showprepaid = True
                 pval = {'pp_desc':prequeryset.pp_desc,'remain':"{:.2f}".format(prequeryset.remain)}
                 prepaidlst.append(pval)
-        
-    
+
+    c_prequeryset = PrepaidAccount.objects.filter(cust_code=hdr[0].sa_custno,
+    status=True,remain__gt=0,pp_no=sa_transacno).only('site_code','cust_code','sa_status').order_by('-pk')
+    if c_prequeryset:
+        for pr in c_prequeryset:
+            p_val = {'pp_desc':pr.pp_desc,'remain':"{:.2f}".format(pr.remain)}
+            prepaidlst.append(p_val) 
+
+    if prepaidlst != []:
+        showprepaid = True
+
+
     if hdr[0].isvoid == True and hdr[0].sa_status == "VT":
         showvoidreason = True
     else:

@@ -2588,7 +2588,8 @@ class itemCartViewset(viewsets.ModelViewSet):
                     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give Item price ",'error': False}
                     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
                 else:
-                    if 'price' in req and req['price'] and float(req['price']) == 0.0:
+                    # if 'price' in req and req['price'] and float(req['price']) == 0.0:
+                    if 'price' in req and req['price'] is None:    
                         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give Item price ",'error': False}
                         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
@@ -3412,7 +3413,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give Item price ",'error': False}
                     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
                 else:
-                    if req['price'] and float(req['price']) == 0.0 or not req['price']:
+                    if (req['price'] and float(req['price']) == 0.0) or not req['price']:
                         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give Item price ",'error': False}
                         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
@@ -4244,7 +4245,8 @@ class itemCartViewset(viewsets.ModelViewSet):
                         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give Item price ",'error': False}
                         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
                     else:
-                        if 'price' in req and req['price'] and float(req['price']) == 0.0:
+                        # if 'price' in req and req['price'] and float(req['price']) == 0.0:
+                        if 'price' in req and req['price'] is None:    
                             result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give Item price ",'error': False}
                             return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
 
@@ -6599,9 +6601,18 @@ class ReceiptPdfSend(APIView):
                     prequeryset = PrepaidAccount.objects.filter(cust_code=hdr[0].sa_custno,
                     status=True,remain__gt=0,pp_no=ppno,line_no=lineno).only('site_code','cust_code','sa_status').order_by('-pk').first()
                     if prequeryset:
-                        showprepaid = True
                         pval = {'pp_desc':prequeryset.pp_desc,'remain':"{:.2f}".format(prequeryset.remain)}
                         prepaidlst.append(pval)
+
+            c_prequeryset = PrepaidAccount.objects.filter(cust_code=hdr[0].sa_custno,
+            status=True,remain__gt=0,pp_no=sa_transacno).only('site_code','cust_code','sa_status').order_by('-pk')
+            if c_prequeryset:
+                for pr in c_prequeryset:
+                    p_val = {'pp_desc':pr.pp_desc,'remain':"{:.2f}".format(pr.remain)}
+                    prepaidlst.append(p_val)
+
+            if prepaidlst != []:
+                showprepaid = True
 
             
             if hdr[0].isvoid == True and hdr[0].sa_status == "VT":
@@ -7414,29 +7425,29 @@ class ExchangeProductConfirmAPIView(generics.CreateAPIView):
                                 
 
                             #[HoldItemDetail]
-
-                            product_issues_no = str(con_obj.control_prefix)+str(con_obj.Site_Codeid.itemsite_code)+str(con_obj.control_no)
-                            
-                            hold = Holditemdetail(itemsite_code=site.itemsite_code,sa_transacno=sa_transacno,
-                            transacamt=c.trans_amt,itemno=c.itemcodeid.item_code+"0000",
-                            hi_staffno=','.join([v.emp_code for v in salesstaff if v.emp_code]),
-                            hi_itemdesc=c.itemcodeid.item_desc,hi_price=c.price,hi_amt=-c.trans_amt if c.type == 'Exchange' else c.trans_amt,
-                            hi_qty=c.quantity,hi_discamt=0,hi_discpercent=0,hi_discdesc=None,
-                            hi_staffname=','.join([v.display_name for v in salesstaff if v.display_name]),
-                            hi_lineno=c.lineno,hi_uom=c.item_uom.uom_code,hold_item=False,hi_deposit=c.deposit,
-                            holditemqty=0,status="Close",sa_custno=cust_obj.cust_code,
-                            sa_custname=cust_obj.cust_name,history_line=1,hold_type=c.holdreason.hold_desc if c.holdreason and c.holdreason.hold_desc else None,
-                            product_issues_no=product_issues_no)
-                            hold.save()
-                            hold.sa_date = pay_date
-                            hold.sa_time = pay_time
-                            hold.save()
-                            # print(hold.pk,"hold")
-                            if hold.pk:
-                                con_obj.control_no = int(con_obj.control_no) + 1
-                                con_obj.save()
-                                dtl.holditemqty = 0
-                                dtl.save()
+                            if c.holditemqty and int(c.holditemqty) > 0:  
+                                product_issues_no = str(con_obj.control_prefix)+str(con_obj.Site_Codeid.itemsite_code)+str(con_obj.control_no)
+                                
+                                hold = Holditemdetail(itemsite_code=site.itemsite_code,sa_transacno=sa_transacno,
+                                transacamt=c.trans_amt,itemno=c.itemcodeid.item_code+"0000",
+                                hi_staffno=','.join([v.emp_code for v in salesstaff if v.emp_code]),
+                                hi_itemdesc=c.itemcodeid.item_desc,hi_price=c.price,hi_amt=-c.trans_amt if c.type == 'Exchange' else c.trans_amt,
+                                hi_qty=c.quantity,hi_discamt=0,hi_discpercent=0,hi_discdesc=None,
+                                hi_staffname=','.join([v.display_name for v in salesstaff if v.display_name]),
+                                hi_lineno=c.lineno,hi_uom=c.item_uom.uom_code,hold_item=False,hi_deposit=c.deposit,
+                                holditemqty=0,status="Close",sa_custno=cust_obj.cust_code,
+                                sa_custname=cust_obj.cust_name,history_line=1,hold_type=c.holdreason.hold_desc if c.holdreason and c.holdreason.hold_desc else None,
+                                product_issues_no=product_issues_no)
+                                hold.save()
+                                hold.sa_date = pay_date
+                                hold.sa_time = pay_time
+                                hold.save()
+                                # print(hold.pk,"hold")
+                                if hold.pk:
+                                    con_obj.control_no = int(con_obj.control_no) + 1
+                                    con_obj.save()
+                                    dtl.holditemqty = 0
+                                    dtl.save()
 
 
                     sa_totamt = queryset.exclude(type='Exchange').aggregate(Sum('trans_amt'))
@@ -7692,29 +7703,29 @@ class ExchangeProductConfirmAPIView(generics.CreateAPIView):
                 
         
                             #[HoldItemDetail]
-
-                            product_issues_no = str(con_obj.control_prefix)+str(con_obj.Site_Codeid.itemsite_code)+str(con_obj.control_no)
-                            
-                            hold = Holditemdetail(itemsite_code=site.itemsite_code,sa_transacno=sa_transacno,
-                            transacamt=c.trans_amt,itemno=c.itemcodeid.item_code+"0000",
-                            hi_staffno=','.join([v.emp_code for v in salesstaff if v.emp_code]),
-                            hi_itemdesc=c.itemcodeid.item_desc,hi_price=c.price,hi_amt=-c.trans_amt if c.type == 'Exchange' else c.trans_amt,
-                            hi_qty=c.quantity,hi_discamt=0,hi_discpercent=0,hi_discdesc=None,
-                            hi_staffname=','.join([v.display_name for v in salesstaff if v.display_name]),
-                            hi_lineno=c.lineno,hi_uom=c.item_uom.uom_code,hold_item=False,hi_deposit=c.deposit,
-                            holditemqty=0,status="Close",sa_custno=cust_obj.cust_code,
-                            sa_custname=cust_obj.cust_name,history_line=1,hold_type=c.holdreason.hold_desc if c.holdreason and c.holdreason.hold_desc else None,
-                            product_issues_no=product_issues_no)
-                            hold.save()
-                            hold.sa_date = pay_date
-                            hold.sa_time = pay_time
-                            hold.save()
-                            # print(hold.pk,"hold")
-                            if hold.pk:
-                                con_obj.control_no = int(con_obj.control_no) + 1
-                                con_obj.save()
-                                dtl.holditemqty = 0
-                                dtl.save()
+                            if c.holditemqty and int(c.holditemqty) > 0:  
+                                product_issues_no = str(con_obj.control_prefix)+str(con_obj.Site_Codeid.itemsite_code)+str(con_obj.control_no)
+                                
+                                hold = Holditemdetail(itemsite_code=site.itemsite_code,sa_transacno=sa_transacno,
+                                transacamt=c.trans_amt,itemno=c.itemcodeid.item_code+"0000",
+                                hi_staffno=','.join([v.emp_code for v in salesstaff if v.emp_code]),
+                                hi_itemdesc=c.itemcodeid.item_desc,hi_price=c.price,hi_amt=-c.trans_amt if c.type == 'Exchange' else c.trans_amt,
+                                hi_qty=c.quantity,hi_discamt=0,hi_discpercent=0,hi_discdesc=None,
+                                hi_staffname=','.join([v.display_name for v in salesstaff if v.display_name]),
+                                hi_lineno=c.lineno,hi_uom=c.item_uom.uom_code,hold_item=False,hi_deposit=c.deposit,
+                                holditemqty=0,status="Close",sa_custno=cust_obj.cust_code,
+                                sa_custname=cust_obj.cust_name,history_line=1,hold_type=c.holdreason.hold_desc if c.holdreason and c.holdreason.hold_desc else None,
+                                product_issues_no=product_issues_no)
+                                hold.save()
+                                hold.sa_date = pay_date
+                                hold.sa_time = pay_time
+                                hold.save()
+                                # print(hold.pk,"hold")
+                                if hold.pk:
+                                    con_obj.control_no = int(con_obj.control_no) + 1
+                                    con_obj.save()
+                                    dtl.holditemqty = 0
+                                    dtl.save()
 
                             
                     sa_totamt = queryset.exclude(type='Exchange').aggregate(Sum('trans_amt'))

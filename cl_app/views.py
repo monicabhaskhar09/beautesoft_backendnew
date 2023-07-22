@@ -21,7 +21,7 @@ StockUsageMemoSerializer,TreatmentfaceSerializer,SiteApptSettingSerializer,Holdi
 PodhaudSerializer,CustomerAccountSerializer,TreatmentUsageListSerializer,TreatmentUsageStockSerializer,
 ItemDivSerializer,ProductPurchaseSerializer,TransactionInvoiceSerializer,TransactionManualInvoiceSerializer,
 TreatmentPackageDoneListSerializer,VoucherPromoSerializer,SessionTmpItemHelperSerializer,
-TreatmentPackgeSerializer)
+TreatmentPackgeSerializer,EcomStockSerializer,EcomDeptSerializer,EcomLocationSelectSerializer)
 from cl_table.serializers import PostaudSerializer, TmpItemHelperSerializer
 from .models import (SiteGroup, ItemSitelist, ReverseTrmtReason, VoidReason,TreatmentUsage,UsageMemo,
 Treatmentface,Usagelevel,priceChangeLog,TmpTreatmentSession,VoucherPromo,SmsProcessLog,
@@ -86,7 +86,8 @@ from django.contrib.auth import authenticate, login , logout, get_user_model
 import json
 from cl_table.services import create_multiuom_transac,multiuom_adjsafter_stockopenup
 from Cl_beautesoft.calculation import two_decimal_digit
-
+from rest_framework import permissions
+import rest_framework
 
 type_ex = ['VT-Deposit','VT-Top Up','VT-Sales']
 type_tx = ['Deposit','Top Up','Sales']
@@ -512,8 +513,8 @@ class ServiceStockViewset(viewsets.ModelViewSet):
             fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
             site = fmspw[0].loginsite
 
-            s_ids  = list(ItemStocklist.objects.filter(itemstocklist_status=True,
-            itemsite_code=site.itemsite_code,item_code__startswith="3").values_list('item_code', flat=True).distinct())
+            s_ids  = list(set(ItemStocklist.objects.filter(itemstocklist_status=True,
+            itemsite_code=site.itemsite_code,item_code__startswith="3").values_list('item_code', flat=True).distinct()))
             # print(s_ids,len(s_ids),"s_ids")
             queryset = Stock.objects.filter(item_isactive=True, item_type="SINGLE", item_div="3",
             item_code__in=s_ids).order_by('item_name')
@@ -624,8 +625,8 @@ class RetailStockListViewset(viewsets.ModelViewSet):
             fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
             site = fmspw[0].loginsite
 
-            s_ids  = list(ItemStocklist.objects.filter(itemstocklist_status=True,
-            itemsite_code=site.itemsite_code,item_code__startswith="1").values_list('item_code', flat=True).distinct())
+            s_ids  = list(set(ItemStocklist.objects.filter(itemstocklist_status=True,
+            itemsite_code=site.itemsite_code,item_code__startswith="1").values_list('item_code', flat=True).distinct()))
            
             
             if request.GET.get('stock',None):
@@ -834,8 +835,8 @@ class PackageStockViewset(viewsets.ModelViewSet):
             fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
             site = fmspw[0].loginsite
 
-            s_ids  = list(ItemStocklist.objects.filter(itemstocklist_status=True,
-            itemsite_code=site.itemsite_code,item_code__startswith="3").values_list('item_code', flat=True).distinct())
+            s_ids  = list(set(ItemStocklist.objects.filter(itemstocklist_status=True,
+            itemsite_code=site.itemsite_code,item_code__startswith="3").values_list('item_code', flat=True).distinct()))
            
             queryset = Stock.objects.filter(item_isactive=True, item_type="PACKAGE", item_div="3",
             item_code__in=s_ids).order_by('item_name')
@@ -978,8 +979,8 @@ class PrepaidStockViewset(viewsets.ModelViewSet):
             fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
             site = fmspw[0].loginsite
 
-            s_ids  = list(ItemStocklist.objects.filter(itemstocklist_status=True,
-            itemsite_code=site.itemsite_code,item_code__startswith="5").values_list('item_code', flat=True).distinct())
+            s_ids  = list(set(ItemStocklist.objects.filter(itemstocklist_status=True,
+            itemsite_code=site.itemsite_code,item_code__startswith="5").values_list('item_code', flat=True).distinct()))
            
             queryset = Stock.objects.filter(item_isactive=True, item_div="5",
             item_code__in=s_ids).order_by('item_name')
@@ -1083,8 +1084,8 @@ class VoucherStockViewset(viewsets.ModelViewSet):
             fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
             site = fmspw[0].loginsite
 
-            s_ids  = list(ItemStocklist.objects.filter(itemstocklist_status=True,
-            itemsite_code=site.itemsite_code,item_code__startswith="4").values_list('item_code', flat=True).distinct())
+            s_ids  = list(set(ItemStocklist.objects.filter(itemstocklist_status=True,
+            itemsite_code=site.itemsite_code,item_code__startswith="4").values_list('item_code', flat=True).distinct()))
            
             queryset = Stock.objects.filter(item_isactive=True,  item_div="4",
             item_code__in=s_ids).order_by('item_name')
@@ -3010,8 +3011,8 @@ class TreatmentDoneNewViewset(viewsets.ModelViewSet):
                     #     c = treatmentids.sort(reverse=True)
                     # # print(treatmentids,"treatmentids")
 
-                    treatmentids =  list(Treatmentids.objects.filter(
-                    treatment_parentcode=trmt_obj.treatment_parentcode).order_by('treatment_int').values_list('treatment_int', flat=True).distinct())
+                    treatmentids =  list(set(Treatmentids.objects.filter(
+                    treatment_parentcode=trmt_obj.treatment_parentcode).order_by('treatment_int').values_list('treatment_int', flat=True).distinct()))
                     reversal_check = True
                     if flexirev_setup and flexirev_setup.value_data == 'True':
                         if row.type in ['FFd','FFi'] and row.done_session > 0:
@@ -7247,7 +7248,7 @@ class VoidViewset(viewsets.ModelViewSet):
                 
                      
                 finalsatrasc  = False
-                if haudobj.sa_transacno_type in ['Receipt','Non Sales','Redeem Service']:
+                if haudobj.sa_transacno_type in ['Receipt','Non Sales','Redeem Service','Refund','Credit Note']:
                     for i in daud_ids:
                         if int(i.itemcart.itemcodeid.item_div) in [5]:
                             if i.itemcart.type == 'Deposit':
@@ -7280,15 +7281,15 @@ class VoidViewset(viewsets.ModelViewSet):
                                   
                         if int(i.itemcart.itemcodeid.item_div) == 1:
                             if i.itemcart.type == 'Deposit':
-                                close_ids = Holditemdetail.objects.filter(sa_transacno=haudobj.sa_transacno,status='CLOSE',hi_lineno=i.dt_lineno)
-                                if close_ids:
-                                    pmsg = "Can't do void retail product line no {0} has hold item issued close record is there".format(str(i.dt_lineno))
-                                    raise Exception(pmsg)
+                                # close_ids = Holditemdetail.objects.filter(sa_transacno=haudobj.sa_transacno,status='CLOSE',hi_lineno=i.dt_lineno)
+                                # if close_ids:
+                                #     pmsg = "Can't do void retail product line no {0} has hold item issued close record is there".format(str(i.dt_lineno))
+                                #     raise Exception(pmsg)
 
-                                open_hoids = Holditemdetail.objects.filter(sa_transacno=haudobj.sa_transacno,hi_lineno=i.dt_lineno)
-                                if len(open_hoids) > 1:
-                                    pmsg = "Can't do void retail product line no {0} has hold item issued record is there".format(str(i.dt_lineno))
-                                    raise Exception(pmsg)
+                                # open_hoids = Holditemdetail.objects.filter(sa_transacno=haudobj.sa_transacno,hi_lineno=i.dt_lineno)
+                                # if len(open_hoids) > 1:
+                                #     pmsg = "Can't do void retail product line no {0} has hold item issued record is there".format(str(i.dt_lineno))
+                                #     raise Exception(pmsg)
 
                                 void_hoids = Holditemdetail.objects.filter(sa_transacno=haudobj.sa_transacno,status='VOID',hi_lineno=i.dt_lineno)
                                 if void_hoids:
@@ -7789,10 +7790,11 @@ class VoidViewset(viewsets.ModelViewSet):
                                         tpcontrolobj.save()
 
                                     open_hoids = Holditemdetail.objects.filter(sa_transacno=haudobj.sa_transacno,hi_lineno=d.dt_lineno)
-                                    for o in open_hoids:
-                                        o.status = 'VOID'
-                                        o.holditemqty = 0
-                                        o.save()
+                                    if open_hoids:
+                                        for o in open_hoids:
+                                            o.status = 'VOID'
+                                            # o.holditemqty = 0
+                                            o.save()
                                       
                                     packdtl_ids = PackageDtl.objects.filter(package_code=d.dt_itemnoid.item_code,isactive=True)
                                     if packdtl_ids: 
@@ -8164,10 +8166,16 @@ class VoidViewset(viewsets.ModelViewSet):
                                     tpcontrolobj.save()
 
                                 open_hoids = Holditemdetail.objects.filter(sa_transacno=haudobj.sa_transacno,hi_lineno=d.dt_lineno)
-                                if len(open_hoids) == 1 and open_hoids[0].status == 'OPEN':
-                                    open_hoids[0].status = 'VOID'
-                                    open_hoids[0].holditemqty = 0
-                                    open_hoids[0].save()
+                                if open_hoids:
+                                    if len(open_hoids) == 1 and open_hoids[0].status == 'OPEN':
+                                        open_hoids[0].status = 'VOID'
+                                        open_hoids[0].holditemqty = 0
+                                        open_hoids[0].save()
+                                    else:
+                                        for ho in open_hoids:
+                                            ho.status = 'VOID'
+                                            ho.save() 
+
                                     
 
                                 #    DepositAccount.objects.filter(pk=depo.pk).update(sa_status="VT",item_description="Cancel"+depo.item_description,updated_at=timezone.now())
@@ -14250,7 +14258,7 @@ class HolditemdetailViewset(viewsets.ModelViewSet):
                                     post_time = str(currenttime.hour).zfill(2)+str(currenttime.minute).zfill(2)+str(currenttime.second).zfill(2)
                                 
                                     if batchids and int(batchids.qty) >= int(qtytodeduct):
-                                        print("iff")
+                                        # print("iff")
                                         deduct = batchids.qty - qtytodeduct
                                         batch = ItemBatch.objects.filter(pk=batchids.pk).update(qty=deduct,updated_at=timezone.now())
                                     
@@ -18112,7 +18120,174 @@ class VoucherPromoViewset(viewsets.ModelViewSet):
             return general_error_response(invalid_message)                
  
 
+#E-commerce module apis
 
+class EcomServicesDeptViewset(viewsets.ModelViewSet):
+    authentication_classes = []
+    permission_classes = []
+    serializer_class = EcomDeptSerializer
+
+
+    def get_permissions(self):
+        if self.action == "list":
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated()]
+
+
+    def list(self, request):
+        try:
+            site_id = self.request.GET.get('site_id',None)
+            # print(site_id,"site_id")
+            
+            if not site_id:
+                raise Exception('Please give site_id') 
+
+            site_obj = ItemSitelist.objects.filter(pk=site_id,itemsite_isactive=True).first()
+            # print(site_obj,"site_obj")
+            if not site_obj:
+                raise Exception('ItemSitelist Location ID doesnt exist!!') 
+
+
+            s_ids  = list(set(ItemStocklist.objects.filter(itemstocklist_status=True,
+            itemsite_code=site_obj.itemsite_code,item_code__startswith="3").values_list('item_code', flat=True).distinct()))
+            
+            # print(s_ids,len(s_ids),"s_ids")
+            squeryset = list(set(Stock.objects.filter(item_isactive=True, item_type="SINGLE", item_div="3",
+            item_code__in=s_ids).values_list('item_dept', flat=True).distinct()))  
+            # print(squeryset,"squeryset")
+            queryset = ItemDept.objects.filter(is_service=True,itm_status=True,itm_code__in=squeryset).order_by('itm_seq') 
+
+
+            if queryset:
+                serializer = self.get_serializer(queryset, many=True)
+                result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 'data':  serializer.data}
+            else:
+                serializer = self.get_serializer()
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+            return Response(data=result, status=status.HTTP_200_OK) 
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+
+class EcomServiceStockViewset(viewsets.ModelViewSet):
+    authentication_classes = []
+    permission_classes = []
+    serializer_class = EcomStockSerializer
+
+    def list(self, request):
+        try:
+            site_id = self.request.GET.get('site_id',None)
+            
+            if not site_id:
+                raise Exception('Please give site_id') 
+
+            dept_id = request.GET.get('Item_Deptid',None)
+            if not dept_id:
+                raise Exception('Please give Item_Deptid') 
+            item_dept = ItemDept.objects.filter(pk=dept_id, is_service=True, itm_status=True).first()
+            if not item_dept:
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Dept id does not exist!!",'error': True} 
+                return Response(data=result, status=status.HTTP_400_BAD_REQUEST)    
+
+
+            site_obj = ItemSitelist.objects.filter(pk=site_id,itemsite_isactive=True).first()
+            # print(site_obj,"site_obj")
+            if not site_obj:
+                raise Exception('ItemSitelist Location ID doesnt exist!!') 
+
+
+            s_ids  = list(set(ItemStocklist.objects.filter(itemstocklist_status=True,
+            itemsite_code=site_obj.itemsite_code,item_code__startswith="3").values_list('item_code', flat=True).distinct()))
+            # print(s_ids,len(s_ids),"s_ids")
+            queryset = Stock.objects.filter(item_isactive=True, item_type="SINGLE", item_div="3",
+            item_code__in=s_ids).order_by('item_name')
+            # print(queryset,len(queryset),"queryset")
+
+            
+            if request.GET.get('Item_Deptid',None):
+                queryset = Stock.objects.filter(item_isactive=True, item_type="SINGLE", 
+                item_dept=item_dept.itm_code,item_code__in=s_ids).order_by('item_name')
+               
+            # if request.GET.get('Item_Rangeid',None):
+            #     if not request.GET.get('Item_Rangeid',None) is None:
+            #         if request.GET.get('Item_Rangeid',None):
+            #             itemrange = ItemRange.objects.filter(pk=request.GET.get('Item_Rangeid',None), isservice=True,itm_status=True).first()
+            #             if not itemrange:
+            #                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Range Id does not exist!!",'error': True} 
+            #                 return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+            #             queryset = Stock.objects.filter(item_isactive=True, item_type="SINGLE",
+            #              item_range=itemrange.itm_code,item_code__in=s_ids).order_by('item_name')
+            #         else:
+            #             queryset = Stock.objects.filter(item_isactive=True, item_type="SINGLE", 
+            #             item_dept=item_dept.itm_code,item_code__in=s_ids).order_by('item_name')
+            
+            if request.GET.get('search',None):
+                queryset = queryset.filter(Q(item_name__icontains=request.GET.get('search',None)) | Q(item_desc__icontains=request.GET.get('search',None)))
+            
+           
+            # systemids = Systemsetup.objects.filter(title='stockOrderBy',
+            # value_name='stockOrderBy',isactive=True).first()
+
+            # if systemids and systemids.value_data == 'item_name':
+            #     queryset = queryset.order_by('item_name') 
+            # elif systemids and systemids.value_data == 'item_seq':
+            #     queryset = queryset.order_by('item_seq')
+            # elif systemids and systemids.value_data == 'item_desc':
+            #     queryset = queryset.order_by('item_desc')
+            # elif systemids and systemids.value_data == 'item_code':
+            #     queryset = queryset.order_by('item_code')
+            # else:
+            #     queryset = queryset.order_by('item_name') 
+
+                
+            serializer_class =  EcomStockSerializer
+            total = len(queryset) if queryset else 0
+            state = status.HTTP_200_OK
+            message = "Listed Succesfully"
+            error = False
+            data = None
+            result=response(self,request, queryset, total, state, message, error, serializer_class, data, action=self.action)
+           
+            return Response(result, status=status.HTTP_200_OK)  
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+
+        
+class EcomLocationSelectAPIView(generics.ListAPIView):
+    authentication_classes = []
+    permission_classes = []
+    queryset = ItemSitelist.objects.filter(itemsite_isactive=True).order_by('pk')
+    serializer_class = EcomLocationSelectSerializer
+
+    def get_queryset(self):
+        queryset = ItemSitelist.objects.filter(itemsite_isactive=True).order_by('pk')
+        return queryset
+
+    def list(self, request):
+        try:
+            queryset = self.filter_queryset(self.get_queryset())
+            if request.GET.get('search',None):
+                queryset_i = list(set(queryset.filter(Q(itemsite_desc__icontains=request.GET.get('search',None))).values_list('itemsite_code', flat=True).distinct()))
+                # print(queryset_i,"queryset_i")
+                queryset_0 = list(set(Title.objects.filter(Q(trans_h1__icontains=request.GET.get('search',None)) | Q(trans_h2__icontains=request.GET.get('search',None))).values_list('product_license', flat=True).distinct()))
+                # print(queryset_0,"queryset_0")
+                c = queryset_i + queryset_0
+                queryset = ItemSitelist.objects.filter(itemsite_isactive=True,itemsite_code__in=c).order_by('pk')
+            
+            if queryset:
+                serializer = self.get_serializer(queryset, many=True)
+                result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 'data':  serializer.data}
+            else:
+                serializer = self.get_serializer()
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+            return Response(data=result, status=status.HTTP_200_OK)  
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)  
+
+    
 
        
 

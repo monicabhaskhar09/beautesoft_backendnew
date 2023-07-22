@@ -7775,6 +7775,9 @@ class UsersList(APIView):
             # value_name='onlinebookingstaff',isactive=True).first()
             ipadkey_setup = Systemsetup.objects.filter(title='ipadkey',
             value_name='ipadkey',isactive=True).first()
+            changecoursename_setup = Systemsetup.objects.filter(title='allowchangecoursename',
+            value_name='allowchangecoursename',isactive=True).first()
+       
        
        
             
@@ -7896,6 +7899,7 @@ class UsersList(APIView):
             'blockapptusernamepopup' : True if blockapptusernamepopup_setup and blockapptusernamepopup_setup.value_data == 'True' else False,
             # 'onlinebookingstaff_id' :  int(onlinebookingstaff_setup.value_data) if onlinebookingstaff_setup and onlinebookingstaff_setup.value_data else None,
             'ipadkey' : True if ipadkey_setup and ipadkey_setup.value_data == 'True' else False,
+            'allowchangecoursename' : True if changecoursename_setup and changecoursename_setup.value_data == 'True' else False,
             }
 
 
@@ -11695,11 +11699,20 @@ class CustomerReceiptPrintList(generics.ListAPIView):
                     status=True,remain__gt=0,pp_no=ppno,line_no=lineno).only('site_code','cust_code','sa_status').order_by('-pk').first()
                     # print(prequeryset,"prequeryset")
                     if prequeryset:
-                        showprepaid = True
                         pval = {'pp_desc':prequeryset.pp_desc,'remain':"{:.2f}".format(prequeryset.remain)}
                         prepaidlst.append(pval)
-               
-            
+
+            c_prequeryset = PrepaidAccount.objects.filter(cust_code=hdr[0].sa_custno,
+            status=True,remain__gt=0,pp_no=satransacno).only('site_code','cust_code','sa_status').order_by('-pk')
+            if c_prequeryset:
+                for pr in c_prequeryset:
+                    p_val = {'pp_desc':pr.pp_desc,'remain':"{:.2f}".format(pr.remain)}
+                    prepaidlst.append(p_val)
+
+            if prepaidlst != []:
+                showprepaid = True
+
+
             footer_val = {'trans_promo1': title.trans_promo1 if title and title.trans_promo1 else '',
             'trans_promo2' : title.trans_promo2 if title and title.trans_promo2 else '',
             'showprepaid': showprepaid,'prepaidlst':prepaidlst}
@@ -25736,13 +25749,13 @@ class OnlineBookingDateSlotsViewset(viewsets.ModelViewSet):
 
             start_date = date.today()
             # print(start_date,"start_date")
-            n_days_ago = start_date - timedelta(days=2)
+            n_days_ago = start_date + timedelta(days=2)
             # print(n_days_ago,"n_days_ago")
 
             # end_date = date.today() + timedelta(days=14)
-            end_date = date.today() + relativedelta.relativedelta(months=+2)
+            end_date = n_days_ago + relativedelta.relativedelta(months=+2)
             # print(end_date,"end_date")
-            date_range = [(n_days_ago + datetime.timedelta(days=i)).strftime('%Y-%m-%d') for i in range(0, (end_date - start_date).days + 1)]
+            date_range = [(n_days_ago + datetime.timedelta(days=i)).strftime('%Y-%m-%d') for i in range(0, (end_date - n_days_ago).days + 1)]
             # print(date_range,"date_range")
 
             emp_siteids = list(set(EmpSitelist.objects.filter(Site_Codeid__pk=site.pk,isactive=True,Emp_Codeid__emp_isactive=True,Emp_Codeid__show_in_appt=True).values_list('Emp_Codeid', flat=True).distinct()))
@@ -25804,6 +25817,8 @@ class OnlineBookingDateSlotsViewset(viewsets.ModelViewSet):
             # print(startday_hour,"startday_hour")
             endday_hour = site.endday_hour
             # print(endday_hour,"endday_hour")
+            enddayhour = float(endday_hour) - 1 
+            # print(enddayhour,"enddayhour")
 
             given_date = self.request.GET.get('given_date',None)
             if not given_date:
@@ -25813,6 +25828,8 @@ class OnlineBookingDateSlotsViewset(viewsets.ModelViewSet):
             n_days_ago = todaydate - timedelta(days=2)
             # print(n_days_ago,"n_days_ago")
             appt_date = datetime.datetime.strptime(str(given_date), "%Y-%m-%d").date()
+            given_date_day = datetime.datetime.strptime(str(given_date), "%Y-%m-%d").strftime('%A')
+            # print(given_date_day,"given_date_day")
             
 
             if appt_date < n_days_ago:
@@ -25853,9 +25870,17 @@ class OnlineBookingDateSlotsViewset(viewsets.ModelViewSet):
                             d = float(t[0]+"."+t[1])
                             # print(d,"d")
                             # print(d >= float(startday_hour) and d <= float(endday_hour),"ll")
-                            if d >= float(startday_hour) and d <= float(endday_hour):
-                                if (field_lst[key] == False or field_lst[key] == None) and timedata[key] not in avail_timeslots:
-                                    avail_timeslots.append(timedata[key])
+                            if given_date_day not in ["Saturday","Sunday"]:
+                                if d >= float(startday_hour) and d <= float(enddayhour):
+                                    if (field_lst[key] == False or field_lst[key] == None) and timedata[key] not in avail_timeslots:
+                                        avail_timeslots.append(timedata[key])
+                            elif given_date_day in ["Saturday","Sunday"]:
+                                startdayhour = "10.00" ; end_dayhour = "17.00"
+                                if d >= float(startdayhour) and d <= float(end_dayhour):
+                                    if (field_lst[key] == False or field_lst[key] == None) and timedata[key] not in avail_timeslots:
+                                        avail_timeslots.append(timedata[key])
+
+
 
             
             result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 

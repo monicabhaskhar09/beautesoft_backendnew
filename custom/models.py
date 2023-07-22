@@ -1759,51 +1759,51 @@ class SystemLogModel(models.Model):
         managed = False
         
 
-class City(models.Model):
-    itm_id = models.AutoField(primary_key=True)
-    itm_desc = models.CharField(max_length=40, blank=True, null=True)
-    itm_code = models.CharField(max_length=10, blank=True, null=True)
-    itm_isactive = models.BooleanField(default=True)
-    updated_at = models.DateTimeField(auto_now=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True, null=True)
+# class City(models.Model):
+#     itm_id = models.AutoField(primary_key=True)
+#     itm_desc = models.CharField(max_length=40, blank=True, null=True)
+#     itm_code = models.CharField(max_length=10, blank=True, null=True)
+#     itm_isactive = models.BooleanField(default=True)
+#     updated_at = models.DateTimeField(auto_now=True, null=True)
+#     created_at = models.DateTimeField(auto_now_add=True, null=True)
 
-    class Meta:
-        db_table = 'City'
-        managed = False
+#     class Meta:
+#         db_table = 'City'
+#         managed = False
 
-    def __str__(self):
-        return str(self.itm_desc)            
+#     def __str__(self):
+#         return str(self.itm_desc)            
     
-class State(models.Model):
-    itm_id = models.AutoField(db_column='itm_ID', primary_key=True)  # Field name made lowercase.
-    itm_desc = models.CharField(max_length=40, blank=True, null=True)
-    itm_code = models.CharField(max_length=10, blank=True, null=True)
-    itm_isactive = models.BooleanField(default=True)
-    updated_at = models.DateTimeField(auto_now=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True, null=True)
+# class State(models.Model):
+#     itm_id = models.AutoField(db_column='itm_ID', primary_key=True)  # Field name made lowercase.
+#     itm_desc = models.CharField(max_length=40, blank=True, null=True)
+#     itm_code = models.CharField(max_length=10, blank=True, null=True)
+#     itm_isactive = models.BooleanField(default=True)
+#     updated_at = models.DateTimeField(auto_now=True, null=True)
+#     created_at = models.DateTimeField(auto_now_add=True, null=True)
 
-    class Meta:
-        db_table = 'State'
-        managed = False
+#     class Meta:
+#         db_table = 'State'
+#         managed = False
 
-    def __str__(self):
-        return str(self.itm_desc)
+#     def __str__(self):
+#         return str(self.itm_desc)
 
-class Country(models.Model):
-    itm_id = models.AutoField(primary_key=True)
-    itm_desc = models.CharField(max_length=40, blank=True, null=True)
-    itm_code = models.CharField(max_length=10, blank=True, null=True)
-    itm_isactive = models.BooleanField(default=True)
-    phonecode = models.CharField(db_column='phoneCode', max_length=20, blank=True, null=True)  # Field name made lowercase.
-    updated_at = models.DateTimeField(auto_now=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True, null=True)
+# class Country(models.Model):
+#     itm_id = models.AutoField(primary_key=True)
+#     itm_desc = models.CharField(max_length=40, blank=True, null=True)
+#     itm_code = models.CharField(max_length=10, blank=True, null=True)
+#     itm_isactive = models.BooleanField(default=True)
+#     phonecode = models.CharField(db_column='phoneCode', max_length=20, blank=True, null=True)  # Field name made lowercase.
+#     updated_at = models.DateTimeField(auto_now=True, null=True)
+#     created_at = models.DateTimeField(auto_now_add=True, null=True)
 
-    class Meta:
-        db_table = 'Country'
-        managed = False
+#     class Meta:
+#         db_table = 'Country'
+#         managed = False
 
-    def __str__(self):
-        return str(self.itm_desc) 
+#     def __str__(self):
+#         return str(self.itm_desc) 
 
 
 class AllDropdownModel(models.Model):
