@@ -46,6 +46,9 @@ router.register(r'tempcustsigninvoice', views.TempcustsignInvoiceViewset, basena
 router.register(r'customerdocument', views.CustomerDocumentViewset, basename='customerdocument')
 router.register(r'contactperson', views.ContactPersonViewset, basename='contactperson')
 router.register(r'projectdocument', views.ProjectDocumentViewset, basename='projectdocument')
+router.register(r'staffdocument', views.StaffDocumentViewset, basename='staffdocument')
+router.register(r'outletdocument', views.OutletDocumentViewset, basename='outletdocument')
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),

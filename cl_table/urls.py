@@ -21,6 +21,7 @@ router.register(r'manualrewardpoint', views.ManualRewardPointCustomerViewset, ba
 router.register(r'onlinebooking', views.OnlineBookingDateSlotsViewset, basename='onlinebooking')
 router.register(r'invoicetemplateconfig', views.InvoiceTemplateConfigViewset, basename='invoicetemplateconfig')
 router.register(r'appointbooking', views.AppointBookingDateSlotsViewset, basename='appointbooking')
+router.register(r'ecomappointbooking', views.EcomAppointBookingViewset, basename='ecomappointbooking')
 
 
 urlpatterns = [

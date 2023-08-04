@@ -16,6 +16,7 @@ router.register(r'transactioncustomer', views.TransactionCustomerViewset, basena
 router.register(r'tncmaster', views.TNC_MasterViewset, basename='tncmaster')
 router.register(r'webquestionmultichoice', views.WebConsultationQuestionMultichoiceViewset, basename='webquestionmultichoice')
 router.register(r'webquestionsubquestions', views.WebConsultation_Questionsub_questionsViewset, basename='webquestionsubquestions')
+router.register(r'webconsultationanalysismaster', views.WebConsultation_AnalysisMasterViewset, basename='webconsultationanalysismaster')
 
 
 urlpatterns = [

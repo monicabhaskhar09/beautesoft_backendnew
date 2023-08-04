@@ -99,7 +99,27 @@ class WebConsultation_Questionsub_questions(models.Model):
     def __str__(self):
         return str(self.sub_question_english)   
 
+class WebConsultation_AnalysisMaster(models.Model):
+    id = models.AutoField(db_column='ID',primary_key=True)
+    field_name = models.CharField(db_column='fieldName', max_length=100, blank=True, null=True)  # Field name made lowercase.
+    display_field_name = models.CharField(db_column='displayFieldName', max_length=100, blank=True, null=True)  # Field name made lowercase.
+    choice_name = models.CharField(db_column='choiceName', max_length=100, blank=True, null=True)  # Field name made lowercase.
+    isactive = models.BooleanField(db_column='IsActive',default=True)
+    header = models.BooleanField(db_column='header',default=False)
+    body = models.BooleanField(db_column='body',default=False)
+    footer = models.BooleanField(db_column='footer',default=False)
+    mandatory = models.BooleanField(db_column='Mandatory',default=False)
+    image = models.ImageField(db_column='image', blank=True, null=True,upload_to='img')  # Field name made lowercase. 
+    is_image = models.BooleanField(db_column='is_image',default=False)
+    seq = models.IntegerField(db_column='Seq', blank=True, null=True)  # Field name made lowercase.
 
+
+    class Meta:
+        db_table = 'WebConsultation_AnalysisMaster'
+        unique_together = [['field_name','display_field_name','choice_name']]
+
+    def __str__(self):
+        return str(self.fieldName) 
 
 class WebConsultation_AnalysisResult(models.Model):
     id = models.AutoField(db_column='ID',primary_key=True)

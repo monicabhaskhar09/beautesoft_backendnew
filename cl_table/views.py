@@ -26,7 +26,8 @@ from .models import (Gender, Employee, Fmspw, Attendance2, Customer, Images, Tre
                      ItemDiv,Tempcustsign,CustomerDocument,TreatmentPackage,Tmptreatment,CustLogAudit,ContactPerson,
                      ItemFlexiservice,termsandcondition,Dayendconfirmlog,Participants,ProjectDocument,
                      MGMPolicyCloud,CustomerReferral,sitelistip,CustomerExtended,DisplayCatalog,
-                     DisplayItem,OutletRequestLog,ItemBrand,PrepaidOpenCondition,PrepaidValidperiod,invoicetemplate)
+                     DisplayItem,OutletRequestLog,ItemBrand,PrepaidOpenCondition,PrepaidValidperiod,invoicetemplate,
+                     StaffDocument,OutletDocument,ItemBatchSno)
 from cl_app.models import ItemSitelist, SiteGroup, LoggedInUser,TmpTreatmentSession
 from custom.models import Room,ItemCart,VoucherRecord,EmpLevel,PosPackagedeposit,payModeChangeLog,ProjectModel
 from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializer, Attendance2Serializer,
@@ -69,7 +70,8 @@ from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializ
                           DisplayCatalogSerializer,DisplayItemSerializer,DisplayItemStockSerializer,
                           DisplayItemlistSerializer,OutletRequestLogSerializer,
                           PrepaidValidperiodSerializer,ItemCartCustomerReceiptSerializer,
-                          ItemCartdaudSerializer,ScheduleMonthSerializer,invoicetemplateConfigSerializer,ManualRewardPointSerializer)
+                          ItemCartdaudSerializer,ScheduleMonthSerializer,invoicetemplateConfigSerializer,ManualRewardPointSerializer,
+                          StaffDocumentSerializer,OutletDocumentSerializer,EcomAppointmentSerializer)
 from datetime import date, timedelta, datetime
 import datetime
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
@@ -8730,9 +8732,18 @@ class postaudViewset(viewsets.ModelViewSet):
                         spltn = str(r['pay_rem1']).split("-")
                         ppno = spltn[0]
                         lineno = spltn[1]
-                    
-                        pacids = PrepaidAccount.objects.filter(pp_no=ppno,line_no=lineno,
-                        cust_code=cust_obj.cust_code,status=True).only('pp_no','line_no','site_code','cust_code','status').order_by('pk').last()
+
+                        if 'pay_rem2' in r and r['pay_rem2']:
+                            cpre_obj = PrepaidAccount.objects.filter(pk=r['pay_rem2']).first()
+                        else:
+                            cpre_obj = False
+
+                        if cpre_obj and cpre_obj.package_code:
+                            pacids = PrepaidAccount.objects.filter(pp_no=ppno,line_no=lineno,
+                            cust_code=cust_obj.cust_code,status=True,package_code_lineno=cpre_obj.package_code_lineno).only('pp_no','line_no','site_code','cust_code','status').order_by('pk').last()
+                        else:
+                            pacids = PrepaidAccount.objects.filter(pp_no=ppno,line_no=lineno,
+                            cust_code=cust_obj.cust_code,status=True).only('pp_no','line_no','site_code','cust_code','status').order_by('pk').last()
                         # print(pacids,"{:.2f}".format(pacids.remain),".remain")
                         if pacids and pacids.remain:
                             #if float(r['pay_amt']) > float(pac_ids.remain):
@@ -8972,7 +8983,7 @@ class postaudViewset(viewsets.ModelViewSet):
                     if cust_obj and cust_obj.cust_point_value and cust_obj.cust_point_value > 0:
                         custnow_point = cust_obj.cust_point_value
                 
-                prepaid_redeemlst = []
+                prepaid_redeemlst = [];cart_halfdepo = [];cart_padepolst = []
                 for idx, req in enumerate(request.data, start=1): 
                     # print(req,"idx")
                     paytable = Paytable.objects.filter(pk=req['pay_typeid'],pay_isactive=True).first()
@@ -9046,15 +9057,33 @@ class postaudViewset(viewsets.ModelViewSet):
                                 pp_no = splt[0]
                                 line_no = splt[1]
                                 # print(pp_no,line_no,"line_no")
-                                open_ids = PrepaidAccountCondition.objects.filter(pp_no=pp_no,
-                                pos_daud_lineno=line_no,p_itemtype="Inclusive").only('pp_no','pos_daud_lineno').first()
-                               
-                                pac_ids = PrepaidAccount.objects.filter(pp_no=pp_no,line_no=line_no,
-                                cust_code=cust_obj.cust_code,status=True).only('pp_no','line_no','site_code','cust_code','status').order_by('pk').last()
+
+                                if 'pay_rem2' in req and req['pay_rem2']:
+                                    mpre_obj = PrepaidAccount.objects.filter(pk=req['pay_rem2']).first()
+                                else:
+                                    mpre_obj = False
+
+                                if mpre_obj and mpre_obj.package_code:
+                                    open_ids = PrepaidAccountCondition.objects.filter(pp_no=pp_no,
+                                    pos_daud_lineno=line_no,p_itemtype="Inclusive",package_code_lineno=mpre_obj.package_code_lineno).only('pp_no','pos_daud_lineno').first()
                                 
-                                #OP redeem_amount calculations
-                                ol_open_ids = PrepaidAccountCondition.objects.filter(pp_no=pp_no,
-                                pos_daud_lineno=line_no).order_by('pk')
+                                    pac_ids = PrepaidAccount.objects.filter(pp_no=pp_no,line_no=line_no,
+                                    cust_code=cust_obj.cust_code,status=True,package_code_lineno=mpre_obj.package_code_lineno).only('pp_no','line_no','site_code','cust_code','status').order_by('pk').last()
+                                    
+                                    #OP redeem_amount calculations
+                                    ol_open_ids = PrepaidAccountCondition.objects.filter(pp_no=pp_no,
+                                    pos_daud_lineno=line_no,package_code_lineno=mpre_obj.package_code_lineno).order_by('pk')
+
+                                else:
+                                    open_ids = PrepaidAccountCondition.objects.filter(pp_no=pp_no,
+                                    pos_daud_lineno=line_no,p_itemtype="Inclusive").only('pp_no','pos_daud_lineno').first()
+                                
+                                    pac_ids = PrepaidAccount.objects.filter(pp_no=pp_no,line_no=line_no,
+                                    cust_code=cust_obj.cust_code,status=True).only('pp_no','line_no','site_code','cust_code','status').order_by('pk').last()
+                                    
+                                    #OP redeem_amount calculations
+                                    ol_open_ids = PrepaidAccountCondition.objects.filter(pp_no=pp_no,
+                                    pos_daud_lineno=line_no).order_by('pk')
 
                                 if pac_ids and ol_open_ids:
                                     # .filter(~Q(itemcodeid__item_type='PACKAGE'))
@@ -9146,10 +9175,17 @@ class postaudViewset(viewsets.ModelViewSet):
                                         
                                         used_amount = 0    
                                         check_amt = float(req['pay_amt'])
-                                        # if prepaid_redeemlst != []:
-                                        #     use_final_ids = use_final_ids.filter(~Q(pk__in=prepaid_redeemlst))
+
+                                        if prepaid_redeemlst != []:
+                                            use_final_ids = use_final_ids.filter(~Q(pk__in=prepaid_redeemlst))
                                         # print(use_final_ids,"use_final_ids 111")
-                                        use_final_ids = use_final_ids.filter(~Q(prepaid_account__pp_no=pac_ids.pp_no),~Q(prepaid_account__line_no=pac_ids.line_no))
+
+                                        if mpre_obj and mpre_obj.package_code:
+                                            use_final_ids = use_final_ids.filter(~Q(prepaid_account__pp_no=pac_ids.pp_no),~Q(prepaid_account__line_no=pac_ids.line_no),
+                                            ~Q(prepaid_account__package_code_lineno=mpre_obj.package_code_lineno))
+                                        else:
+                                            use_final_ids = use_final_ids.filter(~Q(prepaid_account__pp_no=pac_ids.pp_no),~Q(prepaid_account__line_no=pac_ids.line_no))
+
                                         # print(use_final_ids,"use_final_ids 77")
                                         if use_final_ids:
                                             for i in use_final_ids:
@@ -9160,21 +9196,49 @@ class postaudViewset(viewsets.ModelViewSet):
                                                     # print(checkamt,"checkamt 111")
                                                     
                                                     if 'cartuse_ids' in req and i.pk in req['cartuse_ids']:
-                                                        p_pac_ids = PrepaidAccount.objects.filter(pp_no=pp_no,line_no=line_no,
-                                                        cust_code=cust_obj.cust_code,status=True).only('pp_no','line_no','site_code','cust_code','status').order_by('pk').last()
+                                                        if mpre_obj and mpre_obj.package_code:
+                                                            p_pac_ids = PrepaidAccount.objects.filter(pp_no=pp_no,line_no=line_no,
+                                                            cust_code=cust_obj.cust_code,status=True,package_code_lineno=mpre_obj.package_code_lineno).only('pp_no','line_no','site_code','cust_code','status').order_by('pk').last()
+                                                        else:
+                                                            p_pac_ids = PrepaidAccount.objects.filter(pp_no=pp_no,line_no=line_no,
+                                                            cust_code=cust_obj.cust_code,status=True).only('pp_no','line_no','site_code','cust_code','status').order_by('pk').last()
                                                         
                                                         PrepaidAccount.objects.filter(pk=p_pac_ids.pk).update(status=False)
                                                         
-                                                        check_amt -= i.deposit 
+                                                        if i.pk in cart_halfdepo:
+                                                            for subi in cart_padepolst:
+                                                                if i.pk in subi:
+                                                                    check_amt -= float(subi[i.pk])
+                                                        else:        
+                                                            check_amt -= i.deposit 
+
                                                         # print(check_amt,"check_amt")
+
                                                         if check_amt > 0:
-                                                            use_amt = i.deposit
-                                                            remain = float(p_pac_ids.remain) - float(i.deposit)
+                                                            if i.pk in cart_halfdepo:
+                                                                for sub in cart_padepolst:
+                                                                    if i.pk in sub:
+                                                                        use_amt = float(sub[i.pk])
+                                                                        remain = float(p_pac_ids.remain) - float(sub[i.pk])
+                                                                        del sub[i.pk]
+                                                                        cart_halfdepo.remove(i.pk)
+
+                                                            else: 
+                                                                use_amt = i.deposit           
+                                                                remain = float(p_pac_ids.remain) - float(i.deposit)
                                                         else:
                                                             use_amt = checkamt
                                                             
                                                             remain = float(p_pac_ids.remain) - float(use_amt)
-                                                        # print(use_amt,"use_amt")    
+                                                            if check_amt < 0 and  i.pk not in cart_halfdepo:
+                                                                cart_halfdepo.append(i.pk)
+                                                                part_val = {}
+                                                                part_val[i.pk] = abs(check_amt) 
+                                                                cart_padepolst.append(part_val)
+                                                  
+                                                        # print(use_amt,"use_amt")   
+                                                        # print(cart_halfdepo,"cart_halfdepo") 
+                                                        # print(cart_padepolst,"cart_padepolst")
                                                         used_amount += use_amt
                                                         vstatus = True
                                                         if remain == 0 and p_pac_ids.outstanding == 0:
@@ -9191,76 +9255,143 @@ class postaudViewset(viewsets.ModelViewSet):
                                                         pp_type2=open_ids.conditiontype2 if open_ids and open_ids.conditiontype2 else "",
                                                         condition_type1=open_ids.conditiontype1 if open_ids and open_ids.conditiontype1 else "",
                                                         pos_daud_lineno=pac_ids.line_no,Cust_Codeid=cust_obj,Site_Codeid=site,
-                                                        Item_Codeid=p_pac_ids.Item_Codeid,item_code=p_pac_ids.item_code)
+                                                        Item_Codeid=p_pac_ids.Item_Codeid,item_code=p_pac_ids.item_code,
+                                                        lpackage=p_pac_ids.lpackage,package_code=p_pac_ids.package_code,package_code_lineno=p_pac_ids.package_code_lineno)
                                                         prepacc.save()
                                                         prepacc.sa_date = pay_date 
                                                         prepacc.start_date = pay_date
                                                         prepacc.save()
-                                                        # prepaid_redeemlst.append(i.pk) 
+                                                        if check_amt >= 0:
+                                                            prepaid_redeemlst.append(i.pk) 
 
                                                         redeem_ppac = False; op_conditionobj = False
 
-                                                        if int(i.itemcodeid.Item_Divid.itm_code) == 3:
-                                                            updopen_ids = PrepaidAccountCondition.objects.filter(pp_no=pp_no,
-                                                            pos_daud_lineno=line_no,p_itemtype="Inclusive",conditiontype1="Service Only",
-                                                            itemdept_id=i.itemcodeid.Item_Deptid.pk).first()
-                                                            if updopen_ids:
-                                                                redeem_ppac = True ; op_conditionobj = updopen_ids
-                                                            else:
-                                                                updopenall_ids = PrepaidAccountCondition.objects.filter(pp_no=pp_no,
+                                                        if mpre_obj and mpre_obj.package_code:
+                                                            if int(i.itemcodeid.Item_Divid.itm_code) == 3:
+                                                                updopen_ids = PrepaidAccountCondition.objects.filter(pp_no=pp_no,
                                                                 pos_daud_lineno=line_no,p_itemtype="Inclusive",conditiontype1="Service Only",
-                                                                conditiontype2="All").first()
-                                                                if updopenall_ids:
-                                                                    redeem_ppac = True; op_conditionobj=updopenall_ids
-
-                                                            if redeem_ppac == False:
-                                                                upda_dpall_ids = PrepaidAccountCondition.objects.filter(pp_no=pp_no,
-                                                                pos_daud_lineno=line_no,p_itemtype="Inclusive",conditiontype1="All",
-                                                                itemdept_id=i.itemcodeid.Item_Deptid.pk).first()
-                                                                if upda_dpall_ids:
-                                                                    redeem_ppac = True; op_conditionobj = upda_dpall_ids
-                                                                
-                                                                    
-                                                        elif int(i.itemcodeid.Item_Divid.itm_code) == 1:
-                                                            item_brand_code = ItemBrand.objects.filter(itm_code=i.itemcodeid.item_brand,
-                                                            retail_product_brand=True,itm_status=True).first()
-                                                            if item_brand_code:
-                                                                updpro_ids = PrepaidAccountCondition.objects.filter(pp_no=pp_no,
-                                                                pos_daud_lineno=line_no,p_itemtype="Inclusive",conditiontype1="Product Only",
-                                                                itembrand_id=item_brand_code.pk).first()
-                                                                if updpro_ids:
-                                                                    redeem_ppac = True; op_conditionobj=updpro_ids
+                                                                itemdept_id=i.itemcodeid.Item_Deptid.pk,package_code_lineno=mpre_obj.package_code_lineno).first()
+                                                                if updopen_ids:
+                                                                    redeem_ppac = True ; op_conditionobj = updopen_ids
                                                                 else:
-                                                                    updproall_ids = PrepaidAccountCondition.objects.filter(pp_no=pp_no,
-                                                                    pos_daud_lineno=line_no,p_itemtype="Inclusive",conditiontype1="Product Only",
-                                                                    conditiontype2="All").first()
-                                                                    if updproall_ids:
-                                                                        redeem_ppac = True; op_conditionobj = updproall_ids
+                                                                    updopenall_ids = PrepaidAccountCondition.objects.filter(pp_no=pp_no,
+                                                                    pos_daud_lineno=line_no,p_itemtype="Inclusive",conditiontype1="Service Only",
+                                                                    conditiontype2="All",package_code_lineno=mpre_obj.package_code_lineno).first()
+                                                                    if updopenall_ids:
+                                                                        redeem_ppac = True; op_conditionobj=updopenall_ids
 
                                                                 if redeem_ppac == False:
-                                                                    upda_brall_ids = PrepaidAccountCondition.objects.filter(pp_no=pp_no,
+                                                                    upda_dpall_ids = PrepaidAccountCondition.objects.filter(pp_no=pp_no,
                                                                     pos_daud_lineno=line_no,p_itemtype="Inclusive",conditiontype1="All",
-                                                                    itembrand_id=item_brand_code.pk).first()
-                                                                    if upda_brall_ids:
-                                                                        redeem_ppac = True; op_conditionobj = upda_brall_ids
+                                                                    itemdept_id=i.itemcodeid.Item_Deptid.pk,package_code_lineno=mpre_obj.package_code_lineno).first()
+                                                                    if upda_dpall_ids:
+                                                                        redeem_ppac = True; op_conditionobj = upda_dpall_ids
+                                                                    
                                                                         
-                                                        # print(redeem_ppac,"redeem_ppac")
-                                                        if redeem_ppac == False:
-                                                            upda_all_ids = PrepaidAccountCondition.objects.filter(pp_no=pp_no,
-                                                            pos_daud_lineno=line_no,p_itemtype="Inclusive",conditiontype1="All",
-                                                            conditiontype2="All").first()
-                                                            # print(upda_all_ids,"upda_all_ids")
-                                                            if upda_all_ids:
-                                                                redeem_ppac = True; op_conditionobj = upda_all_ids
+                                                            elif int(i.itemcodeid.Item_Divid.itm_code) == 1:
+                                                                item_brand_code = ItemBrand.objects.filter(itm_code=i.itemcodeid.item_brand,
+                                                                retail_product_brand=True,itm_status=True).first()
+                                                                if item_brand_code:
+                                                                    updpro_ids = PrepaidAccountCondition.objects.filter(pp_no=pp_no,
+                                                                    pos_daud_lineno=line_no,p_itemtype="Inclusive",conditiontype1="Product Only",
+                                                                    itembrand_id=item_brand_code.pk,package_code_lineno=mpre_obj.package_code_lineno).first()
+                                                                    if updpro_ids:
+                                                                        redeem_ppac = True; op_conditionobj=updpro_ids
+                                                                    else:
+                                                                        updproall_ids = PrepaidAccountCondition.objects.filter(pp_no=pp_no,
+                                                                        pos_daud_lineno=line_no,p_itemtype="Inclusive",conditiontype1="Product Only",
+                                                                        conditiontype2="All",package_code_lineno=mpre_obj.package_code_lineno).first()
+                                                                        if updproall_ids:
+                                                                            redeem_ppac = True; op_conditionobj = updproall_ids
 
-                                                        if op_conditionobj:
-                                                            PrepaidAccount.objects.filter(pk=prepacc.pk).update(pp_type2=op_conditionobj.conditiontype2,
-                                                            condition_type1=op_conditionobj.conditiontype1)
-                                                            op_cond_remain = float(op_conditionobj.remain) - float(prepacc.use_amt)
-                                                            op_cond_useamount = float(op_conditionobj.use_amt) + float(prepacc.use_amt)
-                                                           
-                                                            upd_preacc = PrepaidAccountCondition.objects.filter(pk=op_conditionobj.pk).update(remain=op_cond_remain,
-                                                            use_amt=op_cond_useamount)
+                                                                    if redeem_ppac == False:
+                                                                        upda_brall_ids = PrepaidAccountCondition.objects.filter(pp_no=pp_no,
+                                                                        pos_daud_lineno=line_no,p_itemtype="Inclusive",conditiontype1="All",
+                                                                        itembrand_id=item_brand_code.pk,package_code_lineno=mpre_obj.package_code_lineno).first()
+                                                                        if upda_brall_ids:
+                                                                            redeem_ppac = True; op_conditionobj = upda_brall_ids
+                                                                            
+                                                            # print(redeem_ppac,"redeem_ppac")
+                                                            if redeem_ppac == False:
+                                                                upda_all_ids = PrepaidAccountCondition.objects.filter(pp_no=pp_no,
+                                                                pos_daud_lineno=line_no,p_itemtype="Inclusive",conditiontype1="All",
+                                                                conditiontype2="All",package_code_lineno=mpre_obj.package_code_lineno).first()
+                                                                # print(upda_all_ids,"upda_all_ids")
+                                                                if upda_all_ids:
+                                                                    redeem_ppac = True; op_conditionobj = upda_all_ids
+
+                                                            if op_conditionobj:
+                                                                PrepaidAccount.objects.filter(pk=prepacc.pk).update(pp_type2=op_conditionobj.conditiontype2,
+                                                                condition_type1=op_conditionobj.conditiontype1)
+                                                                op_cond_remain = float(op_conditionobj.remain) - float(prepacc.use_amt)
+                                                                op_cond_useamount = float(op_conditionobj.use_amt) + float(prepacc.use_amt)
+                                                            
+                                                                upd_preacc = PrepaidAccountCondition.objects.filter(pk=op_conditionobj.pk).update(remain=op_cond_remain,
+                                                                use_amt=op_cond_useamount)
+
+
+                                                        else:
+                                                            if int(i.itemcodeid.Item_Divid.itm_code) == 3:
+                                                                updopen_ids = PrepaidAccountCondition.objects.filter(pp_no=pp_no,
+                                                                pos_daud_lineno=line_no,p_itemtype="Inclusive",conditiontype1="Service Only",
+                                                                itemdept_id=i.itemcodeid.Item_Deptid.pk).first()
+                                                                if updopen_ids:
+                                                                    redeem_ppac = True ; op_conditionobj = updopen_ids
+                                                                else:
+                                                                    updopenall_ids = PrepaidAccountCondition.objects.filter(pp_no=pp_no,
+                                                                    pos_daud_lineno=line_no,p_itemtype="Inclusive",conditiontype1="Service Only",
+                                                                    conditiontype2="All").first()
+                                                                    if updopenall_ids:
+                                                                        redeem_ppac = True; op_conditionobj=updopenall_ids
+
+                                                                if redeem_ppac == False:
+                                                                    upda_dpall_ids = PrepaidAccountCondition.objects.filter(pp_no=pp_no,
+                                                                    pos_daud_lineno=line_no,p_itemtype="Inclusive",conditiontype1="All",
+                                                                    itemdept_id=i.itemcodeid.Item_Deptid.pk).first()
+                                                                    if upda_dpall_ids:
+                                                                        redeem_ppac = True; op_conditionobj = upda_dpall_ids
+                                                                    
+                                                                        
+                                                            elif int(i.itemcodeid.Item_Divid.itm_code) == 1:
+                                                                item_brand_code = ItemBrand.objects.filter(itm_code=i.itemcodeid.item_brand,
+                                                                retail_product_brand=True,itm_status=True).first()
+                                                                if item_brand_code:
+                                                                    updpro_ids = PrepaidAccountCondition.objects.filter(pp_no=pp_no,
+                                                                    pos_daud_lineno=line_no,p_itemtype="Inclusive",conditiontype1="Product Only",
+                                                                    itembrand_id=item_brand_code.pk).first()
+                                                                    if updpro_ids:
+                                                                        redeem_ppac = True; op_conditionobj=updpro_ids
+                                                                    else:
+                                                                        updproall_ids = PrepaidAccountCondition.objects.filter(pp_no=pp_no,
+                                                                        pos_daud_lineno=line_no,p_itemtype="Inclusive",conditiontype1="Product Only",
+                                                                        conditiontype2="All").first()
+                                                                        if updproall_ids:
+                                                                            redeem_ppac = True; op_conditionobj = updproall_ids
+
+                                                                    if redeem_ppac == False:
+                                                                        upda_brall_ids = PrepaidAccountCondition.objects.filter(pp_no=pp_no,
+                                                                        pos_daud_lineno=line_no,p_itemtype="Inclusive",conditiontype1="All",
+                                                                        itembrand_id=item_brand_code.pk).first()
+                                                                        if upda_brall_ids:
+                                                                            redeem_ppac = True; op_conditionobj = upda_brall_ids
+                                                                            
+                                                            # print(redeem_ppac,"redeem_ppac")
+                                                            if redeem_ppac == False:
+                                                                upda_all_ids = PrepaidAccountCondition.objects.filter(pp_no=pp_no,
+                                                                pos_daud_lineno=line_no,p_itemtype="Inclusive",conditiontype1="All",
+                                                                conditiontype2="All").first()
+                                                                # print(upda_all_ids,"upda_all_ids")
+                                                                if upda_all_ids:
+                                                                    redeem_ppac = True; op_conditionobj = upda_all_ids
+
+                                                            if op_conditionobj:
+                                                                PrepaidAccount.objects.filter(pk=prepacc.pk).update(pp_type2=op_conditionobj.conditiontype2,
+                                                                condition_type1=op_conditionobj.conditiontype1)
+                                                                op_cond_remain = float(op_conditionobj.remain) - float(prepacc.use_amt)
+                                                                op_cond_useamount = float(op_conditionobj.use_amt) + float(prepacc.use_amt)
+                                                            
+                                                                upd_preacc = PrepaidAccountCondition.objects.filter(pk=op_conditionobj.pk).update(remain=op_cond_remain,
+                                                                use_amt=op_cond_useamount)
 
 
                            
@@ -9599,7 +9730,7 @@ class postaudViewset(viewsets.ModelViewSet):
 
                 #detail creation
                 id_lst = [] ; totQty = 0; discount_amt=0.0;additional_discountamt=0.0; total_disc = 0.0
-                outstanding_new = 0.0
+                outstanding_new = 0.0;batchsno_ids = []
                 
                 gt1_ids = Paytable.objects.filter(gt_group='GT1',pay_isactive=True).order_by('-pk') 
                 gt1_lst = list(set([i.pay_code for i in gt1_ids if i.pay_code]))
@@ -9608,9 +9739,9 @@ class postaudViewset(viewsets.ModelViewSet):
                 pay_type__in=gt1_lst).order_by('pk').aggregate(pay_amt=Coalesce(Sum('pay_amt'), 0))
                 # print(taud_gt1ids,"taud_gt1ids")
                 cart_deposit = sum([i.deposit for i in cart_ids])
-
+                
                 if depo_ids:
-                    depo = invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding, pay_date, pay_time,taud_gt1ids,cart_deposit)
+                    depo,batchsno_ids = invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding, pay_date, pay_time,taud_gt1ids,cart_deposit)
                     for dep in depo:
                         if dep not in id_lst:
                             id_lst.append(dep) 
@@ -9662,7 +9793,7 @@ class postaudViewset(viewsets.ModelViewSet):
                         in_refcontrol_obj = ControlNo.objects.filter(control_description__iexact="Reference Non Sales No",Site_Codeid__pk=fmspw.loginsite.pk).first()
                         sa_transacno_type = "Non Sales"
                         
-                    focnot_ids = cart_ids.filter(is_foc=False) 
+                    focnot_ids = cart_ids.filter(type__in=['Deposit','Top Up'],is_foc=False) 
                     if focnot_ids:
                         sa_transacno_refval = str(in_refcontrol_obj.control_prefix)+str(in_refcontrol_obj.Site_Codeid.itemsite_code)+str(in_refcontrol_obj.control_no)
                         in_refcontrol_obj.control_no = int(in_refcontrol_obj.control_no) + 1
@@ -9698,6 +9829,11 @@ class postaudViewset(viewsets.ModelViewSet):
                     hdr.sa_date = pay_date
                     hdr.sa_time = pay_time
                     hdr.save()
+                    
+                    #ItemBatchSno
+                    if batchsno_ids != []:
+                        ItemBatchSno.objects.filter(pk__in=batchsno_ids).update(doc_outno=hdr.sa_transacno_ref)
+
 
                     #treatmentpackage
                     p_ids = TreatmentPackage.objects.filter(sa_transacno=sa_transacno).update(sa_transacno_ref=hdr.sa_transacno_ref)
@@ -11685,6 +11821,18 @@ class CustomerReceiptPrintList(generics.ListAPIView):
             taud_sub = {'gst_label':label if label else '','gst':str("{:.2f}".format(tax_amt)) if tax_amt else "0.00",'total':str("{:.2f}".format((tot_payamt))),
             'rounding':rounding,'grand_tot':str("{:.2f}".format((tot_payamt)))}  
 
+            #show treatment balance
+            #treatopen_ids = Treatment.objects.filter(cust_code=hdr[0].sa_custno,
+            #site_code=site.itemsite_code,status='Open').values('item_code','course').annotate(total=Count('item_code'))
+            treatopen_ids = Treatment.objects.filter(cust_code=hdr[0].sa_custno,
+            status='Open').values('item_code','course').annotate(total=Count('item_code'))
+            
+            treatmentbal_setup = Systemsetup.objects.filter(title='InvoiceSetting',
+            value_name='showtreatmentbalance',isactive=True).first()
+            treatmentbal = False
+            if treatmentbal_setup and treatmentbal_setup.value_data == 'True' and treatopen_ids:
+                treatmentbal = True
+                
 
             #prepaid balance show if customer pay by prepaid setting flag
             prepaidlst = []
@@ -11695,8 +11843,19 @@ class CustomerReceiptPrintList(generics.ListAPIView):
                     spl_tn = str(po.pay_rem1).split("-")
                     ppno = spl_tn[0]
                     lineno = spl_tn[1]
-                    prequeryset = PrepaidAccount.objects.filter(cust_code=hdr[0].sa_custno,
-                    status=True,remain__gt=0,pp_no=ppno,line_no=lineno).only('site_code','cust_code','sa_status').order_by('-pk').first()
+                    if po and po.pay_rem2:
+                        mpre_obj = PrepaidAccount.objects.filter(pk=po.pay_rem2).first()
+                    else:
+                        mpre_obj = False
+                    
+                    if mpre_obj and mpre_obj.package_code:
+                        prequeryset = PrepaidAccount.objects.filter(cust_code=hdr[0].sa_custno,
+                        status=True,remain__gt=0,pp_no=ppno,line_no=lineno,
+                        package_code_lineno=mpre_obj.package_code_lineno).only('site_code','cust_code','sa_status').order_by('-pk').first()
+                    else:
+                        prequeryset = PrepaidAccount.objects.filter(cust_code=hdr[0].sa_custno,
+                        status=True,remain__gt=0,pp_no=ppno,line_no=lineno).only('site_code','cust_code','sa_status').order_by('-pk').first()
+                    
                     # print(prequeryset,"prequeryset")
                     if prequeryset:
                         pval = {'pp_desc':prequeryset.pp_desc,'remain':"{:.2f}".format(prequeryset.remain)}
@@ -11715,7 +11874,8 @@ class CustomerReceiptPrintList(generics.ListAPIView):
 
             footer_val = {'trans_promo1': title.trans_promo1 if title and title.trans_promo1 else '',
             'trans_promo2' : title.trans_promo2 if title and title.trans_promo2 else '',
-            'showprepaid': showprepaid,'prepaidlst':prepaidlst}
+            'showprepaid': showprepaid,'prepaidlst':prepaidlst,
+            'treatmentbal':treatmentbal,'treatment': treatopen_ids}
             footer.update(footer_val)
 
             state = status.HTTP_200_OK
@@ -12057,6 +12217,7 @@ class CustomerReceiptPrintBeforeCheckoutList(APIView):
             #     'margin-left': '.25in',
             #     'encoding': "UTF-8",
             #     'no-outline': None,
+            
                 
             # }
             
@@ -14555,9 +14716,10 @@ class AppointmentBlockViewset(viewsets.ModelViewSet):
                         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cant Block Appointments for Past days!!",'error': True} 
                         return Response(result, status=status.HTTP_400_BAD_REQUEST) 
 
-                    prev_appts = Appointment.objects.filter(appt_isactive=True,appt_date=sdate,emp_no=empobj.emp_code
-                    ).filter(Q(appt_to_time__gt=request.data['appt_fr_time']) & Q(
+                    prev_appts = Appointment.objects.filter(appt_isactive=True,appt_date=sdate,emp_no=empobj.emp_code,
+                    itemsite_code=site.itemsite_code).filter(Q(appt_to_time__gt=request.data['appt_fr_time']) & Q(
                     appt_fr_time__lt=request.data['appt_to_time'])).order_by('-pk')
+                    # itemsite_code=site.itemsite_code
                     if prev_appts:
                         msg = "StartTime {0} EndTime {1} Employee {2} Already have appointment for this time".format(str(request.data['appt_fr_time']),str(request.data['appt_to_time']),str(empobj.display_name))
                         result = {'status': status.HTTP_400_BAD_REQUEST,"message": msg,'error': True}
@@ -14978,7 +15140,7 @@ class AppointmentListPdf(APIView):
                     'margin-bottom': '.25in',
                     'margin-left': '.25in',
                     'encoding': "UTF-8",
-                    'no-outline': None,                
+                    'no-outline': None,       
                 }
                 
                 dst ="AppointmentReport" + ".pdf"
@@ -15822,7 +15984,6 @@ class DayEndListAPIView(generics.ListAPIView,generics.CreateAPIView):
                     'margin-left': '.25in',
                     'encoding': "UTF-8",
                     'no-outline': None,
-                    
                 }
                 
                 confirmdate = datetime.datetime.now().strftime('%d-%m-%YT%H:%M:%S')
@@ -16655,7 +16816,6 @@ class DayEndListAPIView(generics.ListAPIView,generics.CreateAPIView):
                             'margin-left': '.25in',
                             'encoding': "UTF-8",
                             'no-outline': None,
-                            
                         }
                         
                         dst ="DayEnd_"+str(site.itemsite_code)+"_"+date_str+"_"+fmspw_c.pw_userlogin+"_"+str(confirmdate)+".pdf"
@@ -22273,37 +22433,46 @@ class CustomerDocumentViewset(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated & authenticated_only]
     queryset = CustomerDocument.objects.filter().order_by('-pk')
     serializer_class = CustomerDocumentSerializer
-
+    
+    @transaction.atomic
     def create(self, request, format=None):
         try:
-            if not 'customer_id' in request.data or not request.data['customer_id']:
-                raise Exception('Please give Customer ID!!.') 
+            with transaction.atomic():
+                if not 'customer_id' in request.data or not request.data['customer_id']:
+                    raise Exception('Please give Customer ID!!.') 
 
-            if not 'file' in request.data or not request.data['file']:
-                raise Exception('Please give file!!.') 
-            
-            cust_obj = Customer.objects.filter(pk=request.data['customer_id'],
-            cust_isactive=True).first()
-            if not cust_obj:
-                result = {'status': status.HTTP_200_OK,"message":"Customer id does not exist!!",'error': True} 
-                return Response(data=result, status=status.HTTP_200_OK) 
+                if not 'file' in request.data or not request.data['file']:
+                    raise Exception('Please give file!!.') 
+                
+                # if not 'filename' in request.data or not request.data['filename']:
+                #     raise Exception('Please give filename!!.') 
+                
+                # if not 'document_name' in request.data or not request.data['document_name']:
+                #     raise Exception('Please give document_name!!.') 
+
+                
+                cust_obj = Customer.objects.filter(pk=request.data['customer_id'],
+                cust_isactive=True).first()
+                if not cust_obj:
+                    result = {'status': status.HTTP_200_OK,"message":"Customer id does not exist!!",'error': True} 
+                    return Response(data=result, status=status.HTTP_200_OK) 
 
 
-            serializer = CustomerDocumentSerializer(data=request.data, context={'request': self.request})
-            if serializer.is_valid():
-                serializer.save()
-                result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully ",'error': False,
-                'data': serializer.data}
-                return Response(result, status=status.HTTP_201_CREATED)
+                serializer = CustomerDocumentSerializer(data=request.data, context={'request': self.request})
+                if serializer.is_valid():
+                    serializer.save()
+                    result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully ",'error': False,
+                    'data': serializer.data}
+                    return Response(result, status=status.HTTP_201_CREATED)
 
-            data = serializer.errors
-            first_key = list(data.keys())[0]
-            message = str(first_key)+":  "+str(data[first_key][0])
+                data = serializer.errors
+                first_key = list(data.keys())[0]
+                message = str(first_key)+":  "+str(data[first_key][0])
 
-            result = {'status': status.HTTP_400_BAD_REQUEST,
-            "message":message,'error': True, 
-            'data': serializer.errors} 
-            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                result = {'status': status.HTTP_400_BAD_REQUEST,
+                "message":message,'error': True, 
+                'data': serializer.errors} 
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message) 
@@ -22311,10 +22480,15 @@ class CustomerDocumentViewset(viewsets.ModelViewSet):
     def list(self, request):
         try:
             customer_id = self.request.GET.get('customer_id',None)
+            if not customer_id:
+                result = {'status': status.HTTP_200_OK,"message":"Please give customer id!!",'error': True} 
+                return Response(data=result, status=status.HTTP_200_OK) 
+
+
             cust_obj = Customer.objects.filter(pk=customer_id,
             cust_isactive=True).first()
             if not cust_obj:
-                result = {'status': status.HTTP_200_OK,"message":"Please give customer id!!",'error': True} 
+                result = {'status': status.HTTP_200_OK,"message":"Customer id doesnt exist!!",'error': True} 
                 return Response(data=result, status=status.HTTP_200_OK) 
 
             photo = self.request.GET.get('photo',None)    
@@ -22374,45 +22548,46 @@ class ProjectDocumentViewset(viewsets.ModelViewSet):
     queryset = ProjectDocument.objects.filter().order_by('-pk')
     serializer_class = ProjectDocumentSerializer
 
-
+    @transaction.atomic
     def create(self, request, format=None):
         try:
-            if not 'customer_id' in request.data or not request.data['customer_id']:
-                raise Exception('Please give Customer ID!!.') 
+            with transaction.atomic():
+                if not 'customer_id' in request.data or not request.data['customer_id']:
+                    raise Exception('Please give Customer ID!!.') 
 
-            if not 'file' in request.data or not request.data['file']:
-                raise Exception('Please give file!!.') 
-            
-            if not 'fk_project' in request.data or not request.data['fk_project']:
-                raise Exception('Please give Project ID!!.') 
+                if not 'file' in request.data or not request.data['file']:
+                    raise Exception('Please give file!!.') 
+                
+                if not 'fk_project' in request.data or not request.data['fk_project']:
+                    raise Exception('Please give Project ID!!.') 
 
-            cust_obj = Customer.objects.filter(pk=request.data['customer_id'],
-            cust_isactive=True).first()
-            if not cust_obj:
-                result = {'status': status.HTTP_200_OK,"message":"Customer id does not exist!!",'error': True} 
-                return Response(data=result, status=status.HTTP_200_OK) 
-            
-            proj_obj = ProjectModel.objects.filter(active='active',pk=request.data['fk_project']).order_by('-pk').first()
-            if not proj_obj:
-                result = {'status': status.HTTP_200_OK,"message":"Project id Does not exist!!",'error': True} 
-                return Response(data=result, status=status.HTTP_200_OK) 
+                cust_obj = Customer.objects.filter(pk=request.data['customer_id'],
+                cust_isactive=True).first()
+                if not cust_obj:
+                    result = {'status': status.HTTP_200_OK,"message":"Customer id does not exist!!",'error': True} 
+                    return Response(data=result, status=status.HTTP_200_OK) 
+                
+                proj_obj = ProjectModel.objects.filter(active='active',pk=request.data['fk_project']).order_by('-pk').first()
+                if not proj_obj:
+                    result = {'status': status.HTTP_200_OK,"message":"Project id Does not exist!!",'error': True} 
+                    return Response(data=result, status=status.HTTP_200_OK) 
 
- 
-            serializer = ProjectDocumentSerializer(data=request.data, context={'request': self.request})
-            if serializer.is_valid():
-                serializer.save()
-                result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully ",'error': False,
-                'data': serializer.data}
-                return Response(result, status=status.HTTP_201_CREATED)
+    
+                serializer = ProjectDocumentSerializer(data=request.data, context={'request': self.request})
+                if serializer.is_valid():
+                    serializer.save()
+                    result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully ",'error': False,
+                    'data': serializer.data}
+                    return Response(result, status=status.HTTP_201_CREATED)
 
-            data = serializer.errors
-            first_key = list(data.keys())[0]
-            message = str(first_key)+":  "+str(data[first_key][0])
+                data = serializer.errors
+                first_key = list(data.keys())[0]
+                message = str(first_key)+":  "+str(data[first_key][0])
 
-            result = {'status': status.HTTP_400_BAD_REQUEST,
-            "message":message,'error': True, 
-            'data': serializer.errors} 
-            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                result = {'status': status.HTTP_400_BAD_REQUEST,
+                "message":message,'error': True, 
+                'data': serializer.errors} 
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message) 
@@ -22421,9 +22596,13 @@ class ProjectDocumentViewset(viewsets.ModelViewSet):
     def list(self, request):
         try:
             project_id = self.request.GET.get('project_id',None)
+            if not project_id:
+                result = {'status': status.HTTP_200_OK,"message":"Please give Project id!!",'error': True} 
+                return Response(data=result, status=status.HTTP_200_OK) 
+
             proj_obj = ProjectModel.objects.filter(active='active',pk=project_id).order_by('-pk').first()
             if not proj_obj:
-                result = {'status': status.HTTP_200_OK,"message":"Please give Project id!!",'error': True} 
+                result = {'status': status.HTTP_200_OK,"message":"Project id doesnt exist!!",'error': True} 
                 return Response(data=result, status=status.HTTP_200_OK) 
 
             queryset = ProjectDocument.objects.filter(fk_project=project_id).order_by('-pk')
@@ -22438,6 +22617,167 @@ class ProjectDocumentViewset(viewsets.ModelViewSet):
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)             
+
+
+class StaffDocumentViewset(viewsets.ModelViewSet):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = StaffDocument.objects.filter().order_by('-pk')
+    serializer_class = StaffDocumentSerializer
+
+    @transaction.atomic
+    def create(self, request, format=None):
+        try:
+            with transaction.atomic():
+                if not 'employee' in request.data or not request.data['employee']:
+                    raise Exception('Please give employee ID!!.') 
+
+                if not 'file' in request.data or not request.data['file']:
+                    raise Exception('Please give file!!.') 
+                
+                # if not 'filename' in request.data or not request.data['filename']:
+                #     raise Exception('Please give filename!!.') 
+                
+                # if not 'document_name' in request.data or not request.data['document_name']:
+                #     raise Exception('Please give document_name!!.') 
+                
+                # file = request.FILES.get("file") 
+
+                # if  'filename' in request.data and request.data['filename']:
+                #     filename = request.FILES['filename']
+                # else:
+                #     filename = file.filename
+
+ 
+
+                emp_obj = Employee.objects.filter(pk=request.data['employee'],
+                emp_isactive=True).first()
+                if not emp_obj:
+                    result = {'status': status.HTTP_200_OK,"message":"Employee id does not exist!!",'error': True} 
+                    return Response(data=result, status=status.HTTP_200_OK) 
+                
+               
+                serializer = StaffDocumentSerializer(data=request.data, context={'request': self.request})
+                if serializer.is_valid():
+                    serializer.save()
+                    result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully ",'error': False,
+                    'data': serializer.data}
+                    return Response(result, status=status.HTTP_201_CREATED)
+
+                data = serializer.errors
+                first_key = list(data.keys())[0]
+                message = str(first_key)+":  "+str(data[first_key][0])
+
+                result = {'status': status.HTTP_400_BAD_REQUEST,
+                "message":message,'error': True, 
+                'data': serializer.errors} 
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message) 
+    
+    def list(self, request):
+        try:
+            employee_id = self.request.GET.get('employee_id',None)
+            if not employee_id:
+                result = {'status': status.HTTP_200_OK,"message":"Please give Employee id!!",'error': True} 
+                return Response(data=result, status=status.HTTP_200_OK) 
+
+            emp_obj = Employee.objects.filter(pk=employee_id,
+                emp_isactive=True).first()
+            if not emp_obj:
+                result = {'status': status.HTTP_200_OK,"message":"Employee id does not exist!!",'error': True} 
+                return Response(data=result, status=status.HTTP_200_OK) 
+
+            queryset = StaffDocument.objects.filter(employee=emp_obj).order_by('-pk')
+            if queryset:
+                serializer = StaffDocumentSerializer(queryset, many=True, context={'request': self.request})
+                result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False,
+                 'data':  serializer.data}
+            else:
+                serializer = self.get_serializer()
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+            return Response(data=result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)             
+
+class OutletDocumentViewset(viewsets.ModelViewSet):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = OutletDocument.objects.filter().order_by('-pk')
+    serializer_class = OutletDocumentSerializer
+
+    @transaction.atomic
+    def create(self, request, format=None):
+        try:
+            with transaction.atomic():
+                if not 'site' in request.data or not request.data['site']:
+                    raise Exception('Please give site ID!!.') 
+
+                if not 'file' in request.data or not request.data['file']:
+                    raise Exception('Please give file!!.') 
+                
+                # if not 'filename' in request.data or not request.data['filename']:
+                #     raise Exception('Please give filename!!.') 
+                
+                # if not 'document_name' in request.data or not request.data['document_name']:
+                #     raise Exception('Please give document_name!!.') 
+ 
+
+                site_obj = ItemSitelist.objects.filter(pk=request.data['site'],
+                itemsite_isactive=True).first()
+                if not site_obj:
+                    result = {'status': status.HTTP_200_OK,"message":"ItemSitelist id does not exist!!",'error': True} 
+                    return Response(data=result, status=status.HTTP_200_OK) 
+                
+               
+                serializer = OutletDocumentSerializer(data=request.data, context={'request': self.request})
+                if serializer.is_valid():
+                    serializer.save()
+                    result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully ",'error': False,
+                    'data': serializer.data}
+                    return Response(result, status=status.HTTP_201_CREATED)
+
+                data = serializer.errors
+                first_key = list(data.keys())[0]
+                message = str(first_key)+":  "+str(data[first_key][0])
+
+                result = {'status': status.HTTP_400_BAD_REQUEST,
+                "message":message,'error': True, 
+                'data': serializer.errors} 
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message) 
+    
+
+    def list(self, request):
+        try:
+            site_id = self.request.GET.get('site_id',None)
+            if not site_id:
+                result = {'status': status.HTTP_200_OK,"message":"Please give Site id!!",'error': True} 
+                return Response(data=result, status=status.HTTP_200_OK) 
+
+            site_obj = ItemSitelist.objects.filter(pk=site_id,
+                itemsite_isactive=True).first()
+            if not site_obj:
+                result = {'status': status.HTTP_200_OK,"message":"ItemSitelist id does not exist!!",'error': True} 
+                return Response(data=result, status=status.HTTP_200_OK) 
+
+            queryset = OutletDocument.objects.filter(site=site_obj).order_by('-pk')
+            if queryset:
+                serializer = OutletDocumentSerializer(queryset, many=True, context={'request': self.request})
+                result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False,
+                 'data':  serializer.data}
+            else:
+                serializer = self.get_serializer()
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+            return Response(data=result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)             
+
 
 
 
@@ -25880,9 +26220,6 @@ class OnlineBookingDateSlotsViewset(viewsets.ModelViewSet):
                                     if (field_lst[key] == False or field_lst[key] == None) and timedata[key] not in avail_timeslots:
                                         avail_timeslots.append(timedata[key])
 
-
-
-            
             result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
             'data':  {"available_slots": avail_timeslots}}
             return Response(data=result, status=status.HTTP_200_OK)
@@ -25891,10 +26228,11 @@ class OnlineBookingDateSlotsViewset(viewsets.ModelViewSet):
             invalid_message = str(e)
             return general_error_response(invalid_message)
 
+#E-commerce module apis
 
 class AppointBookingDateSlotsViewset(viewsets.ModelViewSet):
-    authentication_classes = [ExpiringTokenAuthentication]
-    permission_classes = [IsAuthenticated & authenticated_only]
+    authentication_classes = []
+    permission_classes = []
     # queryset = []
     # serializer_class = []   
 
@@ -25903,13 +26241,31 @@ class AppointBookingDateSlotsViewset(viewsets.ModelViewSet):
         try: 
             global timedata
 
-            fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
-            site = fmspw.loginsite 
+            # fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+            # site = fmspw.loginsite 
+            site_id = self.request.GET.get('site_id',None)
+            
+            if not site_id:
+                raise Exception('Please give site_id') 
+
+            site = ItemSitelist.objects.filter(pk=site_id,itemsite_isactive=True).first()
+            if not site:
+                raise Exception('ItemSitelist Location ID doesnt exist!!') 
+
+            startday_hour = site.startday_hour
+            # print(startday_hour,"startday_hour")
+            endday_hour = site.endday_hour
+            # print(endday_hour,"endday_hour")
+
             start_date = date.today()
             # print(start_date,"start_date")
-            end_date = date.today() + timedelta(days=14)
+            n_days_ago = start_date + timedelta(days=2)
+            # print(n_days_ago,"n_days_ago")
+
+            # end_date = date.today() + timedelta(days=14)
+            end_date = n_days_ago + relativedelta.relativedelta(months=+2)
             # print(end_date,"end_date")
-            date_range = [(start_date + datetime.timedelta(days=i)).strftime('%Y-%m-%d') for i in range(0, (end_date - start_date).days + 1)]
+            date_range = [(n_days_ago + datetime.timedelta(days=i)).strftime('%Y-%m-%d') for i in range(0, (end_date - n_days_ago).days + 1)]
             # print(date_range,"date_range")
 
             emp_siteids = list(set(EmpSitelist.objects.filter(Site_Codeid__pk=site.pk,isactive=True,Emp_Codeid__emp_isactive=True,Emp_Codeid__show_in_appt=True).values_list('Emp_Codeid', flat=True).distinct()))
@@ -25936,11 +26292,17 @@ class AppointBookingDateSlotsViewset(viewsets.ModelViewSet):
                             'time2330')[0] 
                         # print(field_lst,"field_lst") 
                         
-                        if field_lst:
+                        if field_lst and startday_hour and endday_hour:
                             for key in field_lst:
                                 # print(key,"key")
-                                if (field_lst[key] == False or field_lst[key] == None) and timedata[key] not in avail_timeslots:
-                                    avail_timeslots.append(timedata[key])
+                                # print(float(startday_hour),float(endday_hour),"startday_hour")
+                                t = str(timedata[key]).split(':')
+                                d = float(t[0]+"."+t[1])
+                                # print(d,"d")
+                                # print(d >= float(startday_hour) and d <= float(endday_hour),"ll")
+                                if d >= float(startday_hour) and d <= float(endday_hour):
+                                    if (field_lst[key] == False or field_lst[key] == None) and timedata[key] not in avail_timeslots:
+                                        avail_timeslots.append(timedata[key])
 
                 if avail_timeslots != [] and i not in main_lst:                
                     main_lst.append(i)       
@@ -25949,6 +26311,8 @@ class AppointBookingDateSlotsViewset(viewsets.ModelViewSet):
             result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
             'data':  {"available_dates": main_lst}}
             return Response(data=result, status=status.HTTP_200_OK)
+    
+
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)
@@ -25959,17 +26323,34 @@ class AppointBookingDateSlotsViewset(viewsets.ModelViewSet):
         try: 
             global timedata
 
-            fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
-            site = fmspw.loginsite 
+            # fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+            # site = fmspw.loginsite 
+            site_id = self.request.GET.get('site_id',None)
+            
+            if not site_id:
+                raise Exception('Please give site_id') 
+
+            site = ItemSitelist.objects.filter(pk=site_id,itemsite_isactive=True).first()
+            if not site:
+                raise Exception('ItemSitelist Location ID doesnt exist!!') 
+
+            startday_hour = site.startday_hour
+            # print(startday_hour,"startday_hour")
+            endday_hour = site.endday_hour
+            # print(endday_hour,"endday_hour")
+            enddayhour = float(endday_hour) - 1 
+            # print(enddayhour,"enddayhour")
+
             given_date = self.request.GET.get('given_date',None)
             if not given_date:
-                raise ValueError("Please select given_date!!") 
-            
-           
+                raise ValueError("Please select given_date!!")
+
             todaydate = timezone.now().date() 
             n_days_ago = todaydate - timedelta(days=2)
             # print(n_days_ago,"n_days_ago")
             appt_date = datetime.datetime.strptime(str(given_date), "%Y-%m-%d").date()
+            given_date_day = datetime.datetime.strptime(str(given_date), "%Y-%m-%d").strftime('%A')
+            # print(given_date_day,"given_date_day")
             
 
             if appt_date < n_days_ago:
@@ -25977,9 +26358,9 @@ class AppointBookingDateSlotsViewset(viewsets.ModelViewSet):
                 # value_name='AllowPreviousDateAppointment',isactive=True).first()
 
                 # if apptprevious_setup and apptprevious_setup.value_data == 'False':
-                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cant Book Appointments for 2 Past days time slots!!",'error': True} 
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cant Book Appointments for Past 2 days time slots!!",'error': True} 
                 return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-
+     
            
             emp_siteids = list(set(EmpSitelist.objects.filter(Site_Codeid__pk=site.pk,isactive=True,Emp_Codeid__emp_isactive=True,Emp_Codeid__show_in_appt=True).values_list('Emp_Codeid', flat=True).distinct()))
             # print(emp_siteids,"emp_siteids")
@@ -26002,13 +26383,24 @@ class AppointBookingDateSlotsViewset(viewsets.ModelViewSet):
                         'time2330')[0] 
                     # print(field_lst,"field_lst") 
                     
-                    if field_lst:
+                    if field_lst and startday_hour and endday_hour:
                         for key in field_lst:
                             # print(key,"key")
-                            if (field_lst[key] == False or field_lst[key] == None) and timedata[key] not in avail_timeslots:
-                                avail_timeslots.append(timedata[key])
+                            # print(float(startday_hour),float(endday_hour),"startday_hour")
+                            t = str(timedata[key]).split(':')
+                            d = float(t[0]+"."+t[1])
+                            # print(d,"d")
+                            # print(d >= float(startday_hour) and d <= float(endday_hour),"ll")
+                            if given_date_day not in ["Saturday","Sunday"]:
+                                if d >= float(startday_hour) and d <= float(enddayhour):
+                                    if (field_lst[key] == False or field_lst[key] == None) and timedata[key] not in avail_timeslots:
+                                        avail_timeslots.append(timedata[key])
+                            elif given_date_day in ["Saturday","Sunday"]:
+                                startdayhour = "10.00" ; end_dayhour = "17.00"
+                                if d >= float(startdayhour) and d <= float(end_dayhour):
+                                    if (field_lst[key] == False or field_lst[key] == None) and timedata[key] not in avail_timeslots:
+                                        avail_timeslots.append(timedata[key])
 
-            
             result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
             'data':  {"available_slots": avail_timeslots}}
             return Response(data=result, status=status.HTTP_200_OK)
@@ -26016,6 +26408,626 @@ class AppointBookingDateSlotsViewset(viewsets.ModelViewSet):
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)
+
+
+class EcomAppointBookingViewset(viewsets.ModelViewSet):
+    authentication_classes = []
+    permission_classes = []
+    queryset = Appointment.objects.filter(appt_isactive=True).order_by('pk')
+    serializer_class = EcomAppointmentSerializer
+
+
+    @transaction.atomic
+    def create(self, request):
+        try:
+            with transaction.atomic():
+                state = status.HTTP_400_BAD_REQUEST
+                # fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+                # log_emp =  fmspw[0].Emp_Codeid
+               
+                queryset = None
+                serializer_class = None
+                total = None
+                if not request.data:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give Payload data!!",'error': True} 
+                    return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                
+                treatment = request.data.get('Treatment')
+                # if treatment == []:
+                #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give Treatment Details!!",'error': True} 
+                #     return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+                link_flag = False
+                if len(treatment) > 1:
+                    link_flag = True
+
+                Appt = request.data.get('Appointment')
+
+                if not 'cust_name' in Appt or not Appt['cust_name']:
+                    raise Exception('Please give Name!!.') 
+                
+                if not 'cust_email' in Appt or not Appt['cust_email']:
+                    raise Exception('Please give Email!!.') 
+
+                if not 'cust_phone2' in Appt or not Appt['cust_phone2']:
+                    raise Exception('Please give Mobile Number!!.') 
+                
+                if not 'site_id' in Appt or not Appt['site_id']:
+                    raise Exception('Please give Location!!.') 
+                
+                site_obj = ItemSitelist.objects.filter(pk=Appt['site_id'],itemsite_isactive=True).first()
+                # print(site_obj,"site_obj")
+                if not site_obj:
+                    raise Exception('ItemSitelist Location ID doesnt exist!!') 
+
+                site = site_obj
+
+                if not Appt['appt_date']:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please select Appointment Date!!",'error': True} 
+                    return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+                # if not Appt['cust_noid']:
+                #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please select Customer!!",'error': True} 
+                #     return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+                if not Appt['appt_status']:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please select Appointment Booking Status!!",'error': True} 
+                    return Response(result, status=status.HTTP_400_BAD_REQUEST)     
+
+                todaydate = timezone.now().date() 
+                appt_date = datetime.datetime.strptime(str(Appt['appt_date']), "%Y-%m-%d").date()
+                apptdate = datetime.datetime.strptime(str(Appt['appt_date']), "%Y-%m-%d").strftime("%d-%m-%Y")
+                
+
+                if appt_date < todaydate:
+                    apptprevious_setup = Systemsetup.objects.filter(title='AllowPreviousDateAppointment',
+                    value_name='AllowPreviousDateAppointment',isactive=True).first()
+
+                    if apptprevious_setup and apptprevious_setup.value_data == 'False':
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cant Book Appointments for Past days!!",'error': True} 
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
+                # if not Appt['cust_noid']:
+                #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give Customer!!",'error': True} 
+                #     return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
+                if 'Appt_typeid' in Appt and Appt['Appt_typeid']:
+                    channel = ApptType.objects.filter(pk=Appt['Appt_typeid'],appt_type_isactive=True).first()
+                    if not channel:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Channel ID does not exist!!",'error': True} 
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                else:
+                    channel = False 
+
+                cust_queryset = Customer.objects.filter(cust_isactive=True).exclude(site_code__isnull=True).only('cust_isactive').order_by('-pk')
+                customer = cust_queryset.filter(Q(cust_name__icontains=Appt['cust_name']), 
+                Q(cust_email__icontains=Appt['cust_email']),Q(cust_phone2__icontains=Appt['cust_phone2'])).first()
+
+                # print(customer,"customer") 
+                # customer = Customer.objects.filter(pk=Appt['cust_noid'],cust_isactive=True,
+                # site_code=site.itemsite_code).first()
+                # customer = Customer.objects.filter(pk=Appt['cust_noid'],cust_isactive=True).first()
+                # print(customer,'customer')
+                if not customer:
+                    custcontrol_obj = ControlNo.objects.filter(control_description__iexact="VIP CODE",Site_Codeid__pk=site.pk).first()
+                    if not custcontrol_obj:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer Control No does not exist!!",'error': True} 
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                        
+                    cus_code = str(custcontrol_obj.Site_Codeid.itemsite_code)+str(custcontrol_obj.control_no)
+                    # gender = False
+                    # if request.data['Cust_sexesid']:
+                    #     gender = Gender.objects.filter(pk=request.data['Cust_sexesid'],itm_isactive=True).first()
+                    
+                    classobj = CustomerClass.objects.filter(class_code='100001',class_isactive=True).first()
+                   
+                    cust_k = Customer(site_code=site.itemsite_code,Site_Codeid=site,cust_code=cus_code,
+                    cust_sexes=None, cust_joindate=timezone.now(),join_status=True,
+                    cust_class=classobj.class_code if classobj and classobj.class_code else None,
+                    Cust_Classid=classobj,custallowsendsms=True,or_key=site.itemsite_code,
+                    cust_name=Appt['cust_name'],cust_phone2=Appt['cust_phone2'],cust_email=Appt['cust_email'])
+                    cust_k.save()
+                    if cust_k.pk:
+                        custcontrol_obj.control_no = int(custcontrol_obj.control_no) + 1
+                        custcontrol_obj.save()
+
+                    customer = cust_k     
+                    
+                cust_obj = customer
+
+                cust_email = cust_obj.cust_email
+                # if not cust_email or cust_email is None:
+                #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Email id is not given!!",'error': True} 
+                #     return Response(data=result, status=status.HTTP_400_BAD_REQUEST) 
+                
+                
+                if 'Source_Codeid' in Appt and Appt['Source_Codeid']:
+                    source = Source.objects.filter(pk=Appt['Source_Codeid'],source_isactive=True).first()
+                    if not source:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Source Code does not exist!!",'error': True} 
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                    Source_Code = source.source_code 
+                else:    
+                    Source_Code = False
+                
+                if 'Room_Codeid' in Appt and Appt['Room_Codeid']:
+                    room_ids = Room.objects.filter(id=Appt['Room_Codeid'],site_code=site.itemsite_code,isactive=True)
+                    if not room_ids:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Room Id does not exist!!",'error': True} 
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                else:
+                    room_ids = False
+
+                if 'bookedby' in Appt and Appt['bookedby']:
+                    bookedby = Appt['bookedby']
+                else:
+                    bookedby = None
+
+            
+                apptsite = site_obj
+                
+                apptpw_setup = Systemsetup.objects.filter(title='appointmentPassword',
+                value_name='appointmentPassword',isactive=True).first()
+                
+
+                # if apptpw_setup and apptpw_setup.value_data == 'True':
+                #     if not 'username' in Appt or not 'password' in Appt or not Appt['username'] or not Appt['password']:
+                #         raise Exception('Please Enter Valid Username and Password!!.') 
+
+                #     if User.objects.filter(username=Appt['username']):
+                #         self.user = authenticate(username=Appt['username'], password=Appt['password'])
+                #         # print(self.user,"self.user")
+                #         if self.user:
+                            
+                #             fmspw_c = Fmspw.objects.filter(user=self.user.id,pw_isactive=True)
+                #             if not fmspw_c:
+                #                 raise Exception('User is inactive.') 
+
+                #             log_emp = fmspw_c[0].Emp_Codeid
+                #         else:
+                #             raise Exception('Password Wrong !') 
+
+                #     else:
+                #         raise Exception('Invalid Username.') 
+
+                # if not log_emp:
+                #     raise Exception('Employee does not exist.') 
+
+
+            
+                for idx, reqt in enumerate(treatment):
+                    if not 'emp_no' in reqt:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give Employee ID!!",'error': True} 
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
+                    empobj = False
+                    if 'emp_no' in reqt and reqt['emp_no']:
+                        empobj = Employee.objects.filter(pk=reqt['emp_no'],emp_isactive=True).first()
+                        if not empobj:
+                            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Employee ID does not exist!!",'error': True} 
+                            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                    else:         
+                        if not reqt['emp_no']:
+                            onlinebookingstaff_setup = Systemsetup.objects.filter(title='onlinebookingstaff',
+                            value_name='onlinebookingstaff',isactive=True).first()
+                            if onlinebookingstaff_setup and onlinebookingstaff_setup.value_data:
+                                empobj = Employee.objects.filter(pk=int(onlinebookingstaff_setup.value_data),emp_isactive=True).first()
+                                if not empobj:
+                                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"onlinebookingstaff Employee ID does not exist in settings!!",'error': True} 
+                                    return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                            
+                    if not empobj:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Employee ID does not exist!!",'error': True} 
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+       
+                    
+                    stockobj = Stock.objects.filter(pk=reqt['Item_Codeid']).first()
+                    if not stockobj:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Item code is not avaliable!!",'error': True} 
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
+                    dup_appts = Appointment.objects.filter(appt_date=Appt['appt_date'],
+                    cust_no=customer.cust_code,appt_remark=reqt['item_text'] if reqt['item_text'] else stockobj.item_desc,
+                    emp_no=empobj.emp_code,appt_status=Appt['appt_status'],appt_fr_time=reqt['start_time'],
+                    appt_to_time=reqt['end_time']).order_by('-pk')
+                    if dup_appts and len(dup_appts) >= 1:
+                        msg = "Duplicate records not allowed to book appointment !!"
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message": msg,'error': True}
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
+                    if site.is_empvalidate == True:    
+                        #customer will have multiple appt in one outlet in different time only not same time
+                        #customer having an appointment for the same day on another branch
+                        custprev_appts = Appointment.objects.filter(appt_date=Appt['appt_date'],
+                        cust_no=customer.cust_code).order_by('-pk').exclude(itemsite_code=site.itemsite_code)
+                        if custprev_appts:
+                            msg = "This Customer Will have appointment on this day other outlet"
+                            result = {'status': status.HTTP_400_BAD_REQUEST,"message": msg,'error': True}
+                            return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
+                        custprevtime_appts = Appointment.objects.filter(appt_date=Appt['appt_date'],
+                        cust_no=customer.cust_code).filter(Q(appt_to_time__gte=reqt['start_time']) & Q(appt_fr_time__lte=reqt['end_time'])).order_by('-pk')
+                        if custprevtime_appts:
+                            msg = "This Customer Will have appointment on this day with same time"
+                            result = {'status': status.HTTP_400_BAD_REQUEST,"message": msg,'error': True}
+                            return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+            
+
+                        #staff having shift/appointment on other branch for the same time
+                        prev_appts = Appointment.objects.filter(appt_date=Appt['appt_date'],
+                        emp_no=empobj.emp_code).order_by('-pk')
+                        # print(prev_appts,"prev_appts")
+                        
+                        if prev_appts:
+                            check_ids = Appointment.objects.filter(appt_isactive=True,appt_date=Appt['appt_date'],emp_no=empobj.emp_code,
+                            ).filter(Q(appt_to_time__gt=reqt['start_time']) & Q(appt_fr_time__lt=reqt['end_time']))
+                            # print(check_ids,"check_ids")
+
+                            if check_ids:
+                                msg = "StartTime {0} EndTime {1} Service {2}, Employee {3} Already have appointment for this time".format(str(reqt['start_time']),str(reqt['end_time']),str(stockobj.item_name),str(empobj.display_name))
+                                result = {'status': status.HTTP_400_BAD_REQUEST,"message": msg,'error': True}
+                                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+                    if not reqt['start_time']:
+                        raise Exception('Please Give Start Time')    
+
+                    if not reqt['end_time']:
+                        raise Exception('Please Give End Time') 
+
+                    if not reqt['add_duration']:
+                        raise Exception('Please Give Duration')               
+                            
+            
+
+
+                trt_lst = []; apt_lst = []
+                for idx, req in enumerate(treatment): 
+                    control_obj = ControlNo.objects.filter(control_description__iexact="APPOINTMENT CODE",Site_Codeid__pk=apptsite.pk).first()
+                    if not control_obj:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Appointment Control No does not exist!!",'error': True} 
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                    appt_code = str(control_obj.Site_Codeid.itemsite_code)+str(control_obj.control_prefix)+str(control_obj.control_no)
+                    
+                    if apt_lst == []:
+                        linkcode = str(control_obj.Site_Codeid.itemsite_code)+str(control_obj.control_prefix)+str(control_obj.control_no)
+                    else:
+                        app_obj = Appointment.objects.filter(pk=apt_lst[0]).order_by('pk').first()
+                        linkcode = app_obj.linkcode
+
+
+                    datelst = []
+                    if req['recur_qty']:
+                        count = 1
+                        while count <= int(req['recur_qty'])-1:
+                            if datelst == []:
+                                date_1 = datetime.datetime.strptime(str(Appt['appt_date']), "%Y-%m-%d")
+                            else:
+                                date_1 = datetime.datetime.strptime(str(datelst[-1]), "%Y-%m-%d")
+
+                            end_date = (date_1 + datetime.timedelta(days=int(req['recur_days']))).strftime("%Y-%m-%d")
+                            datelst.append(end_date)
+                            count+=1
+                    
+                    # print(datelst,"datelst")
+
+                        
+                    
+                    # if req['emp_no'] is None or req['emp_no'] == []:
+                    #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please select the treatment staff!!",'error': True} 
+                    #     return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                    
+                    res = []; emp_lst = []
+                    if 'emp_no' in req and req['emp_no']:
+                        if ',' in str(req['emp_no']):
+                            res = str(req['emp_no']).split(',')
+                        else:
+                            res = str(req['emp_no']).split(' ')
+                        
+                        if res != []:
+                            for e in res:
+                                emp_obj = Employee.objects.filter(pk=e,emp_isactive=True).first()
+                                if not emp_obj:
+                                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Employee ID does not exist!!",'error': True} 
+                                    return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                                if e not in emp_lst:
+                                    emp_lst.append(e)
+                    else:
+                        if not req['emp_no']:
+                            onlinebookingstaff_setup = Systemsetup.objects.filter(title='onlinebookingstaff',
+                            value_name='onlinebookingstaff',isactive=True).first()
+                            if onlinebookingstaff_setup and onlinebookingstaff_setup.value_data:
+                                emp_obj = Employee.objects.filter(pk=int(onlinebookingstaff_setup.value_data),emp_isactive=True).first()
+                       
+
+
+
+                    stock_obj = Stock.objects.filter(pk=req['Item_Codeid']).first()
+                    if not stock_obj:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Item code is not avaliable!!",'error': True} 
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
+                    
+                    # if req['start_time'] and req['end_time']:         
+                    #     apptt_ids = Appointment.objects.filter(appt_date=appt_date,emp_no=emp_obj.emp_code,
+                    #     itemsite_code=fmspw[0].loginsite.itemsite_code).filter(Q(appt_to_time__gte=req['start_time']) & Q(appt_fr_time__lte=req['end_time']))
+                    #     print(apptt_ids,"apptt_ids")
+                    #     if apptt_ids:
+                    #         msg = "In These timing already Appointment is booked for employee {0} so allocate other duration".format(emp_obj.emp_code)
+                    #         result = {'status': status.HTTP_400_BAD_REQUEST,"message":msg,'error': True} 
+                    #         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
+
+                    # appt_ids = Appointment.objects.filter(appt_date=Appt['appt_date'],
+                    # emp_noid=emp_obj,itemsite_code=apptsite.itemsite_code).filter(Q(appt_to_time__gte=req['start_time']) & Q(appt_fr_time__lte=req['end_time']))
+                    # if appt_ids:
+                    #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"In These timing already Appointment is booked!!",'error': True} 
+                    #     return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
+                    
+                    #treatment_master creation  
+                    req['emp_no'] = emp_lst
+                    # serializer_t = TreatmentMasterSerializer(data=req,context={'request': self.request})
+                    class_obj = stock_obj.Item_Classid
+
+                    preapp_ids = Appointment.objects.filter(cust_no=customer.cust_code,appt_date=Appt['appt_date'],
+                    emp_no=emp_obj.emp_code,item_code=stock_obj.item_code,appt_remark=req['item_text'] if req['item_text'] else stock_obj.item_desc,
+                    appt_status=Appt['appt_status']).filter(Q(appt_fr_time=req['start_time']) & Q(appt_to_time=req['end_time'])).order_by('pk')  
+                    # print(preapp_ids,"preapp_ids")    
+
+                    # if serializer_t.is_valid():
+                    start_time =  get_in_val(self, req['start_time'])
+                    starttime = datetime.datetime.strptime(start_time, "%H:%M")
+                    # if dict_v['srv_duration'] is None or dict_v['srv_duration'] == 0.0:
+        
+                    if  stock_obj.srv_duration is None or float(stock_obj.srv_duration) == 0.0:
+                        stk_duration = 60
+                    else:
+                        stk_duration = int(stock_obj.srv_duration)
+
+                    stkduration = int(stk_duration) + 30
+                    # print(stkduration,"stkduration")
+
+                    hrs = '{:02d}:{:02d}'.format(*divmod(stkduration, 60))
+                    
+                    end_time = starttime + datetime.timedelta(minutes = stkduration)
+                    endtime = datetime.datetime.strptime(str(end_time), "%Y-%m-%d %H:%M:%S").strftime("%H:%M")
+                    duration = hrs
+                        
+                    #     if not preapp_ids:
+                    #         # print(start_time,endtime,duration,"duration")
+                    #         k=serializer_t.save(course=stock_obj.item_desc,price=stock_obj.item_price,PIC=stock_obj.Stock_PIC,
+                    #         Site_Codeid=site,site_code=site.itemsite_code,times="01",treatment_no="01",
+                    #         status="Open",cust_code=cust_obj.cust_code,Cust_Codeid=cust_obj,cust_name=cust_obj.cust_name,
+                    #         Item_Codeid=stock_obj,item_code=stock_obj.item_code,Item_Class=class_obj,type="N",
+                    #         start_time=start_time,end_time=req['end_time'],add_duration=req['add_duration'],
+                    #         duration=stkduration,trmt_room_code=room_ids[0].room_code if room_ids and room_ids[0].room_code else None,
+                    #         Trmt_Room_Codeid=room_ids[0] if room_ids else None)
+                    #         # treatment_code=treatment_code,treatment_parentcode=treatment_code
+                        
+                    #         if k:
+                    #             trt_lst.append(k.pk)
+                    #             k.emp_no.add(emp_obj.pk) 
+                    # else:
+                    #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Invalid Input",'error': True, 'data': serializer_t.errors}
+                    #     return Response(result, status=status.HTTP_400_BAD_REQUEST)        
+
+                    serializer = self.get_serializer(data=request.data.get('Appointment'))
+                    # print(serializer,"serializer")
+                    # print(serializer.is_valid(),"serializer.is_valid()")
+                    if serializer.is_valid():
+
+                        if req['requesttherapist'] == True:
+                            requesttherapist = True
+                        else:
+                            requesttherapist = False  
+
+                        if not preapp_ids:
+                            obj=serializer.save(cust_no=customer.cust_code,cust_name=customer.cust_name,appt_phone=customer.cust_phone2,
+                            cust_refer=customer.cust_refer,Appt_Created_Byid=None,appt_created_by=None,
+                            itemsite_code=site.itemsite_code,ItemSite_Codeid=site,source_code=Source_Code if Source_Code else None,appt_code=appt_code,new_remark=Appt['new_remark'],
+                            emp_noid=emp_obj,emp_no=emp_obj.emp_code,emp_name=emp_obj.display_name,Room_Codeid=room_ids[0] if room_ids else None,
+                            room_code=room_ids[0].room_code if room_ids and room_ids[0].room_code else None,
+                            Appt_typeid=channel if channel else None,appt_type=channel.appt_type_code if channel and channel.appt_type_code else None,requesttherapist=requesttherapist,
+                            appt_fr_time=start_time,appt_to_time=req['end_time'],item_code=stock_obj.item_code,appt_remark=req['item_text'] if req['item_text'] else stock_obj.item_desc,
+                            linkcode=linkcode,link_flag=link_flag,add_duration=req['add_duration'],Item_Codeid=stock_obj,
+                            checktype=req['checktype'],treat_parentcode=req['treat_parentcode'],
+                            bookedby=bookedby,maxclasssize=Appt['maxclasssize'] if 'maxclasssize' in Appt and Appt['maxclasssize'] else None,
+                            cust_noid=customer)
+                            
+                            if obj.pk:
+                                if idx == 0:
+                                    appt_obj_dat = obj
+                                    
+                                # k.Appointment = obj
+                                # k.appt_time=str(obj.appt_date)
+                                # k.save()
+
+                                apptlog = AppointmentLog(appt_id=obj,userid=emp_obj,
+                                username=Appt['bookedby'] if 'bookedby' in Appt and Appt['bookedby'] else emp_obj.display_name,appt_date=Appt['appt_date'],
+                                appt_fr_time=start_time,appt_to_time=req['end_time'],emp_code=emp_obj.emp_code,newempcode=None,
+                                appt_status=Appt['appt_status'],sec_status=Appt['sec_status'],appt_remark=req['item_text'] if req['item_text'] else stock_obj.item_desc,
+                                item_code=stock_obj.item_code,requesttherapist=requesttherapist,add_duration=req['add_duration'],
+                                new_remark=Appt['new_remark']).save()
+
+                                control_obj.control_no = int(control_obj.control_no) + 1
+                                control_obj.save()
+                                # print(control_obj.control_no,"control_obj.control_no")
+                                apt_lst.append(obj.pk)
+                                
+                                dr_type = "Create"
+                                sc_value = True
+                                sc_time =  schedulemonth_time(self, Appt['appt_date'], emp_obj, site, req['start_time'],req['end_time'], dr_type, None, sc_value)
+                                
+                    else:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Invalid Input",'error': True, 'data': serializer.errors}
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST)        
+                    print(serializer.errors,"serializer.errors")
+
+                    if datelst != []:
+                        recur_linkcode = "RLC-"+str(obj.appt_code)
+                        obj.recur_linkcode = recur_linkcode
+                        obj.recurring_qty = req['recur_qty']
+                        obj.recurring_days = req['recur_days']
+                        obj.save()
+
+                        for e in datelst: 
+                            preapp_recur_ids = Appointment.objects.filter(cust_no=customer.cust_code,appt_date=e,
+                            emp_no=emp_obj.emp_code,item_code=stock_obj.item_code,appt_remark=req['item_text'] if req['item_text'] else stock_obj.item_desc,
+                            appt_status=Appt['appt_status']).order_by('pk')      
+
+                            if not preapp_recur_ids: 
+                                # print(e,"jj")
+                                recontrol_obj = ControlNo.objects.filter(control_description__iexact="APPOINTMENT CODE",Site_Codeid__pk=apptsite.pk).first()
+                                reappt_code = str(recontrol_obj.Site_Codeid.itemsite_code)+str(recontrol_obj.control_prefix)+str(recontrol_obj.control_no)
+                            
+                                appt_re = Appointment(appt_date=e,cust_noid=customer,cust_no=customer.cust_code,cust_name=customer.cust_name,appt_phone=customer.cust_phone2,
+                                cust_refer=customer.cust_refer,Appt_Created_Byid=None,appt_created_by=None,
+                                itemsite_code=site.itemsite_code,ItemSite_Codeid=site,source_code=Source_Code if Source_Code else None,appt_code=reappt_code,new_remark=Appt['new_remark'],
+                                emp_noid=emp_obj,emp_no=emp_obj.emp_code,emp_name=emp_obj.display_name,Room_Codeid=room_ids[0] if room_ids else None,
+                                room_code=room_ids[0].room_code if room_ids and room_ids[0].room_code else None,Source_Codeid=source if Appt['Source_Codeid'] else None,
+                                Appt_typeid=channel if channel else None,appt_type=channel.appt_type_code if channel and channel.appt_type_code else None,requesttherapist=requesttherapist,
+                                appt_fr_time=start_time,appt_to_time=req['end_time'],item_code=stock_obj.item_code,appt_remark=req['item_text'] if req['item_text'] else stock_obj.item_desc,
+                                appt_status=Appt['appt_status'],sec_status=Appt['sec_status'],recur_linkcode=recur_linkcode,
+                                recurring_qty=req['recur_qty'],recurring_days=req['recur_days'],linkcode=reappt_code,link_flag=False,
+                                add_duration=req['add_duration'],Item_Codeid=stock_obj,
+                                checktype=req['checktype'],treat_parentcode=req['treat_parentcode'])
+                                appt_re.save()
+                                # print(appt_re,"appt_re")
+
+                                if appt_re.pk:
+                                    recontrol_obj.control_no = int(recontrol_obj.control_no) + 1
+                                    recontrol_obj.save() 
+
+                                appt_log = AppointmentLog(appt_id=appt_re,userid=emp_obj,
+                                username=emp_obj.display_name,appt_date=e,
+                                appt_fr_time=start_time,appt_to_time=req['end_time'],emp_code=emp_obj.emp_code,
+                                appt_status=Appt['appt_status'],sec_status=Appt['sec_status'],appt_remark=req['item_text'] if req['item_text'] else stock_obj.item_desc,
+                                item_code=stock_obj.item_code,requesttherapist=requesttherapist,add_duration=req['add_duration'],
+                                new_remark=Appt['new_remark'],newempcode=None)
+                                appt_log.save()
+
+
+                                # trt_re = Treatment_Master(course=stock_obj.item_desc,price=stock_obj.item_price,PIC=stock_obj.Stock_PIC,
+                                # Site_Codeid=site,site_code=site.itemsite_code,times="01",treatment_no="01",appt_time=e,
+                                # status="Open",cust_code=cust_obj.cust_code,Cust_Codeid=cust_obj,cust_name=cust_obj.cust_name,
+                                # Item_Codeid=stock_obj,item_code=stock_obj.item_code,Item_Class=class_obj,type="N",
+                                # start_time=start_time,end_time=req['end_time'],add_duration=req['add_duration'],
+                                # duration=stkduration,trmt_room_code=room_ids[0].room_code if room_ids and room_ids[0].room_code else None,
+                                # Trmt_Room_Codeid=room_ids[0] if room_ids else None,requesttherapist=requesttherapist,Appointment=appt_re)
+                                # trt_re.save()
+                                # trt_re.emp_no.add(emp_obj.pk)     
+
+                        
+                
+                ip = get_client_ip(request)
+                state = status.HTTP_201_CREATED
+                error = False
+                # treat_t = Treatment_Master.objects.filter(id__in=trt_lst)
+                # serializer_final = TreatmentMasterSerializer(treat_t, many=True,context={'request': self.request})
+                # data_d = serializer_final.data
+                appt_t = Appointment.objects.filter(pk__in=apt_lst)
+                serializer_apt = AppointmentSerializer(appt_t, many=True,context={'request': self.request})
+                data_a = serializer_apt.data
+                final_data = {'Appointment':data_a,'Treatment':[]}
+                
+                allowsms = False; allowemail = False
+                allow_sms = cust_obj.custallowsendsms
+                cust_name = cust_obj.cust_name
+                date = Appt['appt_date']
+                #Customer store card update Create
+                if 'cust_StoreCard' in Appt and Appt['cust_StoreCard'] == True:
+                    cust_obj.cust_StoreCard = True
+                    cust_obj.save()
+
+                if allow_sms:
+                    receiver = cust_obj.cust_phone2
+                    if not receiver:
+                        result = {'status': status.HTTP_200_OK,"message":"Mobile number is not given!",'error': True} 
+                        return Response(data=result, status=status.HTTP_200_OK) 
+                    try:
+                        client = Client(SMS_ACCOUNT_SID, SMS_AUTH_TOKEN)
+                        message = client.messages.create(
+                                body='''Dear {0},\nYour Appointment dated on {1} is created successfully in Booking Status.\nThank You,'''.format(cust_name,date),
+                                from_=SMS_SENDER,
+                                to=receiver)
+                        allowsms = True     
+                    except:
+                        allowsms = False       
+
+                allow_email = cust_obj.cust_maillist
+                if allow_email and cust_obj.cust_email:
+                    to = cust_obj.cust_email
+                    appt_fr_time = datetime.datetime.strptime(str(appt_obj_dat.appt_fr_time), '%H:%M').strftime("%H:%M")
+                    title_n = Title.objects.filter(product_license=site.itemsite_code).order_by("pk").first()
+                    title_name = title_n.title if title_n and title_n.title else ""
+                    
+                    subject = "Beautesoft Appointment"
+                    sender = EMAIL_HOST_USER
+                    system_setup = Systemsetup.objects.filter(title='Email Setting',value_name='Email CC To',isactive=True).first()
+                    if system_setup.value_data:
+                        cc = [system_setup.value_data]
+                    else:
+                        cc = [] 
+
+                    email_msg = "Your appointment with {0} is booked on {1}, at {2}".format(str(site.itemsite_desc),str(apptdate),str(appt_fr_time))
+                    ctx = {
+                        'client_name': title_name,
+                        'textmessage': email_msg,
+                    }
+                    try:
+                        message = get_template('app_email.html').render(ctx)
+                        msg = EmailMessage(subject, message, to=[to], from_email=sender ,cc=cc)
+                        msg.content_subtype = 'html'
+                        msg.send()
+                        allowemail = True 
+                    except:
+                        allowemail = False
+
+                if allowsms == True and allowemail == True:
+                    message = "Created Succesfully and Email and SMS sent Succesfully"
+                elif allowsms == True:
+                    message = "Created Succesfully and SMS sent Succesfully"
+                elif allowemail == True:
+                    message = "Created Succesfully and Email sent Succesfully"
+                else:
+                    message = "Created Succesfully"
+
+                result=response(self,request, queryset, total, state, message, error, serializer_class, final_data, action=self.action)
+                d = result.get('data')
+                app = d.get('Appointment');tre = d.get('Treatment')
+                # if apt_lst != [] and trt_lst != []:
+                if apt_lst != []:    
+
+                    for appt in app:
+                        appt['appt_fr_time'] = get_in_val(self, appt['appt_fr_time'])
+                        appt['appt_to_time'] = get_in_val(self, appt['appt_to_time'])
+
+                    for treat in tre:
+                        treat['price'] = "{:.2f}".format(float(treat['price']))
+                        treat['start_time'] = get_in_val(self, treat['start_time'])
+                        treat['end_time'] = get_in_val(self, treat['end_time'])
+                        treat['add_duration'] = get_in_val(self, treat['add_duration'])
+                        treat['PIC'] = str(treat['PIC'])
+                        if 'room_img' in treat and treat['room_img']:
+                            treat['room_img'] = str(ip)+str(treat['room_img'])
+
+                    return Response(result, status=status.HTTP_201_CREATED)
+                else:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Not Created",'error': True}
+                    return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)               
+
+
+
+
+
+
+
+
 
 
 class InvoiceTemplateConfigViewset(viewsets.ModelViewSet):

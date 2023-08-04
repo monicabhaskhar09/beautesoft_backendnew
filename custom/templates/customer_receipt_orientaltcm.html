@@ -63,7 +63,7 @@ th {
 }
 .box {
   width: 50%;
-  height: 160px;
+  height: 120px;
 }
 .clearfix {
   content: "";
@@ -130,6 +130,19 @@ body{
       width:25%;
       height:150px;
   }
+.colimg {
+  float: right;
+  width: 33.33%;
+  padding: 5px;
+}
+
+/* Clearfix (clear floats) */
+.rowimg::after {
+  content: "";
+  clear: both;
+  display: table;
+}  
+
 </style>
 </head>
 {% load static %}
@@ -141,7 +154,7 @@ body{
     <div id = "boxes">
       
       <div id="leftbox" >
-        <img  src="{{path}}"  width="225" height="100" alt="">
+        <img  src="{{path}}"  width="215" height="100" alt="">
       </div>
       <div id = "middlebox" style="font-size: 14px;">
         <h5>{{name}}</h5>
@@ -166,33 +179,17 @@ body{
       
         <!-- <p style="font-size: 15px;line-height: 6px;">Outstanding : {{ treatment_outstanding|floatformat:2 }}</p>   -->
         <!-- <p style="font-size: 15px;line-height: 6px">Prepaid : {{ prepaid_bal|floatformat:2 }}</p>  -->
-        <!-- <p style="font-size: 15px;line-height: 6px">Credit Note : {{ creditnote_balance|floatformat:2 }}</p>   
-        <p style="font-size: 15px;line-height: 6px">Today Point : {{ today_point_amt }}</p>   
-        <p style="font-size: 15px;line-height: 6px">Total Point : {{ cust_point_value }}</p>    -->
-
+       
       </div>  
     </div>
    
-
-		<!-- <div>
-			<div>
-				<img src="{{path}}" width="85" height="85" alt="">
-      </div>
-      <div style="font-size: 14px;line-height: 10px;">
-        <h5>{{name}}</h5>
-        <p><b>UEN :</b> {{ company_reg_no }} &nbsp; <b>GST Reg No :</b> {{ gst_reg_no }}</p>
-        <p>{{address}}</p>
-      </div>
-    </div> -->
-    <br />
-    <br />
-    <br />
-    <br />
-    <div class="clearfix mt-5">
+    <hr>
+    &nbsp;
+    <hr>
+	
+    <div class="clearfix mt-4" >
       <div class="box">
-        <div class="split" style="font-size: 16px;line-height: 10px">
-          <br>
-          <br>
+        <div class="split" style="font-size: 15px;line-height: 10px">
           <p><b>Code:</b> {{ hdr.sa_custno }} </p>
           <p><b>Name:</b> {{ hdr.sa_custname }} </p>
           {% if site.is_nric %}
@@ -208,9 +205,7 @@ body{
           {% endif %}
           </p>
         </div>
-        <div class="split right" style="font-size: 16px;line-height: 10px; text-align: right; margin-right: 40px;">
-          <br>
-          <br>
+        <div class="split right" style="font-size: 15px;line-height: 10px;padding-left: 200px;">
           <p><b>Trans #: </b> {{ hdr.sa_transacno_ref }} </p>
           <p><b>Date: </b>   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ date }} </p>
           <p><b>Time: </b> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ time }} </p>
@@ -218,7 +213,8 @@ body{
         </div>
       </div>
     </div>
-
+    <hr>
+    <br>
     {% load mathfilters %}
 
     <table cellspacing="15" cellpadding="10" style="font-size: 15px;" >
@@ -344,7 +340,7 @@ body{
       </tr>
   
 
-      <tr>
+      <!-- <tr>
         <td></td>
         <td></td>
         <td></td>
@@ -356,38 +352,43 @@ body{
         {% else %}
           <td><span style="font-weight:bold"></span>$ {{ subtotal|floatformat:2 }}</td>
         {% endif %}
-      </tr>
+      </tr> -->
       </table>
 
-    <br />
+      <br/>
 
       <div class="split">
         <div >
-        <th></th>
         <table style="border-collapse: collapse;" cellspacing="2" cellpadding="5" width="20%">
           <tr>
-            <th>No</th>
-            <th>Mode of payment</th>
-            <th>Amount</th>
+            <td style="font-weight:bold">No</td>
+            <td style="font-weight:bold">Type</td>
+            <td style="font-weight:bold">Amount</td>
           </tr>
           {% for taud in postaud %}
             <tr>
-              <td>{% if taud.pay_rem1 %} {{ taud.pay_rem1 }} {% else %} {% endif %}</td>
-              <td>{{ taud.pay_typeid.pay_description }}</td>
-              <td>${{ taud.pay_amt|floatformat:2 }}</td>
+              <th style="font-weight: normal;">{% if taud.pay_rem1 %} {{ taud.pay_rem1 }} {% else %} {% endif %}</th>
+              <th style="font-weight: normal;">{{ taud.pay_typeid.pay_description }}</th>
+              <th style="font-weight: normal;">${{ taud.pay_amt|floatformat:2 }}</th>
             </tr>
           {% endfor %}
   
           <tr>
-            <th>Inclusive {{ percent }}&nbsp;% GST {{ hdr.sa_totgst|floatformat:2 }}</th>
-            <th>Total</th>
-            <th>${{ billing_amount|floatformat:2 }}</th>
+            <td style="font-weight:bold">Inclusive {{ percent }}&nbsp;% GST {{ hdr.sa_totgst|floatformat:2 }}</td>
+            <td style="font-weight:bold">Total</td>
+            <td style="font-weight:bold">${{ billing_amount|floatformat:2 }}</td>
           </tr>
         </table>
         </div>
       </div>
 
       <div class="split right1">
+        {% if d.dt_status == "SA" and d.record_detail_type == "TD" %}
+          <h6>Sub Total: <span style="font-weight:bold"></span>$ {{ "0.00" }}</h6>
+        {% else %}
+          <h6>Sub Total: <span style="font-weight:bold"></span>$ {{ subtotal|floatformat:2 }}</h6>
+        {% endif %}
+        
         {% if hdr.sa_totgst %}
           <h6>Gst: {{ hdr.sa_totgst|floatformat:2 }}</h6>
         {% else %}
@@ -402,9 +403,20 @@ body{
         <h6>Grand Total: {{ billing_amount|floatformat:2 }}</h6>
       </div>
       
-     <br/>
-     
-     <div style="padding-top: 20%">
+      {% if ot_logo and ot_seal %}  
+
+        <div class="rowimg" style="padding-top: 12%">
+    
+          <div class="colimg">
+            <img  src="{{ot_logo}}"  width="280" height="100" alt="">
+          </div>
+          <div class="colimg">
+            <img  src="{{ot_seal}}"  width="150" height="100" alt="">
+          </div>
+        </div>
+      {% endif %}
+
+     <div style="padding-top: 10%">
       
       <div class="split" style="font-size: 15px;line-height: 10px">
         <td style="text-align: left;font-size: 15px;float: left;"><h5>Remarks:</h5>  <td>
@@ -427,8 +439,9 @@ body{
         </div>
       {% endif %}
 
-      <br/>
+      
       {% if showprepaid %}
+         <br/>
           <div class="row">
             <table style="width: 80%;text-align: center">
               <tr>
@@ -447,8 +460,9 @@ body{
           </div>
       {% endif %}
 
-      <br/>
-      {% if showcredit %}  
+      
+      {% if showcredit %} 
+          <br/> 
           <div class="row">
             <table style="width: 80%;text-align: center">
               <tr>
@@ -466,8 +480,9 @@ body{
             </table>
           </div>
       {% endif %}
-      <br/>
+      
       {% if showvoidreason %}
+        <br/>
         <tr>
           <p>Void Reason:  <td style="font-size: 12px;">{% if hdr.trans_remark %} {{ hdr.trans_remark }}  {% else %} {% endif %}</td></p>
         </tr>

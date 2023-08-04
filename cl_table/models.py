@@ -1924,8 +1924,8 @@ class PosDaud(models.Model):
     topup_outstanding = models.FloatField(db_column='TopUp_Outstanding', blank=True, null=True)  # Field name made lowercase.
     # t1_tax_code = models.CharField(db_column='T1_Tax_Code', max_length=20, blank=True, null=True)  # Field name made lowercase.
     # t1_tax_amt = models.FloatField(db_column='T1_Tax_Amt', blank=True, null=True)  # Field name made lowercase.
-    # t2_tax_code = models.CharField(db_column='T2_Tax_Code', max_length=20, blank=True, null=True)  # Field name made lowercase.
-    # t2_tax_amt = models.FloatField(db_column='T2_Tax_Amt', blank=True, null=True)  # Field name made lowercase.
+    t2_tax_code = models.CharField(db_column='T2_Tax_Code', max_length=20, blank=True, null=True)  # Field name made lowercase.
+    t2_tax_amt = models.FloatField(db_column='T2_Tax_Amt', blank=True, null=True)  # Field name made lowercase.
     # dt_grossamt = models.CharField(db_column='dt_GrossAmt', max_length=20, blank=True, null=True)  # Field name made lowercase.
     # dt_topup_old_outs_amt = models.FloatField(db_column='dt_TopUp_Old_Outs_Amt', blank=True, null=True)  # Field name made lowercase.
     # dt_topup_new_outs_amt = models.FloatField(db_column='dt_TopUp_New_Outs_Amt', blank=True, null=True)  # Field name made lowercase.
@@ -4129,6 +4129,7 @@ class CustomerDocument(models.Model):
     class Meta:
         db_table = 'CustomerDocument'
 
+
 class ProjectDocument(models.Model):
     id = models.AutoField(db_column='ID', primary_key=True) 
     customer_id = models.ForeignKey('cl_table.Customer', on_delete=models.PROTECT,null=True) 
@@ -4142,6 +4143,28 @@ class ProjectDocument(models.Model):
 
     class Meta:
         db_table = 'ProjectDocument'
+
+class StaffDocument(models.Model):
+    id = models.AutoField(db_column='ID', primary_key=True) 
+    employee = models.ForeignKey('cl_table.Employee', on_delete=models.PROTECT,null=True) 
+    filename = models.CharField(db_column='filename', max_length=500, blank=True, null=True)
+    document_name = models.CharField(db_column='document_name', max_length=500, blank=True, null=True)
+    created_at = models.DateTimeField(default=timezone.now, editable=False) 
+    file = models.FileField(upload_to='img')
+ 
+    class Meta:
+        db_table = 'StaffDocument'  
+
+class OutletDocument(models.Model):
+    id = models.AutoField(db_column='ID', primary_key=True) 
+    site = models.ForeignKey('cl_app.ItemSitelist', on_delete=models.PROTECT,null=True) 
+    filename = models.CharField(db_column='filename', max_length=500, blank=True, null=True)
+    document_name = models.CharField(db_column='document_name', max_length=500, blank=True, null=True)
+    created_at = models.DateTimeField(default=timezone.now, editable=False) 
+    file = models.FileField(upload_to='img')
+ 
+    class Meta:
+        db_table = 'OutletDocument' 
 
 class CustLogAudit(models.Model):
     id = models.AutoField(db_column='ID', primary_key=True)
@@ -4374,5 +4397,17 @@ class invoicetemplate(models.Model):
         db_table = 'invoicetemplate'
         unique_together = (('name'),)
 
+
+class TaxType2TaxCode(models.Model):
+    id = models.AutoField(db_column='ID', primary_key=True)  # Field name made lowercase.
+    item_code = models.CharField(db_column='ITEM_CODE', max_length=50, blank=True, null=True)  # Field name made lowercase.
+    tax_code = models.CharField(db_column='TAX_CODE', max_length=20, blank=True, null=True)  # Field name made lowercase.
+    tax_desc = models.CharField(db_column='TAX_DESC', max_length=1000, blank=True, null=True)  # Field name made lowercase.
+    tax_rate_percent = models.FloatField(db_column='TAX_RATE_PERCENT', blank=True, null=True)  # Field name made lowercase.
+    isactive = models.BooleanField(db_column='ISACTIVE', blank=True, null=True)  # Field name made lowercase.
+    item_seq = models.FloatField(db_column='ITEM_SEQ', blank=True, null=True)  # Field name made lowercase.
+  
+    class Meta:
+        db_table = 'TAX_TYPE2_TAX_CODE'
 
 

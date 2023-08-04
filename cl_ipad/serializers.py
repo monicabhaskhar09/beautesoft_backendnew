@@ -1,7 +1,8 @@
 from rest_framework import serializers
 from .models import (WebConsultation_Hdr,WebConsultation_Dtl,WebConsultation_Question,
 WebConsultation_AnalysisResult,WebConsultation_Referral,WebConsultation_Referral_Hdr,TNC_Master,
-WebConsultation_QuestionMultichoice,TNC_Detail,TNC_Header,WebConsultation_Questionsub_questions)
+WebConsultation_QuestionMultichoice,TNC_Detail,TNC_Header,WebConsultation_Questionsub_questions,
+WebConsultation_AnalysisMaster)
 from cl_table.models import (Customer, PosDaud,PosHaud)
 import datetime
 from Cl_beautesoft.settings import SITE_ROOT
@@ -93,6 +94,43 @@ class WebConsultationQuestionsub_questionsSerializer(serializers.ModelSerializer
         model = WebConsultation_Questionsub_questions
         fields = '__all__'        
 
+class WebConsultation_AnalysisMasterSerializer(serializers.ModelSerializer):
+    
+  
+    class Meta:
+        model = WebConsultation_AnalysisMaster
+        fields = '__all__' 
+
+    def to_representation(self, obj):
+        data = super(WebConsultation_AnalysisMasterSerializer, self).to_representation(obj)
+       
+        image = ""
+        if obj.image:
+            image = str(SITE_ROOT)+str(obj.image)
+         
+        data['image'] = image
+
+        return data   
+
+class WebConsultation_AnalysisMasterListSerializer(serializers.ModelSerializer):
+    
+  
+    class Meta:
+        model = WebConsultation_AnalysisMaster
+        fields = ['id','field_name','display_field_name','choice_name','mandatory',
+        'image','seq']
+
+    def to_representation(self, obj):
+        data = super(WebConsultation_AnalysisMasterListSerializer, self).to_representation(obj)
+       
+        image = ""
+        if obj.image:
+            image = str(SITE_ROOT)+str(obj.image)
+         
+        data['image'] = image
+
+        return data   
+
 class WebConsultation_AnalysisResultSerializer(serializers.ModelSerializer):
     
     create_date = serializers.DateTimeField(format="%d-%m-%Y",required=False)
@@ -100,7 +138,9 @@ class WebConsultation_AnalysisResultSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = WebConsultation_AnalysisResult
-        fields = '__all__'        
+        fields = '__all__'   
+
+             
 
 class WebConsultation_ReferralSerializer(serializers.ModelSerializer):
     

@@ -9,7 +9,8 @@ DepositAccount, CustomerPoint, MrRewardItemType,Smsreceivelog,Systemsetup,Treatm
 CustomerTitle,ItemDiv,Tempcustsign,CustomerDocument,TreatmentPackage,ContactPerson,ItemFlexiservice,
 termsandcondition,Participants,ProjectDocument,Dayendconfirmlog,CustomerPointDtl,
 CustomerReferral,MGMPolicyCloud,sitelistip,DisplayCatalog,DisplayItem,ItemUomprice,ItemUom,
-ItemBatch,OutletRequestLog,PrepaidOpenCondition,PrepaidValidperiod,ScheduleMonth,ItemBatchSno,invoicetemplate)
+ItemBatch,OutletRequestLog,PrepaidOpenCondition,PrepaidValidperiod,ScheduleMonth,ItemBatchSno,invoicetemplate,
+StaffDocument,OutletDocument)
 from cl_app.models import ItemSitelist, SiteGroup
 from custom.models import EmpLevel,Room,VoucherRecord,ItemCart
 from django.contrib.auth.models import User
@@ -1094,7 +1095,44 @@ class AppointmentSerializer(serializers.ModelSerializer):
                 if not Source.objects.filter(id=data['Source_Codeid'].id,source_isactive=True):
                     raise serializers.ValidationError("Source ID Does not exist!!")
                 
+        return data  
+
+class EcomAppointmentSerializer(serializers.ModelSerializer):   
+    id = serializers.IntegerField(source='pk',required=False)
+  
+
+    class Meta:
+        model = Appointment
+        fields = ['id','appt_date','appt_code','appt_fr_time','appt_to_time','Appt_typeid','appt_type','cust_noid',
+        'cust_name','appt_phone','new_remark','appt_created_by','Source_Codeid','Room_Codeid',
+        'room_code','appt_status','emp_noid','emp_name','requesttherapist','ItemSite_Codeid','itemsite_code',
+        'cust_refer','sec_status','walkin','maxclasssize']
+        read_only_fields = ('appt_code',)
+
+    def validate(self, data):
+        if 'cust_noid' in data:
+            if data['cust_noid'] is not None:
+                if Customer.objects.filter(pk=data['cust_noid'].pk,cust_isactive=False):
+                    raise serializers.ValidationError("Customer ID Does not exist!!")
+                if not Customer.objects.filter(pk=data['cust_noid'].pk,cust_isactive=True):
+                    raise serializers.ValidationError("Customer ID Does not exist!!")
+        
+        if 'ItemSite_Codeid' in data:
+            if data['ItemSite_Codeid'] is not None:
+                if ItemSitelist.objects.filter(pk=data['ItemSite_Codeid'].pk,itemsite_isactive=False):
+                    raise serializers.ValidationError("Site Code ID Does not exist!!")
+                if not ItemSitelist.objects.filter(pk=data['ItemSite_Codeid'].pk,itemsite_isactive=True):
+                    raise serializers.ValidationError("Site Code ID Does not exist!!")
+
+        if 'Source_Codeid' in data:
+            if data['Source_Codeid'] is not None:
+                if Source.objects.filter(id=data['Source_Codeid'].id,source_isactive=False):
+                    raise serializers.ValidationError("Source ID Does not exist!!")
+                if not Source.objects.filter(id=data['Source_Codeid'].id,source_isactive=True):
+                    raise serializers.ValidationError("Source ID Does not exist!!")
+                
         return data      
+
                
 class AppointmentCalendarSerializer(serializers.ModelSerializer):   
 
@@ -3351,6 +3389,45 @@ class ProjectDocumentSerializer(serializers.ModelSerializer):
         data['file'] = file
         return data      
 
+class StaffDocumentSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = StaffDocument
+        fields = ['id','employee','filename','document_name','file']  
+            
+    def to_representation(self, obj):
+        request = self.context['request']
+        data = super(StaffDocumentSerializer, self).to_representation(obj)
+        
+        # ip = "http://"+request.META['HTTP_HOST']
+        ip = str(SITE_ROOT)
+        file = ""
+        if obj.file:
+            # file = ip+str(obj.file.url)
+            file = ip+str(obj.file)
+
+        data['file'] = file
+        return data    
+
+class OutletDocumentSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = OutletDocument
+        fields = ['id','site','filename','document_name','file']  
+            
+    def to_representation(self, obj):
+        request = self.context['request']
+        data = super(OutletDocumentSerializer, self).to_representation(obj)
+        
+        # ip = "http://"+request.META['HTTP_HOST']
+        ip = str(SITE_ROOT)
+        file = ""
+        if obj.file:
+            # file = ip+str(obj.file.url)
+            file = ip+str(obj.file)
+
+        data['file'] = file
+        return data              
 
 class TreatmentPackageSerializer(serializers.ModelSerializer): 
 

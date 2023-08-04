@@ -325,6 +325,7 @@ def GeneratePDF(self,request, sa_transacno):
     if title and title.logo_pic:
         path = BASE_DIR + title.logo_pic.url
     # print(path,"path")    
+   
     taud_f = PosTaud.objects.filter(sa_transacno=sa_transacno,ItemSIte_Codeid__pk=site.pk).first()
 
 
@@ -406,8 +407,20 @@ def GeneratePDF(self,request, sa_transacno):
             spl_tn = str(po.pay_rem1).split("-")
             ppno = spl_tn[0]
             lineno = spl_tn[1]
-            prequeryset = PrepaidAccount.objects.filter(cust_code=hdr[0].sa_custno,
-            status=True,remain__gt=0,pp_no=ppno,line_no=lineno).only('site_code','cust_code','sa_status').order_by('-pk').first()
+            
+            if po and po.pay_rem2:
+                mpre_obj = PrepaidAccount.objects.filter(pk=po.pay_rem2).first()
+            else:
+                mpre_obj = False
+            
+            if mpre_obj and mpre_obj.package_code:
+                prequeryset = PrepaidAccount.objects.filter(cust_code=hdr[0].sa_custno,
+                status=True,remain__gt=0,pp_no=ppno,line_no=lineno,
+                package_code_lineno=mpre_obj.package_code_lineno).only('site_code','cust_code','sa_status').order_by('-pk').first()
+            else:
+                prequeryset = PrepaidAccount.objects.filter(cust_code=hdr[0].sa_custno,
+                status=True,remain__gt=0,pp_no=ppno,line_no=lineno).only('site_code','cust_code','sa_status').order_by('-pk').first()
+            
             if prequeryset:
                 pval = {'pp_desc':prequeryset.pp_desc,'remain':"{:.2f}".format(prequeryset.remain)}
                 prepaidlst.append(pval)
@@ -469,6 +482,12 @@ def GeneratePDF(self,request, sa_transacno):
     custbal = customer_balanceoutstanding(self,request, hdr[0].sa_custno)
     # print(custbal,"custbal")
     # print(treatopen_ids,"treatopen_ids")
+
+    ot_seal = BASE_DIR + "/media/img/oriential_tcm_seal.jpeg"
+    # print(ot_seal,"ot_seal")
+    ot_logo = BASE_DIR + "/media/img/oriential_tcm.jpeg"
+    # print(ot_logo,"ot_logo")
+
     data = {'name': title.trans_h1 if title and title.trans_h1 else '', 
     'address': title.trans_h2 if title and title.trans_h2 else '', 
     'footer1':title.trans_footer1 if title and title.trans_footer1 else '',
@@ -493,7 +512,8 @@ def GeneratePDF(self,request, sa_transacno):
     'voucher_lst':voucher_lst,'voucherbal':voucherbal,
     'discreason': discreason,'discper' : discper,'today_point_amt':today_point_amt,
     'cust_point_value' : int(hdr[0].sa_custnoid.cust_point_value) if hdr[0].sa_custnoid and hdr[0].sa_custnoid.cust_point_value and hdr[0].sa_custnoid.cust_point_value > 0 else 0,
-    'title': title
+    'title': title,'ot_seal':ot_seal if os.path.isfile(ot_seal) else '',
+    'ot_logo':ot_logo if os.path.isfile(ot_logo) else ''
     }
     data.update(sub_data)
     data.update(custbal)
@@ -513,7 +533,6 @@ def GeneratePDF(self,request, sa_transacno):
         'margin-left': '.25in',
         'encoding': "UTF-8",
         'no-outline': None,
-        
     }
     
     # existing = os.listdir(settings.PDF_ROOT)

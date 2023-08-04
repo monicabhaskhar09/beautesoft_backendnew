@@ -9,10 +9,12 @@ WebConsultation_Referral_HdrSerializer,TransactionCustomerSerializer,
 TransactionPosDaudSerializer,TNCMasterSerializer,WebConsultationQuestionMultichoiceSerializer,
 TNC_HeaderSerializer,TNC_DetailformSerializer,WebConsultationQuestionsub_questionsSerializer,
 WebConsultationQuestionprintSerializer,WebConsultation_AnalysisResultprintSerializer,
-WebConsultation_ReferralprintSerializer,WebConsultation_Referral_HdrprintSerializer)
+WebConsultation_ReferralprintSerializer,WebConsultation_Referral_HdrprintSerializer,
+WebConsultation_AnalysisMasterSerializer,WebConsultation_AnalysisMasterListSerializer)
 from .models import (WebConsultation_Hdr,WebConsultation_Dtl,WebConsultation_Question,WebConsultation_AnalysisResult,
 WebConsultation_Referral,WebConsultation_Referral_Hdr,TNC_Master,TNC_Header,TNC_Detail,
-WebConsultation_QuestionMultichoice,WebConsultation_Questionsub_questions)
+WebConsultation_QuestionMultichoice,WebConsultation_Questionsub_questions,
+WebConsultation_AnalysisMaster)
 from cl_table.models import (Fmspw,Employee,ControlNo,Customer,PosHaud,PosDaud,Title)
 from rest_framework import status,viewsets,mixins
 from rest_framework.response import Response
@@ -1120,7 +1122,221 @@ class WebConsultationQuestionViewset(viewsets.ModelViewSet):
             return WebConsultation_Question.objects.get(pk=pk)
         except WebConsultation_Question.DoesNotExist:
             raise Exception('WebConsultation Question Does not Exist') 
-        
+
+class WebConsultation_AnalysisMasterViewset(viewsets.ModelViewSet):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = WebConsultation_AnalysisMaster.objects.filter(isactive=True).order_by('-pk')
+    serializer_class = WebConsultation_AnalysisMasterSerializer
+
+    def get_queryset(self):
+        queryset = WebConsultation_AnalysisMaster.objects.filter(isactive=True).order_by('pk')
+        return queryset
+
+    def list(self, request):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+            site = fmspw[0].loginsite
+            serializer_class = WebConsultation_AnalysisMasterSerializer
+            
+            queryset = self.filter_queryset(self.get_queryset())
+
+            total = len(queryset) if queryset else 0
+            state = status.HTTP_200_OK
+            message = "Listed Succesfully"
+            error = False
+            data = None
+            result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+            return Response(result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+
+    @action(methods=['get'], detail=False, permission_classes=[IsAuthenticated & authenticated_only],
+    authentication_classes=[TokenAuthentication])
+    def getdata(self, request):
+        try: 
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+            site = fmspw[0].loginsite 
+            
+            queryset = WebConsultation_AnalysisMaster.objects.filter(isactive=True).order_by('pk')
+            queryset_hdr = queryset.filter(header=True,is_image=False).order_by('seq')
+            serializer_hdr = WebConsultation_AnalysisMasterListSerializer(queryset_hdr, many=True, context={'request': self.request})
+            queryset_bdy = queryset.filter(body=True,is_image=False).order_by('seq')
+            serializer_bdy = WebConsultation_AnalysisMasterListSerializer(queryset_bdy, many=True, context={'request': self.request})
+            queryset_fotr = queryset.filter(footer=True,is_image=False).order_by('seq')
+            serializer_fotr = WebConsultation_AnalysisMasterListSerializer(queryset_fotr, many=True, context={'request': self.request})
+
+            
+            
+            queryset_bdy_img = queryset.filter(body=True,is_image=True).order_by('seq').first()
+
+            body_img = ""
+            if queryset_bdy_img and queryset_bdy_img.image:
+                body_img = str(SITE_ROOT)+str(queryset_bdy_img.image)
+
+            queryset_fotr_img = queryset.filter(footer=True,is_image=True).order_by('seq').first()    
+
+            footer_img = ""
+            if queryset_fotr_img and queryset_fotr_img.image:
+                footer_img = str(SITE_ROOT)+str(queryset_fotr_img.image)
+    
+
+            val = {
+                'header_data': serializer_hdr.data,
+                'body_data': serializer_bdy.data,
+                'footer_data': serializer_fotr.data,
+                'body_image' : body_img,
+                'footer_image': footer_img
+                }
+            
+            result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False}
+            result.update(val)
+            return Response(result, status=status.HTTP_200_OK)
+ 
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+         
+
+    @transaction.atomic
+    def create(self, request):
+        try:
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+                site = fmspw[0].loginsite
+
+                if not 'field_name' in request.data or not request.data['field_name']:
+                    raise Exception('Please give fieldName!!.') 
+
+                if not 'display_field_name' in request.data or not request.data['display_field_name']:
+                    raise Exception('Please give displayFieldName!!.') 
+                
+               
+                # dcheck_ids = WebConsultation_AnalysisResult.objects.filter(doc_no=request.data['doc_no']).order_by('-pk')
+                # if dcheck_ids:
+                #     msg = "Already record there for this doc no {0}!!".format(str(request.data['doc_no']))
+                #     raise Exception(msg) 
+                    
+                # check_ids = WebConsultation_AnalysisResult.objects.filter(site_code=site.itemsite_code,
+                # cust_code=request.data['cust_code'],create_date__date=date.today()).order_by('-pk')
+                # if check_ids:
+                #     msg = "Already record there for this customer this site today date {0}!!".format(str(request.data['cust_code']))
+                #     raise Exception(msg) 
+                    
+
+                serializer = WebConsultation_AnalysisMasterSerializer(data=request.data)
+                if serializer.is_valid():
+                    
+                    k = serializer.save(isactive=True)
+                    
+                    result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully",
+                    'error': False}
+                    return Response(result, status=status.HTTP_201_CREATED)
+                
+
+                data = serializer.errors
+
+                if 'non_field_errors' in data:
+                    message = data['non_field_errors'][0]
+                else:
+                    first_key = list(data.keys())[0]
+                    message = str(first_key)+":  "+str(data[first_key][0])
+
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":message,
+                'error': True, 'data': serializer.errors}
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+
+    @transaction.atomic
+    def partial_update(self, request, pk=None):
+        try:
+            with transaction.atomic():
+                ref = self.get_object(pk)
+                if not 'field_name' in request.data or not request.data['field_name']:
+                    raise Exception('Please give fieldName!!.') 
+
+                if not 'display_field_name' in request.data or not request.data['display_field_name']:
+                    raise Exception('Please give displayFieldName!!.') 
+                
+               
+                # check_ids = WebConsultation_AnalysisResult.objects.filter(~Q(pk=ref.pk)).filter(site_code=site.itemsite_code,
+                # cust_code=request.data['cust_code'],create_date=ref.create_date).order_by('-pk')
+                # if check_ids:
+                #     msg = "Already record there for this customer this site today date {0}!!".format(str(request.data['cust_code']))
+                #     raise Exception(msg) 
+                    
+                serializer = self.get_serializer(ref, data=request.data, partial=True)
+                if serializer.is_valid():
+                
+                    serializer.save()
+                    
+                    result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",'error': False}
+                    return Response(result, status=status.HTTP_200_OK)
+
+                
+                data = serializer.errors
+
+                if 'non_field_errors' in data:
+                    message = data['non_field_errors'][0]
+                else:
+                    first_key = list(data.keys())[0]
+                    message = str(first_key)+":  "+str(data[first_key][0])
+
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":message,
+                'error': True, 'data': serializer.errors}
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)   
+           
+    def retrieve(self, request, pk=None):
+        try:
+            ref = self.get_object(pk)
+            serializer = WebConsultation_AnalysisMasterSerializer(ref, context={'request': self.request})
+            result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
+            'data': serializer.data}
+            return Response(data=result, status=status.HTTP_200_OK)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message) 
+
+
+   
+    def destroy(self, request, pk=None):
+        try:
+            ref = self.get_object(pk)
+            serializer = WebConsultation_AnalysisMasterSerializer(ref, data=request.data ,partial=True)
+            if serializer.is_valid():
+                ref.delete()
+                result = {'status': status.HTTP_200_OK,"message":"Deleted Succesfully",'error': False}
+                return Response(result, status=status.HTTP_200_OK)
+            
+            # print(serializer.errors,"jj")
+            result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",
+            'error': True,'data': serializer.errors }
+            return Response(result, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)          
+
+
+    def get_object(self, pk):
+        try:
+            return WebConsultation_AnalysisMaster.objects.get(pk=pk)
+        except WebConsultation_AnalysisMaster.DoesNotExist:
+            raise Exception('WebConsultation Analysis Master Does not Exist') 
+            
+
+
+
+
         
 class WebConsultation_AnalysisResultViewset(viewsets.ModelViewSet):
     authentication_classes = [ExpiringTokenAuthentication]

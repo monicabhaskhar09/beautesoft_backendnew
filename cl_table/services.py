@@ -8,7 +8,8 @@ Treatment_Master,ItemClass,Paytable,PosTaud,PayGroup,PosDaud,PosHaud,GstSetting,
 ItemStatus,Source,ApptType, ItemHelper, Multistaff, DepositType, TmpItemHelper, PosDisc, FocReason, Holditemdetail,
 DepositAccount,PrepaidAccount,PrepaidAccountCondition,VoucherCondition,ItemUom,Title,PackageHdr,PackageDtl,
 ItemBatch,Stktrn,ItemUomprice,Tmptreatment,ExchangeDtl,Systemsetup,PackageAuditingLog,
-TreatmentPackage,StudioWork,AppointmentLog,ItemBatchSno,Treatmentids,PrepaidOpenCondition,ItemBrand)
+TreatmentPackage,StudioWork,AppointmentLog,ItemBatchSno,Treatmentids,PrepaidOpenCondition,ItemBrand,
+TaxType2TaxCode)
 from datetime import date, timedelta, datetime
 import datetime
 from django.utils import timezone
@@ -245,7 +246,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
         site = fmspw.loginsite
         empl = fmspw.Emp_Codeid
         id_lst = [] ; totQty = 0; discount_amt=0.0;additional_discountamt=0.0; total_disc = 0.0
-        outstanding_new = 0.0
+        outstanding_new = 0.0;itmbatchsno_id_lst = []
         gst = GstSetting.objects.filter(isactive=True,activefromdate__date__lte=pay_date,
         activetodate__date__gte=pay_date).first()
         
@@ -401,7 +402,29 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                         service = service + s.display_name
                     elif not service == "":
                         service = service +","+ s.display_name 
+            
+            ssttax_systemids = Systemsetup.objects.filter(title='SST Tax Setting',
+            value_name='SST Tax Setting',isactive=True).first()
+            if ssttax_systemids and ssttax_systemids.value_data == 'True':
+                t2_tax_amt = 0
+                t2_tax_code = None
+                if c.itemcodeid and c.itemcodeid.t2_tax_code:
+                    ssttax_ids =TaxType2TaxCode.objects.filter(item_code=c.itemcodeid.t2_tax_code,
+                    tax_desc="SST").first()
+                    if ssttax_ids and ssttax_ids.tax_rate_percent:
+                        per_div = (ssttax_ids.tax_rate_percent / 100)
+                        if site and site.is_exclusive == True:
+                            t2_tax_amt = float(c.deposit) * per_div
+                        else:
+                            per_div = (ssttax_ids.tax_rate_percent / 100) + 1 
+                            sstdt_deposit = float(c.deposit) / per_div
+                            t2_tax_amt = float(c.deposit) - sstdt_deposit
 
+                        t2_tax_code = c.itemcodeid.t2_tax_code
+            else:
+                t2_tax_amt = None
+                t2_tax_code = None
+                
 
             dt_discdesc = ','.join(list(set([v.remark for v in c.pos_disc.filter() if v.remark])))
             
@@ -416,7 +439,8 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
             st_ref_treatmentcode=None,record_detail_type=record_detail_type,gst_amt_collect="{:.2f}".format(float(gst_amt_collect)),
             topup_outstanding=outstanding_acc if outstanding_acc is not None and outstanding_acc > 0 else 0,dt_remark=c.remark if c.remark else None,isfoc=isfoc,item_remarks=item_remarks,
             dt_uom=dt_uom,first_trmt_done=False,item_status_code=c.itemstatus.status_code if c.itemstatus and c.itemstatus.status_code else None,
-            staffs=sales +" "+"/"+" "+ service,dt_discdesc=dt_discdesc)
+            staffs=sales +" "+"/"+" "+ service,dt_discdesc=dt_discdesc,
+            t2_tax_code=t2_tax_code,t2_tax_amt="{:.4f}".format(float(t2_tax_amt)))
             #appt_time=app_obj.appt_fr_time,                
             #st_ref_treatmentcode=treatment_parentcode,
             dtl.save()
@@ -500,7 +524,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                 pos_ids = PosPackagedeposit.objects.filter(itemcart=c,code=pa.code)
                                 if pos_ids:
                                     p = pos_ids.first()
-                                    pa_trasac = p.price * p.qty
+                                    pa_trasac = round(p.price * p.qty)
                                     pa_deposit = p.deposit_amt
                                     #outstanding_acc =  float(c.trans_amt) - float(c.deposit)
 
@@ -1463,6 +1487,8 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                         if batchso_ids:
                             batchso_ids.availability = False
                             batchso_ids.save()
+                            if batchso_ids.pk not in itmbatchsno_id_lst:
+                                itmbatchsno_id_lst.append(batchso_ids.pk)
 
                         dtl.save()    
                     
@@ -2688,7 +2714,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
 
 
             # tmptrd_ids = Tmptreatment.objects.filter(itemcart=c).order_by('pk').delete()
-        return id_lst
+        return id_lst,itmbatchsno_id_lst
     # except Exception as e:
     #     invalid_message = str(e)
     #     return general_error_response(invalid_message)
@@ -2774,6 +2800,27 @@ def invoice_topup(self, request, topup_ids,sa_transacno, cust_obj, outstanding, 
                     elif not service == "":
                         service = service +","+ s.display_name 
             
+            ssttax_systemids = Systemsetup.objects.filter(title='SST Tax Setting',
+            value_name='SST Tax Setting',isactive=True).first()
+            if ssttax_systemids and ssttax_systemids.value_data == 'True':
+                t2_tax_amt = 0
+                t2_tax_code = None
+                if c.itemcodeid and c.itemcodeid.t2_tax_code:
+                    ssttax_ids =TaxType2TaxCode.objects.filter(item_code=c.itemcodeid.t2_tax_code,
+                    tax_desc="SST").first()
+                    if ssttax_ids and ssttax_ids.tax_rate_percent:
+                        per_div = (ssttax_ids.tax_rate_percent / 100)
+                        if site and site.is_exclusive == True:
+                            t2_tax_amt = float(c.deposit) * per_div
+                        else:
+                            per_div = (ssttax_ids.tax_rate_percent / 100) + 1 
+                            sstdt_deposit = float(c.deposit) / per_div
+                            t2_tax_amt = float(c.deposit) - sstdt_deposit
+
+                        t2_tax_code = c.itemcodeid.t2_tax_code
+            else:
+                t2_tax_amt = None
+                t2_tax_code = None
             
 
             if c.treatment_account is not None:
@@ -2802,7 +2849,8 @@ def invoice_topup(self, request, topup_ids,sa_transacno, cust_obj, outstanding, 
                 record_detail_type="TP SERVICE",gst_amt_collect="{:.2f}".format(float(gst_amt_collect)),
                 dt_remark=c.remark,isfoc=isfoc,item_remarks=item_remarks,topup_prepaid_trans_code="",
                 topup_service_trmt_code=topup_code,item_status_code=c.itemstatus.status_code if c.itemstatus and c.itemstatus.status_code else None,
-                staffs = sales +" "+"/"+" "+ service)
+                staffs = sales +" "+"/"+" "+ service,
+                t2_tax_code=t2_tax_code,t2_tax_amt="{:.4f}".format(float(t2_tax_amt)))
                 #appt_time=app_obj.appt_fr_time,
             
             elif c.deposit_account is not None:
@@ -2847,7 +2895,8 @@ def invoice_topup(self, request, topup_ids,sa_transacno, cust_obj, outstanding, 
                 dt_remark=c.remark if c.remark else None,isfoc=isfoc,item_remarks=item_remarks,topup_product_treat_code = treat_code,
                 topup_prepaid_trans_code="",dt_uom=daud_ids.dt_uom if daud_ids and daud_ids.dt_uom  else '',
                 item_status_code=c.itemstatus.status_code if c.itemstatus and c.itemstatus.status_code else None,
-                staffs = sales +" "+"/"+" "+ service)
+                staffs = sales +" "+"/"+" "+ service,
+                t2_tax_code=t2_tax_code,t2_tax_amt="{:.4f}".format(float(t2_tax_amt)))
                 #appt_time=app_obj.appt_fr_time, 
 
 
@@ -2858,10 +2907,16 @@ def invoice_topup(self, request, topup_ids,sa_transacno, cust_obj, outstanding, 
                 #acc_ids = PrepaidAccount.objects.filter(Site_Codeid=site,cust_code=cust_obj.cust_code,
                 #pp_no=c.prepaid_account.pp_no,status=True,Item_Codeid=c.itemcodeid,
                 #line_no=c.prepaid_account.line_no).order_by('id').first() #transac_no=
-                acc_ids = PrepaidAccount.objects.filter(cust_code=cust_obj.cust_code,
-                pp_no=c.prepaid_account.pp_no,status=True,
-                line_no=c.prepaid_account.line_no).order_by('sa_date','id').last()
-        
+                if c.prepaid_account and c.prepaid_account.package_code:
+                    acc_ids = PrepaidAccount.objects.filter(cust_code=cust_obj.cust_code,
+                    pp_no=c.prepaid_account.pp_no,status=True,
+                    line_no=c.prepaid_account.line_no,
+                    package_code_lineno=c.prepaid_account.package_code_lineno).order_by('sa_date','id').last()
+                else:
+                    acc_ids = PrepaidAccount.objects.filter(cust_code=cust_obj.cust_code,
+                    pp_no=c.prepaid_account.pp_no,status=True,
+                    line_no=c.prepaid_account.line_no).order_by('sa_date','id').last()
+            
                 outstanding_acc =  float(acc_ids.outstanding) - float(c.deposit)
 
                 dtl = PosDaud(sa_transacno=sa_transacno,dt_status="SA",dt_itemnoid=c.itemcodeid,
@@ -2877,7 +2932,8 @@ def invoice_topup(self, request, topup_ids,sa_transacno, cust_obj, outstanding, 
                 dt_remark=c.remark,isfoc=isfoc,item_remarks=item_remarks,
                 topup_prepaid_trans_code=c.prepaid_account.pp_no,topup_prepaid_type_code=c.prepaid_account.pp_type,
                 topup_prepaid_pos_trans_lineno=c.lineno,item_status_code=c.itemstatus.status_code if c.itemstatus and c.itemstatus.status_code else None,
-                staffs = sales +" "+"/"+" "+ service)
+                staffs = sales +" "+"/"+" "+ service,
+                t2_tax_code=t2_tax_code,t2_tax_amt="{:.4f}".format(float(t2_tax_amt)))
                 #appt_time=app_obj.appt_fr_time, 
 
             else:
@@ -3011,15 +3067,31 @@ def invoice_topup(self, request, topup_ids,sa_transacno, cust_obj, outstanding, 
                 
                 c.prepaid_account.status = False
                 c.prepaid_account.save()
-                ulast_preids = PrepaidAccount.objects.filter(pp_no=c.prepaid_account.pp_no,
-                line_no=c.prepaid_account.line_no,
-                cust_code=cust_obj.cust_code).order_by('-pk').first()
+
+                pa_disc = 0 
+
+                if c.prepaid_account and c.prepaid_account.package_code:
+                    ulast_preids = PrepaidAccount.objects.filter(pp_no=c.prepaid_account.pp_no,
+                    line_no=c.prepaid_account.line_no,
+                    cust_code=cust_obj.cust_code,package_code_lineno=c.prepaid_account.package_code_lineno).order_by('-pk').first()
+                    
+                    pos_ids = PosPackagedeposit.objects.filter(sa_transacno=c.prepaid_account.pp_no,
+                    package_code=c.prepaid_account.package_code,deposit_lineno=c.prepaid_account.package_code_lineno).order_by('-pk').first()
+                    if pos_ids:
+                        pa_trasac = round(pos_ids.price * pos_ids.qty)
+                        pa_disc = pos_ids.unit_price - pa_trasac
+                        
+                else:
+                    ulast_preids = PrepaidAccount.objects.filter(pp_no=c.prepaid_account.pp_no,
+                    line_no=c.prepaid_account.line_no,
+                    cust_code=cust_obj.cust_code).order_by('-pk').first()
+
                 ulast_preids.status=False
                 ulast_preids.save()
                 outstanding = float(ulast_preids.outstanding) - float(c.deposit)
 
                 if outstanding == 0:
-                    remain = ulast_preids.remain + c.deposit + ulast_preids.pp_bonus
+                    remain = ulast_preids.remain + c.deposit + ulast_preids.pp_bonus + pa_disc
                 else:
                     remain = ulast_preids.remain + c.deposit
 
@@ -3036,14 +3108,22 @@ def invoice_topup(self, request, topup_ids,sa_transacno, cust_obj, outstanding, 
                 staff_name=','.join([v.display_name for v in salesstaff if v.display_name]), 
                 pp_type2=c.prepaid_account.pp_type2,condition_type1=c.prepaid_account.condition_type1,
                 pos_daud_lineno=c.prepaid_account.pos_daud_lineno,Site_Codeid=site,
-                Item_Codeid=c.itemcodeid,item_code=c.itemcodeid.item_code)
+                Item_Codeid=c.itemcodeid,item_code=c.itemcodeid.item_code,lpackage=c.prepaid_account.lpackage,
+                package_code=c.prepaid_account.package_code,package_code_lineno=c.prepaid_account.package_code_lineno)
                 prepaidacc.save()
                 prepaidacc.sa_date = pay_date
                 prepaidacc.start_date = pay_date
                 prepaidacc.save()
                 # ,p_itemtype="Inclusive"
-                pacc_ids = list(set(PrepaidAccountCondition.objects.filter(pp_no=c.prepaid_account.pp_no,
-                pos_daud_lineno=c.prepaid_account.line_no,p_itemtype="Inclusive").only('pp_no','pos_daud_lineno').values_list('id', flat=True).distinct()))
+
+                if c.prepaid_account and c.prepaid_account.package_code:
+                    pacc_ids = list(set(PrepaidAccountCondition.objects.filter(pp_no=c.prepaid_account.pp_no,
+                    pos_daud_lineno=c.prepaid_account.line_no,p_itemtype="Inclusive",
+                    package_code_lineno=c.prepaid_account.package_code_lineno).only('pp_no','pos_daud_lineno').values_list('id', flat=True).distinct()))
+                else:
+                    pacc_ids = list(set(PrepaidAccountCondition.objects.filter(pp_no=c.prepaid_account.pp_no,
+                    pos_daud_lineno=c.prepaid_account.line_no,p_itemtype="Inclusive").only('pp_no','pos_daud_lineno').values_list('id', flat=True).distinct()))
+                
                 if pacc_ids != []:                                
                     acc = PrepaidAccountCondition.objects.filter(pk__in=pacc_ids).update(remain=remain)
 
