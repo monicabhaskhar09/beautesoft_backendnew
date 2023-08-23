@@ -1510,6 +1510,8 @@ class PrepaidAccount(models.Model):
     Item_Codeid = models.ForeignKey('cl_table.Stock', on_delete=models.PROTECT, null=True) 
     item_code = models.CharField(db_column='Item_Code', max_length=20, blank=True, null=True)  # Field name made lowercase.
     terminate_prepaid = models.BooleanField(default=False)  # Field name made lowercase.
+    preacc_useid = models.CharField(max_length=500, blank=True, null=True)  # Field name made lowercase.
+
 
     class Meta:
         db_table = 'Prepaid_Account'
@@ -1584,6 +1586,7 @@ class PrepaidAccountCondition(models.Model):
     membercardnoaccess = models.BooleanField(db_column='MemberCardNoAccess', null=True)  # Field name made lowercase.
     use_amt = models.FloatField(db_column='Use_Amt', blank=True, null=True)  # Field name made lowercase.
     remain = models.FloatField(db_column='Remain', blank=True, null=True)  # Field name made lowercase.
+    topup_remain = models.FloatField(db_column='Topup_Remain', blank=True, null=True)  # Field name made lowercase.
     pos_daud_lineno = models.FloatField(db_column='POS_Daud_LineNo', null=True)  # Field name made lowercase.
     system_remark = models.CharField(db_column='System_Remark', max_length=100, blank=True, null=True)  # Field name made lowercase.
     lpackage = models.BooleanField(db_column='lPackage', null=True)  # Field name made lowercase.
@@ -1601,6 +1604,54 @@ class PrepaidAccountCondition(models.Model):
 
     def __str__(self):
         return str(self.pp_no)
+
+
+class TempprepaidAccountCondition(models.Model):
+    id = models.AutoField(db_column='ID',primary_key=True)  # Field name made lowercase.
+    pp_no = models.CharField(db_column='PP_NO', max_length=50, blank=True, null=True)  # Field name made lowercase.
+    pp_type = models.CharField(db_column='PP_TYPE', max_length=50, blank=True, null=True)  # Field name made lowercase.
+    pp_desc = models.CharField(db_column='PP_DESC', max_length=50, blank=True, null=True)  # Field name made lowercase.
+    p_itemtype = models.CharField(db_column='P_ItemType', max_length=50, blank=True, null=True)  # Field name made lowercase.
+    item_code = models.CharField(max_length=20, blank=True, null=True)
+    conditiontype1 = models.CharField(db_column='ConditionType1', max_length=20, blank=True, null=True)  # Field name made lowercase.
+    conditiontype2 = models.CharField(db_column='ConditionType2', max_length=20, blank=True, null=True)  # Field name made lowercase.
+    amount = models.DecimalField(db_column='Amount', max_digits=19, decimal_places=4, blank=True, null=True)  # Field name made lowercase.
+    rate = models.CharField(db_column='Rate', max_length=20, blank=True, null=True)  # Field name made lowercase.
+    membercardnoaccess = models.BooleanField(db_column='MemberCardNoAccess', null=True)  # Field name made lowercase.
+    use_amt = models.FloatField(db_column='Use_Amt', blank=True, null=True)  # Field name made lowercase.
+    remain = models.FloatField(db_column='Remain', blank=True, null=True)  # Field name made lowercase.
+    pos_daud_lineno = models.FloatField(db_column='POS_Daud_LineNo', blank=True, null=True)  # Field name made lowercase.
+    mac_uid_ref = models.CharField(db_column='MAC_UID_Ref', max_length=50, blank=True, null=True)  # Field name made lowercase.
+    prepaidaccount_cond = models.ForeignKey('cl_table.PrepaidAccountCondition', on_delete=models.PROTECT,null=True)
+    cart_id = models.CharField(max_length=20, null=True)
+    prepaid_account = models.ForeignKey('cl_table.PrepaidAccount', on_delete=models.PROTECT,null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+
+
+
+    class Meta:
+        db_table = 'TempPrepaid_Account_Condition'  
+
+    def __str__(self):
+        return str(self.pp_no)
+
+class TempcartprepaidAccCond(models.Model):
+    id = models.AutoField(db_column='ID',primary_key=True)  # Field name made lowercase.
+    cart_id = models.CharField(max_length=20, null=True)
+    prepaidaccount_cond = models.ForeignKey('cl_table.PrepaidAccountCondition', on_delete=models.PROTECT,null=True)
+    itemcart = models.ForeignKey('custom.ItemCart', on_delete=models.PROTECT,null=True)
+    use_amt = models.FloatField(db_column='Use_Amt', blank=True, null=True)  # Field name made lowercase.
+    bal_amt = models.FloatField(db_column='Bal_Amt', blank=True, null=True)  # Field name made lowercase.
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+
+    class Meta:
+        db_table = 'TempCartPrepaid_Account_Condition'  
+
+    def __str__(self):
+        return str(self.pp_no)
+        
+      
+
 
 class VoucherCondition(models.Model):
     itemid = models.AutoField(db_column='ItemID',primary_key=True)  # Field name made lowercase.

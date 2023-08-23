@@ -285,7 +285,9 @@ class ItemCart(models.Model):
     is_flexinewservice = models.BooleanField(default=False, blank=True, null=True)
     addstaff_time = models.IntegerField(blank=True, null=True)
     batch_sno = models.CharField(db_column='BATCH_SNO', max_length=30, blank=True, null=True)  # Field name made lowercase.
-    
+    prepaid_deposit = models.FloatField(default=0.0,  null=True)
+
+
     class Meta:
         db_table = 'item_Cart'
 

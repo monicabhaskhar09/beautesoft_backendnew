@@ -45,7 +45,7 @@ TreatmentAccount, PosDaud, ItemDept, DepositAccount, PrepaidAccount, ItemDiv, Sy
 PackageHdr,PackageDtl,Paytable,Multistaff,ItemBatch,Stktrn,ItemUomprice,Holditemdetail,CreditNote,
 CustomerClass,ItemClass,Tmpmultistaff,Tmptreatment,ExchangeDtl,ItemUom,ItemHelper,PrepaidAccountCondition,
 City, State, Country, Stock,PayGroup,Tempcustsign,Item_MembershipPrice,TreatmentPackage,PrepaidOpenCondition,
-ItemBrand,CustomerPoint)
+ItemBrand,CustomerPoint,TempprepaidAccountCondition,TempcartprepaidAccCond)
 from cl_app.models import ItemSitelist, SiteGroup, TmpTreatmentSession,TmpItemHelperSession
 from cl_table.serializers import (PostaudSerializer,StaffsAvailableSerializer,PosdaudSerializer,TmpItemHelperSerializer,
 PrepaidOpenConditionSerializer)
@@ -1728,6 +1728,9 @@ def get_cartid(self, request, cust_obj):
                             Tmpmultistaff.objects.filter(itemcart=instance).delete()
                             Tmptreatment.objects.filter(itemcart=instance).delete()
                             PrepaidOpenCondition.objects.filter(itemcart=instance).delete()
+                            TempprepaidAccountCondition.objects.filter(cart_id=instance.cart_id).delete()
+                            TempcartprepaidAccCond.objects.filter(cart_id=instance.cart_id).delete()
+
                             if instance.multi_treat.all().exists():
                                 for i in instance.multi_treat.all():
                                     TmpItemHelper.objects.filter(treatment=i).delete()
@@ -1893,6 +1896,9 @@ class itemCartViewset(viewsets.ModelViewSet):
                                     Tmpmultistaff.objects.filter(itemcart=instance).delete()
                                     Tmptreatment.objects.filter(itemcart=instance).delete()
                                     PrepaidOpenCondition.objects.filter(itemcart=instance).delete()
+                                    TempprepaidAccountCondition.objects.filter(cart_id=instance.cart_id).delete()
+                                    TempcartprepaidAccCond.objects.filter(cart_id=instance.cart_id).delete()
+
                                     if instance.multi_treat.all().exists():
                                         for i in instance.multi_treat.all():
                                             TmpItemHelper.objects.filter(treatment=i).delete()
@@ -6118,6 +6124,9 @@ class itemCartViewset(viewsets.ModelViewSet):
         Tmpmultistaff.objects.filter(itemcart=instance).delete()
         Tmptreatment.objects.filter(itemcart=instance).delete()
         PrepaidOpenCondition.objects.filter(itemcart=instance).delete()
+        TempprepaidAccountCondition.objects.filter(cart_id=instance.cart_id).delete()
+        TempcartprepaidAccCond.objects.filter(cart_id=instance.cart_id).delete()
+
         if instance.multi_treat.all().exists():
             for i in instance.multi_treat.all():
                 TmpItemHelper.objects.filter(treatment=i).delete()
@@ -9957,6 +9966,9 @@ class CartItemDeleteAPIView(APIView):
                     Tmpmultistaff.objects.filter(itemcart=instance).delete()
                     Tmptreatment.objects.filter(itemcart=instance).delete()
                     PrepaidOpenCondition.objects.filter(itemcart=instance).delete()
+                    TempprepaidAccountCondition.objects.filter(cart_id=instance.cart_id).delete()
+                    TempcartprepaidAccCond.objects.filter(cart_id=instance.cart_id).delete()
+
                     if instance.multi_treat.all().exists():
                         for i in instance.multi_treat.all():
                             TmpItemHelper.objects.filter(treatment=i).delete()

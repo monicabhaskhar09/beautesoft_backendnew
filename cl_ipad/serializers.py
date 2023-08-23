@@ -140,6 +140,23 @@ class WebConsultation_AnalysisResultSerializer(serializers.ModelSerializer):
         model = WebConsultation_AnalysisResult
         fields = '__all__'   
 
+    def to_representation(self, obj):
+        data = super(WebConsultation_AnalysisResultSerializer, self).to_representation(obj)
+
+        image = ""
+        if obj.image:
+            image = str(SITE_ROOT)+str(obj.image)
+         
+        data['image'] = image
+
+        image1 = ""
+        if obj.image1:
+            image1 = str(SITE_ROOT)+str(obj.image1)
+         
+        data['image1'] = image1
+
+        return data        
+
              
 
 class WebConsultation_ReferralSerializer(serializers.ModelSerializer):

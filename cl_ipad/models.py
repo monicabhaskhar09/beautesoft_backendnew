@@ -116,7 +116,7 @@ class WebConsultation_AnalysisMaster(models.Model):
 
     class Meta:
         db_table = 'WebConsultation_AnalysisMaster'
-        unique_together = [['field_name','display_field_name','choice_name']]
+        # unique_together = [['field_name','display_field_name','choice_name']]
 
     def __str__(self):
         return str(self.fieldName) 
@@ -159,6 +159,12 @@ class WebConsultation_AnalysisResult(models.Model):
     last_updatedate = models.DateTimeField(db_column='LastUpdateDate', blank=True, null=True)  # Field name made lowercase.
     last_updateby = models.CharField(db_column='LastUpdateBy', max_length=500, null=True, blank=True)  # Field name made lowercase.
     therapist_id = models.CharField(db_column='TherapistID', max_length=500, null=True, blank=True)  # Field name made lowercase.
+    image = models.ImageField(db_column='image', max_length=255, blank=True, null=True,upload_to='img')  # Field name made lowercase. 
+    pic_data1 = models.TextField(blank=True, null=True)
+    image1 = models.ImageField(db_column='image1', max_length=255, blank=True, null=True,upload_to='img')  # Field name made lowercase. 
+    pic_data2 = models.TextField(blank=True, null=True)
+
+
 
     class Meta:
         db_table = 'WebConsultation_AnalysisResult'
