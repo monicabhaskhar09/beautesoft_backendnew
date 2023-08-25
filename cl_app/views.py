@@ -11795,8 +11795,8 @@ class PrepaidAccPaymentListViewset(viewsets.ModelViewSet):
                 #     logo = str(SITE_ROOT) + str(title.logo_pic)
             
                 # print(list(set(pre_cartlst)),"pre_cartlst")
-                # cartdepo_amtids = ItemCart.objects.filter(pk__in=list(set(pre_cartlst)))
-                # sum_deposit = sum([i.deposit for i in cartdepo_amtids])
+                cartdepo_amtids = ItemCart.objects.filter(pk__in=list(set(pre_cartlst)))
+                sum_deposit = sum([i.deposit for i in cartdepo_amtids])
                 # print(sum_deposit,"sum_deposit")
                 if lst != []:
                     header_data = {"balance_producttype" : "{:.2f}".format(float(product_type)), 
@@ -11807,7 +11807,7 @@ class PrepaidAccPaymentListViewset(viewsets.ModelViewSet):
                     # 'issued': fmspw.pw_userlogin,
                     # 'name': title.trans_h1 if title and title.trans_h1 else '', 
                     # 'address': title.trans_h2 if title and title.trans_h2 else '',
-                    "total_useamt":  0,
+                    "total_useamt":  "{:.2f}".format(sum_deposit),
                     "total_cartuse_ids" : list(set(pre_cartlst)),
                     }
                     

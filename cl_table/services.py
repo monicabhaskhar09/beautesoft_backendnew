@@ -519,7 +519,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                             # itmstock = Stock.objects.filter(item_code=itm_code,item_isactive=True).first()
                             itmstock = Stock.objects.filter(item_code=itm_code).first()
                             if itmstock:
-                                pos_ids = PosPackagedeposit.objects.filter(itemcart=c,code=pa.code)
+                                pos_ids = PosPackagedeposit.objects.filter(itemcart=c,code=pa.code,deposit_lineno=pa.line_no)
                                 if pos_ids:
                                     p = pos_ids.first()
                                     pa_trasac = round(p.price * p.qty)

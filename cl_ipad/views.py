@@ -1416,7 +1416,7 @@ class WebConsultation_AnalysisResultViewset(viewsets.ModelViewSet):
                     
                     k = serializer.save(
                     site_code=site.itemsite_code,
-                    create_date=date.today())
+                    create_date=date.today(),isactive=True,create_by=fmspw[0].pw_userlogin)
                     
                     result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully",
                     'error': False}
