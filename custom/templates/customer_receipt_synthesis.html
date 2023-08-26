@@ -237,7 +237,7 @@ body{
           <td>{{ forloop.counter }}</td>
   
             {% if d.isfoc and d.holditemqty is None %}
-              <td style="text-align: left;width: 40%;">{{ d.dt_itemdesc }}</td>
+              <td style="text-align: left;width: 40%;">{% get_desc d %}</td>
             {% elif d.dt_status == "SA" and d.record_detail_type == "PACKAGE" %}
               <td style="text-align: left;width: 40%">{{ d.dt_itemdesc }} &#8209; {{ packages }}</td>  
             {% elif d.dt_status == "SA" and d.record_detail_type == "TD" %}
@@ -245,7 +245,7 @@ body{
             {% elif d.dt_status == "SA" and d.record_detail_type == 'TP SERVICE' or d.record_detail_type == 'TP PRODUCT' or d.record_detail_type == 'TP PREPAID' %}
               <td style="text-align: left;width: 40%">{{ d.record_detail_type }} &#8209; {{ d.dt_itemdesc }}</td>
             {% elif d.dt_status == "VT" %}
-              <td style="text-align: left;width: 40%">{{ d.dt_itemdesc }}
+              <td style="text-align: left;width: 40%">{% get_desc d %}
                 {% if discreason and d.dt_discdesc %}
                   Discount Reason : {{ d.dt_discdesc }} ,
                 {% endif %}
@@ -262,7 +262,7 @@ body{
             {% elif d.dt_status == "VT" and d.record_detail_type == 'TP SERVICE' or d.record_detail_type == 'TP PRODUCT' or d.record_detail_type == 'TP PREPAID' %}
               <td style="text-align: left;width: 40%">{{ d.dt_itemdesc }}</td>
             {% elif d.holditemqty is not None and d.record_detail_type == 'PRODUCT'%}
-              <td style="text-align: left;width: 40%">{{ d.record_detail_type }} &#8209;{{ d.dt_itemdesc|add:"(H"}}{{ d.holditemqty|floatformat:"0"|add:")"}}
+              <td style="text-align: left;width: 40%">{{ d.record_detail_type }} &#8209; {% get_desc d %}(H{{ d.holditemqty|floatformat:"0"|add:")"}}
                 {% if discreason and d.dt_discdesc %}
                   Discount Reason : {{ d.dt_discdesc }} ,
                 {% endif %}
@@ -275,7 +275,8 @@ body{
                 {% endif %}
               </td>
             {% else %}
-              <td style="text-align: left;width: 40%">{{ d.record_detail_type }} &#8209; {{ d.dt_itemdesc }}
+              <td style="text-align: left;width: 40%">{{ d.record_detail_type }} &#8209; {% get_desc d %}
+
                 {% if discreason and d.dt_discdesc %}
                   Discount Reason : {{ d.dt_discdesc }} ,
                 {% endif %}

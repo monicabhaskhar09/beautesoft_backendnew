@@ -11702,6 +11702,17 @@ class CustomerReceiptPrintList(generics.ListAPIView):
                     d['sales_staff'] = sales_staff
                     d['work_staff'] = work_staff
 
+                if d_obj.record_detail_type == "PRODUCT":
+                    data_r = d['dt_itemdesc']
+                    spl_r = data_r.split(',')
+
+                    pro_expdat_setup = Systemsetup.objects.filter(title='Invoice show PRODUCT Expiry Date',
+                    value_name='Invoice show PRODUCT Expiry Date',isactive=True).first()
+                    if pro_expdat_setup and pro_expdat_setup.value_data == 'True':
+                        d['dt_itemdesc'] = d['dt_itemdesc']
+                    else:
+                        d['dt_itemdesc'] = spl_r[0]    
+
                 if d['isfoc'] == True and d['holditemqty'] is None:
                     d['dt_itemdesc'] = d['dt_itemdesc']
                 elif d['dt_status'] == 'SA' and d['record_detail_type'] == "PACKAGE":
