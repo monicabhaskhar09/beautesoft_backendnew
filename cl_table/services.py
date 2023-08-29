@@ -1369,9 +1369,10 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                         
                                         end_date = None
                                         if itmstock.voucher_valid_period:
+                                            v_spl = ''.join([i for i in itmstock.voucher_valid_period if i.isdigit()])
                                             date_1 = datetime.datetime.strptime(str(date.today()), "%Y-%m-%d")
                                             # print(date_1,"date_1")
-                                            end_date = date_1 + datetime.timedelta(days=int(itmstock.voucher_valid_period))
+                                            end_date = date_1 + datetime.timedelta(days=int(v_spl))
                                             # print(end_date,"end_date")
                                             # tod_now = datetime.now(pytz.timezone(TIME_ZONE))
                                             # print(tod_now,"tod_now")
@@ -1907,9 +1908,10 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                     
                     end_date = None
                     if c.itemcodeid.voucher_valid_period:
+                        v_spl = ''.join([i for i in c.itemcodeid.voucher_valid_period if i.isdigit()])
                         date_1 = datetime.datetime.strptime(str(date.today()), "%Y-%m-%d")
                         # print(date_1,"date_1")
-                        end_date = date_1 + datetime.timedelta(days=int(c.itemcodeid.voucher_valid_period))
+                        end_date = date_1 + datetime.timedelta(days=int(v_spl))
                         # print(end_date,"end_date")
                         # tod_now = datetime.now(pytz.timezone(TIME_ZONE))
                         # print(tod_now,"tod_now")

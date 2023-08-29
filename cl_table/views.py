@@ -9210,7 +9210,7 @@ class postaudViewset(viewsets.ModelViewSet):
                                         if use_final_ids and inc_ids:
                                             for incl in inc_ids:
                                                 for i in use_final_ids:
-                                                    if i not in prepaid_redeemlst:
+                                                    if i.pk not in prepaid_redeemlst:
                                                         # print(i.pk,i,"ii")
                                                         # redeem_allow = False
                                                         if check_amt > 0:

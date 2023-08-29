@@ -11117,7 +11117,7 @@ def prepaid_useamt_update(pre_id,selprepaid_cartids,pay_amt):
                 # print(incl.pk,"incllllllllllll")
                 for i in use_final_ids:
                     # print(i.pk,i.deposit,"iiiiii")
-                    if check_amt > 0:
+                    if check_amt > 0 and  i.prepaid_deposit > 0:
                         checkamt = check_amt
 
                         redeem_ppac = False; op_conditionobj = False
@@ -11297,9 +11297,17 @@ def prepaid_useamt_update(pre_id,selprepaid_cartids,pay_amt):
                             # else:  
                             #     deductamt = i.deposit 
 
-                            if tmp_obj:
+                            if tmp_obj and tmp_obj.remain > 0 :
 
-                                deductamt = i.prepaid_deposit
+                                exi_ids = TempcartprepaidAccCond.objects.filter(cart_id=use_final_ids[0].cart_id,
+                                itemcart__pk=i.pk,bal_amt__gt=0).order_by('pk').last()
+
+                                if not exi_ids: 
+                                    deductamt = i.prepaid_deposit
+                                else:
+                                    if exi_ids:
+                                        deductamt = exi_ids.bal_amt
+
                                                                 
                                 # if i.pk in cart_halfdepo:
                                 #     for subi in cart_padepolst:
@@ -11321,16 +11329,7 @@ def prepaid_useamt_update(pre_id,selprepaid_cartids,pay_amt):
                                 # print(check_amt,"check_amt")
 
                                 if check_amt > 0:
-                                    # print("iff")
-                                    # if i.pk in cart_halfdepo:
-                                    #     for sub in cart_padepolst:
-                                    #         if i.pk in sub:
-                                    #             use_amt = float(sub[i.pk])
-                                    #             remain = float(p_pac_ids.remain) - float(sub[i.pk])
-                                    #             del sub[i.pk]
-                                    #             cart_halfdepo.remove(i.pk)
-
-                                    # else: 
+                                   
                                     use_amt = depo_amount           
                                     # remain = float(p_pac_ids.remain) - float(depo_amount)
                                 else:
@@ -11339,12 +11338,10 @@ def prepaid_useamt_update(pre_id,selprepaid_cartids,pay_amt):
                                     
                                     # remain = float(p_pac_ids.remain) - float(use_amt)
 
-                                deduct_deposit = deductamt - use_amt
 
-                                
                                 # print(depo_amount,"depo_amount")
-                                if i.prepaid_deposit > 0:
-                                    deduct_deposit = i.prepaid_deposit - use_amt
+                                if use_amt > 0:
+                                    deduct_deposit = deductamt - use_amt
                                     # print(deduct_deposit,"deduct_deposit")
                                     i.prepaid_deposit = deduct_deposit
                                     i.save()
@@ -11841,7 +11838,7 @@ class PrepaidAccPaymentListViewset(viewsets.ModelViewSet):
                     raise Exception('Please give selected prepaid id!')
                 pay_amt = request.data.get('pay_amt')
                 if not pay_amt:
-                    raise Exception('Please give pay amt!') 
+                    raise Exception('Pay amt / Use Amount 0 will not allow!') 
                 
                 if pay_amt:
                     if float(pay_amt) == 0:
