@@ -2299,6 +2299,30 @@ def schedulemonth_time(self, date, emp, site, start, end, type_v, appt, sc_value
     else:
         site_ids = [site.itemsite_code]
     
+    if type_v == "Edit":
+        emp_obj = appt.emp_noid
+    else:
+        emp_obj = emp
+
+    check_schids = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=emp_obj.pk,
+    site_code__in=site_ids).filter(~Q(itm_Typeid__itm_code='100007'))
+
+    hr_obj = ScheduleHour.objects.filter(itm_isactive=True,itm_code="100010").first()
+                    
+    if not check_schids and hr_obj:
+        if site_ids:
+            siteobj_ids = ItemSitelist.objects.filter(itemsite_isactive=True,itemsite_code__in=site_ids)
+            if siteobj_ids:
+                for si in siteobj_ids:
+                    sche_ids = ScheduleMonth.objects.filter(itm_date__date=date,Emp_Codeid__pk=emp_obj.pk,
+                    site_code=si.itemsite_code).filter(~Q(itm_Typeid__itm_code='100007'))
+                    if not sche_ids:
+                        month_schedule = ScheduleMonth.objects.create(emp_code=emp_obj.emp_code,
+                                        site_code=si.itemsite_code,
+                                        itm_date=date,Emp_Codeid=emp_obj,
+                                        Site_Codeid=si,itm_Typeid=hr_obj,itm_type=hr_obj.itm_code)
+
+    
     # print(site_ids,"site_ids")
     if type_v == "Edit":
         pre_start = get_in_val(self, appt.appt_fr_time)

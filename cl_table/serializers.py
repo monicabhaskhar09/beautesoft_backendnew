@@ -3719,7 +3719,12 @@ class DisplayItemStockSerializer(serializers.ModelSerializer):
         data['prepaid_value'] = "{:.2f}".format(float(instance.prepaid_value)) if instance.prepaid_value else "0.00"
         data['redeempoints'] = int(instance.redeempoints) if instance.redeempoints else ""
         data['is_open_prepaid'] = True if instance.is_open_prepaid == True else False
-        
+        stock_pic = ""
+        if instance.Stock_PIC:
+            stock_pic = str(SITE_ROOT)+str(instance.Stock_PIC)
+         
+        data['Stock_PIC'] = stock_pic
+
         if instance.item_div == "1":
             stock = instance
             

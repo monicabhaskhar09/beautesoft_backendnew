@@ -2834,11 +2834,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                         if not uom_obj:
                             raise Exception('ItemUom ID does not exist!!')
 
-                        batchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=str(stock_obj.item_code),
-                        uom=uom_obj.uom_code).order_by('pk').last() 
-                        if not batchids:
-                            raise Exception('Inventory Onhand ItemBatch does not exist!!')
-
+                        
                         # if valuedata == 'TRUE' and batchids:
                         #     if int(req['qty']) > int(batchids.qty):
                         #         raise Exception('Inventory ohand qty is less than cart qty') 
@@ -2863,14 +2859,24 @@ class itemCartViewset(viewsets.ModelViewSet):
                                 if obatchids and int(obatchids.qty) > 0:
                                     flag = True
 
+                        batchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=str(stock_obj.item_code),
+                        uom=uom_obj.uom_code).order_by('pk').last() 
+                        if batchids:
+                            batch_qty = int(batchids.qty)
+                        else:
+                            batch_qty = 0
+
+                        # if valuedata == 'TRUE' or ('batch_sno' in req and req['batch_sno']):
+                        #     if not batchids:
+                        #         raise Exception('Inventory Onhand ItemBatch does not exist!!')
 
                         if valuedata == 'TRUE':
-                            if batchids and int(req['qty']) > int(batchids.qty):
+                            if int(req['qty']) > int(batch_qty):
                                 if flag == False:
                                     raise Exception('Inventory Onhand is not available for this Selected UOM retail product') 
         
                         if 'batch_sno' in req and req['batch_sno']:
-                            if batchids and int(req['qty']) > int(batchids.qty):
+                            if int(req['qty']) > int(batch_qty):
                                 if flag == False:
                                     raise Exception('Inventory Onhand is not available for this Selected Batch SNo UOM retail product') 
         
@@ -7473,7 +7479,7 @@ class ExchangeProductConfirmAPIView(generics.CreateAPIView):
                                 if hold.pk:
                                     con_obj.control_no = int(con_obj.control_no) + 1
                                     con_obj.save()
-                                    dtl.holditemqty = 0
+                                    dtl.holditemqty = int(c.holditemqty)
                                     dtl.save()
 
 
@@ -7751,7 +7757,7 @@ class ExchangeProductConfirmAPIView(generics.CreateAPIView):
                                 if hold.pk:
                                     con_obj.control_no = int(con_obj.control_no) + 1
                                     con_obj.save()
-                                    dtl.holditemqty = 0
+                                    dtl.holditemqty = int(c.holditemqty)
                                     dtl.save()
 
                             

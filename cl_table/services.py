@@ -4512,7 +4512,7 @@ def invoice_exchange(self, request, exchange_ids, sa_transacno, cust_obj, outsta
             st_ref_treatmentcode=None,record_detail_type="PRODUCT",gst_amt_collect="{:.2f}".format(float(gst_amt_collect)),
             topup_outstanding=0,dt_remark=sa_transacno,isfoc=0,item_remarks="",
             dt_uom=c.item_uom.uom_code if c.item_uom else None,first_trmt_done=False,item_status_code=c.itemstatus.status_code if c.itemstatus and c.itemstatus.status_code else None,
-            staffs=sales +" "+"/"+" "+ service)
+            staffs=sales +" "+"/"+" "+ service,holditemqty=int(c.holditemqty))
             dtl.save()
             dtl.sa_date = pay_date 
             dtl.sa_time = pay_time

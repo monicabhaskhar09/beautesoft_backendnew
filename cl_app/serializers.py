@@ -64,6 +64,12 @@ class StockSerializer(serializers.ModelSerializer):
         data['prepaid_value'] = "{:.2f}".format(float(instance.prepaid_value)) if instance.prepaid_value else "0.00"
         data['redeempoints'] = int(instance.redeempoints) if instance.redeempoints else ""
         data['is_open_prepaid'] = True if instance.is_open_prepaid == True else False  
+        
+        stock_pic = ""
+        if instance.Stock_PIC:
+            stock_pic = str(SITE_ROOT)+str(instance.Stock_PIC)
+         
+        data['Stock_PIC'] = stock_pic
         return data 
 
 class StockRetailSerializer(serializers.ModelSerializer):
@@ -78,6 +84,12 @@ class StockRetailSerializer(serializers.ModelSerializer):
         data['item_price'] = ""
         if instance.item_price:
             data['item_price'] = "{:.2f}".format(float(instance.item_price)) 
+
+        stock_pic = ""
+        if instance.Stock_PIC:
+            stock_pic = str(SITE_ROOT)+str(instance.Stock_PIC)
+         
+        data['Stock_PIC'] = stock_pic    
         return data 
 
 class StockIdSerializer(serializers.Serializer): 
@@ -773,6 +785,16 @@ class StockUsageProductSerializer(serializers.ModelSerializer):
         model = Stock
         fields = ['id','item_desc','item_code','rpt_code','Stock_PIC']
 
+    def to_representation(self, instance):
+        data = super(StockUsageProductSerializer, self).to_representation(instance)
+       
+        stock_pic = ""
+        if instance.Stock_PIC:
+            stock_pic = str(SITE_ROOT)+str(instance.Stock_PIC)
+         
+        data['Stock_PIC'] = stock_pic    
+        return data     
+
 
 class TreatmentUsageSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source='pk',required=False)
@@ -1010,11 +1032,11 @@ class EcomStockSerializer(serializers.ModelSerializer):
     
     def to_representation(self, instance):
         data = super(EcomStockSerializer, self).to_representation(instance)
-        Stock_PIC = ""
+        stock_pic = ""
         if instance.Stock_PIC:
-            Stock_PIC = str(SITE_ROOT)+str(instance.Stock_PIC)
+            stock_pic = str(SITE_ROOT)+str(instance.Stock_PIC)
          
-        data['Stock_PIC'] = Stock_PIC
+        data['Stock_PIC'] = stock_pic
 
         return data         
 
