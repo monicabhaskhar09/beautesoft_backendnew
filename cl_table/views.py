@@ -11749,8 +11749,10 @@ class CustomerReceiptPrintList(generics.ListAPIView):
                     d['dt_itemdesc'] = d['record_detail_type'] +"-"+ d['dt_itemdesc']
                 elif d['dt_status'] == 'SA' and d['record_detail_type'] in ['TP SERVICE','TP PRODUCT','TP PREPAID']:
                     d['dt_itemdesc'] = d['record_detail_type'] +"-"+ d['dt_itemdesc']
+                elif d['dt_status'] == 'VT' and d['record_detail_type'] == "PACKAGE":
+                    d['dt_itemdesc'] = d['dt_itemdesc']+"-"+str(packages) 
                 elif d['dt_status'] == 'VT':
-                    d['dt_itemdesc'] = d['dt_itemdesc']    
+                    d['dt_itemdesc'] = d['dt_itemdesc']  
                 elif d['dt_status'] == 'VT' and d['record_detail_type'] == "TD":
                     d['dt_itemdesc'] = d['dt_itemdesc']
                 elif d['dt_status'] == 'VT' and d['record_detail_type'] in ['TP SERVICE','TP PRODUCT','TP PREPAID']:

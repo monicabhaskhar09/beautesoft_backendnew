@@ -4127,7 +4127,8 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                 #auto Treatment Usage transactions
                 now = datetime.datetime.now()
                 s1 = str(now.strftime("%Y/%m/%d %H:%M:%S"))
-                usagelevel_ids = Usagelevel.objects.filter(service_code=cl.service_itembarcode,
+                # cl.service_itembarcode
+                usagelevel_ids = Usagelevel.objects.filter(service_code=str(c.itemcode)+"0000",
                 isactive=True).order_by('-pk') 
                 valuedata = 'TRUE'
 

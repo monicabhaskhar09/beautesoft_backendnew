@@ -114,6 +114,8 @@ body{
 </style>
 </head>
 {% load static %}
+{% load custom_tags %}
+
 <body>
 
   
@@ -210,11 +212,14 @@ body{
             {% if d.isfoc and d.holditemqty is None %}
               <td style="text-align: left;width: 40%;">{{ d.dt_itemdesc }}</td>
             {% elif d.dt_status == "SA" and d.record_detail_type == "PACKAGE" %}
-              <td style="text-align: left;width: 40%">{{ d.dt_itemdesc }} &#8209; {{ packages }}</td>  
+              <!-- {{ packages }} -->
+              <td style="text-align: left;width: 40%">{{ d.dt_itemdesc }} &#8209; {% get_packages d %}</td>  
             {% elif d.dt_status == "SA" and d.record_detail_type == "TD" %}
               <td style="text-align: left;width: 40%">{{ d.record_detail_type }} &#8209; {{ d.dt_itemdesc }}</td>
             {% elif d.dt_status == "SA" and d.record_detail_type == 'TP SERVICE' or d.record_detail_type == 'TP PRODUCT' or d.record_detail_type == 'TP PREPAID' %}
               <td style="text-align: left;width: 40%">{{ d.record_detail_type }} &#8209; {{ d.dt_itemdesc }}</td>
+            {% elif d.dt_status == "VT" and d.record_detail_type == "PACKAGE" %}
+              <td style="text-align: left;width: 40%">{{ d.dt_itemdesc }} - {% get_packages d %}</td>
             {% elif d.dt_status == "VT" %}
               <td style="text-align: left;width: 40%">{{ d.dt_itemdesc }}</td>
             {% elif d.dt_status == "VT" and d.record_detail_type == "TD"%}

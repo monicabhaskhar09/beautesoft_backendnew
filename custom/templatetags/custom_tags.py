@@ -1,6 +1,6 @@
 from django import template
 register = template.Library()
-from cl_table.models import Systemsetup
+from cl_table.models import Systemsetup,PackageDtl
 
 @register.simple_tag
 def disc_percent_calc(dt_price, dt_discamt, *args, **kwargs):
@@ -24,3 +24,15 @@ def get_desc(daud):
             res = spl[0]
     # print(res,"res")
     return res    
+
+@register.simple_tag
+def get_packages(daud):
+    package_desc = []; packages = ""
+    if daud.record_detail_type == "PACKAGE":
+        package_dtl = PackageDtl.objects.filter(package_code=daud.dt_combocode,isactive=True)
+        for i in package_dtl:
+            desc = i.description
+            package_desc.append(desc)
+        packages = tuple(package_desc)
+
+    return packages        

@@ -114,6 +114,8 @@ body{
 </style>
 </head>
 {% load static %}
+{% load custom_tags %}
+
 <body>
 
   
@@ -241,11 +243,14 @@ body{
             {% if d.isfoc and d.holditemqty is None %}
               <td class="text-left">{{ d.dt_itemdesc }} $ &nbsp;{{ d.dt_price|floatformat:2 }}</td>
             {% elif d.dt_status == "SA" and d.record_detail_type == "PACKAGE" %}
-              <td class="text-left">{{ d.dt_itemdesc }} {{ packages }} ${{ d.dt_price|floatformat:2 }}</td>  
+              <!-- {{ packages }} -->
+              <td class="text-left">{{ d.dt_itemdesc }} - {% get_packages d %} ${{ d.dt_price|floatformat:2 }}</td>  
             {% elif d.dt_status == "SA" and d.record_detail_type == "TD" %}
               <td class="text-left">{{ d.dt_itemdesc }} ${{ d.dt_price|floatformat:2 }}</td>
             {% elif d.dt_status == "SA" and d.record_detail_type == 'TP SERVICE' or d.record_detail_type == 'TP PRODUCT' or d.record_detail_type == 'TP PREPAID' %}
               <td class="text-left">{{ d.dt_itemdesc }} ${{ d.dt_price|floatformat:2 }}</td>
+            {% elif d.dt_status == "VT" and d.record_detail_type == "PACKAGE" %}
+              <td class="text-left">{{ d.dt_itemdesc }} - {% get_packages d %} ${{ d.dt_price|floatformat:2 }}</td>  
             {% elif d.dt_status == "VT" %}
               <td class="text-left">{{ d.dt_itemdesc }} ${{ d.dt_price|floatformat:2 }}</td>
             {% elif d.dt_status == "VT" and d.record_detail_type == "TD"%}
