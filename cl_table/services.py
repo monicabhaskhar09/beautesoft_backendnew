@@ -3079,11 +3079,17 @@ def invoice_topup(self, request, topup_ids,sa_transacno, cust_obj, outstanding, 
                     if pos_ids:
                         pa_trasac = round(pos_ids.price * pos_ids.qty)
                         pa_disc = pos_ids.unit_price - pa_trasac
-                        
+
+                    depotpamt_acc_ids = PrepaidAccount.objects.filter(pp_no=c.prepaid_account.pp_no,
+                    line_no=c.prepaid_account.line_no,sa_status__in=('','DEPOSIT', 'TOPUP'),package_code_lineno=c.prepaid_account.package_code_lineno).only('pp_no').aggregate(Sum('topup_amt'))
                 else:
                     ulast_preids = PrepaidAccount.objects.filter(pp_no=c.prepaid_account.pp_no,
                     line_no=c.prepaid_account.line_no,
                     cust_code=cust_obj.cust_code).order_by('-pk').first()
+
+                    depotpamt_acc_ids = PrepaidAccount.objects.filter(pp_no=c.prepaid_account.pp_no,
+                    line_no=c.prepaid_account.line_no,sa_status__in=('','DEPOSIT', 'TOPUP')).only('pp_no').aggregate(Sum('topup_amt'))
+  
 
                 ulast_preids.status=False
                 ulast_preids.save()
@@ -3120,19 +3126,34 @@ def invoice_topup(self, request, topup_ids,sa_transacno, cust_obj, outstanding, 
                     pacc_ids = PrepaidAccountCondition.objects.filter(pp_no=c.prepaid_account.pp_no,
                     pos_daud_lineno=c.prepaid_account.line_no,p_itemtype="Inclusive",
                     package_code_lineno=c.prepaid_account.package_code_lineno).order_by('pk')
+
+                  
                 else:
                     pacc_ids = PrepaidAccountCondition.objects.filter(pp_no=c.prepaid_account.pp_no,
                     pos_daud_lineno=c.prepaid_account.line_no,p_itemtype="Inclusive").order_by('pk')
+
+                  
                 
                 if pacc_ids: 
                     pp_total = c.prepaid_account.pp_total  
                     topup_amt = c.deposit
+                    if depotpamt_acc_ids and depotpamt_acc_ids['topup_amt__sum'] > 0:
+                        deposit_bal = depotpamt_acc_ids['topup_amt__sum']
+                    else:
+                        deposit_bal = 0
+
                     for preacct in pacc_ids:
-                       
+                        if not preacct.topup_remain:
+                            cal_tpremain = (float(preacct.amount) / pp_total) * deposit_bal
+                            preacct.topup_remain = round(cal_tpremain)
+                            preacct.save()
+    
+                            
                         if outstanding == 0:
                             remain_cal = float(preacct.amount) - preacct.topup_remain
                             topup_remainval = preacct.topup_remain + remain_cal
-                            tp_remain = preacct.remain + remain_cal
+                            # tp_remain = preacct.remain + remain_cal
+                            tp_remain = float(topup_remainval) - preacct.use_amt
 
                             preacct.topup_remain = topup_remainval
                             preacct.remain = tp_remain
@@ -3141,7 +3162,8 @@ def invoice_topup(self, request, topup_ids,sa_transacno, cust_obj, outstanding, 
                             remain_cal = round(tpacc_remain)
 
                             topup_remainval = preacct.topup_remain + remain_cal
-                            tp_remain = preacct.remain + remain_cal
+                            # tp_remain = preacct.remain + remain_cal
+                            tp_remain = float(topup_remainval) - preacct.use_amt
 
                             preacct.topup_remain = topup_remainval
                             preacct.remain = tp_remain

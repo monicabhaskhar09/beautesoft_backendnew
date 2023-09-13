@@ -8541,10 +8541,18 @@ class VoidViewset(viewsets.ModelViewSet):
                                             if pos_ids:
                                                 pa_trasac = round(pos_ids.price * pos_ids.qty)
                                                 pa_disc = pos_ids.unit_price - pa_trasac
+
+                                            depotpamtacc_ids = PrepaidAccount.objects.filter(pp_no=pt.pp_no,
+                                            line_no=pt.line_no,sa_status__in=('','DEPOSIT', 'TOPUP'),package_code_lineno=pt.package_code_lineno).only('pp_no').aggregate(Sum('topup_amt'))
+    
                                         
                                         else:
                                             pre_acc_ids = PrepaidAccount.objects.filter(pp_no=pt.pp_no,
                                             line_no=pt.line_no).order_by('-id').first()
+
+                                            depotpamtacc_ids = PrepaidAccount.objects.filter(pp_no=pt.pp_no,
+                                            line_no=pt.line_no,sa_status__in=('','DEPOSIT', 'TOPUP')).only('pp_no').aggregate(Sum('topup_amt'))
+  
 
                                         if pre_acc_ids: 
 
@@ -8594,16 +8602,25 @@ class VoidViewset(viewsets.ModelViewSet):
                                                 
                                             if pacc_ids:   
                                                 pp_total = depacc_ids.pp_total  
-                                                topup_amt = pt.topup_amt 
+                                                topup_amt = pt.topup_amt
+                                                if depotpamt_acc_ids and depotpamt_acc_ids['topup_amt__sum'] > 0:
+                                                    deposit_bal = depotpamt_acc_ids['topup_amt__sum']
+                                                else:
+                                                    deposit_bal = 0 
+
+                                                if depotpamtacc_ids and depotpamtacc_ids['topup_amt__sum'] > 0:
+                                                    deposittp_bal = depotpamtacc_ids['topup_amt__sum']
+                                                else:
+                                                    deposittp_bal = 0     
+
                                                 for preacct in pacc_ids:
+                                                    if not preacct.topup_remain:
+                                                        cal_tpremain = (float(preacct.amount) / pp_total) * deposittp_bal
+                                                        preacct.topup_remain = round(cal_tpremain)
+                                                        preacct.save()
+
                                                    
                                                     if pre_acc_ids.outstanding == 0.0:
-                                                        if depotpamt_acc_ids and depotpamt_acc_ids['topup_amt__sum'] > 0:
-                                                            deposit_bal = depotpamt_acc_ids['topup_amt__sum']
-                                                        else:
-                                                            deposit_bal = 0
-
-
                                                         tpacc_remain = (float(preacct.amount) / pp_total) * deposit_bal
                                                         remain_cal = round(tpacc_remain)
 
@@ -8617,7 +8634,8 @@ class VoidViewset(viewsets.ModelViewSet):
                                                         remain_cal = round(tpacc_remain)
 
                                                         topup_remainval = preacct.topup_remain - remain_cal
-                                                        tp_remain = preacct.remain - remain_cal
+                                                        # tp_remain = preacct.remain - remain_cal
+                                                        tp_remain = float(topup_remainval) - preacct.use_amt
 
                                                         preacct.topup_remain = topup_remainval
                                                         preacct.remain = tp_remain
