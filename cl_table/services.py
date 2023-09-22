@@ -803,8 +803,8 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                                     valuedata = 'TRUE'
 
                                                     sys_ids = Systemsetup.objects.filter(title='Stock Available',value_name='Stock Available').first() 
-                                                    if sys_ids:
-                                                        valuedata = sys_ids.value_data
+                                                    if sys_ids and sys_ids.value_data:
+                                                        valuedata = str(sys_ids.value_data).upper()
 
                                                     currenttime = timezone.now()
                                                     currentdate = timezone.now().date()
@@ -1494,8 +1494,8 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                     valuedata = 'TRUE'
 
                     sys_ids = Systemsetup.objects.filter(title='Stock Available',value_name='Stock Available').first() 
-                    if sys_ids:
-                        valuedata = sys_ids.value_data
+                    if sys_ids and sys_ids.value_data:
+                        valuedata = str(sys_ids.value_data).upper()
 
                     currenttime = timezone.now()
                     currentdate = timezone.now().date()
@@ -2304,8 +2304,8 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                 valuedata = 'TRUE'
 
                                 sys_ids = Systemsetup.objects.filter(title='Stock Available',value_name='Stock Available').first() 
-                                if sys_ids:
-                                    valuedata = sys_ids.value_data
+                                if sys_ids and sys_ids.value_data:
+                                    valuedata = str(sys_ids.value_data).upper()
 
                                 currenttime = timezone.now()
                                 currentdate = timezone.now().date()
@@ -4155,8 +4155,8 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                 valuedata = 'TRUE'
 
                 sys_ids = Systemsetup.objects.filter(title='Stock Available',value_name='Stock Available').first() 
-                if sys_ids:
-                    valuedata = sys_ids.value_data
+                if sys_ids and sys_ids.value_data:
+                    valuedata = str(sys_ids.value_data).upper()
 
                        
 

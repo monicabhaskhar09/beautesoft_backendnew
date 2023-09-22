@@ -11629,6 +11629,13 @@ class CustomerReceiptPrintList(generics.ListAPIView):
             # print(hdr_data[0],"hdr_data[0]")
             for h in hdr_data:
                 h['trans'] = hdr[0].sa_transacno_ref
+                h['void_refno'] = ""
+                if hdr[0].isvoid == True:
+                    sa_ids = PosHaud.objects.filter(sa_transacno=hdr[0].void_refno).order_by('pk').first()
+                    if sa_ids:
+                        h['void_refno'] = sa_ids.sa_transacno_ref
+                   
+
                 h['issued'] = hdr[0].cas_name
                 dsplit = str(h['sa_date']).split("T")
                 date = datetime.datetime.strptime(str(dsplit[0]), '%Y-%m-%d').strftime("%d-%b-%Y")

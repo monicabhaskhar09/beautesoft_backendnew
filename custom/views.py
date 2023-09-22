@@ -46,7 +46,7 @@ PackageHdr,PackageDtl,Paytable,Multistaff,ItemBatch,Stktrn,ItemUomprice,Holditem
 CustomerClass,ItemClass,Tmpmultistaff,Tmptreatment,ExchangeDtl,ItemUom,ItemHelper,PrepaidAccountCondition,
 City, State, Country, Stock,PayGroup,Tempcustsign,Item_MembershipPrice,TreatmentPackage,PrepaidOpenCondition,
 ItemBrand,CustomerPoint,TempprepaidAccountCondition,TempcartprepaidAccCond)
-from cl_app.models import ItemSitelist, SiteGroup, TmpTreatmentSession,TmpItemHelperSession
+from cl_app.models import ItemSitelist, SiteGroup, TmpTreatmentSession,TmpItemHelperSession,Usagelevel
 from cl_table.serializers import (PostaudSerializer,StaffsAvailableSerializer,PosdaudSerializer,TmpItemHelperSerializer,
 PrepaidOpenConditionSerializer)
 from datetime import date, timedelta, datetime
@@ -1764,6 +1764,50 @@ def truncate(f, n):
     # val = numberWithoutRounding(res)
     return res
 
+def validate_tdfirst_usagestock(done,site,item_code):
+    session = done
+    if item_code:
+        valuedata = 'TRUE'
+
+        sys_ids = Systemsetup.objects.filter(title='Stock Available',
+        value_name='Stock Available',isactive=True).first() 
+        if sys_ids and sys_ids.value_data:
+            valuedata = str(sys_ids.value_data).upper()
+        
+       
+        usagelevel_ids = Usagelevel.objects.filter(service_code=str(item_code),
+        isactive=True).order_by('-pk')  
+
+        if usagelevel_ids:
+            for i in usagelevel_ids:
+                if int(i.qty) > 0:
+                    qtytodeduct = int(i.qty) * session
+                    flag = False
+
+                    uomprice_ids = ItemUomprice.objects.filter(item_code=i.item_code[:-4],
+                    item_uom2=i.uom,uom_unit__gt=0,isactive=True).filter(~Q(item_uom=i.uom)).first()
+                    if uomprice_ids:
+                        obatchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=str(i.item_code[:-4]),
+                        uom=uomprice_ids.item_uom).order_by('pk').last() 
+                        if obatchids and int(obatchids.qty) <= 0:
+                            flag = False
+                        else:
+                            if obatchids and int(obatchids.qty) > 0:
+                                flag = True
+
+                    batchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=str(i.item_code[:-4]),
+                    uom=i.uom).order_by('pk').last() 
+                    if batchids:
+                        batch_qty = int(batchids.qty)
+                    else:
+                        batch_qty = 0   
+
+                    if valuedata == 'TRUE':
+                        if int(qtytodeduct) > int(batch_qty):
+                            if flag == False:
+                                raise Exception('Inventory Onhand is not available for this service TD usagelevel UOM retail product') 
+                 
+    return True
 
        
 
@@ -2562,6 +2606,9 @@ class itemCartViewset(viewsets.ModelViewSet):
 
             # cartvalue = get_cartid(self, request, cust_obj)
 
+            autotdfor_setup = Systemsetup.objects.filter(title='autoTDForAlacarte',
+            value_name='autoTDForAlacarte',isactive=True).first()
+
             for idx, req in enumerate(request.data, start=1):
                 serializer = self.get_serializer(data=req)
                 cart_date = timezone.now().date()
@@ -2636,6 +2683,10 @@ class itemCartViewset(viewsets.ModelViewSet):
                 if not stock_obj:
                     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Stock ID does not exist!!",'error': True} 
                     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
+                if int(stock_obj.item_div) == 3 and stock_obj.item_type != 'PACKAGE' and autotdfor_setup and autotdfor_setup.value_data == 'True' and 'is_service' in req and req['is_service'] == True:   
+                    done = 1 ; item_code = str(stock_obj.item_code)+"0000"
+                    usage_val = validate_tdfirst_usagestock(done,site,item_code) 
 
                 gst = GstSetting.objects.filter(item_desc='GST',isactive=True).first()
             
@@ -2764,6 +2815,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                         "message":bmessage,'error': True} 
                         return Response(result, status=status.HTTP_400_BAD_REQUEST) 
                 
+                
 
                 
                 if serializer.is_valid():
@@ -2820,8 +2872,8 @@ class itemCartViewset(viewsets.ModelViewSet):
 
                         sys_ids = Systemsetup.objects.filter(title='Stock Available',
                         value_name='Stock Available',isactive=True).first() 
-                        if sys_ids:
-                            valuedata = sys_ids.value_data
+                        if sys_ids and sys_ids.value_data:
+                            valuedata = str(sys_ids.value_data).upper()
                             #raise Exception('Retail Product System Setup setting for Stock Available does not exist') 
 
                         # ser_valuedata = 'True'
@@ -3186,8 +3238,7 @@ class itemCartViewset(viewsets.ModelViewSet):
                                 salesamt="{:.2f}".format(float(newsalesamt)),salescommpoints=newsalspts)
                                          
                     
-                    autotdfor_setup = Systemsetup.objects.filter(title='autoTDForAlacarte',
-                    value_name='autoTDForAlacarte',isactive=True).first()
+                    
                     if cart.type == 'Deposit' and int(stock_obj.item_div) == 3 and stock_obj.item_type != 'PACKAGE' and autotdfor_setup and autotdfor_setup.value_data == 'True' and 'is_service' in req and req['is_service'] == True:
                         # print("iff")
                         empobj= fmspw[0].Emp_Codeid
@@ -8863,6 +8914,7 @@ class CartPopupViewset(viewsets.ModelViewSet):
                                 raise Exception('wp Should not be empty') 
 
                         if s['sales'] == True:
+                            # print(float(s['sales_amount']),"float(s['sales_amount'])")
                             if s['sales_percentage'] == "":
                                 raise Exception('Sales Percentage Should not be empty') 
                             if s['sales_amount'] == "":
@@ -8870,6 +8922,7 @@ class CartPopupViewset(viewsets.ModelViewSet):
                             if s['sp'] == "":
                                 raise Exception('sp Should not be empty') 
                             tsales_amount += float(s['sales_amount'])
+                            # print(tsales_amount,"tsales_amount")
                             tsales_percentage += float(s['sales_percentage'])
 
                     # print(tsales_percentage,"tsales_percentage")
@@ -8877,8 +8930,9 @@ class CartPopupViewset(viewsets.ModelViewSet):
                         if tsales_percentage < float(itemcart.ratio) or tsales_percentage > float(itemcart.ratio):
                             m_sg = "Sales Percentage sum should be equal to Cart Ratio {0} % cart item {1} & lineno {2} .".format(str(float(itemcart.ratio)),str(itemcart.itemdesc),str(itemcart.lineno))
                             raise Exception(m_sg) 
-
-                        if tsales_amount < float(itemcart.trans_amt) or tsales_amount > float(itemcart.trans_amt):
+                        # print(round(tsales_amount),"tsales_amount")
+                        # print(float(itemcart.trans_amt),"itemcart.trans_amt")
+                        if round(tsales_amount) < float(itemcart.trans_amt) or round(tsales_amount) > float(itemcart.trans_amt):
                             mt_sg = "Sales Amount sum should be equal to Cart Transac Amt $ {0} cart item {1} & lineno {2} .".format(str(float(itemcart.trans_amt)),str(itemcart.itemdesc),str(itemcart.lineno))
                             raise Exception(mt_sg)     
 
@@ -10226,7 +10280,9 @@ class CartPrepaidViewset(viewsets.ModelViewSet):
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)     
-               
+
+
+
 
 class CourseTmpItemHelperViewset(viewsets.ModelViewSet):
     authentication_classes = [ExpiringTokenAuthentication]
@@ -10236,6 +10292,8 @@ class CourseTmpItemHelperViewset(viewsets.ModelViewSet):
 
     def list(self, request):
         try:
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+            site = fmspw[0].loginsite
             # if request.GET.get('treatmentid',None) is None:
             #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give Treatment Record ID",'error': False}
             #     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
@@ -10287,7 +10345,9 @@ class CourseTmpItemHelperViewset(viewsets.ModelViewSet):
                     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Insufficient Amount in Treatment Done not allow, Please Topup !!",'error': True} 
                     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
             
-            
+            item_code = str(cartobj.itemcodeid.item_code)+"0000"
+            usage_val = validate_tdfirst_usagestock(done,site,item_code)
+
             arrtreatmentid = [i.pk for i in tmp_treatids]
             # print(arrtreatmentid,"arrtreatmentid")
             for t in arrtreatmentid:
@@ -10420,8 +10480,10 @@ class CourseTmpItemHelperViewset(viewsets.ModelViewSet):
             if not helper_obj:
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Employee ID does not exist!!",'error': True} 
                 return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-
             
+            item_code = str(cartobj.itemcodeid.item_code)+"0000"
+            usage_val = validate_tdfirst_usagestock(done,site,item_code)
+
             for t in arrtreatmentid:
                 trmt_obj = Tmptreatment.objects.filter(status="Open",pk=t).first()
                 if not trmt_obj:
@@ -11048,6 +11110,9 @@ class PackageServiceTmpItemHelperViewset(viewsets.ModelViewSet):
 
     def list(self, request):
         try:
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+            site = fmspw[0].loginsite
+
             done = 1
            
             pos_id = request.GET.get('pos_id',None)
@@ -11086,6 +11151,9 @@ class PackageServiceTmpItemHelperViewset(viewsets.ModelViewSet):
                     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Insufficient Amount in Treatment Done not allow, Please Topup !!",'error': True} 
                     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
             
+            item_code = posobj.code
+            usage_val = validate_tdfirst_usagestock(done,site,item_code)
+
             if not stock_obj.workcommpoints:
                 # if stock_obj.workcommpoints == None or stock_obj.workcommpoints == 0.0:
                 workcommpoints = 0.0
@@ -11189,7 +11257,9 @@ class PackageServiceTmpItemHelperViewset(viewsets.ModelViewSet):
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Stock ID does not exist!!",'error': True} 
                 return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
             
-               
+            item_code = posobj.code
+            usage_val = validate_tdfirst_usagestock(done,site,item_code)
+
             if not request.GET.get('workcommpoints',None): 
                 # if request.GET.get('workcommpoints',None) is None or float(request.GET.get('workcommpoints',None)) == 0.0:
                 workcommpoints = 0.0

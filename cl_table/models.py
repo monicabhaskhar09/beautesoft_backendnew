@@ -879,8 +879,8 @@ class Fmspw(models.Model):
     loginsite = models.ForeignKey('cl_app.ItemSitelist', on_delete=models.PROTECT,null=True) #, null=True, blank=True
     flgsales = models.BooleanField(db_column='flgSales', null=True,default=False)  # Field name made lowercase.
     is_reversal = models.BooleanField(db_column='Reversal', default=False)
-    is_paymentdate = models.BooleanField(db_column='PaymentDate', default=False)
-    flgtransacdisc = models.BooleanField(db_column='flgtransacdisc',default=False)  # Field name made lowercase.
+    is_paymentdate = models.BooleanField(db_column='PaymentDate', default=False,null=True)
+    flgtransacdisc = models.BooleanField(db_column='flgtransacdisc',default=False,null=True)  # Field name made lowercase.
     flgdashboard = models.BooleanField(db_column='flgdashboard',default=False)  # Field name made lowercase.
     # flgkpidashboard = models.BooleanField(db_column='flgkpidashboard',default=False)  # Field name made lowercase.
     # flgcustomer =  models.BooleanField(db_column='flgcustomer',default=False)  # Field name made lowercase.
@@ -898,7 +898,7 @@ class Fmspw(models.Model):
     # flgpo = models.BooleanField(db_column='flgpo',default=False)  # Field name made lowercase.
     # flgquantum = models.BooleanField(db_column='flgquantum',default=False)  # Field name made lowercase.
     # flgbilling = models.BooleanField(db_column='flgbilling',default=False)  # Field name made lowercase.
-    flgservicelimit = models.BooleanField(db_column='flgservicelimit',default=False)  # Field name made lowercase.
+    flgservicelimit = models.BooleanField(db_column='flgservicelimit',default=False,null=True)  # Field name made lowercase.
     flgpayment = models.BooleanField(db_column='flgPayment',default=False)  # Field name made lowercase.
 
     class Meta:
@@ -1092,7 +1092,7 @@ class Customer(models.Model):
     # class_name = models.CharField(max_length=40, blank=True, null=True)
     # source_name = models.CharField(max_length=40, blank=True, null=True)
     # title_name = models.CharField(max_length=40, blank=True, null=True)
-    cust_corporate = models.BooleanField(db_column='cust_corporate',default=False)
+    cust_corporate = models.BooleanField(db_column='cust_corporate',default=False, null=True)
     referredby_id = models.ForeignKey('cl_table.Customer',on_delete=models.PROTECT, null=True) 
     is_pregnant = models.BooleanField(db_column='IsPregnant', blank=True, null=True)
     estimated_deliverydate = models.DateTimeField(db_column='EstimatedDeliveryDate', blank=True, null=True)  # Field name made lowercase.
@@ -1472,7 +1472,7 @@ class PrepaidAccount(models.Model):
     pp_bonus = models.FloatField(db_column='PP_BONUS', blank=True, null=True)  # Field name made lowercase.
     pp_total = models.FloatField(db_column='PP_TOTAL', blank=True, null=True)  # Field name made lowercase.
     transac_no = models.CharField(db_column='TRANSAC_NO', max_length=50)  # Field name made lowercase.
-    item_no = models.CharField(db_column='ITEM_NO', max_length=50)  # Field name made lowercase.
+    item_no = models.CharField(db_column='ITEM_NO', max_length=50, null=True)  # Field name made lowercase.
     use_amt = models.FloatField(db_column='USE_AMT', null=True)  # Field name made lowercase.
     remain = models.FloatField(db_column='REMAIN', null=True)  # Field name made lowercase.
     ref1 = models.CharField(db_column='REF1', max_length=50, blank=True, null=True)  # Field name made lowercase.
@@ -1498,7 +1498,7 @@ class PrepaidAccount(models.Model):
     condition_type1 = models.CharField(db_column='Condition_TYPE1', max_length=20, blank=True, null=True)  # Field name made lowercase.
     pos_daud_lineno = models.IntegerField(db_column='POS_DAUD_LineNo', blank=True, null=True)  # Field name made lowercase.
     mac_uid_ref = models.CharField(db_column='MAC_UID_Ref', max_length=50, blank=True, null=True)  # Field name made lowercase.
-    lpackage = models.BooleanField(db_column='lPackage')  # Field name made lowercase.
+    lpackage = models.BooleanField(db_column='lPackage', null=True)  # Field name made lowercase.
     package_code = models.CharField(db_column='Package_Code', max_length=50, blank=True, null=True)  # Field name made lowercase.
     package_code_lineno = models.IntegerField(db_column='Package_Code_LineNo', blank=True, null=True)  # Field name made lowercase.
     prepaid_disc_type = models.CharField(db_column='Prepaid_Disc_Type', max_length=20, blank=True, null=True)  # Field name made lowercase.
@@ -3367,7 +3367,7 @@ class Appointment(models.Model):
     recurring_qty = models.IntegerField(null=True, blank=True)
     recur_linkcode = models.CharField(db_column='Recur_Linkcode', max_length=200, blank=True, null=True)  # Field name made lowercase.
     linkcode = models.CharField(db_column='Linkcode', max_length=200, blank=True, null=True)  # Field name made lowercase.
-    link_flag = models.BooleanField(db_column='Link Flag',default=False)  # Field name made lowercase.
+    link_flag = models.BooleanField(db_column='Link Flag',default=False, null=True)  # Field name made lowercase.
     Item_Codeid = models.ForeignKey('cl_table.Stock', on_delete=models.PROTECT, null=True) 
     add_duration = models.TimeField(null=True)
     checktype = models.CharField(db_column='CheckType',choices=CHECK_TYPE, max_length=50, blank=True, null=True)  # Field name made lowercase.
@@ -3707,7 +3707,7 @@ class Systemsetup(models.Model):
     edit_datetime = models.DateTimeField(db_column='Edit_DateTime',auto_now_add=True, blank=True, null=True)  # Field name made lowercase.
     updated_at = models.DateTimeField(auto_now=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
-    isactive = models.BooleanField(default=True)
+    isactive = models.BooleanField(default=True, null=True)
 
     class Meta:
         db_table = 'SystemSetup'

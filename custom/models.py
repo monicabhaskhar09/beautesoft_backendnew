@@ -176,7 +176,7 @@ class VoucherRecord(models.Model):
     updated_at  = models.DateTimeField(auto_now=True,null=True)
     created_at = models.DateTimeField(auto_now_add=True,null=True)
     isvalid = models.BooleanField(db_column='isValid',default=True)  # Field name made lowercase.
-    isdiscount = models.BooleanField(db_column='isdiscount',default=False)  # Field name made lowercase.
+    isdiscount = models.BooleanField(db_column='isdiscount',default=False,null=True)  # Field name made lowercase.
     conditiontype1 = models.CharField(db_column='conditiontype1', max_length=20, blank=True, null=True)  # Field name made lowercase.
     conditiontype2 = models.CharField(db_column='conditiontype2', max_length=20, blank=True, null=True)  # Field name made lowercase.
 

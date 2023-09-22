@@ -435,9 +435,13 @@ def GeneratePDF(self,request, sa_transacno):
     if prepaidlst != []:
         showprepaid = True
 
-
+    void_refno = ""
     if hdr[0].isvoid == True and hdr[0].sa_status == "VT":
         showvoidreason = True
+        sa_ids = PosHaud.objects.filter(sa_transacno=hdr[0].void_refno).order_by('pk').first()
+        if sa_ids:
+            void_refno = sa_ids.sa_transacno_ref
+                   
     else:
         showvoidreason = False
 
@@ -513,7 +517,7 @@ def GeneratePDF(self,request, sa_transacno):
     'discreason': discreason,'discper' : discper,'today_point_amt':today_point_amt,
     'cust_point_value' : int(hdr[0].sa_custnoid.cust_point_value) if hdr[0].sa_custnoid and hdr[0].sa_custnoid.cust_point_value and hdr[0].sa_custnoid.cust_point_value > 0 else 0,
     'title': title,'ot_seal':ot_seal if os.path.isfile(ot_seal) else '',
-    'ot_logo':ot_logo if os.path.isfile(ot_logo) else ''
+    'ot_logo':ot_logo if os.path.isfile(ot_logo) else '','void_refno' : void_refno
     }
     data.update(sub_data)
     data.update(custbal)

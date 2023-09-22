@@ -665,6 +665,13 @@ class RetailStockListViewset(viewsets.ModelViewSet):
             if request.GET.get('search',None):
                 if not request.GET.get('search',None) is None:
                     queryset = queryset.filter(Q(item_name__icontains=request.GET.get('search',None)) | Q(item_desc__icontains=request.GET.get('search',None)))
+            
+            query_ids = list(set(queryset.values_list('item_code', flat=True).distinct()))
+            uom_ids =  list(set(ItemUom.objects.filter(uom_isactive=True).values_list('uom_code', flat=True).distinct()))
+            uomprice_ids = list(set(ItemUomprice.objects.filter(isactive=True, item_code__in=query_ids,
+            item_uom__in=uom_ids).values_list('item_code', flat=True).distinct()))
+
+            queryset = queryset.filter(item_code__in=uomprice_ids)
 
             systemids = Systemsetup.objects.filter(title='stockOrderBy',
             value_name='stockOrderBy',isactive=True).first()
@@ -4064,6 +4071,54 @@ class TreatmentDoneViewset(viewsets.ModelViewSet):
 #             invalid_message = str(e)
 #             return general_error_response(invalid_message)
 
+def validate_td_usagestock(arrtreatmentid,site):
+    # print(arrtreatmentid,"arrtreatmentid")
+    session = len(arrtreatmentid)
+    t = arrtreatmentid[0]
+    # print(t,"ll")
+    trmt_obj = Treatment.objects.filter(status__in=["Open"],pk=t).first()
+    if trmt_obj:
+        valuedata = 'TRUE'
+
+        sys_ids = Systemsetup.objects.filter(title='Stock Available',
+        value_name='Stock Available',isactive=True).first() 
+        if sys_ids and sys_ids.value_data:
+            valuedata = str(sys_ids.value_data).upper()
+
+        usagelevel_ids = Usagelevel.objects.filter(service_code=str(trmt_obj.item_code),
+        isactive=True).order_by('-pk')  
+        if usagelevel_ids:
+            for i in usagelevel_ids:
+                if int(i.qty) > 0:
+                    qtytodeduct = int(i.qty) * session
+                    flag = False
+
+                    uomprice_ids = ItemUomprice.objects.filter(item_code=i.item_code[:-4],
+                    item_uom2=i.uom,uom_unit__gt=0,isactive=True).filter(~Q(item_uom=i.uom)).first()
+                    if uomprice_ids:
+                        obatchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=str(i.item_code[:-4]),
+                        uom=uomprice_ids.item_uom).order_by('pk').last() 
+                        if obatchids and int(obatchids.qty) <= 0:
+                            flag = False
+                        else:
+                            if obatchids and int(obatchids.qty) > 0:
+                                flag = True
+
+                    batchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=str(i.item_code[:-4]),
+                    uom=i.uom).order_by('pk').last() 
+                    if batchids:
+                        batch_qty = int(batchids.qty)
+                    else:
+                        batch_qty = 0   
+
+                    if valuedata == 'TRUE':
+                        if int(qtytodeduct) > int(batch_qty):
+                            if flag == False:
+                                raise Exception('Inventory Onhand is not available for this service TD usagelevel UOM retail product') 
+                 
+    return True
+
+
 class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
     authentication_classes = [ExpiringTokenAuthentication]
     permission_classes = [IsAuthenticated & authenticated_only]
@@ -4116,6 +4171,7 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                             result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Insufficient Amount in Treatment Account, Please Top Up!!",'error': True} 
                             return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
             
+            usage_val = validate_td_usagestock(arrtreatmentid,site)
 
             # for t in arrtreatmentid:
             if arrtreatmentid:
@@ -4362,7 +4418,8 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                     if carttr_ids:
                         result = {'status': status.HTTP_400_BAD_REQUEST,"message": "Delete Cart line then add new staffs",'error': True} 
                         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
-
+                
+                usage_val = validate_td_usagestock(arrtreatmentid,site)
 
                 # for t in arrtreatmentid:
                 if arrtreatmentid:
@@ -14842,16 +14899,20 @@ class HolditemdetailViewset(viewsets.ModelViewSet):
                                                 valuedata = 'TRUE'
 
                                                 sys_ids = Systemsetup.objects.filter(title='Stock Available',value_name='Stock Available').first() 
-                                                if sys_ids:
-                                                    valuedata = sys_ids.value_data
+                                                if sys_ids and sys_ids.value_data:
+                                                    valuedata = str(sys_ids.value_data).upper()
                                                     
                                                 batchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=str(laqueryids.itemno[:-4]),
                                                 uom=laqueryids.hi_uom).order_by('pk').last() 
+                                                if batchids:
+                                                    batch_qty = int(batchids.qty)
+                                                else:
+                                                    batch_qty = 0
 
                                                 onhand = True
 
-                                                if valuedata == 'TRUE' and batchids:
-                                                    if int(laqueryids.holditemqty) > int(batchids.qty):
+                                                if valuedata == 'TRUE':
+                                                    if int(laqueryids.holditemqty) > int(batch_qty):
                                                         onhand = False
                                                         # raise Exception('Inventory ohand qty Stock is not available') 
                                         
@@ -15018,8 +15079,8 @@ class HolditemdetailViewset(viewsets.ModelViewSet):
                     valuedata = 'TRUE'
 
                     sys_ids = Systemsetup.objects.filter(title='Stock Available',value_name='Stock Available').first() 
-                    if sys_ids:
-                        valuedata = sys_ids.value_data
+                    if sys_ids and sys_ids.value_data:
+                        valuedata = str(sys_ids.value_data).upper()
 
                     
                     # print(request.data,"request.data")
@@ -15195,7 +15256,7 @@ class HolditemdetailViewset(viewsets.ModelViewSet):
     
 
 
-                                        print(flag,"flag")
+                                        # print(flag,"flag")
                                         # if batchids and obatchids and int(obatchids.qty) >= int(qtytodeduct):
 
                                         #     post_time = str(currenttime.hour).zfill(2)+str(currenttime.minute).zfill(2)+str(currenttime.second).zfill(2)
@@ -15908,7 +15969,7 @@ class StockUsageProductAPIView(generics.ListAPIView):
                 if not request.GET.get('search',None) is None:
                     queryset = queryset.filter(Q(item_name__icontains=request.GET.get('search',None)
                     ) | Q(item_desc__icontains=request.GET.get('search',None)) | Q(item_code__icontains=request.GET.get('search',None)))
-
+            
             serializer_class =  StockUsageProductSerializer
             total = len(queryset)
             state = status.HTTP_200_OK
@@ -15921,7 +15982,7 @@ class StockUsageProductAPIView(generics.ListAPIView):
             lst = []
             for dat in d:
                 q = dict(dat)
-               
+                
                 q['link_code'] = ""
                 code = q['item_code']+"0000"
                 linkobj = ItemLink.objects.filter(item_code=code,link_type='L',itm_isactive=True).order_by('pk')
@@ -15931,7 +15992,6 @@ class StockUsageProductAPIView(generics.ListAPIView):
                 uomlst = []
                 stock = Stock.objects.filter(item_isactive=True, pk=q['id']).first()
                 itemuomprice = ItemUomprice.objects.filter(isactive=True, item_code=stock.item_code).order_by('id')
-                
                 for i in itemuomprice:
                     itemuom = ItemUom.objects.filter(uom_isactive=True,uom_code=i.item_uom).order_by('id').first()
                     itemuom_id = None; itemuom_desc = None
@@ -15951,7 +16011,8 @@ class StockUsageProductAPIView(generics.ListAPIView):
                 q.update(val) 
                 if uomlst != []:
                     lst.append(q)
-                v['dataList'] = lst    
+                    
+            v['dataList'] = lst    
             return Response(result, status=status.HTTP_200_OK)   
         except Exception as e:
             invalid_message = str(e)
@@ -16009,8 +16070,25 @@ class StockUsageMemoViewset(viewsets.ModelViewSet):
             if not request.data['emp_id']:
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please Give Emp Id!!",'error': True} 
                 return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+            if not request.data['date']:  
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please Give Date!!",'error': True} 
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+            if not request.data['uom']: 
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please Give uom!!",'error': True} 
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
     
 
+            if not request.data['qty']: 
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please Give qty!!",'error': True} 
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+            if request.data['qty'] and int(request.data['qty']) <= 0:
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please Give valid qty > 0!!",'error': True} 
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+    
             stock_obj = Stock.objects.filter(pk=request.data['stock_id']).first()
             if not stock_obj:
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Stock id Does not exist!!",'error': True} 
@@ -16020,6 +16098,39 @@ class StockUsageMemoViewset(viewsets.ModelViewSet):
             if not emp_obj:
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Employee id Does not exist!!",'error': True} 
                 return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+            valuedata = 'TRUE'
+
+            sys_ids = Systemsetup.objects.filter(title='Stock Available',value_name='Stock Available').first() 
+            if sys_ids and sys_ids.value_data:
+                valuedata = str(sys_ids.value_data).upper()
+
+            bflag = False
+
+            uomprice_ids = ItemUomprice.objects.filter(item_code=stock_obj.item_code,
+            item_uom2=request.data['uom'],uom_unit__gt=0,isactive=True).filter(~Q(item_uom=request.data['uom'])).first()
+            if uomprice_ids:
+                obatchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=str(stock_obj.item_code),
+                uom=uomprice_ids.item_uom).order_by('pk').last() 
+                if obatchids and int(obatchids.qty) <= 0:
+                    bflag = False
+                else:
+                    if obatchids and int(obatchids.qty) > 0:
+                        bflag = True
+            
+            batchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=str(stock_obj.item_code),
+            uom=request.data['uom']).order_by('pk').last() 
+            if batchids:
+                batch_qty = int(batchids.qty)
+            else:
+                batch_qty = 0
+
+            if valuedata == 'TRUE':
+                if int(request.data['qty']) > int(batch_qty):
+                    if bflag == False:
+                        raise Exception('Inventory Onhand is not available for this Selected UOM retail product') 
+
+    
             
             time = datetime.datetime.now().time()
             date = datetime.datetime.strptime(str(request.data['date']), "%Y-%m-%d")
@@ -16039,14 +16150,9 @@ class StockUsageMemoViewset(viewsets.ModelViewSet):
                 #MultiUOM SplitUp Level Based 
                 if request.data['qty'] > 0:
                     qtytodeduct = int(request.data['qty'])
-                    valuedata = 'TRUE'
-
-                    sys_ids = Systemsetup.objects.filter(title='Stock Available',value_name='Stock Available').first() 
-                    if sys_ids:
-                        valuedata = sys_ids.value_data
-
-                    batchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=stock_obj.item_code,
-                    uom=request.data['uom']).order_by('pk').last() 
+                    
+                    # batchids = ItemBatch.objects.filter(site_code=site.itemsite_code,item_code=stock_obj.item_code,
+                    # uom=request.data['uom']).order_by('pk').last() 
 
                     obatchids = ItemBatch.objects.none()
 
