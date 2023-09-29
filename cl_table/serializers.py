@@ -401,21 +401,21 @@ class CustomerdetailSerializer(serializers.ModelSerializer):
         cust_address = ""
         for f in form_control_qs:
             if f.field_name == 'cust_address':
-                cust_address += str(obj.cust_address)
+                cust_address += str(obj.cust_address) if obj.cust_address else ""
             if f.field_name == 'cust_address1':
-                cust_address += " "+str(obj.cust_address1)
+                cust_address += " "+str(obj.cust_address1) if obj.cust_address1 else ""
             if f.field_name == 'cust_address2':
-                cust_address += " "+str(obj.cust_address2)
+                cust_address += " "+str(obj.cust_address2) if obj.cust_address2 else ""
             if f.field_name == 'cust_address3':
-                cust_address += " "+str(obj.cust_address3)  
+                cust_address += " "+str(obj.cust_address3) if obj.cust_address3 else "" 
             if f.field_name == 'sgn_block':
-                cust_address += " "+str(obj.sgn_block) 
+                cust_address += " "+str(obj.sgn_block) if obj.sgn_block else ""  
             if f.field_name == 'sgn_unitno':
-                cust_address += " "+str(obj.sgn_unitno) 
+                cust_address += " "+str(obj.sgn_unitno) if obj.sgn_unitno else ""  
             if f.field_name == 'sgn_street':
-                cust_address += " "+str(obj.sgn_street) 
+                cust_address += " "+str(obj.sgn_street) if obj.sgn_street else "" 
             if f.field_name == 'cust_postcode':
-                cust_address += " "+str(obj.cust_postcode) 
+                cust_address += " "+str(obj.cust_postcode) if obj.cust_postcode else ""  
         
         system_obj = Systemsetup.objects.filter(title='Other Outlet Customer Listings',
         value_name='Other Outlet Customer Listings',isactive=True).first()

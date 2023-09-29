@@ -1028,10 +1028,13 @@ class EcomStockSerializer(serializers.ModelSerializer):
     class Meta:
         model = Stock
         fields = ['id','item_name','item_desc',
-        'Stock_PIC','item_code']
+        'Stock_PIC','item_code','item_price']
     
     def to_representation(self, instance):
         data = super(EcomStockSerializer, self).to_representation(instance)
+        data['item_price'] = ""
+        if instance.item_price:
+            data['item_price'] = "{:.2f}".format(float(instance.item_price)) 
         stock_pic = ""
         if instance.Stock_PIC:
             stock_pic = str(SITE_ROOT)+str(instance.Stock_PIC)
@@ -1062,3 +1065,33 @@ class EcomLocationSelectSerializer(serializers.ModelSerializer):
         data['location_addr'] = location_addr 
         data['item_description'] = ""
         return data         
+
+
+class CustomerLoginSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='pk',required=False)
+
+    class Meta:
+        model = Customer
+        fields = ['id','cust_name','cust_phone2','cust_email','passcode']
+
+    def to_representation(self, instance):
+        
+        mapped_object = {'id':instance.pk,'cust_name':instance.cust_name if instance.cust_name else '',
+        'cust_phone2':instance.cust_phone2 if instance.cust_phone2 else '',
+        'cust_email':instance.cust_email if instance.cust_email else ''}
+        return mapped_object    
+
+class CustomerRegisterSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='pk',required=False)
+
+    class Meta:
+        model = Customer
+        fields = ['id','cust_name','cust_phone2','cust_email','passcode']
+
+    def to_representation(self, instance):
+        
+        mapped_object = {'id':instance.pk,'cust_name':instance.cust_name if instance.cust_name else '',
+        'cust_phone2':instance.cust_phone2 if instance.cust_phone2 else '',
+        'cust_email':instance.cust_email if instance.cust_email else ''}
+        return mapped_object    
+    

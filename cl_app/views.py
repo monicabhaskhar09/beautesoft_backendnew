@@ -21,8 +21,9 @@ StockUsageMemoSerializer,TreatmentfaceSerializer,SiteApptSettingSerializer,Holdi
 PodhaudSerializer,CustomerAccountSerializer,TreatmentUsageListSerializer,TreatmentUsageStockSerializer,
 ItemDivSerializer,ProductPurchaseSerializer,TransactionInvoiceSerializer,TransactionManualInvoiceSerializer,
 TreatmentPackageDoneListSerializer,VoucherPromoSerializer,SessionTmpItemHelperSerializer,
-TreatmentPackgeSerializer,EcomStockSerializer,EcomDeptSerializer,EcomLocationSelectSerializer)
-from cl_table.serializers import PostaudSerializer, TmpItemHelperSerializer
+TreatmentPackgeSerializer,EcomStockSerializer,EcomDeptSerializer,EcomLocationSelectSerializer,
+CustomerLoginSerializer,CustomerRegisterSerializer)
+from cl_table.serializers import PostaudSerializer, TmpItemHelperSerializer,TreatmentApptSerializer
 from .models import (SiteGroup, ItemSitelist, ReverseTrmtReason, VoidReason,TreatmentUsage,UsageMemo,
 Treatmentface,Usagelevel,priceChangeLog,TmpTreatmentSession,VoucherPromo,SmsProcessLog,
 TmpItemHelperSession)
@@ -33,7 +34,7 @@ CreditNote,Multistaff,ItemHelper,ItemUom,Treatment_Master,Holditemdetail,Prepaid
 CnRefund,ItemBrand,Title,ItemBatch,Stktrn,Paytable,ItemLink,Appointment,ItemStocklist,Systemsetup,
 Tmpmultistaff,PosDisc,CustomerPoint,CustomerPointDtl,RewardPolicy,PackageAuditingLog,AuditLog,
 ItemFlexiservice,TreatmentPackage,ItemBatchSno,Tmptreatment,Treatmentids,TempprepaidAccountCondition,
-TempcartprepaidAccCond)
+TempcartprepaidAccCond,CustomerClass)
 from custom.models import (ItemCart, Room, Combo_Services,VoucherRecord,PosPackagedeposit,SmtpSettings,
 ManualInvoiceModel)
 from datetime import date, timedelta
@@ -1726,7 +1727,7 @@ class ReceiptPdfSendSMSAPIView(APIView):
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give customer mobile number!!",'error': True} 
                 return Response(data=result, status=status.HTTP_400_BAD_REQUEST)  
             
-            smpt_ids = SmtpSettings.objects.filter(site_code=site.itemsite_code,isactive=True).order_by('pk').first()
+            smpt_ids = SmtpSettings.objects.filter(email_subject='Customer Invoice',site_code=site.itemsite_code,isactive=True).order_by('pk').first()
             if not smpt_ids:
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"SmtpSettings does not exist!!",'error': True} 
                 return Response(data=result, status=status.HTTP_400_BAD_REQUEST)  
@@ -1737,9 +1738,10 @@ class ReceiptPdfSendSMSAPIView(APIView):
                 cust_name = hdr[0].sa_custnoid.cust_name
                 client = Client(SMS_ACCOUNT_SID, SMS_AUTH_TOKEN)
                 receiver = hdr[0].sa_custnoid.cust_phone2
+                sa_transacno_ref = hdr[0].sa_transacno_ref
                 try:
                     message = client.messages.create(
-                            body= smpt_ids.sms_content.format(cust_name,sa_transacno,pdf_link),
+                            body= smpt_ids.sms_content.format(cust_name,sa_transacno_ref,pdf_link),
                             from_=SMS_SENDER,
                             to=receiver
                         )
@@ -1867,8 +1869,7 @@ class TopupCombinedViewset(viewsets.ModelViewSet):
                                 data['qty'] = q.qty
                                 # data["total_amount"] = "{:.2f}".format(float(daud_l.dt_amt)) if daud_l and daud_l.dt_amt else "0.00"
                                 data["total_amount"] = ser_splt[1]
-                                if data['sa_transacno']:
-                                    data['sa_transacno'] = tpos_haud.sa_transacno_ref if tpos_haud.sa_transacno_ref else "" 
+                                data['sa_transacno'] = tpos_haud.sa_transacno_ref if tpos_haud.sa_transacno_ref else "" 
                                 # if data['treatment_parentcode']:
                                 #     data['treatment_parentcode'] = q.treatment_parentcode     
                                 if data["description"]:
@@ -7789,7 +7790,8 @@ class VoidViewset(viewsets.ModelViewSet):
                                 CreditNote.objects.filter(pk=crdobj.pk).update(balance=crbalance,status=crstatus)
                         
                         #voucher
-                        if str(t.pay_type).upper() == 'VCPM':
+                        # if str(t.pay_type).upper() in ['VCPM','VC']:
+                        if 'VC' in str(t.pay_type).upper():    
                             crdobj = VoucherRecord.objects.filter(voucher_no=t.pay_rem1,cust_code=haudobj.sa_custno).first()
                             #print(t.pay_rem1,"Voucher Reset")
                             if crdobj:
@@ -8536,7 +8538,47 @@ class VoidViewset(viewsets.ModelViewSet):
                                     dpt.sa_date = cart_date
                                     dpt.save()
 
+                            elif d.itemcart.type == 'Exchange': 
+                                ex_stktrn_ids = Stktrn.objects.filter(store_no=haudobj.itemsite_code,itemcode=str(d.dt_itemnoid.item_code)+"0000",
+                                item_uom=d.dt_uom,trn_docno=haudobj.sa_transacno,line_no=d.dt_lineno).filter(~Q(trn_type='VT')).order_by('pk')
+                                ex_qtysum = abs(sum([i.trn_qty for i in ex_stktrn_ids]))
+                                if ex_stktrn_ids:
+                                    #ItemBatch
+                                    batch_ids = ItemBatch.objects.filter(site_code=site.itemsite_code,
+                                    item_code=d.dt_itemnoid.item_code,uom=d.dt_uom).order_by('pk').last()
+                                    if batch_ids:
+                                        # d.dt_qty
+                                        deductamt = batch_ids.qty - ex_qtysum
+                                        batch_ids.qty = deductamt
+                                        batch_ids.save()
+                                        currenttime = timezone.now()
+                                        currentdate = timezone.now().date()
+                                        post_time = str(currenttime.hour)+str(currenttime.minute)+str(currenttime.second)
 
+                                        #Stktrn
+                                        # stktrn_ids = Stktrn.objects.filter(store_no=site.itemsite_code,
+                                        # itemcode=d.dt_itemno,item_uom=d.dt_uom,trn_docno=haudobj.sa_transacno,
+                                        # line_no=d.dt_lineno).last() 
+                                        # stktrn_ids = Stktrn.objects.filter(store_no=site.itemsite_code,
+                                        # itemcode=d.dt_itemno,item_uom=d.dt_uom).last() 
+                                        
+
+                                        # if stktrn_ids:
+                                        #     amt_add = stktrn_ids.trn_balqty - stktrn_ids.trn_qty
+
+                                        # d.dt_qty
+                                        stktrn_id = Stktrn(trn_no=None,post_time=post_time,aperiod=None,itemcode=str(d.dt_itemnoid.item_code)+"0000",
+                                        store_no=site.itemsite_code,tstore_no=None,fstore_no=None,trn_docno=sa_transacno,
+                                        trn_type="VT",trn_db_qty=None,trn_cr_qty=None,trn_qty=-ex_qtysum,trn_balqty=deductamt,
+                                        trn_balcst=0,
+                                        trn_amt="{:.2f}".format(float(d.dt_deposit)),
+                                        trn_cost=0,trn_ref=None,
+                                        hq_update=0,
+                                        line_no=d.dt_lineno,item_uom=d.dt_uom,item_batch=None,mov_type=None,item_batch_cost=None,
+                                        stock_in=None,trans_package_line_no=None,
+                                        trn_post=currentdate,trn_date=currentdate).save()
+
+                                
 
                         elif int(d.itemcart.itemcodeid.item_div) == 5:
                             if d.itemcart.type == 'Deposit':
@@ -15970,6 +16012,14 @@ class StockUsageProductAPIView(generics.ListAPIView):
                     queryset = queryset.filter(Q(item_name__icontains=request.GET.get('search',None)
                     ) | Q(item_desc__icontains=request.GET.get('search',None)) | Q(item_code__icontains=request.GET.get('search',None)))
             
+            query_ids = list(set(queryset.values_list('item_code', flat=True).distinct()))
+            uom_ids =  list(set(ItemUom.objects.filter(uom_isactive=True).values_list('uom_code', flat=True).distinct()))
+            uomprice_ids = list(set(ItemUomprice.objects.filter(isactive=True, item_code__in=query_ids,
+            item_uom__in=uom_ids).values_list('item_code', flat=True).distinct()))
+
+            queryset = queryset.filter(item_code__in=uomprice_ids)
+
+            # print(queryset,"queryset")
             serializer_class =  StockUsageProductSerializer
             total = len(queryset)
             state = status.HTTP_200_OK
@@ -19231,6 +19281,356 @@ class EcomLocationSelectAPIView(generics.ListAPIView):
             return general_error_response(invalid_message)  
 
     
+class CustomerLoginAPIView(generics.GenericAPIView):
+    authentication_classes = ()
+    permission_classes = ()
+    serializer_class = CustomerLoginSerializer
+    
+    def post(self, request, *args, **kwargs):
+        try:
+            if not 'cust_phone2' in request.data or not request.data['cust_phone2']:
+                raise Exception('Please give Phone no!!.') 
+
+            if not 'passcode' in request.data or not request.data['passcode']:
+                raise Exception('Please give Password!!.') 
+                
+            cust_queryset = Customer.objects.filter(cust_isactive=True).exclude(site_code__isnull=True).only('cust_isactive').order_by('-pk')    
+
+            serializer = self.get_serializer(data=request.data)
+            if serializer.is_valid():
+                cust_ids = cust_queryset.filter(cust_phone2=request.data['cust_phone2'],
+                passcode=request.data['passcode']).order_by('pk').first()
+                if cust_ids:
+                    serializer = CustomerLoginSerializer(cust_ids, context={'request': self.request})
+                    result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
+                    'data': serializer.data}
+                    return Response(data=result, status=status.HTTP_200_OK)
+                else:
+                    cust_phone_ids = cust_queryset.filter(Q(cust_phone2=request.data['cust_phone2']) | Q(cust_phone1=request.data['cust_phone2'])).first()
+                    # print(cust_phone_ids,"cust_phone_ids")
+                    if cust_phone_ids:
+                        if not cust_phone_ids.passcode:
+                            cust_phone_ids.passcode = request.data['passcode']
+                            cust_phone_ids.save()
+                        else:
+                            if cust_phone_ids.passcode:
+                                raise Exception('Password Wrong!!.') 
+
+                        serializer = CustomerLoginSerializer(cust_phone_ids, context={'request': self.request})
+                        result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
+                        'data': serializer.data}
+                        return Response(data=result, status=status.HTTP_200_OK)
+                    else:
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"User Not Exist Sign up",
+                        'error': True,'data': {'register': True}}
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+            data = serializer.errors
+
+            if 'non_field_errors' in data:
+                message = data['non_field_errors'][0]
+            else:
+                first_key = list(data.keys())[0]
+                message = str(first_key)+":  "+str(data[first_key][0])
+
+            result = {'status': status.HTTP_400_BAD_REQUEST,"message":message,
+            'error': True, 'data': serializer.errors}
+            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+    
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message) 
+            
+class CustomerRegisterAPIView(generics.GenericAPIView):
+    authentication_classes = ()
+    permission_classes = ()
+    serializer_class = CustomerRegisterSerializer
+
+    @transaction.atomic 
+    def post(self, request, *args, **kwargs):
+        try:
+            with transaction.atomic():
+                if not 'cust_name' in request.data or not request.data['cust_name']:
+                    raise Exception('Please give Name!!.') 
+
+                if not 'cust_phone2' in request.data or not request.data['cust_phone2']:
+                    raise Exception('Please give Phone no!!.') 
+
+                # if not 'cust_email' in request.data or not request.data['cust_email']:
+                #     raise Exception('Please give Email!!.') 
+        
+
+                if not 'passcode' in request.data or not request.data['passcode']:
+                    raise Exception('Please give Password!!.') 
+
+                #cust_email not mandatory  
+                site = ItemSitelist.objects.filter(itemsite_isactive=True).order_by('pk').first()
+                if not site:
+                    raise Exception('ItemSitelist Location ID doesnt exist!!') 
+
+
+                serializer = self.get_serializer(data=request.data)
+                if serializer.is_valid():
+
+                    cust_queryset = Customer.objects.filter(cust_isactive=True).exclude(site_code__isnull=True).only('cust_isactive').order_by('-pk')
+                    
+                    customer = cust_queryset.filter(Q(cust_name=request.data['cust_name']), 
+                    Q(cust_phone2=request.data['cust_phone2'])).first()
+                    
+                    cust_email_ids = False
+                    if 'cust_email' in request.data and request.data['cust_email']:
+                        cust_email_ids = cust_queryset.filter(Q(cust_email=request.data['cust_email']))
+
+                    
+                    cust_phone_ids =  cust_queryset.filter(Q(cust_phone2=request.data['cust_phone2']) | Q(cust_phone1=request.data['cust_phone2']))
+                    
+                    custpas_ids = cust_queryset.filter(cust_phone2=request.data['cust_phone2'],
+                    passcode=request.data['passcode']).order_by('pk')
+                    
+                    if customer or cust_phone_ids or cust_email_ids or custpas_ids:    
+                    # if customer or cust_email_ids or custpas_ids:
+                        msg = "User Already Exist Sign in"
+                        if customer:
+                            msg = "Name,Mobile Number Already Exist Sign in"
+                        elif cust_phone_ids:
+                            msg = "Mobile Number Already Exist Sign in"
+                        elif cust_email_ids:
+                            msg = "Email Already Exist Sign in"
+                        elif custpas_ids:
+                            msg = "Mobile Number,Password Already Exist Sign in"
+
+                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":msg,
+                        'error': True,'data': {'sign_in': True}}
+                        return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+
+                    if not customer:
+                        # if cust_phone_ids:
+                        #     dupphone2_setup = Systemsetup.objects.filter(title='allowDuplicatePhone',
+                        #     value_name='allowDuplicatePhone',isactive=True).first()
+
+                        #     if dupphone2_setup and dupphone2_setup.value_data != 'True':
+                        #         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"User Already Exist Sign in",
+                        #         'error': True,'data': {'sign_in': True}}
+                        #         return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+                                
+                        custcontrol_obj = ControlNo.objects.filter(control_description__iexact="VIP CODE",Site_Codeid__pk=site.pk).first()
+                        if not custcontrol_obj:
+                            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer Control No does not exist!!",'error': True} 
+                            return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                            
+                        cus_code = str(custcontrol_obj.Site_Codeid.itemsite_code)+str(custcontrol_obj.control_no)
+                        # gender = False
+                        # if request.data['Cust_sexesid']:
+                        #     gender = Gender.objects.filter(pk=request.data['Cust_sexesid'],itm_isactive=True).first()
+                        
+                        classobj = CustomerClass.objects.filter(class_code='100001',class_isactive=True).first()
+                    
+                        cust_k = serializer.save(site_code=site.itemsite_code,Site_Codeid=site,cust_code=cus_code,
+                        cust_sexes=None, cust_joindate=timezone.now(),join_status=True,
+                        cust_class=classobj.class_code if classobj and classobj.class_code else None,
+                        Cust_Classid=classobj,custallowsendsms=True,or_key=site.itemsite_code,
+                        cust_name=request.data['cust_name'],cust_phone2=request.data['cust_phone2'],cust_email=request.data['cust_email'] if 'cust_email' in request.data and request.data['cust_email'] else '',
+                        passcode=request.data['passcode'])
+                        cust_k.save()
+                        if cust_k.pk:
+                            custcontrol_obj.control_no = int(custcontrol_obj.control_no) + 1
+                            custcontrol_obj.save()
+
+                        result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully",
+                        'error': False,'data': serializer.data}
+                        return Response(result, status=status.HTTP_201_CREATED)
+
+                    
+                data = serializer.errors
+
+                if 'non_field_errors' in data:
+                    message = data['non_field_errors'][0]
+                else:
+                    first_key = list(data.keys())[0]
+                    message = str(first_key)+":  "+str(data[first_key][0])
+
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":message,
+                'error': True, 'data': serializer.errors}
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+        
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message) 
+            
+    
+class EcomTreatmentApptAPI(generics.ListAPIView):
+    authentication_classes = []
+    permission_classes = []
+    # queryset = Treatment.objects.filter().order_by('-pk')
+    serializer_class = TreatmentApptSerializer
+
+    def list(self, request):
+        try:
+            # fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+            # site = fmspw[0].loginsite
+            cust_id = self.request.GET.get('cust_id',None)
+            now = timezone.now()
+            # print(str(now.hour) + '  ' +  str(now.minute) + '  ' +  str(now.second),"Start hour, minute, second\n")
+            cust_obj = Customer.objects.filter(pk=cust_id,
+            cust_isactive=True).first()
+            if cust_obj is None:
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please give customer id!!",'error': True} 
+                return Response(data=result, status=status.HTTP_400_BAD_REQUEST) 
+
+            tre_queryset = TreatmentPackage.objects.filter(cust_code=cust_obj.cust_code,
+            open_session__gt=0).order_by('-pk')
+            # print(tre_queryset,"tre_queryset")
+
+            # #prepaid account 
+            pre_queryset = PrepaidAccount.objects.filter(cust_code=cust_obj.cust_code,
+            status=True,remain__gt=0).only('site_code','cust_code','sa_status').order_by('-pk')
+            # print(pre_queryset,"pre_queryset") 
+            system_setup = Systemsetup.objects.filter(title='ApptPackagePrepaidBalanceList',
+            value_name='ApptPackagePrepaidBalanceList',isactive=True).first()
+            
+            if system_setup and system_setup.value_data == 'True':
+                combined_ids = list(sorted(chain(tre_queryset,pre_queryset),key=lambda objects: objects.pk,reverse=True))
+            else:
+                combined_ids = tre_queryset
+            # print(combined_ids,"combined_ids")
+
+            
+            full_tot = len(combined_ids)
+            try:
+                limit = int(request.GET.get("limit",12))
+            except:
+                limit = 12
+            try:
+                page = int(request.GET.get("page",1))
+            except:
+                page = 1
+
+            paginator = Paginator(combined_ids, limit)
+            total_page = paginator.num_pages
+
+            try:
+                queryset = paginator.page(page)
+                # print(queryset,"queryset")
+            except (EmptyPage, InvalidPage):
+                queryset = paginator.page(total_page) # last page
+
+            data_list= []
+            for row in queryset:
+                if row.__class__.__name__ == 'TreatmentPackage':
+                    # open_ids = Treatment.objects.filter(cust_code=cust_obj.cust_code,
+                    # treatment_parentcode=row.treatment_parentcode,status='Open').order_by('pk').count()
+                    
+                    # last_ids = Treatment.objects.filter(treatment_parentcode=row.treatment_parentcode).order_by('-pk').first()
+                    srvduration = 60
+
+                    # a = row.item_code
+                    # v = a[-4:]
+                    # # print(v,type(v),"v")
+                    # if v == '0000':
+                    #     code = str(row.item_code)[:-4]
+                    # else:
+                    #     code = str(row.item_code)    
+                    
+                    stock = row.Item_Codeid
+                    if stock:
+                        if stock.srv_duration is None or stock.srv_duration == 0.0:
+                            srvduration = 60
+                        else:
+                            srvduration = int(stock.srv_duration) if stock.srv_duration else 60   
+                    hrs = '{:02d}:{:02d}'.format(*divmod(srvduration, 60))        
+
+                    # name = str(stock.item_name)+" "+str(row.treatment_parentcode) if stock and stock.item_name else ""
+                    name = str(row.course)+" "+str(row.treatment_parentcode)  
+                    unit_amount = "{:.2f}".format(float(row.unit_amount))
+
+                    expiry = ""
+                    if row.expiry_date:
+                        split = str(row.expiry_date).split(" ")
+                        expiry = datetime.datetime.strptime(str(split[0]), '%Y-%m-%d').strftime("%d/%m/%Y")
+                    
+                    splt = str(row.treatment_date).split(' ')
+                    treatment_date = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d-%m-%Y")
+                    
+                    # acc_ids = TreatmentAccount.objects.filter(ref_transacno=row.sa_transacno,
+                    # treatment_parentcode=row.treatment_parentcode,
+                    # cust_code=cust_obj.cust_code).order_by('-sa_date','-sa_time','-pk').only('ref_transacno','treatment_parentcode','site_code').first()
+                    # balance = "{:.2f}".format(float(acc_ids.balance)) if acc_ids and acc_ids.balance else "0.00"    
+                    # outstanding = "{:.2f}".format(float(acc_ids.outstanding)) if acc_ids and acc_ids.outstanding else "0.00"
+                    
+                    # q_val = list(Treatment.objects.filter(pk=row.pk).order_by('-pk').values('pk').annotate(id=F('pk'),
+                    # treatment_parentcode=F('treatment_parentcode'),
+                    # item_name= Value(name, output_field=CharField()),
+                    # tr_open=Value(open_ids, output_field=CharField()),
+                    # tr_done=F('treatment_no'),price=Value(unit_amount, output_field=CharField()),
+                    # expiry=Value(expiry, output_field=CharField()),
+                    # add_duration=Value(hrs, output_field=CharField()),
+                    # stock_id=Value(stock.pk, output_field=IntegerField()),
+                    # balance=Value(balance, output_field=CharField()),
+                    # outstanding=Value(outstanding, output_field=CharField()),
+                    # type=Value('TD', output_field=CharField())).order_by('-pk'))
+                    
+                    # lst.extend([q_val[0]])
+
+                    pre = {'treatment_parentcode': row.treatment_parentcode,'item_name': name ,
+                    'tr_open': row.open_session, 'tr_done': row.treatment_no, 
+                    'price': unit_amount,'expiry': expiry,'add_duration': hrs,
+                    'stock_id': stock.pk if stock else "",
+                    'balance': "{:.2f}".format(float(row.balance)) if row.balance else "0.00",
+                    'outstanding': "{:.2f}".format(float(row.outstanding)) if row.outstanding else "0.00",
+                    'type':'TD','purchase_date': treatment_date}
+
+                    data_list.append(pre)
+
+
+                else:
+                    last_acc_ids = PrepaidAccount.objects.filter(pp_no=row.pp_no,
+                    status=True,line_no=row.line_no).order_by('pk').last()
+                    purchase_date = ""
+                    oriacc_ids = PrepaidAccount.objects.filter(pp_no=row.pp_no,
+                    sa_status='DEPOSIT',line_no=row.line_no).only('pp_no','site_code','sa_status','line_no').first()
+                    if oriacc_ids:
+                        if oriacc_ids.sa_date:
+                            #purchase date
+                            splt_st = str(oriacc_ids.sa_date).split(" ")
+                            purchase_date = datetime.datetime.strptime(str(splt_st[0]), "%Y-%m-%d").strftime("%d-%m-%Y")
+   
+
+                    if last_acc_ids:
+                        pexpiry = ""
+                        if last_acc_ids.exp_date:
+                            esplit = str(last_acc_ids.exp_date).split(" ")
+                            pexpiry = datetime.datetime.strptime(str(esplit[0]), '%Y-%m-%d').strftime("%d/%m/%Y")
+
+                        pre = {'item_name': last_acc_ids.pp_desc ,'tr_open': '-', 'tr_done': '-', 
+                        'price': "{:.2f}".format(float(last_acc_ids.pp_total)),'expiry': pexpiry,
+                        'balance': "{:.2f}".format(float(last_acc_ids.remain)) if last_acc_ids.remain else "0.00",
+                        'outstanding': "{:.2f}".format(float(last_acc_ids.outstanding)) if last_acc_ids.outstanding else "0.00",
+                        'type':'prepaid','purchase_date': purchase_date}
+
+                        data_list.append(pre)
+            
+            if data_list != []:
+                now1 = timezone.now()
+                # print(str(now1.hour) + '  ' +  str(now1.minute) + '  ' +  str(now1.second),"End hour, minute, second\n")
+                totalh = now1.second - now.second
+                # print(totalh,"total")
+                result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
+                'data': {'meta': {'pagination': {"per_page":limit,"current_page":page,"total":full_tot,
+                "total_pages":total_page}}, 'dataList': data_list},
+                'cust_data': {'cust_name': cust_obj.cust_name if cust_obj.cust_name else "", 
+                'cust_refer': cust_obj.cust_refer if cust_obj.cust_refer else ""},
+                }
+                return Response(result, status=status.HTTP_200_OK) 
+            else:
+                result = {'status':status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False,  'data': []}
+                return Response(data=result, status=status.HTTP_200_OK)  
+        
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)  
+
 
        
 

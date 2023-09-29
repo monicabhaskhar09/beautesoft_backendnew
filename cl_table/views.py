@@ -138,7 +138,7 @@ from django.db.models import Case, When, Value, IntegerField,CharField, DateFiel
 from tablib import Dataset, Databook
 import xlrd
 import calendar 
-from cl_app.serializers import StockSerializer
+from cl_app.serializers import StockSerializer,EcomLocationSelectSerializer
 from django.utils.dateparse import parse_datetime
 from xhtml2pdf import pisa
 
@@ -242,12 +242,14 @@ class UserLoginAPIView(GenericAPIView):
             # itemsites = ItemSitelist.objects.filter(itemsite_isactive=True,itemsite_code__inpk=site.pk).order_by('-pk')
             if itemsites:
                 for d in itemsites:
-                   val = {'id': d.itemsite_id, 'itemsite_code': d.itemsite_code, 'itemsite_desc': d.itemsite_desc}
-                   sites.append(val)
-                   if branch == "":
-                       branch = d.itemsite_code
-                   if salon == "":
-                       salon = d.Site_Groupid.description if d.Site_Groupid else "" 
+                    ec_serializer = EcomLocationSelectSerializer(d, context={'request': self.request})
+                    # print(ec_serializer.data,"ec_serializer")
+                    # val = {'id': d.itemsite_id, 'itemsite_code': d.itemsite_code, 'itemsite_desc': d.itemsite_desc}
+                    sites.append(ec_serializer.data)
+                    if branch == "":
+                        branch = d.itemsite_code
+                    if salon == "":
+                        salon = d.Site_Groupid.description if d.Site_Groupid else "" 
 
             # salon = siteid.Site_Groupid.description
             webbe = fmspw.flgallcom
@@ -6259,7 +6261,7 @@ class StockListViewset(viewsets.ModelViewSet):
 class TreatmentApptAPI(generics.ListAPIView):
     authentication_classes = [ExpiringTokenAuthentication]
     permission_classes = [IsAuthenticated & authenticated_only]
-    queryset = Treatment.objects.filter().order_by('-pk')
+    # queryset = Treatment.objects.filter().order_by('-pk')
     serializer_class = TreatmentApptSerializer
 
     def list(self, request):
@@ -9549,7 +9551,8 @@ class postaudViewset(viewsets.ModelViewSet):
 
                                 check.remove("CREDIT")
                             # elif req['pay_typeid'] == 9:
-                            elif str(paytable.pay_code).upper() == 'VCPM':    
+                            # elif str(paytable.pay_code).upper() in ['VCPM','VC']: 
+                            elif 'VC' in str(paytable.pay_code).upper():       
                                 card_no = req['pay_rem1']
                                 # crdobj = CreditNote.objects.filter(credit_code=req['pay_rem1'],cust_code=cust_obj.cust_code,site_code=site.itemsite_code).first()
                                 # crdobj = CreditNote.objects.filter(credit_code=req['pay_rem1'],cust_code=cust_obj.cust_code).first()
@@ -26571,14 +26574,14 @@ class EcomAppointBookingViewset(viewsets.ModelViewSet):
 
                 Appt = request.data.get('Appointment')
 
-                if not 'cust_name' in Appt or not Appt['cust_name']:
-                    raise Exception('Please give Name!!.') 
+                # if not 'cust_name' in Appt or not Appt['cust_name']:
+                #     raise Exception('Please give Name!!.') 
                 
-                if not 'cust_email' in Appt or not Appt['cust_email']:
-                    raise Exception('Please give Email!!.') 
+                # if not 'cust_email' in Appt or not Appt['cust_email']:
+                #     raise Exception('Please give Email!!.') 
 
-                if not 'cust_phone2' in Appt or not Appt['cust_phone2']:
-                    raise Exception('Please give Mobile Number!!.') 
+                # if not 'cust_phone2' in Appt or not Appt['cust_phone2']:
+                #     raise Exception('Please give Mobile Number!!.') 
                 
                 if not 'site_id' in Appt or not Appt['site_id']:
                     raise Exception('Please give Location!!.') 
@@ -26627,40 +26630,47 @@ class EcomAppointBookingViewset(viewsets.ModelViewSet):
                 else:
                     channel = False 
 
-                cust_queryset = Customer.objects.filter(cust_isactive=True).exclude(site_code__isnull=True).only('cust_isactive').order_by('-pk')
-                customer = cust_queryset.filter(Q(cust_name__icontains=Appt['cust_name']), 
-                Q(cust_email__icontains=Appt['cust_email']),Q(cust_phone2__icontains=Appt['cust_phone2'])).first()
+                    
+                # cust_queryset = Customer.objects.filter(cust_isactive=True).exclude(site_code__isnull=True).only('cust_isactive').order_by('-pk')
+                # customer = cust_queryset.filter(Q(cust_name__icontains=Appt['cust_name']), 
+                # Q(cust_email__icontains=Appt['cust_email']),Q(cust_phone2__icontains=Appt['cust_phone2'])).first()
 
                 # print(customer,"customer") 
                 # customer = Customer.objects.filter(pk=Appt['cust_noid'],cust_isactive=True,
                 # site_code=site.itemsite_code).first()
                 # customer = Customer.objects.filter(pk=Appt['cust_noid'],cust_isactive=True).first()
                 # print(customer,'customer')
-                if not customer:
-                    custcontrol_obj = ControlNo.objects.filter(control_description__iexact="VIP CODE",Site_Codeid__pk=site.pk).first()
-                    if not custcontrol_obj:
-                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer Control No does not exist!!",'error': True} 
-                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                # if not customer:
+                #     custcontrol_obj = ControlNo.objects.filter(control_description__iexact="VIP CODE",Site_Codeid__pk=site.pk).first()
+                #     if not custcontrol_obj:
+                #         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer Control No does not exist!!",'error': True} 
+                #         return Response(result, status=status.HTTP_400_BAD_REQUEST) 
                         
-                    cus_code = str(custcontrol_obj.Site_Codeid.itemsite_code)+str(custcontrol_obj.control_no)
-                    # gender = False
-                    # if request.data['Cust_sexesid']:
-                    #     gender = Gender.objects.filter(pk=request.data['Cust_sexesid'],itm_isactive=True).first()
+                #     cus_code = str(custcontrol_obj.Site_Codeid.itemsite_code)+str(custcontrol_obj.control_no)
+                #     # gender = False
+                #     # if request.data['Cust_sexesid']:
+                #     #     gender = Gender.objects.filter(pk=request.data['Cust_sexesid'],itm_isactive=True).first()
                     
-                    classobj = CustomerClass.objects.filter(class_code='100001',class_isactive=True).first()
+                #     classobj = CustomerClass.objects.filter(class_code='100001',class_isactive=True).first()
                    
-                    cust_k = Customer(site_code=site.itemsite_code,Site_Codeid=site,cust_code=cus_code,
-                    cust_sexes=None, cust_joindate=timezone.now(),join_status=True,
-                    cust_class=classobj.class_code if classobj and classobj.class_code else None,
-                    Cust_Classid=classobj,custallowsendsms=True,or_key=site.itemsite_code,
-                    cust_name=Appt['cust_name'],cust_phone2=Appt['cust_phone2'],cust_email=Appt['cust_email'])
-                    cust_k.save()
-                    if cust_k.pk:
-                        custcontrol_obj.control_no = int(custcontrol_obj.control_no) + 1
-                        custcontrol_obj.save()
+                #     cust_k = Customer(site_code=site.itemsite_code,Site_Codeid=site,cust_code=cus_code,
+                #     cust_sexes=None, cust_joindate=timezone.now(),join_status=True,
+                #     cust_class=classobj.class_code if classobj and classobj.class_code else None,
+                #     Cust_Classid=classobj,custallowsendsms=True,or_key=site.itemsite_code,
+                #     cust_name=Appt['cust_name'],cust_phone2=Appt['cust_phone2'],cust_email=Appt['cust_email'])
+                #     cust_k.save()
+                #     if cust_k.pk:
+                #         custcontrol_obj.control_no = int(custcontrol_obj.control_no) + 1
+                #         custcontrol_obj.save()
 
-                    customer = cust_k     
-                    
+                #     customer = cust_k     
+
+                customer = Customer.objects.filter(pk=Appt['cust_noid'],cust_isactive=True).first()
+                # print(customer,'customer')
+                if not customer:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer ID does not exist!!",'error': True} 
+                    return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
                 cust_obj = customer
 
                 cust_email = cust_obj.cust_email

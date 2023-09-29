@@ -341,8 +341,8 @@ class SmtpSettings(models.Model):
     port = models.CharField(db_column='Port', max_length=100, blank=True, null=True)  # Field name made lowercase.
     user_email = models.EmailField(db_column='User_Email', max_length=255, blank=True, null=True)  # Field name made lowercase.
     user_password = models.CharField(db_column='User_Password', max_length=2000, blank=True, null=True)  # Field name made lowercase.
-    email_use_ssl = models.BooleanField(db_column='EMAIL_USE_SSL',default=True)
-    email_use_tls = models.BooleanField(db_column='EMAIL_USE_TLS',default=False)
+    email_use_ssl = models.BooleanField(db_column='EMAIL_USE_SSL',default=False)
+    email_use_tls = models.BooleanField(db_column='EMAIL_USE_TLS',default=True)
     email_subject = models.CharField(db_column='Email_Subject', max_length=300, blank=True, null=True)  # Field name made lowercase.
     email_content = models.TextField(db_column='Email_Content', blank=True, null=True)  # Field name made lowercase.
     sms_content = models.TextField(db_column='Sms_Content', blank=True, null=True)  # Field name made lowercase.
@@ -355,7 +355,7 @@ class SmtpSettings(models.Model):
     
     class Meta:
         db_table = 'smtp_settings'
-        unique_together = (('site_code'),)
+        unique_together = (('email_subject','site_code'),)
 
 
     def __str__(self):

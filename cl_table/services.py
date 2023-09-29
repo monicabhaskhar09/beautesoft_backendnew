@@ -1550,7 +1550,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                         stockreduce = False
                         if valuedata == 'TRUE':
                             # if (batchids and int(batchids.qty) >= int(i.qty)) or (obatchids and int(obatchids.qty) >0 and int(uom_ids.uom_unit) >= qtytodeduct):
-                            if (batchids and int(batchids.qty) >= int(i.qty)) or (check_obatchqty > 0):
+                            if (batchids and int(batchids.qty) >= int(qtytodeduct)) or (check_obatchqty > 0):
                                 stockreduce = True
                         else:
                             stockreduce = True

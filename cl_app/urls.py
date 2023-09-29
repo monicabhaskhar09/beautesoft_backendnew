@@ -92,6 +92,10 @@ urlpatterns = [
     path('be/api/holditemaccpage/', views.HoldItemListAPIView.as_view(), name='treatmentdoneaccpage'),
     path('be/api/creditnoteaccpage/', views.CreditNoteListAPIView.as_view(), name='creditnoteaccpage'),
     path('be/api/ecomlocationselect/', views.EcomLocationSelectAPIView.as_view(), name='ecomlocationselect'),
+    path('be/api/customerlogin/', views.CustomerLoginAPIView.as_view(), name='customerlogin'),
+    path('be/api/custregister/', views.CustomerRegisterAPIView.as_view(), name='custregister'),
+    path('be/api/ecomtreatmentpackages/', views.EcomTreatmentApptAPI.as_view(), name='ecomtreatmentpackages'),
+
 
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 

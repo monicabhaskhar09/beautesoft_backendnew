@@ -1100,6 +1100,7 @@ class Customer(models.Model):
     no_of_children = models.IntegerField(db_column='NoOfChildren', blank=True, null=True)  # Field name made lowercase.
     # customerextend = models.ForeignKey('cl_table.CustomerExtended', on_delete=models.PROTECT, null=True)
     custallowsendwhatsapp = models.BooleanField(db_column='custallowsendwhatsapp',default=False)
+    passcode = models.CharField(max_length=6, blank=True, null=True)  # Field name made lowercase.
 
 
     def save(self, *args,**kwargs):

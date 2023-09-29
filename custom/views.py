@@ -6791,25 +6791,27 @@ class ReceiptPdfSend(APIView):
             }
             
             # existing = os.listdir(settings.PDF_ROOT)
-            dst ="customer_receipt_" + str(str(hdr[0].sa_transacno_ref)) + ".pdf"
+            dst ="customer_receipt_" + str(hdr[0].sa_transacno_ref) + ".pdf"
 
             # src = settings.PDF_ROOT + existing[0] 
             # dst = settings.PDF_ROOT + dst 
                 
             # os.rename(src, dst) 
             p=pdfkit.from_string(html,False,options=options)
+            sa_transacno_ref = hdr[0].sa_transacno_ref
             
             
-            smpt_ids = SmtpSettings.objects.filter(email_subject='Customer Invoice',isactive=True).order_by('pk').first()
-            subject = smpt_ids.email_subject if smpt_ids and smpt_ids.email_subject else "Customer Invoice"
+            smpt_ids = SmtpSettings.objects.filter(email_subject='Customer Invoice',site_code=site.itemsite_code,isactive=True).order_by('pk').first()
+            subject = smpt_ids.email_subject+" "+sa_transacno_ref if smpt_ids and smpt_ids.email_subject else "Customer Invoice"+" "+sa_transacno_ref
             to = hdr[0].sa_custnoid.cust_email
             cust_name = hdr[0].sa_custnoid.cust_name
+            
 
              
             if smpt_ids and smpt_ids.email_content:
-                html_message = smpt_ids.email_content.format(cust_name,sa_transacno)
+                html_message = smpt_ids.email_content.format(cust_name,sa_transacno_ref)
             else:
-                html_message = '''Dear {0},\nKindly Find your receipt bill no {1}.\nThank You,'''.format(cust_name,sa_transacno)
+                html_message = '''Dear {0},\nKindly Find your receipt bill no {1}.\nThank You,'''.format(cust_name,sa_transacno_ref)
 
             
             plain_message = strip_tags(html)
@@ -7915,7 +7917,7 @@ class SmtpSettingsViewset(viewsets.ModelViewSet):
         try:
             serializer_class = SmtpSettingsSerializer
             queryset = self.filter_queryset(self.get_queryset())
-            total = len(queryset)
+            total = len(queryset) if queryset else 0
             state = status.HTTP_200_OK
             message = "Listed Succesfully"
             error = False
