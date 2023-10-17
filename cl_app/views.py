@@ -1273,7 +1273,8 @@ class CatalogSearchViewset(viewsets.ModelViewSet):
                             uom=itemuom.uom_code).order_by('-pk').last()
                             # print(batch,"batch")
                             batchso_ids = ItemBatchSno.objects.filter(item_code__icontains=stock.item_code,
-                            availability=True,site_code=site.itemsite_code).order_by('pk').first()
+                            availability=True,site_code=site.itemsite_code
+                            ).order_by('item_code','exp_date','pk').first()
 
                             uom = {
                                     "itemuomprice_id": int(i.id),

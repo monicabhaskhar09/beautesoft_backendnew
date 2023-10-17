@@ -1225,7 +1225,10 @@ def round_calc(value, site):
     # 1.48 val
 
     v = str(value).split('.')
-    val = float(v[0]+"."+v[1][:2])
+    val = float(v[0])
+    if len(v) > 1:
+        val = float(v[0]+"."+v[1][:2])
+    # val = float(v[0]+"."+v[1][:2])
     fractional = math.modf(float(val))
     # print(fractional,"fractional")
     data = "{:.2f}".format(float(fractional[0]))

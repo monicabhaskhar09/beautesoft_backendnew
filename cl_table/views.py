@@ -27,7 +27,8 @@ from .models import (Gender, Employee, Fmspw, Attendance2, Customer, Images, Tre
                      ItemFlexiservice,termsandcondition,Dayendconfirmlog,Participants,ProjectDocument,
                      MGMPolicyCloud,CustomerReferral,sitelistip,CustomerExtended,DisplayCatalog,
                      DisplayItem,OutletRequestLog,ItemBrand,PrepaidOpenCondition,PrepaidValidperiod,invoicetemplate,
-                     StaffDocument,OutletDocument,ItemBatchSno,TempprepaidAccountCondition,TempcartprepaidAccCond)
+                     StaffDocument,OutletDocument,ItemBatchSno,TempprepaidAccountCondition,TempcartprepaidAccCond,
+                     TaxType2TaxCode,Treatmentids,ItemLink)
 from cl_app.models import ItemSitelist, SiteGroup, LoggedInUser,TmpTreatmentSession
 from custom.models import Room,ItemCart,VoucherRecord,EmpLevel,PosPackagedeposit,payModeChangeLog,ProjectModel
 from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializer, Attendance2Serializer,
@@ -141,6 +142,7 @@ import calendar
 from cl_app.serializers import StockSerializer,EcomLocationSelectSerializer
 from django.utils.dateparse import parse_datetime
 from xhtml2pdf import pisa
+from rest_framework.parsers import FileUploadParser
 
 type_ex = ['VT-Deposit','VT-Top Up','VT-Sales']
 
@@ -27518,5 +27520,584 @@ class ManualRewardPointCustomerViewset(viewsets.ModelViewSet):
          
 
 
+def treatment_deposit(row,fmspw,paytable):
+    # site = fmspw.loginsite
+    dict_obj = row[1].to_dict()
+    # print(dict_obj,"llll")
+    
+    transaction_date = dict_obj['Transaction Date']
+    invoice_no = dict_obj['Invoice Number']
+    cust_phone = dict_obj['Customer Phone']
+    item_no = dict_obj['Item No']
+    item_desc = dict_obj['Item Description']
+    unit_price = dict_obj['Unit Price']
+    total_price = dict_obj['Total Price']
+    total_paid = dict_obj['Total Paid']
+    total_balance_amount = dict_obj['Total Balance Amount']
+    total_outstanding = dict_obj['Total Outstanding']
+    qty = dict_obj['Qty']
+    total_balance_qty = dict_obj['Total Balance Qty']
+    sales_staff = dict_obj['Sales Staff']
+    treatment_staff = dict_obj['Treatment Staff']
+    transaction_type = dict_obj['Transaction Type']
+    remarks = dict_obj['Remarks']
+    payment_type = dict_obj['Payment type']
+    expiry_date = dict_obj['Expiry Date']
+    customer_reference = dict_obj['Customer Reference']
+    customer_name = dict_obj['Customer Name']
+    outlet = dict_obj['Outlet']
 
+    site = ItemSitelist.objects.filter(itemsite_desc=outlet,itemsite_isactive=True).first()
+    if not site:
+        site = fmspw.loginsite
+
+    cust_queryset = Customer.objects.filter(cust_isactive=True).exclude(site_code__isnull=True).only('cust_isactive').order_by('-pk')
+
+    cust_obj = False
+    if customer_reference and customer_name:
+        cust_obj = cust_queryset.filter(cust_name=customer_name, 
+        cust_refer=customer_reference).first()
+
+    if not cust_obj:
+        if cust_phone and customer_name:
+            cust_obj = cust_queryset.filter(cust_name=customer_name, 
+            cust_phone2=cust_phone).first()
+
+    pay_time = False ; pay_date = False
+    if transaction_date:
+        time = datetime.datetime.now()
+        current_time = time.strftime("%H:%M:%S")
+        paydate = datetime.datetime.strptime(str(transaction_date), "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d")
+        pay_date = transaction_date
+        pay_time = datetime.datetime.strptime(str(paydate)+" "+str(current_time), "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S")
+    
+    stock_obj = False
+    if item_no:
+        link_ids = ItemLink.objects.filter(link_code=item_no,itm_isactive=True).order_by('pk').first()
+        if link_ids:
+            stock_obj = Stock.objects.filter(item_code=link_ids.item_code[:-4], item_isactive=True).first()
+        else:
+            stock_obj = Stock.objects.filter(itm_code=item_no, item_isactive=True).first()
+
+
+    emp_obj = False
+    if sales_staff:
+        emp_obj = Employee.objects.filter(emp_isactive=True,emp_code=sales_staff).first()
+    
+    control_obj = ControlNo.objects.filter(control_description__iexact="Transaction number",Site_Codeid__pk=site.pk).first()
+    if not control_obj:
+        control_obj = ControlNo(control_no="100001",control_description="Transaction number",
+        controldate=date.today(),Site_Codeid=site.pk,site_code=site.itemsite_code)
+        control_obj.save()
+
+
+    refcontrol_obj = ControlNo.objects.filter(control_description__iexact="Reference Non Sales No",Site_Codeid__pk=site.pk).first()
+    if not refcontrol_obj:
+        refcontrol_obj = ControlNo(control_no="100001",control_description="Reference Non Sales No",
+        controldate=date.today(),Site_Codeid=site.pk,site_code=site.itemsite_code)
+        refcontrol_obj.save()
+
+
+    iccontrol_obj = ControlNo.objects.filter(control_description__iexact="ITEM CART",Site_Codeid__pk=site.pk).first()
+    if not iccontrol_obj:
+        iccontrol_obj = ControlNo(control_no="100001",control_description="ITEM CART",
+        controldate=date.today(),Site_Codeid=site.pk,site_code=site.itemsite_code)
+        iccontrol_obj.save()
+
+
+    txcontrolobj = ControlNo.objects.filter(control_description__iexact="Treatment",Site_Codeid__pk=site.pk).first()
+    if not txcontrolobj:
+        txcontrolobj = ControlNo(control_no="100001",control_description="Treatment",
+        controldate=date.today(),Site_Codeid=site.pk,site_code=site.itemsite_code)
+        txcontrolobj.save()
+
+
+
+    data_import = False 
+    # print(pay_time,"pay_time")
+    # print(cust_obj,"cust_obj")
+    # print(stock_obj,"stock_obj")
+    # print(stock_obj.item_div,"stock_obj.item_div")
+    # print(stock_obj.item_type,"stock_obj.item_type")
+    # print(emp_obj,"emp_obj")
+    # print(unit_price,"unit_price")
+    # print(total_price,"total_price")
+    # print(total_paid,"total_paid")
+    # print(qty,"qty")
+    if pay_time and cust_obj and stock_obj and stock_obj.item_div and int(stock_obj.item_div) == 3 and stock_obj.item_type and stock_obj.item_type != 'PACKAGE' and emp_obj and unit_price and total_price and qty and total_balance_qty:
+        if control_obj and refcontrol_obj and iccontrol_obj and txcontrolobj:
+            data_import = True
+            daud_ids = PosDaud.objects.filter(sa_date=pay_date,dt_remark=invoice_no,dt_itemnoid__pk=stock_obj.pk)
+            if not daud_ids:
+                
+                # print(data_import,"data_import")
+
+
+                cart_id = str(iccontrol_obj.control_prefix)+str(iccontrol_obj.Site_Codeid.itemsite_code)+str(iccontrol_obj.control_no)
+                iccontrol_obj.control_no = int(iccontrol_obj.control_no) + 1
+                iccontrol_obj.save() 
+
+                ic_count = 1
+
+                while ic_count > 0:
+                    itemcart_v = ItemCart.objects.filter(cart_id=cart_id)
+                
+                    if itemcart_v:    
+                        ic_control_obj = ControlNo.objects.filter(control_description__iexact="ITEM CART",Site_Codeid__pk=site.pk).first()
+                        cart_id = str(ic_control_obj.control_prefix)+str(ic_control_obj.Site_Codeid.itemsite_code)+str(ic_control_obj.control_no)
+                        ic_control_obj.control_no = int(ic_control_obj.control_no) + 1
+                        ic_control_obj.save() 
+                        ic_count += 1
+                    else:
+                        ic_count = 0   
+                
+                # total_price = unit_price * qty
+
+                #itemcart
+                cart = ItemCart(cart_date=pay_date,phonenumber=cust_obj.cust_phone2,
+                customercode=cust_obj.cust_code,cust_noid=cust_obj,lineno=1,
+                itemcodeid=stock_obj,itemcode=stock_obj.item_code,itemdesc=stock_obj.item_desc,
+                quantity=qty,price=float("{:.2f}".format(float(unit_price))),
+                sitecodeid=site,sitecode=site.itemsite_code,cart_status="Completed",cart_id=cart_id,
+                tax=0,check="New",ratio=100.00,
+                discount_price=float("{:.2f}".format(float(unit_price))),
+                total_price=float("{:.2f}".format(float(total_price))),
+                trans_amt=float("{:.2f}".format(float(total_price))),
+                deposit=float("{:.2f}".format(float(total_paid))),
+                type="Deposit",recorddetail="Service",itemtype=stock_obj.item_type,
+                is_payment=True)
+                cart.save()    
+            
+                
+                sa_transacno = str(control_obj.control_prefix)+str(control_obj.Site_Codeid.itemsite_code)+str(control_obj.control_no)
+                control_obj.control_no = int(control_obj.control_no) + 1
+                control_obj.save()  
+                
+                sa_count = 1
+
+                while sa_count > 0:
+                    poshaud_v = PosHaud.objects.filter(sa_transacno=sa_transacno)
+                    posdaud_v = PosDaud.objects.filter(sa_transacno=sa_transacno)
+                    postaud_v = PosTaud.objects.filter(sa_transacno=sa_transacno)
+                
+                    if poshaud_v or posdaud_v or postaud_v:    
+                        newcontrol_obj = ControlNo.objects.filter(control_description__iexact="Transaction number",Site_Codeid__pk=site.pk).first()
+                        sa_transacno = str(newcontrol_obj.control_prefix)+str(newcontrol_obj.Site_Codeid.itemsite_code)+str(newcontrol_obj.control_no)
+                        newcontrol_obj.control_no = int(newcontrol_obj.control_no) + 1
+                        newcontrol_obj.save() 
+                        sa_count += 1
+                    else:
+                        sa_count = 0   
+
+                sa_ref_count = 1    
+                satransacno_ref = str(refcontrol_obj.control_prefix)+str(refcontrol_obj.Site_Codeid.itemsite_code)+str(refcontrol_obj.control_no)
+                
+                while sa_ref_count > 0:
+                    poshaud_vref = PosHaud.objects.filter(sa_transacno_ref=satransacno_ref)
+                    if poshaud_vref:
+                        refcontrol_obj.control_no = int(refcontrol_obj.control_no) + 1
+                        refcontrol_obj.save()
+                        satransacno_ref = str(refcontrol_obj.control_prefix)+str(refcontrol_obj.Site_Codeid.itemsite_code)+str(refcontrol_obj.control_no)
+                        sa_ref_count += 1
+                    else:
+                        sa_ref_count = 0
+                
+                #PosTaud
+                taud = PosTaud(sa_transacno=sa_transacno,billed_by=fmspw,ItemSIte_Codeid=site,itemsite_code=site.itemsite_code,
+                pay_groupid=paytable.pay_groupid,pay_group=paytable.pay_groupid.pay_group_code,pay_typeid=paytable,pay_type=paytable.pay_code,
+                pay_desc=paytable.pay_description,pay_tendamt=float("{:.2f}".format(float(total_paid))),pay_tendrate=1.0,pay_amt=float("{:.2f}".format(float(total_paid))),pay_amtrate=1.0,pay_status=1,dt_lineno=1,
+                pay_actamt=float("{:.2f}".format(float(total_paid))),subtotal=float("{:.2f}".format(float(total_price))) if total_price else 0.0,paychange=0.0,
+                tax=0, discount_amt=0,
+                billable_amount=float("{:.2f}".format(float(total_paid))) if total_paid else 0.0,
+                pay_gst_amt_collect=0,pay_gst=0,pay_rem1=payment_type if payment_type else None,pay_rem4=remarks if remarks else None)
+                
+                taud.sa_date = pay_date
+                taud.sa_time = pay_time
+                taud.save() 
+
+                #DepositType 
+                depo_type = DepositType(sa_transacno=sa_transacno,pay_group=paytable.pay_groupid.pay_group_code,
+                pay_type=paytable.pay_code,amount="{:.2f}".format(float(total_paid)),card_no=False,pay_desc=paytable.pay_description,
+                pay_tendcurr=None,pay_tendrate=1.0,site_code=site.itemsite_code,pos_taud_lineno=1) 
+                # print(depo_type.id,"depo_type") 
+                
+                if taud:
+                    depo_type.save() 
+
+                record_detail_type = "SERVICE"
+                # outstanding_acc =  float(total_price) - float(total_paid)
+                outstanding_acc =  total_outstanding
+
+
+                sales = "";service = ""
+                if emp_obj:
+                    sales = emp_obj.display_name
+            
+
+                #cart def
+                c = cart
+
+                t2_tax_amt = 0
+                t2_tax_code = ''
+                ssttax_systemids = Systemsetup.objects.filter(title='SST Tax Setting',
+                value_name='SST Tax Setting',isactive=True).first()
+                if ssttax_systemids and ssttax_systemids.value_data == 'True':
+                    if c.itemcodeid and c.itemcodeid.t2_tax_code:
+                        ssttax_ids =TaxType2TaxCode.objects.filter(item_code=c.itemcodeid.t2_tax_code,
+                        tax_desc="SST").first()
+                        if ssttax_ids and ssttax_ids.tax_rate_percent:
+                            per_div = (ssttax_ids.tax_rate_percent / 100)
+                            if site and site.is_exclusive == True:
+                                t2_tax_amt = float(c.deposit) * per_div
+                            else:
+                                per_div = (ssttax_ids.tax_rate_percent / 100) + 1 
+                                sstdt_deposit = float(c.deposit) / per_div
+                                t2_tax_amt = float(c.deposit) - sstdt_deposit
+
+                            t2_tax_code = c.itemcodeid.t2_tax_code
+                
+                    
+                
+                
+                #PosDaud
+                dtl = PosDaud(sa_transacno=sa_transacno,dt_status="SA",dt_itemnoid=stock_obj,
+                dt_itemno=str(stock_obj.item_code)+"0000",dt_itemdesc=stock_obj.item_desc,dt_price=c.price,
+                dt_promoprice="{:.2f}".format(float(unit_price)),dt_amt="{:.2f}".format(float(total_price)),dt_qty=qty,
+                dt_discamt=0,
+                dt_discpercent=0,dt_Staffnoid=emp_obj,dt_staffno=emp_obj.emp_code,
+                dt_staffname=emp_obj.display_name,
+                dt_discuser=fmspw.pw_userlogin,dt_combocode=None,ItemSite_Codeid=site,itemsite_code=site.itemsite_code,
+                dt_transacamt="{:.2f}".format(float(total_price)),dt_deposit="{:.2f}".format(float(total_paid)),dt_lineno=1,itemcart=cart,
+                st_ref_treatmentcode=None,record_detail_type=record_detail_type,gst_amt_collect=0,
+                topup_outstanding=outstanding_acc if outstanding_acc and outstanding_acc > 0 else 0,dt_remark=invoice_no,isfoc=False,item_remarks=None,
+                dt_uom=None,first_trmt_done=False,item_status_code='',
+                staffs=sales +" "+"/"+" "+ service,dt_discdesc='',
+                t2_tax_code=t2_tax_code,t2_tax_amt="{:.4f}".format(float(t2_tax_amt)))
+                #appt_time=app_obj.appt_fr_time,                
+                #st_ref_treatmentcode=treatment_parentcode,
+                dtl.save()
+                dtl.sa_date = pay_date
+                dtl.sa_time = pay_time
+                # print(dtl.sa_date,"dtl")
+                dtl.save()
+
+                #multistaff
+                m_deposit = (float(c.deposit)/100) * float(cart.ratio) 
+                multi = Multistaff(sa_transacno=sa_transacno,item_code=str(c.itemcodeid.item_code)+"0000",
+                emp_code=emp_obj.emp_code,ratio=cart.ratio,salesamt="{:.2f}".format(float(cart.trans_amt)),type=None,isdelete=False,role=1,
+                dt_lineno=c.lineno,salescommpoints=stock_obj.salescommpoints,deposit=m_deposit,gt1deposit=0)
+                multi.save()  
+                
+
+                if int(c.itemcodeid.Item_Divid.itm_code) == 3 and c.itemcodeid.Item_Divid.itm_desc == 'SERVICES' and c.itemcodeid.Item_Divid.itm_isactive == True:
+                    tx_controlobj = ControlNo.objects.filter(control_description__iexact="Treatment",Site_Codeid__pk=site.pk).first()
+                    
+                    treatment_parentcode = "TRM"+str(tx_controlobj.control_prefix)+str(tx_controlobj.Site_Codeid.itemsite_code)+str(tx_controlobj.control_no)
+                    tx_controlobj.control_no = int(tx_controlobj.control_no) + 1
+                    tx_controlobj.save()
+                    
+                    desc = "Total Service Amount : "+str("{:.2f}".format(float(c.trans_amt)))
+
+                    #treatment Account creation
+                    treatacc = TreatmentAccount(Cust_Codeid=cust_obj,cust_code=cust_obj.cust_code,
+                    description=desc,type="Deposit",amount="{:.2f}".format(float(c.deposit)),
+                    balance="{:.2f}".format(float(total_balance_amount)),User_Nameid=fmspw,
+                    user_name=fmspw.pw_userlogin,ref_transacno=sa_transacno,sa_transacno=sa_transacno,
+                    qty=c.quantity,outstanding="{:.2f}".format(float(outstanding_acc)) if outstanding_acc is not None and outstanding_acc > 0 else 0,deposit="{:.2f}".format(float(c.deposit)),
+                    treatment_parentcode=treatment_parentcode,sa_status="SA",
+                    cas_name=fmspw.pw_userlogin,sa_staffno=emp_obj.emp_code,
+                    sa_staffname=emp_obj.display_name,dt_lineno=c.lineno,
+                    Site_Codeid=site,site_code=site.itemsite_code,itemcart=c,
+                    )
+                    # package_code=package_code
+                    treatacc.save()
+                    treatacc.sa_date = pay_date
+                    treatacc.sa_time = pay_time
+                    treatacc.save()
+
+                    if '0' in str(c.quantity):
+                        no = str(c.quantity).split('0')
+                        if no[0] == '':
+                            number = no[1]
+                        else:
+                            number = c.quantity
+                    else:
+                        number = c.quantity
+
+                    dtl_st_ref_treatmentcode = "";dtl_first_trmt_done = False
+                    # if c.itemcodeid.Item_Divid.itm_code == '3':
+                    if c.is_foc == True:
+                        course_val = c.itemdesc
+                        isfoc_val = True
+                    else:
+                        course_val = c.itemdesc 
+                        isfoc_val = False
+                    
+                    expiry = None
+                    if c.itemcodeid.service_expire_active == True:
+                        month = c.itemcodeid.service_expire_month
+                        if month:
+                            current_date = datetime.datetime.strptime(str(date.today()), "%Y-%m-%d")
+                            expiry = current_date + relativedelta(months=month)
+                    
+                    treat_type = "N"
+                    treatment_limit_times = None
+                    flexipoints = None
+
+                    # if c.itemcodeid.limitservice_flexionly == True:
+                    #     treat_type = "FFi"
+                    #     treatment_limit_times = 0
+                    #     if c.itemcodeid.treatment_limit_active == True:
+                    #         treatment_limit_times = c.itemcodeid.treatment_limit_count
+                    
+                    
+                    # if c.is_flexi == True:
+                    #     expiry = c.treat_expiry
+                    #     treat_type = c.treat_type
+                    #     treatment_limit_times = c.treatment_limit_times
+                    #     flexipoints = c.itemcodeid.flexipoints if c.itemcodeid.flexipoints else None
+                    check = list(range(1, int(total_balance_qty)+1))
+
+                    for i in range(1,int(number)+1):
+                        treat = c
+                        Price = c.trans_amt
+                        Unit_Amount = Price / c.quantity
+                        
+
+                        if i in check:
+                            status = "Open"
+                        else:
+                            status = "Done"    
+                        
+                        times = str(i).zfill(2)
+                        treatment_no = str(c.quantity).zfill(2)
+                        
+                        if i == int(c.quantity):
+                            lval = float(Price) - (float("{:.2f}".format(Unit_Amount)) * (c.quantity -1))
+                            Unit_Amount = lval
+                            
+                        # tmptrd_ids = Tmptreatment.objects.filter(itemcart=c,times=times).order_by('pk').first()
+
+                        # if tmptrd_ids:
+                        #     treatmentid = Treatment(treatment_code=str(treatment_parentcode)+"-"+str(times),
+                        #     treatment_parentcode=treatment_parentcode,course=tmptrd_ids.course,times=times,
+                        #     treatment_no=treatment_no,price="{:.2f}".format(float(tmptrd_ids.price)),unit_amount="{:.2f}".format(float(tmptrd_ids.unit_amount)),Cust_Codeid=treat.cust_noid,
+                        #     cust_code=treat.customercode,cust_name=treat.cust_noid.cust_name,
+                        #     status="Open",item_code=str(treat.itemcodeid.item_code)+"0000",Item_Codeid=treat.itemcodeid,
+                        #     sa_transacno=sa_transacno,sa_status="SA",type=treat_type,trmt_is_auto_proportion=False,
+                        #     dt_lineno=c.lineno,site_code=site.itemsite_code,Site_Codeid=site,isfoc=tmptrd_ids.isfoc,
+                        #     treatment_account=treatacc,service_itembarcode=str(treat.itemcodeid.item_code)+"0000",
+                        #     expiry=expiry,treatment_limit_times=treatment_limit_times,
+                        #     flexipoints=flexipoints)
+                        # else:
+                        treatmentid = Treatment(treatment_code=str(treatment_parentcode)+"-"+str(times),
+                        treatment_parentcode=treatment_parentcode,course=course_val,times=times,
+                        treatment_no=treatment_no,price="{:.2f}".format(float(Price)),unit_amount="{:.2f}".format(float(Unit_Amount)),Cust_Codeid=treat.cust_noid,
+                        cust_code=treat.customercode,cust_name=treat.cust_noid.cust_name,
+                        status=status,item_code=str(treat.itemcodeid.item_code)+"0000",Item_Codeid=treat.itemcodeid,
+                        sa_transacno=sa_transacno,sa_status="SA",type=treat_type,trmt_is_auto_proportion=False,
+                        dt_lineno=c.lineno,site_code=site.itemsite_code,Site_Codeid=site,isfoc=isfoc_val,
+                        treatment_account=treatacc,service_itembarcode=str(treat.itemcodeid.item_code)+"0000",
+                        expiry=expiry,treatment_limit_times=treatment_limit_times,
+                        flexipoints=flexipoints)
+
+                        treatmentid.save() 
+                        treatmentid.treatment_date = pay_date
+                        treatmentid.save() 
+                        
+                        if treatmentid.status == "Open":
+                            stdids = Treatmentids.objects.filter(treatment_int=treatmentid.pk)
+                            if not stdids: 
+                                tid =  Treatmentids(treatment_parentcode=treatment_parentcode,
+                                treatment_int=treatmentid.pk).save()
+
+                            if treatmentid.expiry:
+                                dxsplit = str(treatmentid.expiry).split(" ")
+                                expdate = datetime.datetime.strptime(str(dxsplit[0]), '%Y-%m-%d').strftime("%d/%m/%Y")
+                                dtl.dt_itemdesc = dtl.dt_itemdesc+" "+"Expiry Date : "+str(expdate)
+
+                            dtl.save()    
+                    
+
+                    if treatment_parentcode:
+                        searchids = TreatmentPackage.objects.filter(treatment_parentcode=treatment_parentcode)
+                        if not searchids:
+                            o_ids = Treatment.objects.filter(treatment_parentcode=treatment_parentcode).order_by('pk').count()
+                            tptdone_ids = Treatment.objects.filter(treatment_parentcode=treatment_parentcode,status="Done").order_by('pk').count()
+                            tptcancel_ids = Treatment.objects.filter(treatment_parentcode=treatment_parentcode,status="Cancel").order_by('pk').count()
+                            tptopen_ids = Treatment.objects.filter(treatment_parentcode=treatment_parentcode,status="Open").order_by('pk').count()
+                            fu_ids =  Treatment.objects.filter(treatment_parentcode=treatment_parentcode,times="01").first()
+                            q = str(c.quantity).zfill(2)
+                            ls_ids = Tmptreatment.objects.filter(itemcart=c,isfoc=False).order_by('-pk').first()
+
+                            trmtAccObj = TreatmentAccount.objects.filter(treatment_parentcode=treatment_parentcode).order_by('-sa_date','-sa_time','-id').first()
+                            
+                            
+                            tr = TreatmentPackage(treatment_parentcode=treatment_parentcode,
+                            item_code=str(treatmentid.Item_Codeid.item_code)+"0000",course=treatmentid.course,
+                            treatment_no=str(o_ids).zfill(2),open_session=tptopen_ids,done_session=tptdone_ids,
+                            cancel_session=tptcancel_ids,expiry_date=treatmentid.expiry,unit_amount=ls_ids.unit_amount if ls_ids else treatmentid.unit_amount,
+                            customerid=cust_obj,cust_name=treatmentid.cust_name,cust_code=treatmentid.cust_code,
+                            treatment_accountid=treatmentid.treatment_account,totalprice=treatmentid.price,
+                            type=treatmentid.type,
+                            Item_Codeid=treatmentid.Item_Codeid,treatment_limit_times=treatmentid.treatment_limit_times,
+                            Site_Codeid=treatmentid.Site_Codeid,site_code=treatmentid.site_code,
+                            sa_transacno=sa_transacno,lastsession_unit_amount=fu_ids.unit_amount,
+                            balance="{:.2f}".format(float(trmtAccObj.balance)),outstanding="{:.2f}".format(float(trmtAccObj.outstanding)),
+                            )
+                            tr.save()   
+                            # datetimed = datetime.datetime.strptime(str(pay_date)+" "+str(time.strftime("%H:%M:%S")), "%Y-%m-%d %H:%M:%S")
+                            tr.treatment_date = pay_time
+                            tr.save()
+
+                            treatmids = list(set(Treatment.objects.filter(
+                            treatment_parentcode=treatment_parentcode).filter(~Q(status="Open")).only('pk').order_by('pk').values_list('pk', flat=True).distinct()))
+
+                            Treatmentids.objects.filter(treatment_parentcode=treatment_parentcode,
+                            treatment_int__in=treatmids).delete()
+                            
+                            p_ids = list(set(Treatmentids.objects.filter(treatment_parentcode=treatment_parentcode).values_list('treatment_int', flat=True).distinct()))
+                            op_ids = list(Treatment.objects.filter(
+                            treatment_parentcode=treatment_parentcode).filter(Q(status="Open"),~Q(pk__in=p_ids)).only('pk').order_by('pk').values_list('pk', flat=True).distinct())
+                            if op_ids:
+                                for j in op_ids:
+                                    stf_ids = Treatmentids.objects.filter(treatment_int=j)
+                                    if not stf_ids: 
+                                        Treatmentids(treatment_parentcode=treatment_parentcode,
+                                                    treatment_int=j).save()
+
+                    
+
+                nscontrol_obj = ControlNo.objects.filter(control_description__iexact="Reference Non Sales No",Site_Codeid__pk=site.pk).first()
+                            
+                sa_transacno_refval = str(nscontrol_obj.control_prefix)+str(nscontrol_obj.Site_Codeid.itemsite_code)+str(nscontrol_obj.control_no)
+                nscontrol_obj.control_no = int(nscontrol_obj.control_no) + 1
+                nscontrol_obj.save()      
+                sa_transacno_type = "Non Sales"
+
+                cart.sa_transacno = sa_transacno
+                cart.save()
+
+                rsub_systemids = Systemsetup.objects.filter(title='ROUNDING',
+                value_name='Rounding at SubTotal',isactive=True).first()
+                billable_amount = total_paid
+
+                if rsub_systemids and rsub_systemids.value_data == 'True':
+                    round_val = float(round_calc(billable_amount, site)[0]) # round()
+                    sa_Round = float(round_calc(billable_amount, site)[1])
+                else:
+                    round_val = billable_amount
+                    sa_Round = 0
+
+                # billable_amount = float(billable_amount) + round_val 
+                billable_amount = round_val 
+
+                hdr = PosHaud(cas_name=fmspw.pw_userlogin,sa_transacno=sa_transacno,sa_status="SA",
+                sa_totamt="{:.2f}".format(float(total_paid)),sa_totqty=qty,sa_totdisc=0,sa_totgst=0,
+                sa_staffnoid=emp_obj,sa_staffno=emp_obj.emp_code,sa_staffname=emp_obj.display_name,sa_custnoid=cust_obj,sa_custno=cust_obj.cust_code,
+                sa_custname=cust_obj.cust_name,sa_discuser=fmspw.pw_userlogin,sa_discamt=0,sa_disctotal=0,ItemSite_Codeid=site,itemsite_code=site.itemsite_code,
+                sa_depositamt="{:.2f}".format(float(total_paid)),sa_transacamt="{:.2f}".format(float(total_price)),sa_round="{:.2f}".format(float(sa_Round)),total_outstanding="{:.2f}".format(float(outstanding_acc)) if outstanding_acc and outstanding_acc > 0 else 0,
+                trans_user_login=fmspw.pw_password,trans_user_loginid=fmspw,sa_transacno_ref=sa_transacno_refval,sa_transacno_type=sa_transacno_type,
+                issuestrans_user_login=fmspw.pw_userlogin,trans_remark="Imported",payment_remarks=invoice_no,
+                sa_transacno_title=transaction_type)
+                
+                # appt_time=app_obj.appt_fr_time,
+
+                hdr.save()
+                hdr.sa_date = pay_date
+                hdr.sa_time = pay_time
+                hdr.save()
+            
+
+    return data_import
+
+
+
+class TreatmentBalanceImportAPIView(GenericAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    serializer_class = []
+    
+    @transaction.atomic
+    def post(self, request):
+        try:  
+            with transaction.atomic(): 
+                fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True).first()
+                
+                #validations
+                if not 'treatment_file' in request.data or not request.data['treatment_file'] or not request.data:
+                    raise Exception('Please give File!!.') 
+
+                iccontrol_obj = ControlNo.objects.filter(control_description__iexact="ITEM CART",Site_Codeid__pk=fmspw.loginsite.pk).first()
+                if not iccontrol_obj:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Item Cart Control No does not exist!!",'error': True} 
+                    return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
+                refcontrol_obj = ControlNo.objects.filter(control_description__iexact="Reference Non Sales No",Site_Codeid__pk=fmspw.loginsite.pk).first()
+                if not refcontrol_obj:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Reference Non Sales Control No does not exist!!",'error': True} 
+                    return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
+                control_obj = ControlNo.objects.filter(control_description__iexact="Transaction number",Site_Codeid__pk=fmspw.loginsite.pk).first()
+                if not control_obj:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Transaction Control No does not exist!!",'error': True} 
+                    return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                
+                paytable = Paytable.objects.filter(pay_code="OB",pay_isactive=True).first()
+                if not paytable:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,
+                    "message":"Paytable ID is does not exist!!",'error': True} 
+                    return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
+                tx_controlobj = ControlNo.objects.filter(control_description__iexact="Treatment",Site_Codeid__pk=fmspw.loginsite.pk).first()
+                if not tx_controlobj:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Treatment Control No does not exist!!",'error': True} 
+                    return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                     
+                
+
+                file_obj = request.data['treatment_file']
+                # print(file_obj,"file_obj")
+                file_content = file_obj.read()
+
+                excel_data_df = pd.read_excel(file_content,  engine='openpyxl', na_filter=False)
+                # print(excel_data_df,"excel_data_df")
+                # = excel_data_df.index
+                col_lst = excel_data_df.columns.ravel()
+                # print(col_lst,"col_lst")
+
+                # for index, row in excel_data_df.iterrows():
+                #     # print(index,"kkk")
+                #     print(excel_data_df.loc[index],"lll")
+                failed_rows = [] ; success_import = False
+
+                for row in excel_data_df.iterrows():
+                    # print(row,"row")
+                    call = treatment_deposit(row,fmspw,paytable)
+                    # print(call,"call")
+                    if call == False:
+                        # print(row[0],"row")
+                        # print("pass")
+                        dict_obj = row[1].to_dict()
+                        dict_obj.update({'row': row[0] + 2})
+                        failed_rows.append(dict_obj)
+                    else:
+                        success_import = True
+
+                    # for col in col_lst:
+                    #     print(dict_obj[col])
+                
+                if success_import == True:
+                    msg = "Import Created Succesfully"
+                else:
+                    msg = "Import Failed"
+
+                result = {'status': status.HTTP_201_CREATED,"message":msg,
+                'error': False, 'failed_rows': failed_rows}
+                return Response(result, status=status.HTTP_201_CREATED)            
+         
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+         
                

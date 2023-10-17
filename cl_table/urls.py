@@ -135,6 +135,7 @@ urlpatterns = [
     path('be/api/prepaidvalidperiod/', views.PrepaidValidperiodAPIView.as_view(), name='prepaidvalidperiod'),
     path('be/api/customerreceiptprintbeforecheckout/', views.CustomerReceiptPrintBeforeCheckoutList.as_view(), name='customerreceiptprintbeforecheckout'),
     path('be/api/availableservicetimeslots/', views.AvailableTimeSlotsAPIView.as_view(), name='availableservicetimeslots'),
+    path('be/api/treatmentbalanceimport/', views.TreatmentBalanceImportAPIView.as_view(), name='treatmentbalanceimport'),
 
 
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

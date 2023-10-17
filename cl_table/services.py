@@ -2097,6 +2097,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
 
                         treatmentid.save() 
                         treatmentid.treatment_date = pay_date
+                        treatmentid.save()
                         if treatmentid:
                             stdids = Treatmentids.objects.filter(treatment_int=treatmentid.pk)
                             if not stdids: 
@@ -2605,6 +2606,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                 
                                 e_treatids.save() 
                                 e_treatids.treatment_date = pay_date
+                                e_treatids.save()
 
                                 if e_treatids: 
                                     stdsids = Treatmentids.objects.filter(treatment_int=e_treatids.pk)
@@ -2657,6 +2659,8 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                             service_itembarcode=ct.service_itembarcode,isfoc=ct.isfoc,Trmt_Room_Codeid=ct.Trmt_Room_Codeid,
                                             trmt_room_code=ct.trmt_room_code,trmt_is_auto_proportion=ct.trmt_is_auto_proportion,
                                             treatment_account=ct.treatment_account)
+                                            treatids.save()
+                                            treatids.treatment_date = pay_date
                                             treatids.save()
                                             if treatids:
                                                 stfdsids = Treatmentids.objects.filter(treatment_int=treatids.pk)
@@ -3628,7 +3632,10 @@ def invoice_sales(self, request, sales_ids,sa_transacno, cust_obj, outstanding, 
                                 Site_Codeid=ct.Site_Codeid,site_code=ct.site_code,type=ct.type,treatment_limit_times=ct.treatment_limit_times,
                                 service_itembarcode=ct.service_itembarcode,isfoc=ct.isfoc,Trmt_Room_Codeid=ct.Trmt_Room_Codeid,
                                 trmt_room_code=ct.trmt_room_code,trmt_is_auto_proportion=ct.trmt_is_auto_proportion,
-                                treatment_account=ct.treatment_account).save()
+                                treatment_account=ct.treatment_account)
+                                treatids.save()
+                                treatids.treatment_date = pay_date
+                                treatids.save()
                                 if treatids:
                                     stfd_ids = Treatmentids.objects.filter(treatment_int=treatids.pk)
                                     if not stfd_ids: 
