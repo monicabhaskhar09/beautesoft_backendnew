@@ -4444,6 +4444,8 @@ class invoicetemplate(models.Model):
     isactive = models.BooleanField(db_column='isActive',default=True)  # Field name made lowercase.
     checked = models.BooleanField(db_column='Checked',default=True)  # Field name made lowercase.
     type = models.CharField(db_column='Type', max_length=200, blank=True, null=True)  # Field name made lowercase.
+    order_seq = models.IntegerField(db_column='Order_Seq', blank=True, null=True)  # Field name made lowercase.
+
 
     class Meta:
         db_table = 'invoicetemplate'

@@ -329,7 +329,8 @@ class TmpItemHelperSession(models.Model):
     sa_date = models.DateTimeField(blank=True, null=True)  # Field name made lowercase.
     site_code = models.CharField(db_column='Site_Code', max_length=10, blank=True, null=True)  # Field name made lowercase.
     helper_id = models.ForeignKey('cl_table.Employee', on_delete=models.PROTECT,null=True)  # Field name made lowercase.
-
+    percent = models.FloatField(db_column='Percent', blank=True, null=True)
+    work_amt = models.FloatField(db_column='Work_Amount', blank=True, null=True)
 
     class Meta:
         db_table = 'Tmp_Item_helperSession'

@@ -72,7 +72,7 @@ from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializ
                           DisplayItemlistSerializer,OutletRequestLogSerializer,
                           PrepaidValidperiodSerializer,ItemCartCustomerReceiptSerializer,
                           ItemCartdaudSerializer,ScheduleMonthSerializer,invoicetemplateConfigSerializer,ManualRewardPointSerializer,
-                          StaffDocumentSerializer,OutletDocumentSerializer,EcomAppointmentSerializer)
+                          StaffDocumentSerializer,OutletDocumentSerializer,EcomAppointmentSerializer,InvTemplateHeaderSortSerializer)
 from datetime import date, timedelta, datetime
 import datetime
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
@@ -7888,6 +7888,7 @@ class UsersList(APIView):
             'flginvoicedate' : fmspw.flginvoicedate if fmspw.flginvoicedate == True else False ,
             'flgstaff':fmspw.flgstaff if fmspw.flgstaff == True else False ,
             'flgpayment':fmspw.flgpayment if fmspw.flgpayment == True else False ,
+            'flgallowblockappointment': fmspw.flgallowblockappointment if fmspw.flgallowblockappointment == True else False ,
             # 'flginventory' : fmspw.flginventory if fmspw.flginventory == True else False ,
             # 'flgdayend' : fmspw.flgdayend if fmspw.flgdayend == True else False ,
             # 'flgbackend' : fmspw.flgbackend if fmspw.flgbackend == True else False ,
@@ -17463,6 +17464,12 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
                             user = User.objects.create_user(username=request.data['display_name'], email=s.emp_email,
                                                             password=request.data['pw_password'])
                             levelobj = Securities.objects.filter(pk=request.data['LEVEL_ItmIDid'], level_isactive=True).first()
+                            
+                            flgallowblockappointment = True
+                            if 'flgallowblockappointment' in request.data and request.data['flgallowblockappointment']:
+                                flgallowblockappointment = request.data['flgallowblockappointment']
+                            
+                                
                             f = Fmspw(pw_userlogin=request.data['display_name'],
                                 pw_password=request.data['pw_password'],
                                 LEVEL_ItmIDid=levelobj,
@@ -17478,7 +17485,7 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
                                 flgrefund=True,flgemail=True,flgcustadd=True,flgfoc=True,
                                 flgrefundpp=True,flgrefundcn=True,flgstockusagememo=True,
                                 flgchangeunitprice=True,flgallowinsufficent=True,
-                                flgallowblockappointment=True,flgchangeexpirydate=True,
+                                flgallowblockappointment=flgallowblockappointment,flgchangeexpirydate=True,
                                 flgalldayendsettlement=True,flgtransacdisc=True,flgeditath=True
                                 )
                             f.save()
@@ -17615,6 +17622,7 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
                         if fmspw_obj:
                             fmspw_obj.pw_userlogin = request.data['display_name']
                             fmspw_obj.pw_password = pw if pw else fmspw_obj.pw_password
+                            fmspw_obj.flgallowblockappointment = request.data['flgallowblockappointment'] if 'flgallowblockappointment' in request.data and request.data['flgallowblockappointment'] else False
                             fmspw_obj.save()
                             if fmspw_obj.user:
                                 fmspw_obj.user.username = request.data['display_name']
@@ -17655,6 +17663,13 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
                                 user = User.objects.create_user(username=request.data['display_name'], email=employee.emp_email,
                                                                 password=request.data['pw_password'])
                             level_obj = Securities.objects.filter(pk=request.data['LEVEL_ItmIDid'], level_isactive=True).first()
+                            
+                            flgallowblockappointment = True
+                            if 'flgallowblockappointment' in request.data and request.data['flgallowblockappointment']:
+                                flgallowblockappointment = request.data['flgallowblockappointment']
+                            
+                               
+                            
                             test = Fmspw(pw_userlogin=request.data['display_name'],
                                     pw_password=request.data['pw_password'],
                                     LEVEL_ItmIDid=level_obj,
@@ -17670,7 +17685,7 @@ class StaffPlusViewSet(viewsets.ModelViewSet):
                                     flgrefund=True,flgemail=True,flgcustadd=True,flgfoc=True,
                                     flgrefundpp=True,flgrefundcn=True,flgstockusagememo=True,
                                     flgchangeunitprice=True,flgallowinsufficent=True,
-                                    flgallowblockappointment=True,flgchangeexpirydate=True,
+                                    flgallowblockappointment=flgallowblockappointment,flgchangeexpirydate=True,
                                     flgalldayendsettlement=True,flgtransacdisc=True,flgeditath=True
                                     ).save()
                             employee.pw_userlogin = request.data['display_name']
@@ -27345,7 +27360,67 @@ class InvoiceTemplateConfigViewset(viewsets.ModelViewSet):
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)                
- 
+    
+
+    @action(detail=False, methods=['get'], name='getheaderorderchange')
+    def getheaderorderchange(self, request):
+        try:
+            queryset = invoicetemplate.objects.filter(type='bodyList',isactive=True,checked=True).filter(~Q(order_seq__isnull=True)).order_by('order_seq')
+            if queryset:
+                serializer = InvTemplateHeaderSortSerializer(queryset, many=True)
+                result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 'data':  serializer.data}
+            else:
+                serializer = InvTemplateHeaderSortSerializer()
+                result = {'status':status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False,  'data': []}
+            return Response(data=result, status=status.HTTP_200_OK)  
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)                
+    
+
+    @transaction.atomic
+    @action(methods=['post'], detail=False, permission_classes=[IsAuthenticated & authenticated_only],
+    authentication_classes=[ExpiringTokenAuthentication])
+    def headerorderchange(self, request):
+        try:
+            with transaction.atomic():
+                if not 'invtemp_ids' in request.data or not request.data['invtemp_ids'] or request.data['invtemp_ids'] == [] or request.data['invtemp_ids'] is None:
+                    result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please Select Header List!!",'error': True} 
+                    return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+                    
+                queryset = invoicetemplate.objects.filter(type='bodyList',isactive=True,checked=True)
+                update_ids = queryset.update(order_seq=None)
+                # print(request.data,"request.data")
+                serializer = InvTemplateHeaderSortSerializer(data=request.data)
+                if serializer.is_valid():
+                    invtemp_ids = request.data['invtemp_ids']
+                    # print(invtemp_ids,"invtemp_ids")
+                    if invtemp_ids != []:
+                        inv_obj_ids = invoicetemplate.objects.filter(isactive=True,checked=True,
+                        type='bodyList',pk__in=invtemp_ids)
+                        if not inv_obj_ids:
+                            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Header order change does not exist!!",'error': True} 
+                            return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+                    
+                        if inv_obj_ids:
+                            for idx, reqt in enumerate(invtemp_ids, start=1): 
+                                print(idx,reqt,"reqt")
+                                inv_obj = invoicetemplate.objects.filter(pk=reqt).first()
+                                if inv_obj:
+                                    inv_obj.order_seq = idx  
+                                    inv_obj.save() 
+
+                            result = {'status': status.HTTP_201_CREATED,"message":"Updated Succesfully",
+                            'error': False}
+                            return Response(result, status=status.HTTP_201_CREATED)
+                    
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Invalid Input",
+                'error': True, 'data': serializer.errors}
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)                
+        
 
 
 

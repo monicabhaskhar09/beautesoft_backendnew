@@ -1301,7 +1301,7 @@ class CatalogSearchViewset(viewsets.ModelViewSet):
             n_lst = []
             if lst == []:
                 batchso_ids = ItemBatchSno.objects.filter(batch_sno__icontains=qs,
-                availability=True,site_code=site.itemsite_code)
+                availability=True,site_code=site.itemsite_code).order_by('pk','batch_sno')
                 if batchso_ids:
                     for b in batchso_ids:
                         # a = b.item_code
@@ -4333,6 +4333,8 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                     s['appt_to_time'] =  None
                     s['add_duration'] =  "01:30"
                     s['session'] = "{:.2f}".format(float(s['session'])) if s['session'] else ""
+                    s['percent'] = int(s['percent']) if s['percent'] else ""
+                    s['work_amt'] = "{:.2f}".format(float(s['work_amt'])) if s['work_amt'] else 0
                     final.append(s)
               
             
@@ -4836,7 +4838,7 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                                     helper_name=helper_obj.display_name,helper_code=helper_obj.emp_code,
                                     site_code=site.itemsite_code,times=trmt_obj.times,treatment_no=trmt_obj.treatment_no,
                                     wp1=tmp_sessionids.wp1 if tmp_sessionids and tmp_sessionids.wp1 else 0,wp2=0.0,wp3=0.0,itemcart=None,treatment=trmt_obj,
-                                    session=e['session'])
+                                    session=e['session'],percent=tmp_sessionids.percent if tmp_sessionids.percent else None,work_amt= "{:.2f}".format(float(tmp_sessionids.work_amt)) if tmp_sessionids.work_amt else None)
                                     temph.save()
                                     trmt_obj.helper_ids.add(temph.id) 
                     

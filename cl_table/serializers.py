@@ -2584,6 +2584,8 @@ class StaffPlusSerializer(serializers.ModelSerializer):
     flgappt =  serializers.SerializerMethodField()
     site_list = serializers.SerializerMethodField()
     shift_status = serializers.SerializerMethodField()
+    flgallowblockappointment =  serializers.SerializerMethodField()
+
 
     def get_shift_status(self, obj):
         shift_status = False
@@ -2631,6 +2633,13 @@ class StaffPlusSerializer(serializers.ModelSerializer):
         except:
             return False
 
+    def get_flgallowblockappointment(self,obj):
+        try:
+            fmspw = Fmspw.objects.filter(Emp_Codeid=obj).first()
+            return fmspw.flgallowblockappointment
+        except:
+            return False        
+
     def get_site_list(self,obj):
         return EmpSitelist.objects.filter(Emp_Codeid=obj,isactive=True).values('Site_Codeid','site_code')
 
@@ -2642,7 +2651,7 @@ class StaffPlusSerializer(serializers.ModelSerializer):
                   'EMP_TYPEid','jobtitle_name', 'is_login','pw_password','LEVEL_ItmIDid','level_desc','emp_isactive','flghourly',
                   "emp_nric","max_disc", 'emp_race', 'Emp_nationalityid', 'Emp_maritalid', 'Emp_religionid', 'emp_emer','emp_epf_employee',
                   'emp_emerno', 'emp_country', 'emp_remarks','show_in_trmt','show_in_appt','show_in_sales','emp_epf_employer','shift_status',
-                  'isdelete']
+                  'isdelete','flgallowblockappointment']
         read_only_fields = ('updated_at','created_at','emp_code','branch')
         extra_kwargs = {
             'emp_email': {'required': False},
@@ -3861,3 +3870,24 @@ class ManualRewardPointSerializer(serializers.ModelSerializer):
         data['qty'] = ptdtl_ids.qty if ptdtl_ids and ptdtl_ids.qty else ""
                         
         return data      
+
+class InvTemplateHeaderSortSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='pk',required=False)
+    invtemp_ids = serializers.SerializerMethodField()
+
+    def get_invtemp_ids(self, obj):
+        return None 
+
+    class Meta:
+        model = invoicetemplate
+        fields = ['id','invtemp_ids'] 
+        extra_kwargs = {'invtemp_ids': {'required': True}}
+    
+    def to_representation(self, instance):
+        data = super(InvTemplateHeaderSortSerializer, self).to_representation(instance)
+       
+        data['name'] = instance.name if instance.name else ""
+        # data['order_seq'] = instance.name if instance.order_seq else ""
+        data['order_seq'] = instance.order_seq 
+                 
+        return data   

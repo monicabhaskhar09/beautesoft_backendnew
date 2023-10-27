@@ -436,13 +436,16 @@ body{
               <p style="font-size: 14px;"> {% if taud.pay_rem4 %} {{ taud.pay_rem4 }} {% else %} {% endif %} </p>
             </tr> 
           {% endfor %} 
-
-          <p style="font-size: 14px;"> {% if footer1 %} {{ footer1 }} {% else %} {% endif %} </p>
+           
+          {{ footer1|removetags:"br"|safe }}
+          
+          <!-- <p style="font-size: 14px;"> {% if footer1 %}  {% else %} {% endif %} </p>
           <p style="font-size: 14px;"> {% if footer2 %} {{ footer2 }} {% else %} {% endif %} </p>
           <p style="font-size: 14px;">{% if footer3 %} {{ footer3 }} {% else %} {% endif %} </p>
           <p style="font-size: 14px;">{% if footer4 %} {{ footer4 }} {% else %} {% endif %}</p>
           <p style="font-size: 14px;">{% if footer5 %} {{ footer5 }} {% else %} {% endif %}</p>
           <p style="font-size: 14px;">{% if footer6 %} {{ footer6 }} {% else %} {% endif %}</p>
+         -->
         </div>
   
       </div>

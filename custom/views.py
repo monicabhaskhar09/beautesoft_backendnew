@@ -12105,7 +12105,9 @@ class AddRemoveSalesStaffViewset(viewsets.ModelViewSet):
 
                     staff = str(staff_id).split(',') 
                     # print(staff,"staff")
-                    for e in staff:  
+                    # for e in staff:  
+                    for idxe, e in enumerate(staff, start=1):
+    
                         emp_obj = Employee.objects.filter(emp_isactive=True,
                         pk=e).first()
                         # print(emp_obj,"emp_obj")
@@ -12118,66 +12120,92 @@ class AddRemoveSalesStaffViewset(viewsets.ModelViewSet):
                                 cartobj.sales_staff.add(emp_obj.pk)
                                 ratio = 0.0; salescommpoints = 0.0;salesamt = 0.0
                                 if cartobj.sales_staff.all().count() > 0:
-                                    count = cartobj.sales_staff.all().count()
+                                    # count = cartobj.sales_staff.all().count()
+                                    count = len(staff)
                                     ratio = float(cartobj.ratio) / float(count)
                                     salesamt = float(cartobj.trans_amt) / float(count)
                                     if stock_obj.salescommpoints and float(stock_obj.salescommpoints) > 0.0:
                                         salescommpoints = float(stock_obj.salescommpoints) / float(count)
 
-                            
+                                # "{:.2f}".format(float(salesamt))
+                                cal_ratio = (round(salesamt) / float(cartobj.trans_amt)) * 100
+                                # print(cal_ratio,"cal_ratio")
                                 tmpmulti = Tmpmultistaff(item_code=stock_obj.item_code,
-                                emp_code=emp_obj.emp_code,ratio=ratio,
-                                salesamt="{:.2f}".format(float(salesamt)),type=None,isdelete=False,role=1,
-                                dt_lineno=cartobj.lineno,itemcart=cartobj,emp_id=emp_obj,salescommpoints=salescommpoints)
+                                emp_code=emp_obj.emp_code,ratio="{:.4f}".format(float(cal_ratio)),
+                                salesamt=round(salesamt),type=None,isdelete=False,role=1,
+                                dt_lineno=cartobj.lineno,itemcart=cartobj,emp_id=emp_obj,salescommpoints= "{:.4f}".format(salescommpoints))
                                 tmpmulti.save()
 
+                                if idxe == len(staff):
+                                    all_id = Tmpmultistaff.objects.filter(itemcart__pk=cartobj.pk).filter(~Q(pk=tmpmulti.pk)).order_by('-pk'
+                                    ).aggregate(amount=Coalesce(Sum('salesamt'), 0),ratio=Coalesce(Sum('ratio'), 0))
+                                   
+                                    if all_id['amount'] > 0.0:
+                                        sales_amt = "{:.2f}".format(all_id['amount'] )
+                                    else:
+                                        sales_amt = 0
+                                    # print(sales_amt,"sales_amt")
+                                    
+                                    if all_id['ratio'] > 0.0:
+                                        ratio_amt = "{:.4f}".format(all_id['ratio'] )
+                                    else:
+                                        ratio_amt = 0
+                                    # print(ratio_amt,"ratio_amt")
+
+
+                                    balanace_sal = float(cartobj.trans_amt) - float(sales_amt)
+                                    # print(balanace_sal,"balanace_sal")
+                                    balace_ratio = float(cartobj.ratio) - float(ratio_amt)
+                                    tmpmulti.salesamt = balanace_sal
+                                    tmpmulti.ratio = "{:.4f}".format(balace_ratio)
+                                    tmpmulti.save()
                                 
                                 cartobj.multistaff_ids.add(tmpmulti.pk)
                                 final = True
 
 
-                                if cartobj.multistaff_ids.all().count() == 1:
-                                    tm_ids =Tmpmultistaff.objects.filter(itemcart__pk=cartobj.pk)
-                                    for tm in tm_ids:
-                                        tm.ratio = "{:.2f}".format(float(ratio))
-                                        tm.salesamt = "{:.2f}".format(float(salesamt))
-                                        tm.salescommpoints = salescommpoints
-                                        tm.save()
+                                # if cartobj.multistaff_ids.all().count() == 1:
+                                #     tm_ids =Tmpmultistaff.objects.filter(itemcart__pk=cartobj.pk)
+                                #     for tm in tm_ids:
+                                #         tm.ratio = "{:.2f}".format(float(ratio))
+                                #         tm.salesamt = "{:.2f}".format(float(salesamt))
+                                #         tm.salescommpoints = salescommpoints
+                                #         tm.save()
                                    
-                                else:
+                                # else:
 
-                                    last_id = Tmpmultistaff.objects.filter(itemcart__pk=cartobj.pk).order_by('pk').last()
-                                    if last_id:    
-                                        tmm_ids = Tmpmultistaff.objects.filter(itemcart__pk=cartobj.pk).exclude(pk=last_id.pk)
-                                        for tmm in tmm_ids:
-                                            tmm.ratio = "{:.2f}".format(float(ratio))
-                                            tmm.salesamt = "{:.2f}".format(float(salesamt))
-                                            tmm.salescommpoints = salescommpoints
-                                            tmm.save()
+                                #     last_id = Tmpmultistaff.objects.filter(itemcart__pk=cartobj.pk).order_by('pk').last()
+                                #     if last_id:    
+                                #         tmm_ids = Tmpmultistaff.objects.filter(itemcart__pk=cartobj.pk).exclude(pk=last_id.pk)
+                                #         for tmm in tmm_ids:
+                                #             tmm.ratio = "{:.2f}".format(float(ratio))
+                                #             tmm.salesamt = "{:.2f}".format(float(salesamt))
+                                #             tmm.salescommpoints = salescommpoints
+                                #             tmm.save()
                                        
-                                        new_ratio = "{:.2f}".format(float(ratio))
-                                        new_salesamt = "{:.2f}".format(float(salesamt))
-                                        new_salspts = "{:.2f}".format(float(salescommpoints))
+                                #         new_ratio = "{:.2f}".format(float(ratio))
+                                #         new_salesamt = "{:.2f}".format(float(salesamt))
+                                #         new_salspts = "{:.2f}".format(float(salescommpoints))
 
-                                        tot_ratio = 0; tot_salesamt = 0 ; tot_salespts = 0
-                                        for i in range(1, cartobj.multistaff_ids.all().count()):
-                                            tot_ratio += float(new_ratio)
-                                            tot_salesamt += float(new_salesamt)
-                                            tot_salespts += float(new_salspts)
+                                #         tot_ratio = 0; tot_salesamt = 0 ; tot_salespts = 0
+                                #         for i in range(1, cartobj.multistaff_ids.all().count()):
+                                #             tot_ratio += float(new_ratio)
+                                #             tot_salesamt += float(new_salesamt)
+                                #             tot_salespts += float(new_salspts)
 
                                     
-                                        newratio = float(cartobj.ratio) - tot_ratio
-                                        newsalesamt = float(cartobj.trans_amt) - tot_salesamt
-                                        newsalspts = 0.0
-                                        if stock_obj.salescommpoints and float(stock_obj.salescommpoints) > 0.0:
-                                            newsalspts = float(stock_obj.salescommpoints) - tot_salespts
+                                #         newratio = float(cartobj.ratio) - tot_ratio
+                                #         newsalesamt = float(cartobj.trans_amt) - tot_salesamt
+                                #         newsalspts = 0.0
+                                #         if stock_obj.salescommpoints and float(stock_obj.salescommpoints) > 0.0:
+                                #             newsalspts = float(stock_obj.salescommpoints) - tot_salespts
                                         
-                                        ts_ids = Tmpmultistaff.objects.filter(itemcart__pk=cartobj.pk,pk=last_id.pk)
-                                        for ts in ts_ids:
-                                            ts.ratio = "{:.2f}".format(float(newratio))
-                                            ts.salesamt = "{:.2f}".format(float(newsalesamt))
-                                            ts.salescommpoints = newsalspts
-                                            ts.save()
+                                #         ts_ids = Tmpmultistaff.objects.filter(itemcart__pk=cartobj.pk,pk=last_id.pk)
+                                #         for ts in ts_ids:
+                                #             ts.ratio = "{:.2f}".format(float(newratio))
+                                #             ts.salesamt = "{:.2f}".format(float(newsalesamt))
+                                #             ts.salescommpoints = newsalspts
+                                #             ts.save()
                                         
                             else:
                                 smsg = "Cart line no from top {0}, {1} Sales Staff Already created in Tmpmultistaff table!! ".format(str(idx),str(emp_obj.display_name))
