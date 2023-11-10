@@ -356,6 +356,15 @@ def GeneratePDF(self,request, sa_transacno):
     else:
         credit_amt = "0.00"  
     # print(credit,"credit") 
+
+    voucher_ids = VoucherRecord.objects.filter(isvalid=True,cust_code=hdr[0].sa_custno,
+    used=False).order_by('-pk').aggregate(amount=Coalesce(Sum('value'), 0))
+
+    if voucher_ids and voucher_ids['amount'] > 0.0:
+        voucher_amt = "{:.2f}".format(voucher_ids['amount'])
+    else:
+        voucher_amt = "0.00"
+
     custsign_ids = Tempcustsign.objects.filter(transaction_no=sa_transacno).order_by("-pk").first()
     # print(custsign_ids,"custsign_ids") 
     path_custsign = None
@@ -504,7 +513,7 @@ def GeneratePDF(self,request, sa_transacno):
     'date':date,'time':dtime,'percent':int(gst.item_value) if gst and gst.item_value else "0" ,'path':path if path else '','title':title if title else None,
     'packages': str(packages),'site':site,'treatment': treatopen_ids,'settings': set_obj,
     'tot_price':tot_price,'prepaid_balance': prepaid_amt,
-    'creditnote_balance': credit_amt,'total_netprice':str("{:.2f}".format((total_netprice))),
+    'creditnote_balance': credit_amt,'voucher_balance': voucher_amt,'total_netprice':str("{:.2f}".format((total_netprice))),
     'custsign_ids':path_custsign if path_custsign else '','prepaid_lst':prepaid_lst,'prepaidlst':prepaidlst,
     'prepaidbal':prepaidbal,'treatmentbal':treatmentbal,'showprepaid': showprepaid,
     'showvoidreason':showvoidreason,'showcredit':showcredit,'creditlst': creditlst,
@@ -522,6 +531,7 @@ def GeneratePDF(self,request, sa_transacno):
     data.update(sub_data)
     data.update(custbal)
     if site.inv_templatename:
+        # template = get_template('customer_invoice_sincereskin.html')
         template = get_template(site.inv_templatename)
     else:
         template = get_template('customer_receipt.html')

@@ -1475,7 +1475,24 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                         decontrolobj.save()
 
                     if c.batch_sno:
-                        dtl.dt_itemdesc = dtl.dt_itemdesc+" "+"SN-"+str(c.batch_sno)
+                        bat_ser =''
+                        if c.quantity and c.quantity > 1:
+                            bat_qty = c.quantity - 1
+                            # print(bat_qty,"bat_qty")
+                            batchso_ext_ids = ItemBatchSno.objects.filter(availability=True,site_code=site.itemsite_code,
+                            item_code=c.itemcodeid.item_code,uom=dtl.dt_uom).filter(~Q(batch_sno=c.batch_sno)).order_by('pk','batch_sno')[:bat_qty]
+                            # print(batchso_ext_ids,"batchso_ext_ids")
+                            bat_ser = ','.join([v.batch_sno for v in batchso_ext_ids if v.batch_sno])
+                            if batchso_ext_ids:
+                                for bs in batchso_ext_ids:
+                                    bs.availability = False
+                                    bs.itemcart = c.pk
+                                    bs.save()
+                                    if bs.pk not in itmbatchsno_id_lst:
+                                        itmbatchsno_id_lst.append(bs.pk)
+
+
+                        dtl.dt_itemdesc = dtl.dt_itemdesc+" "+"SN-"+str(c.batch_sno)+","+bat_ser
                         batchso_ids = ItemBatchSno.objects.filter(batch_sno__icontains=c.batch_sno,
                         availability=True,site_code=site.itemsite_code).first()
                         if batchso_ids and batchso_ids.exp_date:
@@ -1485,6 +1502,7 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                         
                         if batchso_ids:
                             batchso_ids.availability = False
+                            batchso_ids.itemcart = c.pk
                             batchso_ids.save()
                             if batchso_ids.pk not in itmbatchsno_id_lst:
                                 itmbatchsno_id_lst.append(batchso_ids.pk)

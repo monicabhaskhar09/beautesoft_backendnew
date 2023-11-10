@@ -72,7 +72,8 @@ from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializ
                           DisplayItemlistSerializer,OutletRequestLogSerializer,
                           PrepaidValidperiodSerializer,ItemCartCustomerReceiptSerializer,
                           ItemCartdaudSerializer,ScheduleMonthSerializer,invoicetemplateConfigSerializer,ManualRewardPointSerializer,
-                          StaffDocumentSerializer,OutletDocumentSerializer,EcomAppointmentSerializer,InvTemplateHeaderSortSerializer)
+                          StaffDocumentSerializer,OutletDocumentSerializer,EcomAppointmentSerializer,InvTemplateHeaderSortSerializer,
+                          CustomerPointsListSerializer)
 from datetime import date, timedelta, datetime
 import datetime
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
@@ -3065,6 +3066,11 @@ class AppointmentViewset(viewsets.ModelViewSet):
                     link_flag = True
 
                 Appt = request.data.get('Appointment')
+                if 'ItemSite_Codeid' in Appt and Appt['ItemSite_Codeid']:
+                    site_obj = ItemSitelist.objects.filter(pk=Appt['ItemSite_Codeid'],itemsite_isactive=True).first()
+                    if site_obj:
+                        site = site_obj
+
                 if not Appt['appt_date']:
                     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please select Appointment Date!!",'error': True} 
                     return Response(result, status=status.HTTP_400_BAD_REQUEST)
@@ -3142,6 +3148,11 @@ class AppointmentViewset(viewsets.ModelViewSet):
 
             
                 apptsite = fmspw[0].loginsite
+                if 'ItemSite_Codeid' in Appt and Appt['ItemSite_Codeid']:
+                    site_obj = ItemSitelist.objects.filter(pk=Appt['ItemSite_Codeid'],itemsite_isactive=True).first()
+                    if site_obj:
+                        apptsite = site_obj
+
                 
                 apptpw_setup = Systemsetup.objects.filter(title='appointmentPassword',
                 value_name='appointmentPassword',isactive=True).first()
@@ -3933,6 +3944,14 @@ class AppointmentViewset(viewsets.ModelViewSet):
 
             fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True)[0]
             outlet = fmspw.loginsite
+
+            #siteCode option filter
+            site_select = request.GET.get('Outlet',None)
+            if site_select:
+                site_obj = ItemSitelist.objects.filter(pk=site_select,itemsite_isactive=True).first()
+                if site_obj:
+                    outlet = site_obj
+                    
             emp = fmspw.Emp_Codeid
             sc_system_obj = Systemsetup.objects.filter(title='Workschedule',
             value_name='Workschedule',isactive=True).first()
@@ -4141,6 +4160,14 @@ class AppointmentResourcesViewset(viewsets.ModelViewSet):
         try:
             fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
             site = fmspw.loginsite
+
+            #siteCode option filter
+            site_select = request.GET.get('site_select', None)
+            if site_select:
+                site_obj = ItemSitelist.objects.filter(pk=site_select,itemsite_isactive=True).first()
+                if site_obj:
+                    site = site_obj
+                    
             appointment = self.get_object(pk)
             appt = Appointment.objects.filter(pk=appointment.pk,appt_isactive=True,itemsite_code=site.itemsite_code).first()
             if not appt:
@@ -4252,6 +4279,14 @@ class AppointmentResourcesViewset(viewsets.ModelViewSet):
         try:
             fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
             site = fmspw.loginsite
+
+            #siteCode option filter
+            site_select = request.data.get('site_select', None)
+            if site_select:
+                site_obj = ItemSitelist.objects.filter(pk=site_select,itemsite_isactive=True).first()
+                if site_obj:
+                    site = site_obj 
+
             appobj = self.get_object(pk)
             old_empcode = appobj.emp_no
             apptstatus = appobj.appt_status
@@ -4875,6 +4910,13 @@ class AppointmentEditViewset(viewsets.ModelViewSet):
         try:
             fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
             site = fmspw.loginsite
+            #siteCode option filter
+            site_select = request.GET.get('site_select', None)
+            if site_select:
+                site_obj = ItemSitelist.objects.filter(pk=site_select,itemsite_isactive=True).first()
+                if site_obj:
+                    site = site_obj
+
             app = self.get_object(pk)
             appt = Appointment.objects.filter(pk=app.pk,appt_isactive=True,itemsite_code=site.itemsite_code).first()
             if not appt:
@@ -5972,7 +6014,14 @@ class AppointmentSortAPIView(generics.ListCreateAPIView):
         fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
         queryset = Employee.objects.none()
         emp = fmspw[0].Emp_Codeid
-        site = fmspw[0].loginsite   
+        site = fmspw[0].loginsite 
+
+        #siteCode option filter
+        site_select = self.request.GET.get('site_select', None)
+        if site_select:
+            site_obj = ItemSitelist.objects.filter(pk=site_select,itemsite_isactive=True).first()
+            if site_obj:
+                site = site_obj  
     
         if self.request.GET.get('date',None) and not self.request.GET.get('date',None) is None:
             date = self.request.GET.get('date',None)
@@ -6043,7 +6092,14 @@ class AppointmentSortAPIView(generics.ListCreateAPIView):
     def create(self, request):
         try:
             fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True).first()
-            site = fmspw.loginsite   
+            site = fmspw.loginsite  
+
+            #siteCode option filter
+            site_select = self.request.data.get('site_select', None)
+            if site_select:
+                site_obj = ItemSitelist.objects.filter(pk=site_select,itemsite_isactive=True).first()
+                if site_obj:
+                    site = site_obj  
     
             if not request.data['emp_ids'] or request.data['emp_ids'] == [] or request.data['emp_ids'] is None:
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Please Select Employee!!",'error': True} 
@@ -6115,6 +6171,15 @@ class StockListViewset(viewsets.ModelViewSet):
 
     def list(self, request):
         try:
+            try:
+                limit = int(request.GET.get("limit",12))
+            except:
+                limit = 12
+            try:
+                page = int(request.GET.get("page",1))
+            except:
+                page = 1
+
             ss_system_obj = Systemsetup.objects.filter(title='staffskill',
             value_name='staffskill',isactive=True).first()
 
@@ -6187,9 +6252,18 @@ class StockListViewset(viewsets.ModelViewSet):
             systemsetup_dur = Systemsetup.objects.filter(title='AppointmentServiceDurationAdd'
             ,value_name='AppointmentServiceDurationAdd',isactive=True).first()
             # print(queryset,"queryset")
+
+            total_page = 1;total = len(queryset)
+            
+            isstock_obj = False
+            system_setup = Systemsetup.objects.filter(title='Stock Setting',value_name='Free Text',isactive=True).first()
+            if system_setup and system_setup.value_data:
+                # isstock_obj = Stock.objects.filter(pk=system_setup.value_data,item_isactive=True).order_by('item_seq').first()
+                isstock_obj = Stock.objects.filter(pk=system_setup.value_data).order_by('item_seq').first()
+
             if queryset:
                 serializer_class = StockListSerializer
-                total = len(queryset)
+                # total = len(queryset)
                 state = status.HTTP_200_OK
                 message = "Listed Succesfully"
                 error = False
@@ -6245,16 +6319,17 @@ class StockListViewset(viewsets.ModelViewSet):
                 # sleep(2) 
                 # print(len(lst),"lst length") 
                 v['dataList'] =  lst  
-                v['stock_id'] = ""
-                system_setup = Systemsetup.objects.filter(title='Stock Setting',value_name='Free Text',isactive=True).first()
-                if system_setup and system_setup.value_data:
-                    # isstock_obj = Stock.objects.filter(pk=system_setup.value_data,item_isactive=True).order_by('item_seq').first()
-                    isstock_obj = Stock.objects.filter(pk=system_setup.value_data).order_by('item_seq').first()
-                    v['stock_id'] = isstock_obj.pk if isstock_obj else ""
+                # v['stock_id'] = ""
+                v['stock_id'] = isstock_obj.pk if isstock_obj else ""
                 return Response(result, status=status.HTTP_200_OK)   
             else:
                 serializer = self.get_serializer()
-                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+                result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
+                'data': {'meta': {'pagination': {"per_page":limit,"current_page":page,"total":total,
+                "total_pages":total_page}}, 'dataList': []},"stock_id": isstock_obj.pk if isstock_obj else ""}
+
+                # result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': [],
+                # "stock_id": isstock_obj.pk if isstock_obj else ""}
             return Response(data=result, status=status.HTTP_200_OK)
         except Exception as e:
             invalid_message = str(e)
@@ -8568,6 +8643,11 @@ class postaudViewset(viewsets.ModelViewSet):
                                 # print(taud.pay_premise,taud.credit_debit)
                                 if taud:
                                     taud_ids.append(taud.pk)
+
+                                payremarks = req.get('pay_rem4', None)
+                                if payremarks:
+                                    taud.pay_rem4 = payremarks
+                                    taud.save()    
                         
                         # taudid=taud,
                         payModeChangeLog(sa_transacno=sa_transacno,paytype=req['old_paytype'] if 'old_paytype' in req else None,
@@ -9787,6 +9867,10 @@ class postaudViewset(viewsets.ModelViewSet):
                                 # print(taud.pay_premise,taud.credit_debit)
                                 if taud:
                                     taud_ids.append(taud.pk)
+                                payremarks = req.get('pay_rem4', None)
+                                if payremarks:
+                                    taud.pay_rem4 = payremarks
+                                    taud.save()    
                 
                 # print(n)
                 # print(taud_ids,"taud_ids")
@@ -10334,7 +10418,7 @@ class postaudViewset(viewsets.ModelViewSet):
         except Exception as e:
            invalid_message = str(e)
            return general_error_response(invalid_message)
-     
+        
         # state = status.HTTP_400_BAD_REQUEST
         # message = "Invalid Input"
         # error = True
@@ -12915,7 +12999,14 @@ class EmployeeAppointmentViewNew(viewsets.ModelViewSet):
                 raise Exception('Login Employee Does not exist')
 
             emp = fmspw.Emp_Codeid
-            site = fmspw.loginsite  
+            site = fmspw.loginsite
+
+            #siteCode option filter
+            site_select = request.GET.get('site_select', None)
+            if site_select:
+                site_obj = ItemSitelist.objects.filter(pk=site_select,itemsite_isactive=True).first()
+                if site_obj:
+                    site = site_obj
             
             # current_time = datetime.datetime.now().strftime('%H:%M:%S')
             view_type = request.GET.get('type',None)
@@ -13035,8 +13126,8 @@ class EmployeeAppointmentViewNew(viewsets.ModelViewSet):
                     app_queryset = False
                     if send_data != []:
                         if check == "day":
-                            app_queryset = Appointment.objects.filter(emp_noid__pk__in=send_data,appt_date=date,appt_isactive=True,
-                            itemsite_code=site.itemsite_code).order_by('linkcode','appt_fr_time')
+                            # itemsite_code=site.itemsite_code
+                            app_queryset = Appointment.objects.filter(emp_noid__pk__in=send_data,appt_date=date,appt_isactive=True).order_by('linkcode','appt_fr_time')
                         elif check == "week":
                             startweek = date - timedelta(date.weekday())
                             endweek = startweek + timedelta(7)
@@ -13280,6 +13371,9 @@ class EmployeeAppointmentViewNew(viewsets.ModelViewSet):
                             i['gender'] = gender
                             i['age'] = age
                             i['sec_status_flag'] = True if obj.sec_status == "Rescheduled" else False 
+                            i['itemsite_code'] = obj.itemsite_code
+                            i['itemsite_desc'] = obj.ItemSite_Codeid.itemsite_desc if obj.ItemSite_Codeid and obj.ItemSite_Codeid.itemsite_desc else ""
+
 
 
 
@@ -13989,6 +14083,19 @@ class CustApptAPI(generics.ListAPIView):
         try:
             serializer_class = CustApptSerializer
             queryset = self.filter_queryset(self.get_queryset())
+            # result = {}
+            # today = date.today()
+
+            # birthday_customers = [customer for customer in queryset if customer.cust_dob and customer.cust_dob.month == today.month]
+
+            # if birthday_customers:
+            #     birthday_serializer = self.get_serializer(birthday_customers, many=True, context={'request': self.request})
+            #     birthday_response = {'status': status.HTTP_200_OK, "message": "Customers with birthdays in the current month", 'error': False, 'data': birthday_serializer.data}
+            # else:
+            #     birthday_response = {'status': status.HTTP_204_NO_CONTENT, "message": "No customers with birthdays in the current month", 'error': False, 'data': []}
+            
+            # result.update(birthday_response)
+
             if queryset:
                 serializer = self.get_serializer(queryset, many=True, context={'request': self.request})
                 result = {'status': status.HTTP_200_OK,"message": "Listed Succesfully",'error': False, 'data':  serializer.data}
@@ -14784,6 +14891,13 @@ class AppointmentBlockViewset(viewsets.ModelViewSet):
         try:
             fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True).first()
             site = fmspw.loginsite
+
+            #siteCode option filter
+            site_select = request.data.get('site_select', None)
+            if site_select:
+                site_obj = ItemSitelist.objects.filter(pk=site_select,itemsite_isactive=True).first()
+                if site_obj:
+                    site = site_obj
             
             reason_obj = BlockReason.objects.filter(active=True,pk=request.data['reason_id']).first()
             if not reason_obj:
@@ -14937,6 +15051,14 @@ class AppointmentBlockViewset(viewsets.ModelViewSet):
         try:
             fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
             site = fmspw.loginsite
+
+            #siteCode option filter
+            site_select = request.GET.get('site_select', None)
+            if site_select:
+                site_obj = ItemSitelist.objects.filter(pk=site_select,itemsite_isactive=True).first()
+                if site_obj:
+                    site = site_obj
+                    
             appointment = self.get_object(pk)
             appt = Appointment.objects.filter(pk=appointment.pk,appt_isactive=True,itemsite_code=site.itemsite_code).first()
             if not appt:
@@ -14975,6 +15097,15 @@ class AppointmentBlockViewset(viewsets.ModelViewSet):
         try:
             fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
             site = fmspw.loginsite
+
+            #siteCode option filter
+            site_select = request.data.get('site_select', None)
+            if site_select:
+                site_obj = ItemSitelist.objects.filter(pk=site_select,itemsite_isactive=True).first()
+                if site_obj:
+                    site = site_obj
+
+            
             app = self.get_object(pk)
             emp_obj = Employee.objects.filter(emp_code=app.emp_no,emp_isactive=True).first()
             if not emp_obj:
@@ -21943,6 +22074,10 @@ class customerinvoicetemplatefiledownload(APIView):
                         # print(response,"response")
                         return response
 
+                result = {'status': status.HTTP_204_NO_CONTENT,
+                "message":"No Content",'error': False, 'data': []}
+                return Response(data=result, status=status.HTTP_200_OK)        
+
             else:
                 raise Exception('POST Method only allowed!!')   
         except Exception as e:
@@ -27404,7 +27539,7 @@ class InvoiceTemplateConfigViewset(viewsets.ModelViewSet):
                     
                         if inv_obj_ids:
                             for idx, reqt in enumerate(invtemp_ids, start=1): 
-                                print(idx,reqt,"reqt")
+                                # print(idx,reqt,"reqt")
                                 inv_obj = invoicetemplate.objects.filter(pk=reqt).first()
                                 if inv_obj:
                                     inv_obj.order_seq = idx  
@@ -27424,6 +27559,40 @@ class InvoiceTemplateConfigViewset(viewsets.ModelViewSet):
 
 
 
+class CustomerPointsListViewset(viewsets.ModelViewSet):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    serializer_class = CustomerPointsListSerializer
+
+    
+    def list(self, request):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+            site = fmspw[0].loginsite
+            if not self.request.GET.get('cust_id',None):
+                raise Exception('Please give Customer id!!.')
+
+            cust_obj = Customer.objects.filter(pk=self.request.GET.get('cust_id',None),cust_isactive=True).first()
+            if not cust_obj:
+                raise Exception('Customer ID does not exist') 
+
+            queryset = CustomerPoint.objects.filter(cust_code=cust_obj.cust_code).order_by('-pk')
+    
+            serializer_class = CustomerPointsListSerializer
+            
+            total = len(queryset) if queryset else 0
+            state = status.HTTP_200_OK
+            message = "Listed Succesfully"
+            error = False
+            data = None
+            result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+            return Response(result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+        
+
+
 
 
 class ManualRewardPointCustomerViewset(viewsets.ModelViewSet):
@@ -27437,7 +27606,7 @@ class ManualRewardPointCustomerViewset(viewsets.ModelViewSet):
         if not cust_obj:
             raise Exception('Customer ID does not exist') 
 
-        queryset = CustomerPoint.objects.filter(type="Manual Reward",cust_code=cust_obj.cust_code).order_by('-pk')
+        queryset = CustomerPoint.objects.filter(type__in=["Manual Reward","Manual Redeem"],cust_code=cust_obj.cust_code).order_by('-pk')
        
         return queryset
 
@@ -27463,6 +27632,30 @@ class ManualRewardPointCustomerViewset(viewsets.ModelViewSet):
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)
+    
+      
+
+
+    @action(detail=False, methods=['get'], name='Check')
+    def getmanualpointadjustment(self, request):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True).first()
+            site = fmspw.loginsite
+            if not self.request.GET.get('cust_id',None):
+                raise Exception('Please give Customer id!!.')
+            cust_obj = Customer.objects.filter(pk=self.request.GET.get('cust_id',None),cust_isactive=True).first()
+            if not cust_obj:
+                raise Exception('Customer ID does not exist') 
+            
+            if cust_obj:
+                data = {'cust_point_value': "{:.2f}".format(cust_obj.cust_point_value)  if cust_obj.cust_point_value else "0.00"}
+                result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 'data':  data}
+            else:
+                result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
+            return Response(data=result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
 
 
     @transaction.atomic
@@ -27476,13 +27669,17 @@ class ManualRewardPointCustomerViewset(viewsets.ModelViewSet):
                     raise Exception('Please give Customer id!!.') 
 
                 if not 'total_point' in request.data or not request.data['total_point']:
-                    raise Exception('Please give Point!!.') 
+                    raise Exception('Please give Total point!!.') 
 
                 if not 'remarks' in request.data or not request.data['remarks']:
                     raise Exception('Please give remark!!.') 
                 
                 if not 'ref_source' in request.data or not request.data['ref_source']:
                     raise Exception('Please give ref source!!.') 
+
+                if not 'adjust_type' in request.data or not request.data['adjust_type']:
+                    raise Exception('Please give adjustment type!!.') 
+            
         
     
                 cust_id = request.data['cust_id'] 
@@ -27494,16 +27691,6 @@ class ManualRewardPointCustomerViewset(viewsets.ModelViewSet):
 
                 serializer = ManualRewardPointSerializer(data=request.data)
                 if serializer.is_valid():
-                    rew_refcontrol_obj = ControlNo.objects.filter(control_description__iexact="Reward Sales",Site_Codeid__pk=fmspw.loginsite.pk).first()
-                    if not rew_refcontrol_obj:
-                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Reward Sales Control No does not exist!!",'error': True} 
-                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-                    
-                    control_obj = ControlNo.objects.filter(control_description__iexact="Manual Reward Points",Site_Codeid__pk=fmspw.loginsite.pk).first()
-                    if not control_obj:
-                        result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Manual Reward Points Control No does not exist!!",'error': True} 
-                        return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-                    
                     now_point = 0
                     if cust_obj and cust_obj.cust_point_value == None: 
                         now_point = 0
@@ -27511,47 +27698,121 @@ class ManualRewardPointCustomerViewset(viewsets.ModelViewSet):
                         if cust_obj and cust_obj.cust_point_value and cust_obj.cust_point_value > 0:
                             now_point = cust_obj.cust_point_value
 
-                    
-                    rew_transacno = str(rew_refcontrol_obj.control_prefix)+str(rew_refcontrol_obj.Site_Codeid.itemsite_code)+str(rew_refcontrol_obj.control_no)
-                    rew_refcontrol_obj.control_no = int(rew_refcontrol_obj.control_no) + 1
-                    rew_refcontrol_obj.save()
+                    custnow_point = now_point         
 
-                    
-                    sa_transacno = str(control_obj.control_prefix)+str(control_obj.Site_Codeid.itemsite_code)+str(control_obj.control_no)
-                    control_obj.control_no = int(control_obj.control_no) + 1
-                    control_obj.save()  
-                    
-                    # itm_code=None,itm_desc=None
+                    if request.data['adjust_type'] == "Reward":
+                        rew_refcontrol_obj = ControlNo.objects.filter(control_description__iexact="Reward Sales",Site_Codeid__pk=fmspw.loginsite.pk).first()
+                        if not rew_refcontrol_obj:
+                            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Reward Sales Control No does not exist!!",'error': True} 
+                            return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                        
+                        control_obj = ControlNo.objects.filter(control_description__iexact="MANUAL REWARD POINTS",Site_Codeid__pk=fmspw.loginsite.pk).first()
+                        if not control_obj:
+                            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Manual Reward Points Control No does not exist!!",'error': True} 
+                            return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                        
+                        
+                        
+                        rew_transacno = str(rew_refcontrol_obj.control_prefix)+str(rew_refcontrol_obj.Site_Codeid.itemsite_code)+str(rew_refcontrol_obj.control_no)
+                        rew_refcontrol_obj.control_no = int(rew_refcontrol_obj.control_no) + 1
+                        rew_refcontrol_obj.save()
 
-                    now_point  += float(request.data['total_point'])
+                        
+                        sa_transacno = str(control_obj.control_prefix)+str(control_obj.Site_Codeid.itemsite_code)+str(control_obj.control_no)
+                        control_obj.control_no = int(control_obj.control_no) + 1
+                        control_obj.save()  
+                        
+                        # itm_code=None,itm_desc=None
 
-                    ct = CustomerPointDtl(type="Manual Reward",cust_code=cust_obj.cust_code,
+                        now_point  += float(request.data['total_point'])
+
+                        ct = CustomerPointDtl(type="Manual Reward",cust_code=cust_obj.cust_code,
+                            cust_name=cust_obj.cust_name,parent_code=None,parent_desc=None,
+                            parent_display=None,itm_desc="Manual Reward Points",
+                            point="{:.2f}".format(float(request.data['total_point'])),now_point="{:.2f}".format(now_point),remark=request.data['remarks'],remark_code=None,
+                            remark_desc=None,isvoid=False,void_referenceno=None,isopen=True,qty=1,
+                            seq=False,sa_status="SA",bal_acc2=None,point_acc1=None,
+                            point_acc2=None,locid=False)
+                        ct.save()
+
+                        cust_obj.cust_point_value = "{:.2f}".format(now_point)
+                        cust_obj.save()
+
+                        custpt = CustomerPoint(transacno=rew_transacno,date=date.today(),username=fmspw.pw_userlogin,
+                        time=timezone.now(),cust_name=cust_obj.cust_name,cust_code=cust_obj.cust_code,type="Manual Reward",
+                        refno=sa_transacno,ref_source=request.data['ref_source'],isvoid=False,sa_status="SA",void_referenceno=None,
+                        total_point="{:.2f}".format(float(request.data['total_point'])),now_point="{:.2f}".format(now_point),seq=None,remarks=request.data['remarks'],
+                        bal_point="{:.2f}".format(now_point-float(request.data['total_point'])),expired=False,expired_date=None,mac_code=False,logno=False,
+                        approval_user=fmspw.pw_userlogin,cardno=False,bdate=None,pdate=None,expired_point=0,
+                        postransactionno=sa_transacno,postotalamt=0,locid=False,mgm_refno=None,tdate=None)
+                        custpt.save()
+                        rewd = self.get_object(custpt.pk)
+                        serializer_c = ManualRewardPointSerializer(rewd)
+                        
+                        if ct:
+                            ct.transacno = rew_transacno 
+                            ct.total_point = "{:.2f}".format(request.data['total_point'])
+                            ct.save()
+
+                    elif request.data['adjust_type'] == "Redeem":
+                        redem_refcontrol_obj = ControlNo.objects.filter(control_description__iexact="Redeem Sales",Site_Codeid__pk=fmspw.loginsite.pk).first()
+                        if not redem_refcontrol_obj:
+                            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Redeem Sales Control No does not exist!!",'error': True} 
+                            return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
+                        control_obj = ControlNo.objects.filter(control_description__iexact="MANUAL REDEEM POINTS",Site_Codeid__pk=fmspw.loginsite.pk).first()
+                        if not control_obj:
+                            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Manual Redeem Points Control No does not exist!!",'error': True} 
+                            return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                        
+                            
+                        
+                        redem_transacno = str(redem_refcontrol_obj.control_prefix)+str(redem_refcontrol_obj.Site_Codeid.itemsite_code)+str(redem_refcontrol_obj.control_no)
+                        redem_refcontrol_obj.control_no = int(redem_refcontrol_obj.control_no) + 1
+                        redem_refcontrol_obj.save()
+
+                        sa_transacno = str(control_obj.control_prefix)+str(control_obj.Site_Codeid.itemsite_code)+str(control_obj.control_no)
+                        control_obj.control_no = int(control_obj.control_no) + 1
+                        control_obj.save() 
+
+                        # itm_code=None,itm_desc=None
+                        now_point  -= float(request.data['total_point'])
+                        cal_point = float(request.data['total_point'])
+
+                        
+
+                        rct = CustomerPointDtl(type="Manual Redeem",cust_code=cust_obj.cust_code,
                         cust_name=cust_obj.cust_name,parent_code=None,parent_desc=None,
-                        parent_display=None,itm_desc="Manual Reward Points",
-                        point="{:.2f}".format(float(request.data['total_point'])),now_point="{:.2f}".format(now_point),remark=request.data['remarks'],remark_code=None,
+                        parent_display=None,itm_code=None,itm_desc="Manual Redeem Points",
+                        point=-cal_point,now_point=now_point,remark=request.data['remarks'],remark_code=None,
                         remark_desc=None,isvoid=False,void_referenceno=None,isopen=True,qty=1,
                         seq=False,sa_status="SA",bal_acc2=None,point_acc1=None,
                         point_acc2=None,locid=False)
-                    ct.save()
+                        rct.save()
 
-                    cust_obj.cust_point_value = "{:.2f}".format(now_point)
-                    cust_obj.save()
+                        cust_obj.cust_point_value = "{:.2f}".format(now_point)
+                        cust_obj.save()
 
-                    custpt = CustomerPoint(transacno=rew_transacno,date=date.today(),username=fmspw.pw_userlogin,
-                    time=timezone.now(),cust_name=cust_obj.cust_name,cust_code=cust_obj.cust_code,type="Manual Reward",
-                    refno=sa_transacno,ref_source=request.data['ref_source'],isvoid=False,sa_status="SA",void_referenceno=None,
-                    total_point="{:.2f}".format(float(request.data['total_point'])),now_point="{:.2f}".format(now_point),seq=None,remarks=request.data['remarks'],
-                    bal_point="{:.2f}".format(now_point-float(request.data['total_point'])),expired=False,expired_date=None,mac_code=False,logno=False,
-                    approval_user=fmspw.pw_userlogin,cardno=False,bdate=None,pdate=None,expired_point=0,
-                    postransactionno=sa_transacno,postotalamt=0,locid=False,mgm_refno=None,tdate=None)
-                    custpt.save()
-                    rewd = self.get_object(custpt.pk)
-                    serializer_c = ManualRewardPointSerializer(rewd)
-                    
-                    if ct:
-                        ct.transacno = rew_transacno 
-                        ct.total_point = "{:.2f}".format(request.data['total_point'])
-                        ct.save()
+                        custrpt = CustomerPoint(transacno=redem_transacno,date=date.today(),username=fmspw.pw_userlogin,
+                                    time=timezone.now(),cust_name=cust_obj.cust_name,cust_code=cust_obj.cust_code,type="Manual Redeem",
+                                    refno=sa_transacno,ref_source=request.data['ref_source'],isvoid=False,sa_status="SA",void_referenceno=None,
+                                    total_point=-cal_point,now_point=now_point,seq=None,remarks=None,
+                                    bal_point= "{:.2f}".format(custnow_point),expired=False,expired_date=None,mac_code=False,logno=False,
+                                    approval_user=fmspw.pw_userlogin,cardno=False,bdate=None,pdate=None,expired_point=0,
+                                    postransactionno=sa_transacno,postotalamt=0,locid=False,mgm_refno=None,tdate=None)
+                        
+                        custrpt.save()
+                        reed = self.get_object(custrpt.pk)
+                        serializer_c = ManualRewardPointSerializer(reed)
+
+                        if rct:
+                            rct.transacno = redem_transacno 
+                            rct.total_point = -cal_point
+                            rct.save()
+                        
+                    else:
+                        raise Exception('adjustment type is not valid!!.') 
+
 
                     result = {'status': status.HTTP_201_CREATED,"message": "Created Succesfully",
                     'error': False,'data': serializer_c.data}

@@ -900,6 +900,7 @@ class Fmspw(models.Model):
     # flgbilling = models.BooleanField(db_column='flgbilling',default=False)  # Field name made lowercase.
     flgservicelimit = models.BooleanField(db_column='flgservicelimit',default=False,null=True)  # Field name made lowercase.
     flgpayment = models.BooleanField(db_column='flgPayment',default=False)  # Field name made lowercase.
+    flgPoint = models.BooleanField(db_column='flgPoint',default=False)  # Field name made lowercase.
 
     class Meta:
         db_table = 'FMSPW'
@@ -2851,6 +2852,8 @@ class ItemBatchSno(models.Model):
     batch_cost = models.FloatField(db_column='BATCH_COST', blank=True, null=True)  # Field name made lowercase.
     updated_at = models.DateTimeField(auto_now=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
+    itemcart = models.IntegerField(db_column='itemcart', blank=True, null=True)  # Field name made lowercase.
+
 
     class Meta:
         db_table = 'ITEM_BATCHSNO'

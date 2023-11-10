@@ -8425,12 +8425,20 @@ class VoidViewset(viewsets.ModelViewSet):
                             if d.itemcart.type == 'Deposit':
 
                                 if d.itemcart.batch_sno:
-                                    batchso_ids = ItemBatchSno.objects.filter(batch_sno__icontains=d.itemcart.batch_sno,
-                                    availability=False,site_code=d.itemsite_code).first()
-                                    if batchso_ids:
-                                        batchso_ids.availability = True
-                                        batchso_ids.save()
-                                    
+                                    # batchso_ids = ItemBatchSno.objects.filter(batch_sno__icontains=d.itemcart.batch_sno,
+                                    # availability=False,site_code=d.itemsite_code).first()
+                                    # if batchso_ids:
+                                    #     batchso_ids.availability = True
+                                    #     batchso_ids.save()
+
+                                    batchso_ext_ids = ItemBatchSno.objects.filter(itemcart=d.itemcart.pk,
+                                    availability=False,site_code=d.itemsite_code) 
+                                    if batchso_ext_ids:
+                                        for bx in batchso_ext_ids:
+                                            bx.availability = True
+                                            bx.save()
+
+
                             
                                 dacc_ids = DepositAccount.objects.filter(sa_transacno=haudobj.sa_transacno,sa_status='SA',type='Deposit',
                                 cust_code=haudobj.sa_custno,dt_lineno=d.dt_lineno)

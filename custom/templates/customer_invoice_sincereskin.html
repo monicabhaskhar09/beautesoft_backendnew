@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            /* margin-left: -520px; */
+        }
+        .titler {
+            font-size: 20px;
+            font-weight: bold;
+            text-align: right;
+        }
+        .left-align {
+            text-align: left;
+            /* display: inline-block; */
+            
+        }
+        .column {
+            float: left;
+            padding: 10px;
+            }
+        .section-left {
+            float: left;
+        }   
+        .section-right {
+            float: right;
+        }   
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+      
+        th {
+        border-top: 1px dashed black;
+        border-bottom: 1px dashed black;
+        text-align: center;
+        }
+
+
+        #leftbox {
+            float:left;
+            /* background:Red; */
+            width:25%;
+            height:150px;
+        }
+        #middlebox{
+            float:left;
+            /* background:Green; */
+            width:50%;
+            height:150px;
+        }
+        #rightbox{
+            float:right;
+            /* background:blue; */
+            width:25%;
+            height:150px;
+        }
+        .flex-parent-element {
+            display: flex;
+            width: 100%;
+        }
+
+        .flex-child-element {
+            flex: 1;
+            /* border: 2px solid blueviolet; */
+            margin: 10px;
+        }
+
+        .flex-child-element:first-child {
+            margin-right: 20px;
+        }
+        .dark {
+            border-bottom: 1px solid black;
+        }
+        .darktop {
+            border-top: 1px solid black;
+            text-align: center;
+            float: right;
+        }
+        .float-parent-element { 
+            display: flex;
+            width: 100%; 
+        } 
+        /* .float-child-element { 
+            float: left; 
+            width: 50%; 
+        }  */
+        .redfloat { 
+            /* background-color: red;  */
+            width: 40%; 
+            height: 100px; 
+            float: left;
+        } 
+        .greenfloat {
+            width: 30%; 
+            height: 100px; 
+            /* background-color: green;  */
+            float: left;
+        }
+        .yellowfloat { 
+            width: 30%; 
+            height: 100px; 
+            /* background-color: yellow;  */
+            float: right;
+        }
+    
+    </style>
+    
+    
+</head>
+{% load static %}
+{% load custom_tags %}
+
+<body>
+    <div class="container">
+        <div id="leftbox" >
+            <img src="{{path}}" width="100" height="100" alt="">
+        </div>
+        <div id = "middlebox" style="font-size: 14px;">
+            <div>{{name}}</div>
+            <div>
+                {% if company_reg_no %} <b>UEN :</b> {{ company_reg_no }} {% endif %} {% if gst_reg_no %} &nbsp; <b>GST Reg No :</b> {{ gst_reg_no }} {% endif %}
+            </div>
+            <div>{{address}}</div>
+        </div>
+
+           
+        <div id="rightbox" style="text-align: right">
+            {% if hdr.sa_transacno_type == "Receipt" %}
+                <div class="titler">INVOICE</div>
+            {% elif hdr.sa_transacno_type == "Redeem Service" %}
+                <div class="titler">Service Redeem</div>
+            {% elif hdr.sa_transacno_type == "Non Sales" %}
+                <div class="titler">Non Sales</div>
+            {% elif hdr.sa_transacno_type == "Void Transaction" %}
+                <div class="titler">Void Transaction</div>
+            {% else %}
+
+            {% endif %} 
+        
+            <!-- <p style="font-size: 15px;line-height: 6px;">Outstanding : {{ treatment_outstanding|floatformat:2 }}</p>  
+            <p style="font-size: 15px;line-height: 6px">Prepaid : {{ prepaid_bal|floatformat:2 }}</p>  -->
+            <!-- <p style="font-size: 15px;line-height: 6px">Credit Note : {{ creditnote_balance|floatformat:2 }}</p>   
+            <p style="font-size: 15px;line-height: 6px">Today Point : {{ today_point_amt }}</p>   
+            <p style="font-size: 15px;line-height: 6px">Total Point : {{ cust_point_value }}</p>    -->
+
+        </div>  
+           
+
+        <div class="section-left">
+            <div class="column">
+                <b>Branch Code</b> <br>
+                <b>Name</b> <br>
+                <b>Address</b><br>
+                <!-- <b>Tel Phone</b><br> -->
+            </div>
+            <div class="column">
+                <b>:</b><br>
+                <b>:</b><br>
+                <b>:</b><br>
+                <!-- <b>:</b><br> -->
+            </div>
+            <div class="column">
+                <!-- <b>:</b><br> -->
+                {{ fmspw.loginsite.itemsite_desc }}<br>
+                {{ hdr.sa_custname }} / {{ hdr.sa_custno }}<br>
+                {% if hdr.sa_custnoid.cust_address %} {{ hdr.sa_custnoid.cust_address }} {% endif %}<br>
+                
+            </div>
+        </div>
+        <div class="section-right">
+
+            <div class="column">
+                <b>Date</b><br>
+                <b>Invoice No</b><br>
+            </div>
+            <div class="column">
+                <b>:</b><br>
+                <b>:</b><br>
+            </div>
+            <div class="column">
+                {{ date }} {{ time }}<br>
+                {{ hdr.sa_transacno_ref }}<br>
+            </div>
+        </div>
+
+        <!-- #body desc-->
+        {% load mathfilters %}
+       
+        <table cellspacing="15" cellpadding="10" style="font-size: 15px;line-height: 12px;" >
+            <tr>
+                <th style="text-align: left;">No</th>
+                <th style="text-align: left;width: 40%;">Description</th>
+                <th style="text-align: left;">Qty</th>
+                <th style="text-align: right;width: 15%;">Net Price</th>
+                <th style="text-align: right;">Paid</th>
+                <th style="text-align: right;">Balance</th>
+                <th style="text-align: left;width: 20%;">Disc Reason / Status</th>
+                <th style="text-align: left;width: 20%;">Sold / Service By</th>
+            </tr>
+            
+        
+            {% for d in daud %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+    
+                {% if d.isfoc and d.holditemqty is None %}
+                    <td style="text-align: left;width: 40%;">{{ d.dt_itemdesc }}</td>
+                {% elif d.dt_status == "SA" and d.record_detail_type == "PACKAGE" %}
+                    <!-- {{ packages }} -->
+                    <td style="text-align: left;width: 40%">{{ d.dt_itemdesc }} &#8209; {% get_packages d %}</td>  
+                {% elif d.dt_status == "SA" and d.record_detail_type == "TD" %}
+                    <td style="text-align: left;width: 40%">{{ d.record_detail_type }} &#8209; {{ d.dt_itemdesc }}</td>
+                {% elif d.dt_status == "SA" and d.record_detail_type == 'TP SERVICE' or d.record_detail_type == 'TP PRODUCT' or d.record_detail_type == 'TP PREPAID' %}
+                    <td style="text-align: left;width: 40%">{{ d.record_detail_type }} &#8209; {{ d.dt_itemdesc }}</td>
+                {% elif d.dt_status == "VT" and d.record_detail_type == "PACKAGE" %}
+                    <td style="text-align: left;width: 40%">{{ d.dt_itemdesc }} - {% get_packages d %}</td>
+                {% elif d.dt_status == "VT" %}
+                    <td style="text-align: left;width: 40%">{{ d.dt_itemdesc }}</td>
+                {% elif d.dt_status == "VT" and d.record_detail_type == "TD"%}
+                    <td style="text-align: left;width: 40%">{{ d.dt_itemdesc }}</td>
+                {% elif d.dt_status == "VT" and d.record_detail_type == 'TP SERVICE' or d.record_detail_type == 'TP PRODUCT' or d.record_detail_type == 'TP PREPAID' %}
+                    <td style="text-align: left;width: 40%">{{ d.dt_itemdesc }}</td>
+                {% elif d.holditemqty is not None and d.record_detail_type == 'PRODUCT'%}
+                    <td style="text-align: left;width: 40%">{{ d.record_detail_type }} &#8209;{{ d.dt_itemdesc|add:"(H"}}{{ d.holditemqty|floatformat:"0"|add:")"}}</td>
+                {% else %}
+                    <td style="text-align: left;width: 40%">{{ d.record_detail_type }} &#8209; {{ d.dt_itemdesc }}
+                {% endif %}
+    
+                    <td style="text-align: left;">&nbsp;{{ d.dt_qty }}</td>
+                {% if d.dt_status == "SA" and d.record_detail_type == "TD" %}
+                    <td>&nbsp;</td>
+                {% else %}
+                    <td class="text-right;width: 15%;">$&nbsp;{{ d.dt_amt|floatformat:2 }}</td>
+                {% endif %}
+                <!-- <td style="font-weight: normal;font-size: 13px;border: 1px solid grey;">$&nbsp;{{ d.dt_discamt|floatformat:2 }}</td> -->
+                {% if d.dt_status == "SA" and d.record_detail_type == "TD" %}
+                    <td>&nbsp;</td>
+                {% else %}
+                    <td class="text-right">$&nbsp;{{ d.dt_deposit|floatformat:2 }}</td>
+                {% endif %}
+    
+                <!-- <li>13 - 17 = {{ 13|sub:17 }}</li> -->
+                {% if d.dt_status == "SA" and d.record_detail_type == "TD" %}
+                    <td>&nbsp;</td>
+                {% else %}
+                    <td class="text-right">$&nbsp;{{ d.dt_amt|sub:d.dt_deposit |floatformat:2 }}</td>
+                {% endif %}
+                {% if d.dt_discdesc %}
+                    <td style="text-align: left;width: 20%">{{ d.dt_discdesc }}</td>
+                {% else %}  
+                    <td>&nbsp;</td>  
+                {% endif %}
+
+                {% if d.staffs %}
+                    <td style="text-align: left;width: 20%">{{ d.staffs }}</td>                
+                {% endif %}
+
+            </tr>
+            {% endfor %}
+        
+        </table>
+
+        <!-- #Footer Part -->
+
+        <div class="float-parent-element">
+            <div class="redfloat">
+                <table style="border-collapse: collapse;" cellspacing="2" cellpadding="5" >
+                    <tr class="dark">
+                        <td style="text-align: left;">Payment Mode</th>
+                        <td></td>
+                        <td style="text-align: right;">Amount</td>
+                    </tr>
+                    {% for taud in postaud %}
+                        <tr>
+                            <td style="text-align: left;">{{ taud.pay_typeid.pay_description }}</td>
+                            <td style="text-align: center;">{% if taud.pay_rem1 %} {{ taud.pay_rem1 }} {% else %} {% endif %}</td>
+                            <td style="text-align: right;">${{ taud.pay_amt|floatformat:2 }}</td>
+                        </tr>
+                    {% endfor %}
+                </table>
+            </div>
+            <div class="greenfloat">
+            </div>    
+            <div class="yellowfloat">
+                <div  class="column">
+                    <b>Total</b> <br>
+                    <b>Credit Usage</b><br>
+                    <b>Voucher Usage</b><br>
+                    <b>Rounding Adjusment</b><br>
+                    <b>Payable</b><br>  
+                </div>
+                <div  class="column">
+                    <b>:</b><br>
+                    <b>:</b><br>
+                    <b>:</b><br>
+                    <b>:</b><br>
+                    <b>:</b><br>
+                </div>
+                <div  class="column">
+                    <b>{{ subtotal|floatformat:2 }}</b><br>
+                    <b>{{ creditnote_balance }}</b><br>
+                    <b>{{ voucher_balance }}</b><br>
+                    {% if hdr.sa_round %}
+                        <b>{{ hdr.sa_round|floatformat:2 }}</b><br>
+                    {% else %}
+                        <b>{{ "0.00" }}</b><br>
+                    {% endif %}
+                    <b>{{ billing_amount|floatformat:2 }}</b><br>
+                </div>            
+            </div>
+        </div>
+
+        <!-- <div class="flex-parent-element">
+            <div class="flex-child-element ">
+                <table style="border-collapse: collapse;" cellspacing="2" cellpadding="5" width="20%">
+                    <tr class="dark">
+                        <td style="text-align: left;">Payment Mode</th>
+                        <td></td>
+                        <td style="text-align: right;">Amount</td>
+                    </tr>
+                    {% for taud in postaud %}
+                        <tr>
+                            <td style="text-align: left;">{{ taud.pay_typeid.pay_description }}</td>
+                            <td style="text-align: center;">{% if taud.pay_rem1 %} {{ taud.pay_rem1 }} {% else %} {% endif %}</td>
+                            <td style="text-align: right;">${{ taud.pay_amt|floatformat:2 }}</td>
+                        </tr>
+                    {% endfor %}
+                </table>
+
+            </div>
+            <div class="flex-child-element ">
+                <div id="leftbox" style=" padding-left: 90px;width: 50%;">
+                    <b>Total</b> <br>
+                    <b>Credit Usage</b><br>
+                    <b>Voucher Usage</b><br>
+                    <b>Rounding Adjusment</b><br>
+                    <b>Payable</b><br>  
+                </div>
+                <div id="middlebox" style="width: 5%;">
+                    <b>:</b><br>
+                    <b>:</b><br>
+                    <b>:</b><br>
+                    <b>:</b><br>
+                    <b>:</b><br>
+                </div>
+                <div id="rightbox" style="width: 25%;">
+                    <b>{{ subtotal|floatformat:2 }}</b><br>
+                    <b>{{ creditnote_balance }}</b><br>
+                    <b>{{ voucher_balance }}</b><br>
+                    {% if hdr.sa_round %}
+                        <b>{{ hdr.sa_round|floatformat:2 }}</b><br>
+                    {% else %}
+                        <b>{{ "0.00" }}</b><br>
+                    {% endif %}
+                    <b>{{ billing_amount|floatformat:2 }}</b><br>
+                </div>            
+            </div>
+        </div> -->
+        
+        <div class="row">
+            <p><b>Remark : </b></p>
+            <p style="font-size: small;width: 40%;"><b>Goods sold are not refundable. Treatment Courses Signed are not refundable.</b></p>
+        </div>
+      
+        <!-- <p style="margin-left: 1px;margin-top: 10px;font-size: small;" ><b>Goods sold are not refundable. Treatment Courses Signed are not refundable.</b></p>
+        <p style="margin-left: 550px;margin-top: 25px;"><b>_________________________________</b></p><br>
+        <p style="margin-left: 550px;margin-top: -20px;"><b>Customer Acknowledgment</b></p>
+         -->
+       
+        <div style="display: flex; justify-content: space-between;">
+            <p style="width: 30%;" class="darktop"><b>Customer Acknowledgment</b></p>
+            <p style="font-size: small;width: 70%;"></p>
+        </div> 
+
+
+
+    </div>
+</body>
+</html>

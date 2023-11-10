@@ -45,7 +45,7 @@ TreatmentAccount, PosDaud, ItemDept, DepositAccount, PrepaidAccount, ItemDiv, Sy
 PackageHdr,PackageDtl,Paytable,Multistaff,ItemBatch,Stktrn,ItemUomprice,Holditemdetail,CreditNote,
 CustomerClass,ItemClass,Tmpmultistaff,Tmptreatment,ExchangeDtl,ItemUom,ItemHelper,PrepaidAccountCondition,
 City, State, Country, Stock,PayGroup,Tempcustsign,Item_MembershipPrice,TreatmentPackage,PrepaidOpenCondition,
-ItemBrand,CustomerPoint,TempprepaidAccountCondition,TempcartprepaidAccCond)
+ItemBrand,CustomerPoint,TempprepaidAccountCondition,TempcartprepaidAccCond,ItemBatchSno)
 from cl_app.models import ItemSitelist, SiteGroup, TmpTreatmentSession,TmpItemHelperSession,Usagelevel
 from cl_table.serializers import (PostaudSerializer,StaffsAvailableSerializer,PosdaudSerializer,TmpItemHelperSerializer,
 PrepaidOpenConditionSerializer)
@@ -746,7 +746,7 @@ class RoomViewset(viewsets.ModelViewSet):
 
         site = fmspw[0].loginsite
         if not site:
-            result = {'status': state,"message":"Users Item Site is not mapped!!",'error': True} 
+            result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Users Item Site is not mapped!!",'error': True} 
             return Response(result, status=status.HTTP_400_BAD_REQUEST) 
        
         queryset = Room.objects.filter(isactive=True,Site_Codeid=site,displayname__isnull=False).order_by('-id')
@@ -6021,6 +6021,8 @@ class itemCartViewset(viewsets.ModelViewSet):
     authentication_classes=[ExpiringTokenAuthentication],name='qtyupdate')
     def qtyupdate(self, request, pk=None):
         try:
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True).first()
+            site = fmspw.loginsite
             itemcart = self.get_object(pk)
             if itemcart.type in ['Top Up','Sales','Exchange']:
                 result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Topup/Sales/Exchange Cart Edit is not applicable!!",'error': True} 
@@ -6069,6 +6071,20 @@ class itemCartViewset(viewsets.ModelViewSet):
                 else:
                     ItemCart.objects.filter(id=itemcart.id).update(quantity=qty,
                     total_price=total_price,trans_amt=trans_amt,deposit=deposit)
+
+                if itemcart.quantity and int(itemcart.itemcodeid.item_div) == 1:
+                    if itemcart.batch_sno:
+                        batchso_ext_ids = ItemBatchSno.objects.filter(availability=True,site_code=site.itemsite_code,
+                        item_code=itemcart.itemcodeid.item_code,uom=itemcart.item_uom.uom_code).order_by('pk','batch_sno')
+                        # print(batchso_ext_ids,"batchso_ext_ids") 
+                        # print(len(batchso_ext_ids),"len(batchso_ext_ids)")
+                        # print(itemcart.quantity,"itemcart.quantity")
+                        if (batchso_ext_ids and qty > len(batchso_ext_ids)) or not batchso_ext_ids:
+                            result = {'status': status.HTTP_400_BAD_REQUEST,
+                            "message":"ItemBatchSno Serial Number does not exist!!",'error': True} 
+                            return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+                
+
 
                 result = {'status': status.HTTP_200_OK,"message":"Qty Updated Sucessfully",'error': False}
                 return Response(result, status=status.HTTP_200_OK)
@@ -7051,10 +7067,18 @@ class PosPackagedepositViewset(viewsets.ModelViewSet):
                             raise Exception('PosPackagedeposit id Does not exist') 
 
                         pos_code = str(pos.code)
-                        itm_code = pos_code[:-4]
+                        
+                        v = pos_code[-4:]
+                        # print(v,type(v),"v")
+                        if v == '0000':
+                            itm_code = pos_code[:-4]
+                        else:
+                            itm_code = pos_code
+
                         itmstock = Stock.objects.filter(item_code=itm_code).first()
                         if not itmstock:
-                            msg = "{0} does not exist".format(str(itmstock.item_name))
+                            # msg = "{0} does not exist".format(str(itmstock.item_name))
+                            msg = "{0} does not exist".format(str(pos.description))
                             result = {'status': status.HTTP_400_BAD_REQUEST,"message":msg,'error': True}
                             return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
                 
@@ -7515,8 +7539,18 @@ class ExchangeProductConfirmAPIView(generics.CreateAPIView):
 
                             #[HoldItemDetail]
                             if c.holditemqty and int(c.holditemqty) > 0:  
+                                if int(c.holditemqty) > 0:
+                                    holdstatus = "OPEN"
+                                elif int(c.holditemqty) == 0:
+                                    holdstatus = "Close"
+                                else:
+                                    holdstatus = "Close"
+
+
                                 product_issues_no = str(con_obj.control_prefix)+str(con_obj.Site_Codeid.itemsite_code)+str(con_obj.control_no)
                                 
+                                # holditemqty=0,status="Close",
+
                                 hold = Holditemdetail(itemsite_code=site.itemsite_code,sa_transacno=sa_transacno,
                                 transacamt=c.trans_amt,itemno=c.itemcodeid.item_code+"0000",
                                 hi_staffno=','.join([v.emp_code for v in salesstaff if v.emp_code]),
@@ -7524,7 +7558,7 @@ class ExchangeProductConfirmAPIView(generics.CreateAPIView):
                                 hi_qty=c.quantity,hi_discamt=0,hi_discpercent=0,hi_discdesc=None,
                                 hi_staffname=','.join([v.display_name for v in salesstaff if v.display_name]),
                                 hi_lineno=c.lineno,hi_uom=c.item_uom.uom_code,hold_item=False,hi_deposit=c.deposit,
-                                holditemqty=0,status="Close",sa_custno=cust_obj.cust_code,
+                                holditemqty=c.holditemqty,status=holdstatus,sa_custno=cust_obj.cust_code,
                                 sa_custname=cust_obj.cust_name,history_line=1,hold_type=c.holdreason.hold_desc if c.holdreason and c.holdreason.hold_desc else None,
                                 product_issues_no=product_issues_no)
                                 hold.save()
@@ -9221,6 +9255,10 @@ class CartServiceCourseViewset(viewsets.ModelViewSet):
             # if int(request.data['free_sessions']) > int(request.data['quantity']) or int(request.data['free_sessions']) > request.data['treatment_no']:
             #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Free Sessions should not greater than quantity/treatment_no ",'error': False}
             #     return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
+            if int(request.data['total_price']) <= 0 and int(request.data['discount_price']) > 0:
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Tota Price cannot be 0",'error': False}
+                return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
             
             if 'sessiondone' in request.data and request.data['sessiondone'] > 0:
                 help_ids = TmpItemHelper.objects.filter(itemcart=cart).exclude(tmptreatment__isnull=True).order_by('pk')
@@ -27354,6 +27392,10 @@ class UserAuthorizationPopup(generics.CreateAPIView):
                     elif request.data['type'] == 'ApptBlock':
                         if fmspw_c and fmspw_c.flgallowblockappointment == False:
                             raise Exception('Logined User not allowed to do Block Appointment !!')
+                    elif request.data['type'] == 'ManualRewardRedeemPoint':
+                        if fmspw_c and fmspw_c.flgPoint == False:
+                            raise Exception('User not allowed to do Manual Point Reward / Redeem!!')
+                              
                                 
                         
 

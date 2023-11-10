@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            /* margin-left: -520px; */
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .title {
+            font-size: 15px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 04px;
+        }
+        .titleh {
+            font-size: 15px;
+            text-align: center;
+            margin-bottom: 20px;
+            margin-top: -64px;
+        }
+        .titler {
+            font-size: 20px;
+            font-weight: bold;
+            text-align: right;
+            margin-bottom: -23px;
+            margin-right: 56px;
+        }
+
+        .section {
+            margin-top: 20px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .section-content {
+            margin-left: 20px;
+            text-align: left;
+        }
+
+        .invoice-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+        }
+
+        .invoice-table th, .invoice-table td {
+            border: 1px solid #000;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .invoice-table th {
+            background-color: #333;
+            color: #fff;
+        }
+
+        .invoice-table .totals {
+            font-weight: bold;
+        }
+        /* th, td {
+            border: 1px solid black;
+            padding: 8px;
+            text-align: center;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        } */
+
+        .totals {
+            text-align: right;
+            font-weight: bold;
+        }
+
+        .signatures {
+            margin-top: 20px;
+        }
+        .left-align {
+            text-align: left;
+            /* display: inline-block; */
+            
+        }
+        .right-align {
+            text-align: right;
+            /* display: inline-block; */
+            width: 100%;
+            margin-bottom: 35px;
+            margin-top: -73px;
+        }
+        .right-align6 {
+            text-align: left;
+            /* display: inline-block; */
+            width: 100%;
+            margin-bottom: 35px;
+            margin-top: -91px;
+            margin-left: 500px;
+        }
+        .right-align7 {
+            text-align: left;
+            /* display: inline-block; */
+            width: 100%;
+            margin-bottom: 35px;
+            margin-top: -72px;
+            margin-left: 596px;
+        }
+        .right-align77 {
+            text-align: left;
+            /* display: inline-block; */
+            width: 100%;
+            margin-bottom: 35px;
+            margin-top: -75px;
+            margin-left: 605px;
+        }
+        .right-align4 {
+            text-align: right;
+            /* display: inline-block; */
+            width: 100%;
+            margin-bottom: 35px;
+            margin-top: -160px;
+            margin-left: -100px;
+        }
+        .right-align44 {
+            text-align: right;
+            /* display: inline-block; */
+            width: 100%;
+            margin-bottom: 35px;
+            margin-top: -140px;
+            margin-left: -70px;
+        }
+        .right-align5 {
+            text-align: left;
+            /* display: inline-block; */
+            width: 100%;
+            margin-bottom: 38px;
+            margin-top: -80px;
+            margin-left: 120px;
+        }
+        .right-align55 {
+            text-align: left;
+            /* display: inline-block; */
+            width: 100%;
+            margin-bottom: 48px;
+            margin-top: -118px;
+            margin-left: 130px;
+        }
+        .spaDetails img{
+        /* border-radius: 50%; */
+        width: 8rem;
+        height: 8rem;
+        }
+        .img.sticky {
+        position: -webkit-sticky;
+        position: sticky;
+        top: 0;
+        width: 200px;
+        margin-top: 10px;
+        }
+        .right-align1 {
+            text-align: right;
+            /* display: inline-block; */
+            width: 50%;
+            margin-bottom: -16px;
+            z-index: 99999;
+            margin-top: -34px;
+            position: absolute;
+        }
+        .right-align2 {
+            text-align: right;
+            /* display: inline-block; */
+            width: 100%;
+            margin-bottom: -16px;
+
+        }
+        .right-align3 {
+            text-align: left;
+            /* display: inline-block; */
+            width: 100%;
+            margin-bottom: 35px;
+            margin-top: 1px;
+            margin-left: 470px;
+        }
+        .center-align {
+            text-align: center;
+        }
+        .value {
+            display: inline-block;
+            width: 100px;
+            text-align: right;
+        }
+        table {
+      border-collapse: collapse;
+    }
+
+    table, th, td {
+      border: none;
+    }
+    </style>
+    <style>
+        @media print {
+            body::after {
+                content: none !important;
+            }
+        }
+    </style>
+    
+</head>
+{% load static %}
+<body>
+    <div class="container">
+        <div class="title">{{name}}</div>
+        <!-- <img src="C:\Users\NEW\Downloads\aaa.jpg" alt="Logo" style="float: left; margin-right: -155px; width: 176px; height: 170px; margin-top: -52px;"> -->
+        <img src="{{path}}" width="55" height="55" alt="">
+        <div class="titleh">{{ company_reg_no }}<br>
+            <div id="address">{{address}}</div>
+            <br>
+           <script>
+               var addressElement = document.getElementById("address");
+       
+               var text = addressElement.textContent;
+               var parts = text.split("Tel");
+       
+               addressElement.innerHTML = parts[0] + "<br>Tel" + parts[1];
+           </script>
+                {% if hdr.sa_transacno_type == "Receipt" %}
+                    <div class="titler">INVOICE</div>
+                {% elif hdr.sa_transacno_type == "Redeem Service" %}
+                    <div class="titler">Service Redeem</div>
+                {% elif hdr.sa_transacno_type == "Non Sales" %}
+                    <div class="titler">Non Sales</div>
+                {% elif hdr.sa_transacno_type == "Void Transaction" %}
+                    <div class="titler">Void Transaction</div>
+                {% else %}
+                <h5></h5> 
+                {% endif %} 
+                <!-- Pusat Comersial Anggun City <br>
+                48000 Rawang, Selangor. <br>
+                Tel: +603 609 27499 +6013 284 2555</div> -->
+                <div class="section">
+  <div class="section-content">
+    <div class="left-align">
+      <!-- <b>Branch Code&nbsp;&nbsp;: </b>&nbsp;&nbsp;RW<br>
+      <b>Name&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:&nbsp;&nbsp;</b> Lee Mei Lin / RWT1103628<br>
+      <b>Address&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:&nbsp;&nbsp;</b> -->
+      <b>Branch Code</b> <br>
+      <b>Name</b> <br>
+      <b>Address</b><br>
+      <b>Tel Phone</b><br>
+    </div>
+    <div class="right-align5">
+        <b>:</b><br>
+        <b>:</b><br>
+        <b>:</b><br>
+        <b>:</b><br>
+    </div>
+    <div class="right-align55">
+        <!-- <b>:</b><br> -->
+        :<br>
+        {{ hdr.sa_custname }}/{{ hdr.sa_custno }}<br>
+        :<br>
+        :<br>
+    </div>
+    <div class="right-align6">
+      <!-- <b>Total</b>31-Aug-2021 2:29 pm<br>
+      <b>Invoice No</b> RCPRWT1202813<br>
+     -->
+     <b>Date</b><br>
+      <b>Invoice No</b><br>
+    </div>
+    <div class="right-align7">
+        <b>:</b><br>
+        <b>:</b><br>
+    </div>
+    <div class="right-align77">
+        {{ date }}{{ time }}<br>
+        {{ hdr.sa_transacno_ref }}<br>
+    </div>
+  </div>
+</div>
+
+<!-- <p style="margin-left: 0px;margin-top: -14px;margin-bottom: -65px;"><b>------------------------------------------------------------------------------------------------------------------------------------------------------</b></p><br>
+<p style="margin-left: 0px;margin-top: 80px;margin-bottom: -113px;"><b>------------------------------------------------------------------------------------------------------------------------------------------------------</b></p><br>
+                  
+        
+        <div class="section">
+            <table class="borderless-table">
+                
+                <thead>
+                
+
+                  <tr>
+
+                    <th>#</th>
+                    <th>Description</th>
+                    <th>Qty</th>
+                    <th>Net Price</th>
+                    <th>Paid</th>
+                    <th>Balance</th>
+                    <th>Disc Reason / Status</th>
+                    <th>Sold  / Service By</th>
+                    
+                  </tr>
+                  
+               
+           
+
+                </thead>
+             
+                
+                <br/>
+               
+                
+              
+                
+
+                <tbody>
+                    
+                  <tr>
+                    <td>1</td>
+                    <td>Skin Activating Treatment Essence (60ml) (BOTTLE)</td>
+                    <td>1</td>
+                    <td>376.00</td>
+                    <td>376.00</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td>EMILY</td>
+                  </tr>
+                  <tr>
+                    <td>2</td>
+                    <td>Youth Serum -30ml (BOTTLE)</td>
+                    <td>2</td>
+                    <td>288.00</td>
+                    <td>288.00</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td>EMILY</td>
+                  </tr>
+                  <tr>
+                    <td>3</td>
+                    <td>Barrier Booster (15ml) (BOTTLE)</td>
+                    <td>1</td>
+                    <td>188.00</td>
+                    <td>188.00</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td>EMILY</td>
+                  </tr>
+                  <tr>
+                    <td>4</td>
+                    <td>Aqua Cleanser (100ml) (BOTTLE)</td>
+                    <td>1</td>
+                    <td>135.00</td>
+                    <td>135.00</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td>EMILY</td>
+                  </tr>
+                  <!-- <tr>
+                    <td>5</td>
+                    <td>Ultimate UV Sunshield 30ml (BOTTLE)</td>
+                    <td>3</td>
+                    <td>444.00</td>
+                    <td>444.00</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td>EMILY</td>
+                  </tr>
+                  <tr>
+                    <td>6</td>
+                    <td>Eyebrow Reshaping</td>
+                    <td>1</td>
+                    <td>20.00</td>
+                    <td>20.00</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td>EMILY</td>
+                  </tr>
+                  <tr>
+                    <td>7</td>
+                    <td>Eyebrow Reshaping</td>
+                    <td>1</td>
+                    <td>20.00</td>
+                    <td>20.00</td>
+                    <td>0.00</td>
+                    <td>PROMOTION</td>
+                    <td>EMILY</td>
+                  </tr>
+                  <tr>
+                    <td>8</td>
+                    <td>Eyebrow Reshaping</td>
+                    <td>1</td>
+                    <td>20.00</td>
+                    <td>20.00</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td>EMILY</td>
+                  </tr>
+                  <tr>
+                    <td>9</td>
+                    <td>Eyebrow Reshaping</td>
+                    <td>1</td>
+                    <td>20.00</td>
+                    <td>20.00</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td>EMILY</td>
+                  </tr> -->
+                </tbody>
+                
+                <!-- <tfoot>
+                  <tr>
+                    <th colspan="2">Total</th>
+                    <td></td>
+                    <td>1,503.00</td>
+                    <td>1,480.00</td>
+                    <td>6.00</td>
+                    <td>23.00</td>
+                  </tr>
+                </tfoot> -->
+              </table>
+              
+              
+        </div> 
+        {% load mathfilters %}
+        <br>
+        <p style="margin-left: 0px;margin-top: -50px;margin-bottom: -5px;">------------------------------------------------------------------------------------------------------------------------------------------------------</p><br>
+          <p style="margin-left: 0px;margin-top: 15px;margin-bottom: -113px;">------------------------------------------------------------------------------------------------------------------------------------------------------</p><br>
+        <br>
+    <table cellspacing="15" cellpadding="10" style="font-size: 15px;" >
+      <tr>
+        <th>No</th>
+        <th>Description</th>
+        <th>Qty</th>
+        <th>Net Price</th>
+        <th>Paid</th>
+        <th>Balance</th>
+        <th>Disc Reason</th>
+        <th>Sold By</th>
+      </tr>
+      
+      
+      {% for d in daud %}
+        <tr>
+          <td>{{ forloop.counter }}</td>
+  
+            {% if d.isfoc and d.holditemqty is None %}
+              <td>{{ d.dt_itemdesc }}</td>
+            {% elif d.dt_status == "SA" and d.record_detail_type == "PACKAGE" %}
+              <td>{{ d.dt_itemdesc }}&#8209; {{ packages }}</td>  
+            {% elif d.dt_status == "SA" and d.record_detail_type == "TD" %}
+              <td>{{ d.record_detail_type }}&#8209; {{ d.dt_itemdesc }}</td>
+            {% elif d.dt_status == "SA" and d.record_detail_type == 'TP SERVICE' or d.record_detail_type == 'TP PRODUCT' or d.record_detail_type == 'TP PREPAID' %}
+              <td>{{ d.record_detail_type }}&#8209; {{ d.dt_itemdesc }}</td>
+            {% elif d.dt_status == "VT" %}
+              <td>{{ d.dt_itemdesc }}</td>
+            {% elif d.dt_status == "VT" and d.record_detail_type == "TD"%}
+              <td>{{ d.dt_itemdesc }}</td>
+            {% elif d.dt_status == "VT" and d.record_detail_type == 'TP SERVICE' or d.record_detail_type == 'TP PRODUCT' or d.record_detail_type == 'TP PREPAID' %}
+              <td>{{ d.dt_itemdesc }}</td>
+            {% elif d.holditemqty is not None and d.record_detail_type == 'PRODUCT'%}
+              <td>{{ d.record_detail_type }}&#8209;{{ d.dt_itemdesc|add:"(H"}}{{ d.holditemqty|floatformat:"0"|add:")"}}</td>
+            {% else %}
+              <td>{{ d.record_detail_type }}&#8209; {{ d.dt_itemdesc }}</td>
+            {% endif %}
+  
+            <td>&nbsp;{{ d.dt_qty }}</td>
+            {% if d.dt_status == "SA" and d.record_detail_type == "TD" %}
+              <td>&nbsp;</td>
+            {% else %}
+              <td class="text-right">$&nbsp;{{ d.dt_amt|floatformat:2 }}</td>
+            {% endif %}
+            <!-- <td style="font-weight: normal;font-size: 13px;border: 1px solid grey;">$&nbsp;{{ d.dt_discamt|floatformat:2 }}</td> -->
+            {% if d.dt_status == "SA" and d.record_detail_type == "TD" %}
+              <td>&nbsp;</td>
+            {% else %}
+              <td class="text-right">$&nbsp;{{ d.dt_deposit|floatformat:2 }}</td>
+            {% endif %}
+  
+            <!-- <li>13 - 17 = {{ 13|sub:17 }}</li> -->
+            {% if d.dt_status == "SA" and d.record_detail_type == "TD" %}
+              <td>&nbsp;</td>
+            {% else %}
+              <td class="text-right">$&nbsp;{{ d.dt_amt|sub:d.dt_deposit |floatformat:2 }}</td>
+            {% endif %}
+  
+           <td></td>
+            {% if d.staffs %}
+              {% with d.staffs|split:"/" as staffs %}
+                  {% for staff in staffs %}
+                      {% if forloop.counter == 1 %} 
+                          <td>{{ staff }}</td>
+                      {% endif %} 
+                      {% if forloop.counter == 2 %} 
+                          <td>{{ staff }}</td>
+                      {% endif %}
+                  {% endfor %}
+              {% endwith %}
+            {% endif %}
+
+          </tr>
+        {% endfor %}
+      <!-- <tr>
+        <th></th>
+        <th></th>
+        <th>{{ total_qty }}</th>
+        {% if d.dt_status == "SA" and d.record_detail_type == "TD" %}
+          <th>$&nbsp;{{ "0.00" }}</th>
+          <th>$&nbsp;{{ "0.00" }}</th>
+          <th>$&nbsp;{{ "0.00" }}</th>
+        {% else %}
+          <th class="text-right">$&nbsp;{{ trans_amt|floatformat:2 }}</th>
+          <th class="text-right">$&nbsp;{{ deposit_amt|floatformat:2 }}</th>
+          <th class="text-right">$&nbsp;{{ total_balance|floatformat:2 }}</th>
+        {% endif %}
+        <th></th>
+        <th></th>
+      </tr> -->
+  
+      <!-- <tr>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td colspan="2"><span style="font-weight:bold"></span>Sub Total:</td>
+        {% if d.dt_status == "SA" and d.record_detail_type == "TD" %}
+          <td><span style="font-weight:bold"></span>$ {{ "0.00" }}</td>
+        {% else %}
+          <td><span style="font-weight:bold"></span>$ {{ subtotal|floatformat:2 }}</td>
+        {% endif %}
+      </tr> -->
+      </table>
+      
+        <div class="section">   
+            <div class="section-content">
+                <div class="right-align3"><b>Total</b><br>
+                    <b>Credit Usage</b><br>  
+                    <b>Voucher Usage</b><br>  
+                    <b>Rounding Adjusment</b><br>   
+                    <b>Payable</b><br>  
+                </div>
+                <br>
+                <!-- <div class="right-align"><b>Invoice No :</b>RCPRWT1202813<br></div> -->
+            </div>
+            <div class="right-align4">
+                <b>:</b><br>
+                <b>:</b><br>
+                <b>:</b><br>
+                <b>:</b><br>
+                <b>:</b><br>
+            </div>
+            <div class="right-align44">
+                <b>{:}</b><br>
+                <b>{:}</b><br>
+                <b>{:}</b><br>
+                <b>{:}</b><br>
+                <b>{:}</b><br>
+            </div>            
+            <p style="margin-left: 1px;margin-top: -20px;"><b>Remark</b></p>
+            <p style="margin-left: 500px;margin-top: 25px;"><b>_________________________________</b></p><br>
+            <p style="margin-left: 540px;margin-top: -20px;"><b>Customer Acknowledgment</b></p>
+            {% for taud in postaud %}
+            <p style="margin-left: 1px;margin-top: -216px;"><b>Payment Mode&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;  Amount</b></p>
+            <p style="margin-left: 1px;margin-top: -25px;"><b>____________________________________________</b></p><br>
+            <p style="margin-left: -1px;margin-top: -23px;">{{ taud.pay_typeid.pay_description }}</p>
+            <p style="margin-left: 330px;margin-top: -33px;">${{ taud.pay_amt|floatformat:2 }}</p>
+            {% endfor %}
+            <!-- <div class="section-content signatures">
+                <!-- <div class="left-align">
+                    <strong>Finalised (if Finished):</strong>
+                    <span class="value" style="margin-left: 57px;"><strong>Name:</strong></span>
+                    <span class="value" style="margin-left: 104px;"><strong>Total:</strong></span>
+                    <br>
+                    <span class="value" style="margin-left: 104px;"><strong>Credit Usage:</strong></span>
+                </div> -->
+                <!-- <br> -->
+                <!-- <div class="left-align">
+                    Done by<span class="value" style="margin-left: 400px;">Total:</span>
+                </div><br>
+                <div class="left-align">
+                    Checked by:<span class="value" style="margin-left: 347px;">Credit Usage </span><span >Checked by </span>
+                </div> -->
+            </div>
+            <br>
+            <!-- <div class="section">
+                <div class="section-content right-align">
+                    <strong>MTD Net Sales:</strong>      <span class="value" style="margin-left: 20px;">{{ MTT_Net_Sales }}</span><br>
+                    <strong>MTD Gross Sales:</strong>      <span class="value">{{ MTT_Gross_Sales }}</span>
+                </div>
+            </div> -->
+        </div> -->
+    </div>
+</body>
+</html>

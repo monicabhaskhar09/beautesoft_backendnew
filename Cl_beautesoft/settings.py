@@ -151,7 +151,7 @@ WSGI_APPLICATION = 'Cl_beautesoft.wsgi.application'
 # DATABASES = {
 #     'default': {
 #         'ENGINE': 'sql_server.pyodbc',
-#         'NAME': 'f21',
+#         'NAME': 'vainessentials',
 #         'HOST': '103.253.14.235',
 #         'PORT': '8890',
 #         'USER': 'monica',
