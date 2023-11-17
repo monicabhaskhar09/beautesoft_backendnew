@@ -541,12 +541,13 @@ def GeneratePDF(self,request, sa_transacno):
     display.start()
     html = template.render(data)
     options = {
-        'margin-top': '.25in',
-        'margin-right': '.25in',
-        'margin-bottom': '.25in',
-        'margin-left': '.25in',
+        'margin-top': '.20in',
+        'margin-right': '.20in',
+        'margin-bottom': '.20in',
+        'margin-left': '.20in',
         'encoding': "UTF-8",
         'no-outline': None,
+        'enable-local-file-access': ""
     }
     
     # existing = os.listdir(settings.PDF_ROOT)

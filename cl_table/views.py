@@ -8615,9 +8615,11 @@ class postaudViewset(viewsets.ModelViewSet):
                             pay_actamt=req['pay_amt'],subtotal="{:.2f}".format(float(value['subtotal'])) if value['subtotal'] else 0.0,paychange=0.0,
                             tax="{:.2f}".format(float(value['tax_amt'])) if value['tax_amt'] else 0.0, discount_amt="{:.2f}".format(float(value['discount'])) if value['discount'] else 0.0,
                             billable_amount="{:.2f}".format(float(value['billable_amount'])) if value['billable_amount'] else 0.0,
-                            pay_gst_amt_collect="{:.2f}".format(float(pay_gst)),pay_gst="{:.2f}".format(float(pay_gst)),pay_rem4=req['pay_rem4'] if 'pay_rem4' in req and req['pay_rem4'] else None,
-                            sa_date=poshaud_v.sa_date,sa_time=poshaud_v.sa_time)
+                            pay_gst_amt_collect="{:.2f}".format(float(pay_gst)),pay_gst="{:.2f}".format(float(pay_gst)),pay_rem4=req['pay_rem4'] if 'pay_rem4' in req and req['pay_rem4'] else None)
                             
+                            taud.save()
+                            taud.sa_date = poshaud_v.sa_date
+                            taud.sa_time = poshaud_v.sa_time
                             taud.save()
 
                             depo_type = DepositType(sa_transacno=sa_transacno,pay_group=paytable.pay_groupid.pay_group_code,
@@ -8636,9 +8638,13 @@ class postaudViewset(viewsets.ModelViewSet):
                                 pay_desc=paytable.pay_description,pay_tendamt=req['pay_amt'],pay_tendrate=1.0,pay_amt=req['pay_amt'],pay_amtrate=1.0,pay_status=1,dt_lineno=idx,
                                 pay_actamt=0.0,subtotal="{:.2f}".format(float(value['subtotal'])) if value['subtotal'] else 0.0,paychange=0.0,
                                 tax=0.0, discount_amt="{:.2f}".format(float(value['discount'])) if value['discount'] else 0.0,
-                                billable_amount=0.0,pay_gst_amt_collect=0.0,pay_gst=0.0,sa_date=poshaud_v.sa_date,
-                                sa_time=poshaud_v.sa_time)
+                                billable_amount=0.0,pay_gst_amt_collect=0.0,pay_gst=0.0)
+
                                 taud.save()
+                                taud.sa_date = poshaud_v.sa_date
+                                taud.sa_time = poshaud_v.sa_time
+                                taud.save()
+
                                 #print(taud,"taud")
                                 # print(taud.pay_premise,taud.credit_debit)
                                 if taud:
@@ -9185,7 +9191,7 @@ class postaudViewset(viewsets.ModelViewSet):
                                 splt = str(req['pay_rem1']).split("-")
                                 pp_no = splt[0]
                                 line_no = splt[1]
-                                # print(pp_no,line_no,"line_no")
+                                print(pp_no,line_no,"line_no")
 
                                 if 'pay_rem2' in req and req['pay_rem2']:
                                     mpre_obj = PrepaidAccount.objects.filter(pk=req['pay_rem2']).first()
@@ -9215,6 +9221,7 @@ class postaudViewset(viewsets.ModelViewSet):
                                     pos_daud_lineno=line_no).order_by('pk')
 
                                 if pac_ids and ol_open_ids:
+                                    print("ol_open_ids")
                                     # .filter(~Q(itemcodeid__item_type='PACKAGE'))
                                     whole_ids = depotop_ids.filter(itemcodeid__item_div__in=[3,1,4,5])
                                     service_ids = depotop_ids.filter(itemcodeid__item_div=3)
@@ -15400,12 +15407,13 @@ class AppointmentListPdf(APIView):
                 display.start()
                 html = template.render(data)
                 options = {
-                    'margin-top': '.25in',
-                    'margin-right': '.25in',
-                    'margin-bottom': '.25in',
-                    'margin-left': '.25in',
+                    'margin-top': '.20in',
+                    'margin-right': '.20in',
+                    'margin-bottom': '.20in',
+                    'margin-left': '.20in',
                     'encoding': "UTF-8",
-                    'no-outline': None,       
+                    'no-outline': None,
+                    'enable-local-file-access': ""
                 }
                 
                 dst ="AppointmentReport" + ".pdf"
@@ -16243,12 +16251,13 @@ class DayEndListAPIView(generics.ListAPIView,generics.CreateAPIView):
                 display.start()
                 html = template.render(data)
                 options = {
-                    'margin-top': '.25in',
-                    'margin-right': '.25in',
-                    'margin-bottom': '.25in',
-                    'margin-left': '.25in',
+                    'margin-top': '.20in',
+                    'margin-right': '.20in',
+                    'margin-bottom': '.20in',
+                    'margin-left': '.20in',
                     'encoding': "UTF-8",
                     'no-outline': None,
+                    'enable-local-file-access': ""
                 }
                 
                 confirmdate = datetime.datetime.now().strftime('%d-%m-%YT%H:%M:%S')
@@ -17075,12 +17084,13 @@ class DayEndListAPIView(generics.ListAPIView,generics.CreateAPIView):
                         display.start()
                         html = template.render(data)
                         options = {
-                            'margin-top': '.25in',
-                            'margin-right': '.25in',
-                            'margin-bottom': '.25in',
-                            'margin-left': '.25in',
+                            'margin-top': '.20in',
+                            'margin-right': '.20in',
+                            'margin-bottom': '.20in',
+                            'margin-left': '.20in',
                             'encoding': "UTF-8",
                             'no-outline': None,
+                            'enable-local-file-access': ""
                         }
                         
                         dst ="DayEnd_"+str(site.itemsite_code)+"_"+date_str+"_"+fmspw_c.pw_userlogin+"_"+str(confirmdate)+".pdf"

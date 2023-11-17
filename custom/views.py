@@ -3155,15 +3155,36 @@ class itemCartViewset(viewsets.ModelViewSet):
                             packdtl_ids = PackageDtl.objects.filter(package_code=packhdr_ids.code,isactive=True)
                             if packdtl_ids:
                                 for padtl in packdtl_ids:
-                                    padtl_deposit = padtl.price * padtl.qty
+                                    # ,deposit_amt=round(padtl_deposit)
+                                    # padtl_deposit = padtl.price * padtl.qty
+                                    padtl_deposit = round(padtl.price * padtl.qty , 4)
                                     pos = PosPackagedeposit(code=padtl.code,description=padtl.description,price=padtl.price,
                                     discount=padtl.discount,package_code=padtl.package_code,package_description=packhdr_ids.description,
                                     qty=padtl.qty,unit_price=padtl.unit_price,ttl_uprice=padtl.ttl_uprice,site_code=site.itemsite_code,
-                                    dt_lineno=cart.lineno,status="PENDING",deposit_amt=round(padtl_deposit),deposit_lineno=padtl.line_no,
+                                    dt_lineno=cart.lineno,status="PENDING",deposit_amt=padtl_deposit,deposit_lineno=padtl.line_no,
                                     itemcart=cart)
                                     pos.save()
                                     pos.sa_date = date.today()
                                     pos.save()
+
+                                # pos_carids = PosPackagedeposit.objects.filter(itemcart=cart).order_by('pk')  
+                                # deposit_amt_sum = sum([i.deposit_amt for i in pos_carids])
+                                # # print(deposit_amt_sum,"deposit_amt_sum") 
+                                # if packhdr_ids and packhdr_ids.price:
+                                #     deductamt = 0
+                                #     if deposit_amt_sum > packhdr_ids.price:
+                                #         # print("iff")
+                                #         deductamt = deposit_amt_sum - packhdr_ids.price
+                                #         pos.deposit_amt = pos.deposit_amt - deductamt
+                                #         pos.save()
+                                #     elif deposit_amt_sum < packhdr_ids.price:
+                                #         # print("else")
+                                #         deductamt = packhdr_ids.price - deposit_amt_sum
+                                #         pos.deposit_amt = pos.deposit_amt + deductamt
+                                #         pos.save()
+                                #     # print(deductamt,"deductamt")
+                                   
+
                     
                     if int(stock_obj.item_div) == 5 and stock_obj.Item_Divid.itm_desc == 'PREPAID':
                         cart.prepaid_value = cart.itemcodeid.prepaid_value
@@ -6801,12 +6822,13 @@ class ReceiptPdfSend(APIView):
             display.start()
             html = template.render(data)
             options = {
-                'margin-top': '.25in',
-                'margin-right': '.25in',
-                'margin-bottom': '.25in',
-                'margin-left': '.25in',
+                'margin-top': '.20in',
+                'margin-right': '.20in',
+                'margin-bottom': '.20in',
+                'margin-left': '.20in',
                 'encoding': "UTF-8",
                 'no-outline': None,
+                'enable-local-file-access': ""
             }
             
             # existing = os.listdir(settings.PDF_ROOT)
@@ -6950,9 +6972,9 @@ class PosPackagedepositViewset(viewsets.ModelViewSet):
 
                     net_deposit += dict_t['net_amt']
                     # dict_t['deposit_amt'] = "{:.2f}".format(float(dict_t['deposit_amt']))
-                    dict_t['deposit_amt'] = decimailpoint(dict_t['deposit_amt'])
+                    # dict_t['deposit_amt'] = decimailpoint(dict_t['deposit_amt'])
                     # dict_t['net_amt'] = "{:.2f}".format(float(dict_t['net_amt']))
-                    dict_t['net_amt'] = decimailpoint(dict_t['net_amt'])
+                    # dict_t['net_amt'] = decimailpoint(dict_t['net_amt'])
                     lst.append(dict_t)
                 
                 if request.GET.get('autoamt', None):
@@ -28461,12 +28483,13 @@ class StudioPdfGeneration(APIView):
             display.start()
             html = template.render(data)
             options = {
-                'margin-top': '.25in',
-                'margin-right': '.25in',
-                'margin-bottom': '.25in',
-                'margin-left': '.25in',
+                'margin-top': '.20in',
+                'margin-right': '.20in',
+                'margin-bottom': '.20in',
+                'margin-left': '.20in',
                 'encoding': "UTF-8",
                 'no-outline': None,
+                'enable-local-file-access': ""
             }
             
             # existing = os.listdir(settings.PDF_ROOT)

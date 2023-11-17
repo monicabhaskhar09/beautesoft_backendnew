@@ -6552,14 +6552,15 @@ class ReversalListViewset(viewsets.ModelViewSet):
                     display.start()
                     html = template.render(data)
                     options = {
-                        'margin-top': '.25in',
-                        'margin-right': '.25in',
-                        'margin-bottom': '.25in',
-                        'margin-left': '.25in',
+                        'margin-top': '.20in',
+                        'margin-right': '.20in',
+                        'margin-bottom': '.20in',
+                        'margin-left': '.20in',
                         'encoding': "UTF-8",
                         'no-outline': None,
-                        
+                        'enable-local-file-access': ""
                     }
+                    
 
                     dst ="creditnote_" + str(str(credit_ids[0].credit_code)) + ".pdf"
 
@@ -6669,13 +6670,13 @@ class ReversalListViewset(viewsets.ModelViewSet):
                 display.start()
                 html = template.render(data)
                 options = {
-                    'margin-top': '.25in',
-                    'margin-right': '.25in',
-                    'margin-bottom': '.25in',
-                    'margin-left': '.25in',
+                    'margin-top': '.20in',
+                    'margin-right': '.20in',
+                    'margin-bottom': '.20in',
+                    'margin-left': '.20in',
                     'encoding': "UTF-8",
                     'no-outline': None,
-                    
+                    'enable-local-file-access': ""
                 }
 
                 dst ="creditnote_" + str(str(credit_obj.credit_code)) + ".pdf"
@@ -15501,12 +15502,13 @@ class HolditemdetailViewset(viewsets.ModelViewSet):
                         display.start()
                         html = template.render(data)
                         options = {
-                            'margin-top': '.25in',
-                            'margin-right': '.25in',
-                            'margin-bottom': '.25in',
-                            'margin-left': '.25in',
-                            'encoding': "UTF-8",
-                            'no-outline': None,
+                        'margin-top': '.20in',
+                        'margin-right': '.20in',
+                        'margin-bottom': '.20in',
+                        'margin-left': '.20in',
+                        'encoding': "UTF-8",
+                        'no-outline': None,
+                        'enable-local-file-access': ""
                         }
 
                         dst ="holditem_" + str(str(hold_ids.sa_transacno)) + ".pdf"

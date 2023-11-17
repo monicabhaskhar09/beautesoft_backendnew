@@ -81,7 +81,7 @@ class StockRetailSerializer(serializers.ModelSerializer):
     
     def to_representation(self, instance):
         data = super(StockRetailSerializer, self).to_representation(instance)
-        data['item_price'] = ""
+        data['item_price'] = "0.00"
         if instance.item_price:
             data['item_price'] = "{:.2f}".format(float(instance.item_price)) 
 
