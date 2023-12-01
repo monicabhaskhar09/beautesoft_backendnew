@@ -1911,12 +1911,6 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
 
 
                 elif int(c.itemcodeid.Item_Divid.itm_code) == 4 and c.itemcodeid.Item_Divid.itm_desc == 'VOUCHER' and c.itemcodeid.Item_Divid.itm_isactive == True:
-                    vorecontrolobj = ControlNo.objects.filter(control_description__iexact="Public Voucher",Site_Codeid__pk=fmspw.loginsite.pk).first()
-                    # if not vorecontrolobj:
-                    #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Voucher Record Control No does not exist!!",'error': True} 
-                    #     return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-
-                    voucher_code = str(vorecontrolobj.control_prefix)+str(vorecontrolobj.Site_Codeid.itemsite_code)+str(vorecontrolobj.control_no)
                     vo_percent = None
                     if c.itemcodeid.voucher_value_is_amount == True:
                         vo_percent = 0
@@ -1944,19 +1938,30 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                         voucher_nameval = c.itemcodeid.item_name+" "+"(FOC)"
                     else:
                         voucher_nameval = c.itemcodeid.item_name    
+                    
+                    cart_qty = c.quantity
+                    for i in range(1, int(cart_qty)+1):
 
-                    vo_rec = VoucherRecord(sa_transacno=sa_transacno,voucher_name=voucher_nameval,
-                    voucher_no=voucher_code,value=c.price,cust_codeid=cust_obj,cust_code=cust_obj.cust_code,
-                    cust_name=cust_obj.cust_name,percent=vo_percent,site_codeid=site,site_code=site.itemsite_code,
-                    issued_expiry_date=end_date if end_date else None,issued_staff=','.join([v.emp_code for v in salesstaff if v.emp_code]),
-                    onhold=0,paymenttype=None,remark=None,type_code=vorecontrolobj.control_prefix,used=0,
-                    ref_fullvoucherno=None,ref_rangefrom=None,ref_rangeto=None,site_allocate=None,dt_lineno=c.lineno,)
-                    vo_rec.save()
-                    vo_rec.sa_date = pay_date
-                    vo_rec.save()
-                    if vo_rec.pk:
-                        vorecontrolobj.control_no = int(vorecontrolobj.control_no) + 1
-                        vorecontrolobj.save()
+                        vorecontrolobj = ControlNo.objects.filter(control_description__iexact="Public Voucher",Site_Codeid__pk=fmspw.loginsite.pk).first()
+                        # if not vorecontrolobj:
+                        #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Voucher Record Control No does not exist!!",'error': True} 
+                        #     return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
+                        voucher_code = str(vorecontrolobj.control_prefix)+str(vorecontrolobj.Site_Codeid.itemsite_code)+str(vorecontrolobj.control_no)
+
+                        vo_rec = VoucherRecord(sa_transacno=sa_transacno,voucher_name=voucher_nameval,
+                        voucher_no=voucher_code,value=c.price,cust_codeid=cust_obj,cust_code=cust_obj.cust_code,
+                        cust_name=cust_obj.cust_name,percent=vo_percent,site_codeid=site,site_code=site.itemsite_code,
+                        issued_expiry_date=end_date if end_date else None,issued_staff=','.join([v.emp_code for v in salesstaff if v.emp_code]),
+                        onhold=0,paymenttype=None,remark=None,type_code=vorecontrolobj.control_prefix,used=0,
+                        ref_fullvoucherno=None,ref_rangefrom=None,ref_rangeto=None,site_allocate=None,dt_lineno=c.lineno)
+                        vo_rec.save()
+                        vo_rec.sa_date = pay_date
+                        vo_rec.save()
+
+                        if vo_rec.pk:
+                            vorecontrolobj.control_no = int(vorecontrolobj.control_no) + 1
+                            vorecontrolobj.save()
 
                 totaldisc = c.discount_amt + c.additional_discountamt
                 totalpercent = c.discount + c.additional_discount

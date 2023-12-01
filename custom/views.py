@@ -6088,8 +6088,12 @@ class itemCartViewset(viewsets.ModelViewSet):
                 deposit = after_linedisc - float(itemcart.additional_discountamt)
                 
                 if itemcart.is_foc == True:
+                    course_val = itemcart.itemdesc +" "+"(FOC)"
+                    isfoc_val = True
                     ItemCart.objects.filter(id=itemcart.id).update(quantity=qty,total_price=total_price)
                 else:
+                    course_val = itemcart.itemdesc
+                    isfoc_val = False
                     ItemCart.objects.filter(id=itemcart.id).update(quantity=qty,
                     total_price=total_price,trans_amt=trans_amt,deposit=deposit)
 
@@ -6105,6 +6109,66 @@ class itemCartViewset(viewsets.ModelViewSet):
                             "message":"ItemBatchSno Serial Number does not exist!!",'error': True} 
                             return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
                 
+                discount_price = itemcart.discount_price
+                price = qty * discount_price
+                
+                cartobj = itemcart
+                checkids = Tmptreatment.objects.filter(itemcart=cartobj).order_by('pk')
+                # print(checkids,"checkids")   
+                if checkids:
+                    checkids.delete()
+                    # result = {'status': status.HTTP_400_BAD_REQUEST,
+                    # "message":"Already created,Reset & Try!!",'error': True} 
+                    # return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+    
+                #check = list(range(1, int(request.data['free_sessions'])+1))
+                #check = list(range(int(request.data['treatment_no']) + 1, int(request.data['treatment_no']) + int(request.data['free_sessions'])+1))
+                # check = list(range(1, int(request.data['free_sessions'])+1))
+                treat_val = qty 
+                #print(check)
+                #print(treat_val)
+
+                date_lst = []
+                cnt = 1
+                while cnt <= treat_val:
+                    if date_lst == []:
+                        current_date = datetime.datetime.strptime(str(date.today()), "%Y-%m-%d").strftime("%Y-%m-%d")
+                        # next_date = current_date + relativedelta(days=7)
+                        # nextdate = datetime.datetime.strptime(str(next_date), "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d")
+                        date_lst.append(current_date)
+                    else:
+                        date_1 = datetime.datetime.strptime(str(date_lst[-1]), "%Y-%m-%d")
+                        end_date = (date_1 + datetime.timedelta(days=7)).strftime("%Y-%m-%d")
+                        date_lst.append(end_date)
+
+                    cnt+=1
+                
+                # print(date_lst,"date_lst") 
+                
+                cnt = 0
+                #for i in range(1, treat_val+1, 1):
+                for i in range(treat_val, 0, -1):
+                    times = str(i).zfill(2)
+                    unit_amount = discount_price
+
+                    # if i in check:
+                    #     unit_amount = 0.0
+                    #     isfoc_val = True
+                    #     course_val = cartobj.itemdesc +" "+"(FOC)"
+                    #     price = 0
+
+                    treatmentid = Tmptreatment(course=course_val,times=times,
+                    treatment_no=str(treat_val).zfill(2),price="{:.2f}".format(float(price)),
+                    next_appt=date_lst[cnt],cust_code=cartobj.cust_noid.cust_code,
+                    cust_name=cartobj.cust_noid.cust_name,
+                    unit_amount="{:.2f}".format(float(unit_amount)),
+                    status="Open",item_code=str(cartobj.itemcodeid.item_code)+"0000",
+                    sa_status="SA",type="N",trmt_is_auto_proportion=False,
+                    dt_lineno=cartobj.lineno,site_code=site.itemsite_code,isfoc=isfoc_val,
+                    itemcart=cartobj)
+                    treatmentid.save()
+                    cnt += 1
+
 
 
                 result = {'status': status.HTTP_200_OK,"message":"Qty Updated Sucessfully",'error': False}
@@ -6936,7 +7000,9 @@ class HolditemSetupAPIView(generics.ListAPIView):
 def decimailpoint(value):
     n = str(float(value)).split('.')
     # print(n,"n")
-    amount = float(n[0]+"."+n[1][:2])
+    amount = float(n[0])
+    if len(n) > 1:
+        amount = float(n[0]+"."+n[1][:2])
     return amount
 
 class PosPackagedepositViewset(viewsets.ModelViewSet):
@@ -8982,9 +9048,11 @@ class CartPopupViewset(viewsets.ModelViewSet):
                                 raise Exception('Sales Amount Should not be empty') 
                             if s['sp'] == "":
                                 raise Exception('sp Should not be empty') 
-                            tsales_amount += float(s['sales_amount'])
+                            if s['sales_amount']:   
+                                tsales_amount += float(s['sales_amount'])
                             # print(tsales_amount,"tsales_amount")
-                            tsales_percentage += float(s['sales_percentage'])
+                            if s['sales_percentage']:
+                                tsales_percentage += float(s['sales_percentage'])
 
                     # print(tsales_percentage,"tsales_percentage")
                     if itemcart.type != 'Sales':
@@ -12188,7 +12256,9 @@ class AddRemoveSalesStaffViewset(viewsets.ModelViewSet):
                                         salescommpoints = float(stock_obj.salescommpoints) / float(count)
 
                                 # "{:.2f}".format(float(salesamt))
-                                cal_ratio = (round(salesamt) / float(cartobj.trans_amt)) * 100
+                                cal_ratio = 0
+                                if cartobj.trans_amt != 0.0:
+                                    cal_ratio = (round(salesamt) / float(cartobj.trans_amt)) * 100
                                 # print(cal_ratio,"cal_ratio")
                                 tmpmulti = Tmpmultistaff(item_code=stock_obj.item_code,
                                 emp_code=emp_obj.emp_code,ratio="{:.4f}".format(float(cal_ratio)),

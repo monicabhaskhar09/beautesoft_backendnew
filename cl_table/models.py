@@ -4468,3 +4468,19 @@ class TaxType2TaxCode(models.Model):
         db_table = 'TAX_TYPE2_TAX_CODE'
 
 
+class apiUrls(models.Model):
+    id = models.AutoField(db_column='ID', primary_key=True)  # Field name made lowercase.
+    url_description = models.CharField(db_column='urlDescription', max_length=250, blank=True, null=True)  # Field name made lowercase.
+    url = models.CharField(db_column='url', max_length=250, blank=True, null=True)  # Field name made lowercase.
+    
+    class Meta:
+        db_table = 'apiUrls'
+
+    def __str__(self):
+        return self.url_description
+    
+
+
+
+
+

@@ -28,7 +28,7 @@ from .models import (Gender, Employee, Fmspw, Attendance2, Customer, Images, Tre
                      MGMPolicyCloud,CustomerReferral,sitelistip,CustomerExtended,DisplayCatalog,
                      DisplayItem,OutletRequestLog,ItemBrand,PrepaidOpenCondition,PrepaidValidperiod,invoicetemplate,
                      StaffDocument,OutletDocument,ItemBatchSno,TempprepaidAccountCondition,TempcartprepaidAccCond,
-                     TaxType2TaxCode,Treatmentids,ItemLink)
+                     TaxType2TaxCode,Treatmentids,ItemLink,apiUrls)
 from cl_app.models import ItemSitelist, SiteGroup, LoggedInUser,TmpTreatmentSession
 from custom.models import Room,ItemCart,VoucherRecord,EmpLevel,PosPackagedeposit,payModeChangeLog,ProjectModel
 from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializer, Attendance2Serializer,
@@ -275,7 +275,10 @@ class UserLoginAPIView(GenericAPIView):
             if cosystem_setup and cosystem_setup.value_data:
                 controlsite = cosystem_setup.value_data 
             else:
-                controlsite = ""    
+                controlsite = ""
+
+            query_apiurl = apiUrls.objects.filter().order_by('pk').values('id','url_description','url')
+ 
 
             # is_expired, token = token_expire_handler(token) 
             data["token"] = token.key
@@ -299,7 +302,7 @@ class UserLoginAPIView(GenericAPIView):
             data['session_id'] = session_id
             # print(request.session['key'],"dd")
             # print(request.session['uid'],"uid")
-
+            data['api'] = query_apiurl
            
 
 
@@ -5086,6 +5089,9 @@ class AppointmentEditViewset(viewsets.ModelViewSet):
                 fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
                 log_emp = fmspw.Emp_Codeid
                 site = fmspw.loginsite
+
+                
+
                 appobj = self.get_object(pk)
 
                 if appobj.appt_date < date.today():
@@ -5108,6 +5114,13 @@ class AppointmentEditViewset(viewsets.ModelViewSet):
                 # print(request.data,"request.data")
                 appt = request.data.get('appointment')
                 treat = request.data.get('treatment')
+
+                #siteCode option filter
+                site_select = appt.get('site_select', None)
+                if site_select:
+                    site_obj = ItemSitelist.objects.filter(pk=site_select,itemsite_isactive=True).first()
+                    if site_obj:
+                        site = site_obj
 
                 apptpw_setup = Systemsetup.objects.filter(title='appointmentEditPassword',
                 value_name='appointmentEditPassword',isactive=True).first()
@@ -5146,7 +5159,7 @@ class AppointmentEditViewset(viewsets.ModelViewSet):
                     value_name='cancelledBookingsSetting',isactive=True).first()
                     if system_setup and system_setup.value_data == '2':
                         is_cancelled = True
-                        cemp_obj = Employee.objects.filter(display_name="Cancelled",emp_isactive=True).first()
+                        cemp_obj = Employee.objects.filter(display_name__icontains="cancel",emp_isactive=True).first()
                         if not cemp_obj:
                             result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Cancelled Employee ID does not exist!!",'error': True} 
                             return Response(result, status=status.HTTP_400_BAD_REQUEST)        
@@ -7882,6 +7895,14 @@ class UsersList(APIView):
             value_name='ipadkey',isactive=True).first()
             changecoursename_setup = Systemsetup.objects.filter(title='allowchangecoursename',
             value_name='allowchangecoursename',isactive=True).first()
+            changetotalpriceincourse_setup = Systemsetup.objects.filter(title='allowToChangeTotalAmountInCourse',
+            value_name='allowToChangeTotalAmountInCourse',isactive=True).first()
+            backendallowedmonths_setup = Systemsetup.objects.filter(title='backendAllowedMonths',
+            value_name='backendAllowedMonths',isactive=True).first()
+            appointmentlabelfontsize_setup = Systemsetup.objects.filter(title='appointmentLabelFontSize',
+            value_name='appointmentLabelFontSize',isactive=True).first()
+       
+       
        
        
        
@@ -8006,11 +8027,14 @@ class UsersList(APIView):
             # 'onlinebookingstaff_id' :  int(onlinebookingstaff_setup.value_data) if onlinebookingstaff_setup and onlinebookingstaff_setup.value_data else None,
             'ipadkey' : True if ipadkey_setup and ipadkey_setup.value_data == 'True' else False,
             'allowchangecoursename' : True if changecoursename_setup and changecoursename_setup.value_data == 'True' else False,
+            'allowToChangeTotalAmountInCourse': True if changetotalpriceincourse_setup and changetotalpriceincourse_setup.value_data == 'True' else False,
+            'backendAllowedMonths': backendallowedmonths_setup.value_data if backendallowedmonths_setup and backendallowedmonths_setup.value_data else False,
+            'appointmentLabelFontSize': appointmentlabelfontsize_setup.value_data if appointmentlabelfontsize_setup and appointmentlabelfontsize_setup.value_data else False,
             }
 
 
 
-            level_qs = Securitylevellist.objects.filter(level_itemid=fmspw.LEVEL_ItmIDid.level_code).order_by('pk')
+            level_qs = Securitylevellist.objects.filter(level_itemid=fmspw.LEVEL_ItmIDid.level_code).filter().order_by('pk')
             # print(level_qs,"level_qs")
             ls = {i.controlname : i.controlstatus for i in level_qs}
             # print(ls,"ls")

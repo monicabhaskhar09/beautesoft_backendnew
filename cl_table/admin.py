@@ -12,7 +12,7 @@ Multilanguage, MultiLanguageWord, Language,TreatmentDuration,ItemStocklist,Smsre
 TreatmentProtocol,CustomerPointDtl,CustomerPoint,PackageAuditingLog,Tempcustsign,ItemFlexiservice,
 StudioWork,CustomerReferral,MGMPolicyCloud,ExchangeDtl,sitelistip,termsandcondition,
 ItemBatchSno,Item_MembershipPrice,DisplayCatalog,DisplayItem,PrepaidOpenCondition,TaxType2TaxCode,
-TempprepaidAccountCondition)
+TempprepaidAccountCondition,apiUrls)
 from cl_app.models import ItemSitelist, SiteGroup
 
 # # Register your models here.
@@ -111,3 +111,4 @@ admin.site.register(DisplayItem)
 admin.site.register(PrepaidOpenCondition)
 admin.site.register(TaxType2TaxCode)
 admin.site.register(TempprepaidAccountCondition)
+admin.site.register(apiUrls)

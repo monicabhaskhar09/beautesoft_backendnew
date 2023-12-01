@@ -95,6 +95,7 @@ urlpatterns = [
     path('be/api/customerlogin/', views.CustomerLoginAPIView.as_view(), name='customerlogin'),
     path('be/api/custregister/', views.CustomerRegisterAPIView.as_view(), name='custregister'),
     path('be/api/ecomtreatmentpackages/', views.EcomTreatmentApptAPI.as_view(), name='ecomtreatmentpackages'),
+    path('be/api/spadashboard/', views.SpaDashboardAPIView.as_view(), name='spadashboard'),
 
 
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

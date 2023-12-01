@@ -2951,6 +2951,13 @@ class TreatmentDoneNewViewset(viewsets.ModelViewSet):
                 elif year == "All":
                     queryset = TreatmentPackage.objects.filter(cust_code=cust_obj.cust_code,
                     open_session__gt=0).filter(Q(expiry_date__date__gte=date.today()) | Q(expiry_date__isnull=True)).order_by('-pk')
+                else:
+                    queryset = TreatmentPackage.objects.filter(cust_code=cust_obj.cust_code,
+                    open_session__gt=0, treatment_date__year=year).filter(Q(expiry_date__date__gte=date.today()) | Q(expiry_date__isnull=True)).order_by('-pk')
+            
+            # print(queryset,"queryset")
+
+
             
             q = self.request.GET.get('search',None)
             if q:
@@ -3107,6 +3114,7 @@ class TreatmentDoneNewViewset(viewsets.ModelViewSet):
                 'cust_refer': cust_obj.cust_refer if cust_obj.cust_refer else "",
                 'cust_phone': cust_obj.cust_phone2 if cust_obj.cust_phone2 else "",
                 'cust_remark': cust_obj.cust_remark if cust_obj.cust_remark else "",
+                'outstanding_amt' : "{:.2f}".format(float(cust_obj.outstanding_amt)) if cust_obj.outstanding_amt else "0.00", 
                 },
                 'totaltdlines' : len(tmp_ids),
                 }
@@ -3118,6 +3126,7 @@ class TreatmentDoneNewViewset(viewsets.ModelViewSet):
                 'cust_refer': cust_obj.cust_refer if cust_obj.cust_refer else "",
                 'cust_phone': cust_obj.cust_phone2 if cust_obj.cust_phone2 else "",
                 'cust_remark': cust_obj.cust_remark if cust_obj.cust_remark else "",
+                'outstanding_amt' : "{:.2f}".format(float(cust_obj.outstanding_amt)) if cust_obj.outstanding_amt else "0.00", 
                 },
                 'totaltdlines' : len(tmp_ids),
                 }
@@ -7424,7 +7433,19 @@ class VoidViewset(viewsets.ModelViewSet):
                                                         if checkp_haudids:
                                                             msg = "Can't do void Package inside prepaid Deposit line no {0} has use amount".format(str(i.dt_lineno))
                                                             raise Exception(msg)
+                        
+                        if int(i.itemcart.itemcodeid.item_div) == 4:
+                            if i.itemcart.type == 'Deposit':
+                                # voucher_ids = VoucherRecord.objects.filter(sa_transacno=haudobj.sa_transacno,
+                                # cust_code=haudobj.sa_custno,site_code=site.itemsite_code).order_by('pk')
 
+                                voucher_ids = VoucherRecord.objects.filter(sa_transacno=haudobj.sa_transacno,
+                                cust_code=haudobj.sa_custno,dt_lineno=i.dt_lineno,isvalid=False,used=True).order_by('pk')
+                                if voucher_ids:
+                                    voc_msg = "Can't do void Voucher Deposit line no {0} has used redeem".format(str(i.dt_lineno))
+                                    raise Exception(voc_msg)
+
+                                
 
 
                     # print(sa_transacno,"sa_transacno")
@@ -12797,6 +12818,74 @@ class DashboardCustAPIView(APIView):
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)
+
+class SpaDashboardAPIView(APIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    serializer_class = []
+
+    def get(self, request):
+        try:
+            now = timezone.now()
+            # print(str(now.hour) + '  ' +  str(now.minute) + '  ' +  str(now.second),"Start hour, minute, second\n")
+           
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)[0]
+            site = fmspw.loginsite
+            # today_date = date.today()
+            # yesterday = today_date - timedelta(days = 1)
+
+            from_date = self.request.GET.get('from_date',None)
+            if not from_date:
+                raise Exception("Please Give From Date")
+
+            to_date = self.request.GET.get('to_date',None)
+            if not to_date:
+                raise Exception("Please Give To Date")
+            
+            #daterange
+            service_ar_ids = PosDaud.objects.filter(itemsite_code=site.itemsite_code,sa_date__date__gte=from_date,
+            sa_date__date__lte=to_date,dt_status="SA",
+            record_detail_type='TP SERVICE').order_by('-pk').aggregate(amount=Coalesce(Sum('dt_deposit'), 0))   
+          
+
+            product_ar_ids = PosDaud.objects.filter(itemsite_code=site.itemsite_code,sa_date__date__gte=from_date,
+            sa_date__date__lte=to_date,dt_status="SA",
+            record_detail_type='TP PRODUCT').order_by('-pk').aggregate(amount=Coalesce(Sum('dt_deposit'), 0))   
+
+            prepaid_ar_ids = PosDaud.objects.filter(itemsite_code=site.itemsite_code,sa_date__date__gte=from_date,
+            sa_date__date__lte=to_date,dt_status="SA",
+            record_detail_type='TP PREPAID').order_by('-pk').aggregate(amount=Coalesce(Sum('dt_deposit'), 0))  
+            # print(prepaid_ar_ids,"prepaid_ar_ids") 
+             
+            package_ar_ids = PosDaud.objects.filter(itemsite_code=site.itemsite_code,sa_date__date__gte=from_date,
+            sa_date__date__lte=to_date,dt_status="SA",record_detail_type='PACKAGE').order_by('-pk').aggregate(amount=Coalesce(Sum('dt_deposit'), 0))  
+            total_ar = float(service_ar_ids['amount']) + float(product_ar_ids['amount']) + float(prepaid_ar_ids['amount']) + float(package_ar_ids['amount'])
+          
+            result = {'status': status.HTTP_200_OK,"message":"Listed Successful",'error': False,
+            'ar_analysis':{
+                'SVC': "{:.2f}".format(float(service_ar_ids['amount'])),
+                'PRD': "{:.2f}".format(float(product_ar_ids['amount'])),
+                'PP' : "{:.2f}".format(float(prepaid_ar_ids['amount'])),
+                'PKG' : "{:.2f}".format(float(package_ar_ids['amount'])),
+                'total_ar' : "{:.2f}".format(float(total_ar)) 
+             }
+            } 
+            now1 = timezone.now()
+            # print(str(now1.hour) + '  ' +  str(now1.minute) + '  ' +  str(now1.second),"End hour, minute, second\n")
+            total = now1.second - now.second
+            # print(total,"total")
+                   
+            return Response(result,status=status.HTTP_200_OK)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+        
+
+
+
+
+
 
 
 class DashboardVoucherAPIView(APIView):
