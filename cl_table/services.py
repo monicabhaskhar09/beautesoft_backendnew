@@ -522,7 +522,8 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                 pos_ids = PosPackagedeposit.objects.filter(itemcart=c,code=pa.code,deposit_lineno=pa.line_no)
                                 if pos_ids:
                                     p = pos_ids.first()
-                                    pa_trasac = round(p.price * p.qty)
+                                    # pa_trasac = round(p.price * p.qty)
+                                    pa_trasac = round(p.price * p.qty, 4)
                                     pa_deposit = p.deposit_amt
                                     #outstanding_acc =  float(c.trans_amt) - float(c.deposit)
 
@@ -584,6 +585,10 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                             Unit_Amount = Price / paqty
                                             times = str(i).zfill(2)
                                             treatment_no = str(paqty).zfill(2)
+
+                                            if i == int(paqty):
+                                                lval = float(Price) - (float("{:.2f}".format(Unit_Amount)) * (paqty -1))
+                                                Unit_Amount = lval
 
                                         
                                             patreatmentid = Treatment(treatment_code=str(patreatment_parentcode)+"-"+str(times),
