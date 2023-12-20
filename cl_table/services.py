@@ -1073,7 +1073,8 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                         # dtl.first_trmt_done_staff_name = ','.join([v.helper_id.display_name for v in c.helper_ids.all() if v.helper_id.display_name])
                                         dtl.first_trmt_done_staff_code = ','.join([v.emp_code for v in c.service_staff.all() if v.emp_code])
                                         dtl.first_trmt_done_staff_name = ','.join([v.display_name for v in c.service_staff.all() if v.display_name])
-                                    
+                                        if dtl.st_ref_treatmentcode:
+                                            dtl.trmt_done_id = dtl.st_ref_treatmentcode
                                         dtl.save()
 
 
@@ -2607,6 +2608,9 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                     # dtl.first_trmt_done_staff_name = ','.join([v.helper_id.display_name for v in c.helper_ids.all() if v.helper_id.display_name])
                     dtl.first_trmt_done_staff_code = ','.join([v.emp_code for v in c.service_staff.all() if v.emp_code])
                     dtl.first_trmt_done_staff_name = ','.join([v.display_name for v in c.service_staff.all() if v.display_name])
+                    if dtl.st_ref_treatmentcode:
+                        dtl.trmt_done_id = dtl.st_ref_treatmentcode
+                        dtl.save()
                     
                     if treatmentid.treatment_limit_times is not None:
                         if treatmentid.type in ['FFi','FFd'] and c.quantity == 1 and  int(treatmentid.treatment_limit_times) > 1:

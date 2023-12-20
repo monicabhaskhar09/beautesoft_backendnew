@@ -28428,7 +28428,7 @@ class StudioPdfGeneration(APIView):
                             val = {'dt_itemdesc': tdaud_ids.dt_itemdesc, 'dt_qty': tdaud_ids.dt_qty,
                             'dt_price': tdaud_ids.dt_price, 'amount': tdaud_ids.dt_qty * tdaud_ids.dt_price,
                             'record_detail_type': tdaud_ids.record_detail_type,
-                            'package_desc': packages}
+                            'package_desc': packages,'d_obj': i}
 
                             daud_lst.append(val)
                             sub_total += amount
@@ -28465,7 +28465,7 @@ class StudioPdfGeneration(APIView):
                             val = {'dt_itemdesc': ddaud_ids.dt_itemdesc, 'dt_qty': ddaud_ids.dt_qty,
                             'dt_price': ddaud_ids.dt_price, 'amount': ddaud_ids.dt_qty * ddaud_ids.dt_price,
                             'record_detail_type': ddaud_ids.record_detail_type,
-                            'package_desc': packages}
+                            'package_desc': packages,'d_obj': i}
 
                             daud_lst.append(val)
                             sub_total += amount
@@ -28496,7 +28496,7 @@ class StudioPdfGeneration(APIView):
                     val = {'dt_itemdesc': dt_itemdesc, 'dt_qty': i.dt_qty,
                     'dt_price': i.dt_price, 'amount': i.dt_qty * i.dt_price,
                     'record_detail_type': i.record_detail_type,
-                    'package_desc': packages,
+                    'package_desc': packages,'d_obj': i
                     }
                     sub_total += amount
                     discount += i.dt_discamt

@@ -1,6 +1,6 @@
 from django import template
 register = template.Library()
-from cl_table.models import Systemsetup,PackageDtl
+from cl_table.models import Systemsetup,PackageDtl,ItemContent
 
 @register.simple_tag
 def disc_percent_calc(dt_price, dt_discamt, *args, **kwargs):
@@ -35,4 +35,18 @@ def get_packages(daud):
             package_desc.append(desc)
         packages = tuple(package_desc)
 
-    return packages        
+    return packages  
+
+
+@register.simple_tag
+def get_itemcontentservices(daud):
+    service_desc = []; services = ""
+    if daud.record_detail_type == "SERVICE":
+        content_dtl = ItemContent.objects.filter(itemcode=daud.dt_itemnoid.item_code,is_active=True)
+        for i in content_dtl:
+            desc = i.content_detail_1
+            detail = i.Content_Detail_2
+            service_desc.append(desc +" "+detail)
+        services = tuple(service_desc)
+
+    return services 

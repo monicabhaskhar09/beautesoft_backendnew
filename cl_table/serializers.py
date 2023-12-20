@@ -10,7 +10,7 @@ CustomerTitle,ItemDiv,Tempcustsign,CustomerDocument,TreatmentPackage,ContactPers
 termsandcondition,Participants,ProjectDocument,Dayendconfirmlog,CustomerPointDtl,
 CustomerReferral,MGMPolicyCloud,sitelistip,DisplayCatalog,DisplayItem,ItemUomprice,ItemUom,
 ItemBatch,OutletRequestLog,PrepaidOpenCondition,PrepaidValidperiod,ScheduleMonth,ItemBatchSno,invoicetemplate,
-StaffDocument,OutletDocument)
+StaffDocument,OutletDocument,ItemContent)
 from cl_app.models import ItemSitelist, SiteGroup
 from custom.models import EmpLevel,Room,VoucherRecord,ItemCart
 from django.contrib.auth.models import User
@@ -3095,7 +3095,7 @@ class CustomerPlusSerializer(serializers.ModelSerializer):
                   'is_pregnant','estimated_deliverydate','no_of_weeks_pregnant','no_of_children','or_key',
                   'cust_birthyear','cust_birthmonth','cust_birthday']
         read_only_fields = ('cust_isactive','Site_Code','cust_code')
-        extra_kwargs = {'cust_name': {'required': True},'cust_phone2': {'required': False},}
+        extra_kwargs = {'cust_name': {'required': True},'cust_phone2': {'required': False},'cust_phone1': {'required': False},}
 
 
     def validate(self, data):
@@ -3679,6 +3679,12 @@ class SitelistipSerializer(serializers.ModelSerializer):
         model = sitelistip
         fields = ['id','isactive','siteid','ip']         
 
+class ItemContentSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = ItemContent
+        fields = ['id','itemcode','content_line_no','content_detail_1','Content_detail_2','is_active']  
+        
 class DisplayCatalogSerializer(serializers.ModelSerializer):
     
     class Meta:

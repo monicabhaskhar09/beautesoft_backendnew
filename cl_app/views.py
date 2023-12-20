@@ -12834,6 +12834,13 @@ class SpaDashboardAPIView(APIView):
             # today_date = date.today()
             # yesterday = today_date - timedelta(days = 1)
 
+            #siteCode option filter
+            site_id = request.GET.get('site_id', None)
+            if site_id:
+                site_obj = ItemSitelist.objects.filter(pk=site_id,itemsite_isactive=True).first()
+                if site_obj:
+                    site = site_obj
+
             from_date = self.request.GET.get('from_date',None)
             if not from_date:
                 raise Exception("Please Give From Date")
@@ -12842,33 +12849,69 @@ class SpaDashboardAPIView(APIView):
             if not to_date:
                 raise Exception("Please Give To Date")
             
+            # .aggregate(amount=Coalesce(Sum('dt_transacamt'), 0) - Coalesce(Sum('dt_deposit')))   
+
             #daterange
             service_ar_ids = PosDaud.objects.filter(itemsite_code=site.itemsite_code,sa_date__date__gte=from_date,
-            sa_date__date__lte=to_date,dt_status="SA",
-            record_detail_type='TP SERVICE').order_by('-pk').aggregate(amount=Coalesce(Sum('dt_deposit'), 0))   
-          
+            sa_date__date__lte=to_date,dt_status="SA",record_detail_type='SERVICE').order_by('-pk')
+            # print(service_ar_ids,"service_ar_ids")
+            ar_service = float(sum([i.dt_transacamt - i.dt_deposit for i in service_ar_ids if i]))
 
             product_ar_ids = PosDaud.objects.filter(itemsite_code=site.itemsite_code,sa_date__date__gte=from_date,
-            sa_date__date__lte=to_date,dt_status="SA",
-            record_detail_type='TP PRODUCT').order_by('-pk').aggregate(amount=Coalesce(Sum('dt_deposit'), 0))   
+            sa_date__date__lte=to_date,dt_status="SA",record_detail_type='PRODUCT').order_by('-pk')
+            ar_product = float(sum([i.dt_transacamt - i.dt_deposit for i in product_ar_ids if i]))
 
             prepaid_ar_ids = PosDaud.objects.filter(itemsite_code=site.itemsite_code,sa_date__date__gte=from_date,
-            sa_date__date__lte=to_date,dt_status="SA",
-            record_detail_type='TP PREPAID').order_by('-pk').aggregate(amount=Coalesce(Sum('dt_deposit'), 0))  
+            sa_date__date__lte=to_date,dt_status="SA",record_detail_type='PREPAID').order_by('-pk')
             # print(prepaid_ar_ids,"prepaid_ar_ids") 
+            ar_prepaid = float(sum([i.dt_transacamt - i.dt_deposit for i in prepaid_ar_ids if i]))
              
             package_ar_ids = PosDaud.objects.filter(itemsite_code=site.itemsite_code,sa_date__date__gte=from_date,
-            sa_date__date__lte=to_date,dt_status="SA",record_detail_type='PACKAGE').order_by('-pk').aggregate(amount=Coalesce(Sum('dt_deposit'), 0))  
-            total_ar = float(service_ar_ids['amount']) + float(product_ar_ids['amount']) + float(prepaid_ar_ids['amount']) + float(package_ar_ids['amount'])
-          
+            sa_date__date__lte=to_date,dt_status="SA",record_detail_type='PACKAGE').order_by('-pk')
+            ar_package = float(sum([i.dt_transacamt - i.dt_deposit for i in package_ar_ids if i]))
+
+            total_ar = ar_service + ar_product + ar_prepaid + ar_package
+
+            #appt status
+            
+            booking_ids = Appointment.objects.filter(appt_date__gte=from_date,appt_date__lte=to_date,appt_isactive=True,itemsite_code=site.itemsite_code,
+            appt_status="Booking").order_by('pk').count() 
+            waiting_ids = Appointment.objects.filter(appt_date__gte=from_date,appt_date__lte=to_date,appt_isactive=True,itemsite_code=site.itemsite_code,
+            appt_status="Waiting").order_by('pk').count()
+            confirmed_ids = Appointment.objects.filter(appt_date__gte=from_date,appt_date__lte=to_date,appt_isactive=True,itemsite_code=site.itemsite_code,
+            appt_status="Confirmed").order_by('pk').count()
+            no_show_ids = Appointment.objects.filter(appt_date__gte=from_date,appt_date__lte=to_date,appt_isactive=True,itemsite_code=site.itemsite_code,
+            appt_status="No Show").order_by('pk').count()
+            arrived_ids = Appointment.objects.filter(appt_date__gte=from_date,appt_date__lte=to_date,appt_isactive=True,itemsite_code=site.itemsite_code,
+            appt_status="Arrived").order_by('pk').count()
+            done_ids = Appointment.objects.filter(appt_date__gte=from_date,appt_date__lte=to_date,appt_isactive=True,itemsite_code=site.itemsite_code,
+            appt_status="Done").order_by('pk').count()
+            cancel_ids = Appointment.objects.filter(appt_date__gte=from_date,appt_date__lte=to_date,appt_isactive=True,itemsite_code=site.itemsite_code,
+            appt_status="Cancelled").order_by('pk').count()
+            lastmincancel_ids = Appointment.objects.filter(appt_date__gte=from_date,appt_date__lte=to_date,appt_isactive=True,itemsite_code=site.itemsite_code,
+            appt_status="LastMinCancel").order_by('pk').count()
+                    
+
             result = {'status': status.HTTP_200_OK,"message":"Listed Successful",'error': False,
             'ar_analysis':{
-                'SVC': "{:.2f}".format(float(service_ar_ids['amount'])),
-                'PRD': "{:.2f}".format(float(product_ar_ids['amount'])),
-                'PP' : "{:.2f}".format(float(prepaid_ar_ids['amount'])),
-                'PKG' : "{:.2f}".format(float(package_ar_ids['amount'])),
-                'total_ar' : "{:.2f}".format(float(total_ar)) 
-             }
+                'SVC': "{:.2f}".format(float(ar_service)),
+                'PRD': "{:.2f}".format(float(ar_product)),
+                'PP' : "{:.2f}".format(float(ar_prepaid)),
+                'PKG' : "{:.2f}".format(float(ar_package)),
+                'total_ar' : "{:.2f}".format(float(total_ar)),
+                'total_sa' : "",
+                'ar_rate' : "" 
+             },
+            'appt_status' : {
+                'booking' : booking_ids,
+                'waiting_lst' : waiting_ids,
+                'confirmed' : confirmed_ids,
+                'no_show' : no_show_ids,
+                'arrived' : arrived_ids,
+                'done': done_ids,
+                'cancel': cancel_ids,
+                'lastmincancel' : lastmincancel_ids
+            }
             } 
             now1 = timezone.now()
             # print(str(now1.hour) + '  ' +  str(now1.minute) + '  ' +  str(now1.second),"End hour, minute, second\n")

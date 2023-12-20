@@ -28,7 +28,7 @@ from .models import (Gender, Employee, Fmspw, Attendance2, Customer, Images, Tre
                      MGMPolicyCloud,CustomerReferral,sitelistip,CustomerExtended,DisplayCatalog,
                      DisplayItem,OutletRequestLog,ItemBrand,PrepaidOpenCondition,PrepaidValidperiod,invoicetemplate,
                      StaffDocument,OutletDocument,ItemBatchSno,TempprepaidAccountCondition,TempcartprepaidAccCond,
-                     TaxType2TaxCode,Treatmentids,ItemLink,apiUrls)
+                     TaxType2TaxCode,Treatmentids,ItemLink,apiUrls,ItemContent)
 from cl_app.models import ItemSitelist, SiteGroup, LoggedInUser,TmpTreatmentSession
 from custom.models import Room,ItemCart,VoucherRecord,EmpLevel,PosPackagedeposit,payModeChangeLog,ProjectModel
 from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializer, Attendance2Serializer,
@@ -73,7 +73,7 @@ from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializ
                           PrepaidValidperiodSerializer,ItemCartCustomerReceiptSerializer,
                           ItemCartdaudSerializer,ScheduleMonthSerializer,invoicetemplateConfigSerializer,ManualRewardPointSerializer,
                           StaffDocumentSerializer,OutletDocumentSerializer,EcomAppointmentSerializer,InvTemplateHeaderSortSerializer,
-                          CustomerPointsListSerializer)
+                          CustomerPointsListSerializer,ItemContentSerializer)
 from datetime import date, timedelta, datetime
 import datetime
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
@@ -278,7 +278,15 @@ class UserLoginAPIView(GenericAPIView):
                 controlsite = ""
 
             query_apiurl = apiUrls.objects.filter().order_by('pk').values('id','url_description','url')
- 
+            
+            
+            path = ""
+            site_obj = ItemSitelist.objects.filter(itemsite_isactive=True).order_by('pk').first()
+            if site_obj:
+                title = Title.objects.filter(product_license=site_obj.itemsite_code).order_by('pk').first()
+                if title and title.logo_pic:
+                    path = str(SITE_ROOT)+str(title.logo_pic)
+            # print(path,"path")  
 
             # is_expired, token = token_expire_handler(token) 
             data["token"] = token.key
@@ -290,6 +298,7 @@ class UserLoginAPIView(GenericAPIView):
             data['role'] = fmspw.LEVEL_ItmIDid.level_name
             data['sites'] = sites
             data['controlsite'] = controlsite
+            data['client_logo_url'] = path
             # data['expires_in']= expires_in(token)
             pw_data = data.pop('password')
             
@@ -8616,16 +8625,19 @@ class postaudViewset(viewsets.ModelViewSet):
                     if serializer_one.is_valid():
                         # pay_gst = (float(req['pay_amt']) / (100+gst.item_value)) * gst.item_value
                         pay_gst = 0
+                        if 'pay_gst' in req and req['pay_gst']:
+                            pay_gst = req['pay_gst']
+
                         # stnewgetgt= "".join(stringgetgt.split())
                         # print(paytable.gt_group,"paytable.gt_group")
                         # if stnewgetgt == 'GT1':
                         amount = float(req['pay_amt'])
                         if paytable.gt_group == 'GT1': 
                             if calcgst > 0:
-                                if gst and gst.is_exclusive == True:
-                                    pay_gst = float(req['pay_amt']) * (gst.item_value / 100) if gst and gst.item_value else 0.0
-                                else:
-                                    pay_gst = (float(req['pay_amt']) * gst.item_value ) / (100+gst.item_value) if gst and gst.item_value else 0.0
+                                # if gst and gst.is_exclusive == True:
+                                #     pay_gst = float(req['pay_amt']) * (gst.item_value / 100) if gst and gst.item_value else 0.0
+                                # else:
+                                #     pay_gst = (float(req['pay_amt']) * gst.item_value ) / (100+gst.item_value) if gst and gst.item_value else 0.0
                                 amount = float(req['pay_amt']) - pay_gst
                                 value['tax_amt'] += pay_gst
                         # print(value['tax_amt'],"tax1")
@@ -25379,6 +25391,181 @@ class CustomerReferralViewset(viewsets.ModelViewSet):
             return CustomerReferral.objects.get(pk=pk)
         except CustomerReferral.DoesNotExist:
             raise Exception('CustomerReferral Does not Exist') 
+
+class ItemContentViewset(viewsets.ModelViewSet):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    queryset = ItemContent.objects.filter().order_by('-pk')
+    serializer_class = ItemContentSerializer
+
+    def get_queryset(self):
+        fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+        site = fmspw[0].loginsite
+        queryset = ItemContent.objects.filter().order_by('-pk')
+       
+        return queryset
+
+    def list(self, request):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+            site = fmspw[0].loginsite
+            serializer_class = ItemContentSerializer
+            
+            queryset = self.filter_queryset(self.get_queryset())
+
+            total = len(queryset) if queryset else 0
+            state = status.HTTP_200_OK
+            message = "Listed Succesfully"
+            error = False
+            data = None
+            result=response(self,request, queryset,total,  state, message, error, serializer_class, data, action=self.action)
+            return Response(result, status=status.HTTP_200_OK) 
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+
+
+    @transaction.atomic
+    def create(self, request):
+        try:
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user,pw_isactive=True)
+                site = fmspw[0].loginsite
+
+                if not 'itemcode' in request.data or not request.data['itemcode']:
+                    raise Exception('Please give itemcode!!.') 
+
+                if not 'content_line_no' in request.data or not request.data['content_line_no']:
+                    raise Exception('Please give content line_no!!.') 
+
+                if not 'content_detail_1' in request.data or not request.data['content_detail_1']:
+                    raise Exception('Please give content detail 1!!.') 
+
+                if not 'Content_detail_2' in request.data or not request.data['Content_detail_2']:
+                    raise Exception('Please give Content detail 2!!.') 
+    
+                
+                check_ids = ItemContent.objects.filter(content_detail_1=request.data['content_detail_1']).order_by('-pk')
+                if check_ids:
+                    msg = "Content detail 1 {0} already Exist!!".format(str(request.data['content_detail_1']))
+                    raise Exception(msg) 
+                    
+                # siteobj = site
+
+                serializer = ItemContentSerializer(data=request.data)
+                if serializer.is_valid():
+                    
+                    serializer.save()
+                    
+                    result = {'status': status.HTTP_201_CREATED,"message":"Created Succesfully",
+                    'error': False}
+                    return Response(result, status=status.HTTP_201_CREATED)
+                
+
+                data = serializer.errors
+
+                if 'non_field_errors' in data:
+                    message = data['non_field_errors'][0]
+                else:
+                    first_key = list(data.keys())[0]
+                    message = str(first_key)+":  "+str(data[first_key][0])
+
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":message,
+                'error': True, 'data': serializer.errors}
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+
+
+    @transaction.atomic
+    def partial_update(self, request, pk=None):
+        try:
+            with transaction.atomic():
+                fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+                site = fmspw.loginsite
+                ref = self.get_object(pk)
+                if not 'content_detail_1' in request.data or not request.data['content_detail_1']:
+                    raise Exception('Please give content detail 1!!.') 
+
+               
+                # check_ids = CustomerReferral.objects.filter(~Q(pk=ref.pk)).filter(Site_Codeid__pk=site.pk,
+                # cust_id__pk=cust_obj.pk).order_by('-pk')
+                # if check_ids:
+                #     msg = "Customer {0} already referred by some other customer !!".format(str(cust_obj.cust_name))
+                #     raise Exception(msg) 
+                    
+                serializer = self.get_serializer(ref, data=request.data, partial=True)
+                if serializer.is_valid():
+                
+                    serializer.save()
+                    
+                    result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",'error': False}
+                    return Response(result, status=status.HTTP_200_OK)
+
+                
+                data = serializer.errors
+
+                if 'non_field_errors' in data:
+                    message = data['non_field_errors'][0]
+                else:
+                    first_key = list(data.keys())[0]
+                    message = str(first_key)+":  "+str(data[first_key][0])
+
+                result = {'status': status.HTTP_400_BAD_REQUEST,"message":message,
+                'error': True, 'data': serializer.errors}
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)   
+    
+
+    def retrieve(self, request, pk=None):
+        try:
+            fmspw = Fmspw.objects.filter(user=self.request.user, pw_isactive=True).first()
+            site = fmspw.loginsite
+            ref = self.get_object(pk)
+            serializer = ItemContentSerializer(ref, context={'request': self.request})
+            result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",'error': False, 
+            'data': serializer.data}
+            return Response(data=result, status=status.HTTP_200_OK)
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message) 
+
+    
+    def destroy(self, request, pk=None):
+        try:
+            # request.data["isactive"] = False
+            ref = self.get_object(pk)
+            serializer = ItemContentSerializer(ref, data=request.data ,partial=True)
+            state = status.HTTP_204_NO_CONTENT
+            if serializer.is_valid():
+                ref.delete()
+                # serializer.save()
+                result = {'status': status.HTTP_200_OK,"message":"Deleted Succesfully",'error': False}
+                return Response(result, status=status.HTTP_200_OK)
+            
+            # print(serializer.errors,"jj")
+            result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",
+            'error': True,'data': serializer.errors }
+            return Response(result, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)          
+
+
+    def get_object(self, pk):
+        try:
+            return ItemContent.objects.get(pk=pk)
+        except ItemContent.DoesNotExist:
+            raise Exception('ItemContent Does not Exist') 
+
+
+
 
    
     

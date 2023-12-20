@@ -4479,8 +4479,22 @@ class apiUrls(models.Model):
     def __str__(self):
         return self.url_description
     
+class ItemContent(models.Model):
+    id = models.AutoField(db_column='ID', primary_key=True)  # Field name made lowercase.
+    itemcode = models.CharField(db_column='ITEM_CODE', max_length=30, blank=True, null=True)  # Field name made lowercase.
+    content_line_no = models.IntegerField(db_column='Content_Line_No', blank=True, null=True)  # Field name made lowercase.
+    content_detail_1 = models.CharField(db_column='Content_Detail_1',max_length=200, blank=True,  null=True)
+    Content_detail_2 = models.CharField(db_column='Content_Detail_2',max_length=200, blank=True,  null=True)
+    is_active = models.BooleanField(db_column='ISACTIVE',default=True)  # Field name made lowercase.
+
+    class Meta:
+        db_table = 'Item_Content'
+        # unique_together = (('content_detail_1'),)
 
 
+    def __str__(self):
+        return self.content_detail_1
+    
 
 
 
