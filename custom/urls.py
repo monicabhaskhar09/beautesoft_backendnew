@@ -158,6 +158,7 @@ urlpatterns = [
     path('be/api/paygroupimageupload/', views.PaygroupImageUploadAPIView.as_view(), name='paygroupimageupload'),
     path('be/api/deptimageupload/', views.ItemDeptImageUploadAPIView.as_view(), name='deptimageupload'),
     path('be/api/manualinvoiceitemtable/', views.manualinvoiceitemtableAPIView.as_view(), name='manualinvoiceitemtable'),
+    path('be/api/weddingpackage/', views.WeddingpackageAPIView.as_view(), name='weddingpackage'),
 
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 

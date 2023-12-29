@@ -575,6 +575,18 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                                 current_date = datetime.datetime.strptime(str(date.today()), "%Y-%m-%d")
                                                 expiry = current_date + relativedelta(months=month)
 
+                                      
+                                        treat_type = "N"
+                                        treatment_limit_times = None
+
+                                        if itmstock.limitservice_flexionly == True:
+                                            treat_type = "FFi"
+                                            treatment_limit_times = 0
+                                            if itmstock.treatment_limit_active == True:
+                                                treatment_limit_times = itmstock.treatment_limit_count
+                                        
+                           
+
                                         paqty = p.qty;dtl_st_ref_treatmentcode = "";dtl_first_trmt_done = False
 
                                         for i in range(1,int(paqty)+1):
@@ -596,10 +608,10 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                             treatment_no=treatment_no,price="{:.2f}".format(float(Price)),unit_amount="{:.2f}".format(float(Unit_Amount)),Cust_Codeid=cust_obj,
                                             cust_code=cust_obj.cust_code,cust_name=cust_obj.cust_name,
                                             status="Open",item_code=str(itmstock.item_code)+"0000",Item_Codeid=itmstock,
-                                            sa_transacno=sa_transacno,sa_status="SA",type="N",trmt_is_auto_proportion=False,
+                                            sa_transacno=sa_transacno,sa_status="SA",type=treat_type,trmt_is_auto_proportion=False,
                                             dt_lineno=c.lineno,site_code=site.itemsite_code,Site_Codeid=site,isfoc=trisfoc_val,
                                             treatment_account=patreatacc,service_itembarcode=str(itmstock.item_code)+"0000",
-                                            package_code=packhdr_ids.code,expiry=expiry)
+                                            package_code=packhdr_ids.code,expiry=expiry,treatment_limit_times=treatment_limit_times)
                                             patreatmentid.save()
                                             patreatmentid.treatment_date = pay_date
                                             patreatmentid.save()
@@ -1076,6 +1088,43 @@ def invoice_deposit(self, request, depo_ids, sa_transacno, cust_obj, outstanding
                                         if dtl.st_ref_treatmentcode:
                                             dtl.trmt_done_id = dtl.st_ref_treatmentcode
                                         dtl.save()
+
+                                        if patreatmentid.treatment_limit_times is not None:
+                                            if patreatmentid.type in ['FFi','FFd'] and paqty == 1 and  int(patreatmentid.treatment_limit_times) > 1:
+                                                for i in range(2,int(patreatmentid.treatment_limit_times)+1):
+                                                    times = str(i).zfill(2)
+                                                    ctt = patreatmentid
+                                                    
+
+                                                    e_treatids = Treatment(treatment_code=str(patreatmentid.treatment_parentcode)+"-"+str(times),
+                                                    course=ctt.course,times=times,
+                                                    treatment_no=times,price=ctt.price,treatment_date=pay_date,
+                                                    cust_name=ctt.cust_name,Cust_Codeid=ctt.Cust_Codeid,
+                                                    cust_code=ctt.cust_code,status="Open",unit_amount=0,
+                                                    Item_Codeid=ctt.Item_Codeid,item_code=ctt.item_code,
+                                                    treatment_parentcode=ctt.treatment_parentcode,
+                                                    sa_transacno=ctt.sa_transacno,
+                                                    sa_status=ctt.sa_status,
+                                                    remarks=ctt.remarks,
+                                                    dt_lineno=ctt.dt_lineno,expiry=ctt.expiry,package_code=ctt.package_code,
+                                                    Site_Codeid=ctt.Site_Codeid,site_code=ctt.site_code,type=ctt.type,treatment_limit_times=ctt.treatment_limit_times,
+                                                    service_itembarcode=ctt.service_itembarcode,isfoc=ctt.isfoc,Trmt_Room_Codeid=ctt.Trmt_Room_Codeid,
+                                                    trmt_room_code=ctt.trmt_room_code,trmt_is_auto_proportion=ctt.trmt_is_auto_proportion,
+                                                    treatment_account=ctt.treatment_account)
+
+                                                    
+                                                    e_treatids.save() 
+                                                    e_treatids.treatment_date = pay_date
+                                                    e_treatids.save()
+
+                                                    if e_treatids: 
+                                                        stdsids = Treatmentids.objects.filter(treatment_int=e_treatids.pk)
+                                                        if not stdsids: 
+                                                            tid =  Treatmentids(treatment_parentcode=ctt.treatment_parentcode,
+                                                            treatment_int=e_treatids.pk).save()
+                                                                    
+
+
 
 
                                         if patreatacc:

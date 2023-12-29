@@ -572,6 +572,7 @@ class Tmptreatment(models.Model):
     isfoc = models.BooleanField(db_column='isFOC', blank=True, null=True)  # Field name made lowercase.
     newservice_id = models.ForeignKey('cl_table.Stock', on_delete=models.PROTECT, null=True) 
     treatment_id = models.ForeignKey('cl_table.Treatment', on_delete=models.PROTECT,null=True, blank=True)
+    remarks = models.CharField(db_column='Remarks', max_length=255, blank=True, null=True)  # Field name made lowercase.
 
 
     class Meta:
@@ -1024,7 +1025,7 @@ class Customer(models.Model):
     # cust_sn = models.CharField(db_column='Cust_SN', max_length=30, blank=True, null=True)  # Field name made lowercase.
     # cust_language = models.CharField(db_column='Cust_Language', max_length=50, blank=True, null=True)  # Field name made lowercase.
     # cust_location = models.CharField(db_column='Cust_Location', max_length=50, blank=True, null=True)  # Field name made lowercase.
-    # custclass_changedate = models.DateTimeField(db_column='CustClass_ChangeDate', blank=True, null=True)  # Field name made lowercase.
+    custclass_changedate = models.DateTimeField(db_column='CustClass_ChangeDate', blank=True, null=True)  # Field name made lowercase.
     # cardexpiry_date = models.DateTimeField(db_column='CardExpiry_Date', blank=True, null=True)  # Field name made lowercase.
     or_key = models.CharField(db_column='OR_KEY', max_length=20, blank=True, null=True)  # Field name made lowercase.
     # clonecustcode = models.CharField(db_column='CloneCustCode', max_length=200, blank=True, null=True)  # Field name made lowercase.

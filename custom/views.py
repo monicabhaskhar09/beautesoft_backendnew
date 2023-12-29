@@ -1433,10 +1433,10 @@ def create_tdstaff(cart,empobj,stock_obj,site):
 
             count = 1;Source_Codeid=None;Room_Codeid=None;new_remark=None;appt_fr_time=None;appt_to_time=None;add_duration=None
             session=1
-            if cart.itemcodeid.srv_duration is None or float(cart.itemcodeid.srv_duration) == 0.0:
+            if cart.itemcodeid.itm_duration is None or float(cart.itemcodeid.itm_duration) == 0.0:
                 stk_duration = 60
             else:
-                stk_duration = stockobj.srv_duration
+                stk_duration = stockobj.itm_duration
 
             stkduration = int(stk_duration) + 30
             hrs = '{:02d}:{:02d}'.format(*divmod(stkduration, 60))
@@ -3069,34 +3069,50 @@ class itemCartViewset(viewsets.ModelViewSet):
                         asystem_obj = Systemsetup.objects.filter(title='autoclassdiscount',
                         value_name='autoclassdiscount',isactive=True).first()
 
-                        if asystem_obj and asystem_obj.value_data == 'True':
-                            if stock_obj.autocustdisc == True and cls_ids and itmcls_ids:
-                                muti_ids = MultiPricePolicy.objects.filter(item_class_code=stock_obj.item_class,
-                                cust_class_code=cust_obj.cust_class).order_by('pk').first()
-                                if muti_ids and muti_ids.disc_percent_limit > 0:
-                                    discper = muti_ids.disc_percent_limit
-                                    discamt = (float(req['price']) * discper) / 100
+                        studioa_system_obj = Systemsetup.objects.filter(title='studioAbooking',
+                        value_name='studioAbooking',isactive=True).first()
+                        
+                        expiry = True
+                        if studioa_system_obj and studioa_system_obj.value_data == 'True':
+                            if cust_obj.cust_class:
+                                # print(cust_obj.custclass_changedate)
+                                # print(date.today())
+                                if cust_obj.custclass_changedate:
+                                    custclass_changedate = datetime.datetime.strptime(str(cust_obj.custclass_changedate), "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d")
 
-                                    value = float(req['price']) - discamt
+                                    if custclass_changedate < str(date.today()):
+                                        expiry = False
 
-                                    if value > 0:
-                                        amount = value * int(req['qty'])
 
-                                        cart.discount = discper
-                                        cart.discount_amt = discamt
-                                        cart.discount_price = value
-                                        cart.deposit = amount
-                                        cart.trans_amt = amount
-                                        cart.save()
+                        if expiry == True:
+                            if asystem_obj and asystem_obj.value_data == 'True':
+                                if stock_obj.autocustdisc == True and cls_ids and itmcls_ids:
+                                    muti_ids = MultiPricePolicy.objects.filter(item_class_code=stock_obj.item_class,
+                                    cust_class_code=cust_obj.cust_class).order_by('pk').first()
+                                    if muti_ids and muti_ids.disc_percent_limit > 0:
+                                        discper = muti_ids.disc_percent_limit
+                                        discamt = (float(req['price']) * discper) / 100
 
-                                        posdisc = PosDisc(sa_transacno=None,dt_itemno=stock_obj.item_code+"0000",
-                                        disc_amt=discamt,disc_percent=discper,
-                                        dt_lineno=cart.lineno,remark='Member',site_code=site.itemsite_code,
-                                        dt_status="New",dt_auto=1,line_no=1,disc_user=fmspw[0].emp_code,lnow=1,dt_price=None,
-                                        istransdisc=False)
-                                        posdisc.save()
-                                        # print(posdisc.id,"posdisc")  
-                                        cart.pos_disc.add(posdisc.id) 
+                                        value = float(req['price']) - discamt
+
+                                        if value > 0:
+                                            amount = value * int(req['qty'])
+
+                                            cart.discount = discper
+                                            cart.discount_amt = discamt
+                                            cart.discount_price = value
+                                            cart.deposit = amount
+                                            cart.trans_amt = amount
+                                            cart.save()
+
+                                            posdisc = PosDisc(sa_transacno=None,dt_itemno=stock_obj.item_code+"0000",
+                                            disc_amt=discamt,disc_percent=discper,
+                                            dt_lineno=cart.lineno,remark='Member',site_code=site.itemsite_code,
+                                            dt_status="New",dt_auto=1,line_no=1,disc_user=fmspw[0].emp_code,lnow=1,dt_price=None,
+                                            istransdisc=False)
+                                            posdisc.save()
+                                            # print(posdisc.id,"posdisc")  
+                                            cart.pos_disc.add(posdisc.id) 
 
                         msystem_obj = Systemsetup.objects.filter(title='MembershipPrice',
                         value_name='MembershipPrice',isactive=True).first()
@@ -10499,10 +10515,10 @@ class CourseTmpItemHelperViewset(viewsets.ModelViewSet):
                     workcommpoints = cartobj.itemcodeid.workcommpoints
             
                 stock_obj = Stock.objects.filter(pk=cartobj.itemcodeid.pk).first()
-                if stock_obj.srv_duration is None or stock_obj.srv_duration == 0.0:
+                if stock_obj.itm_duration is None or stock_obj.itm_duration == 0.0:
                     srvduration = 60
                 else:
-                    srvduration = stock_obj.srv_duration
+                    srvduration = stock_obj.itm_duration
 
                 stkduration = int(srvduration) + 30
                 hrs = '{:02d}:{:02d}'.format(*divmod(stkduration, 60))
@@ -10513,7 +10529,8 @@ class CourseTmpItemHelperViewset(viewsets.ModelViewSet):
                 value = {'Item':trmt_obj.course,'Price':"{:.2f}".format(float(trmt_obj.unit_amount)),
                 'work_point':"{:.2f}".format(float(workcommpoints)),'room_id':None,'room_name':None,
                 'source_id': None,'source_name':None,'new_remark':None,
-                'times':trmt_obj.times if trmt_obj.times else "",'add_duration':hrs}
+                'times':trmt_obj.times if trmt_obj.times else "",'add_duration':hrs,
+                'remarks':trmt_obj.remarks  if trmt_obj.remarks else ""}
                 if h_obj:
                     if not h_obj.Room_Codeid is None:
                         value['room_id'] = h_obj.Room_Codeid.pk
@@ -10549,6 +10566,8 @@ class CourseTmpItemHelperViewset(viewsets.ModelViewSet):
                     s['appt_to_time'] =  get_in_val(self, s['appt_to_time'])
                     s['add_duration'] =  get_in_val(self, s['add_duration'])
                     s['session'] = "{:.2f}".format(float(s['session']))
+                    s['percent'] = int(s['percent']) if s['percent'] else ""
+                    s['work_amt'] = "{:.2f}".format(float(s['work_amt'])) if s['work_amt'] else 0
                     final.append(s)
         
             result = {'status': status.HTTP_200_OK,"message": "Listed Succesfully",'error': False, 
@@ -10651,10 +10670,10 @@ class CourseTmpItemHelperViewset(viewsets.ModelViewSet):
                 count = 1;Source_Codeid=None;Room_Codeid=None;new_remark=None;appt_fr_time=None;appt_to_time=None;add_duration=None
                 # session=1
                 session = done
-                if cartobj.itemcodeid.srv_duration is None or float(cartobj.itemcodeid.srv_duration) == 0.0:
+                if cartobj.itemcodeid.itm_duration is None or float(cartobj.itemcodeid.itm_duration) == 0.0:
                     stk_duration = 60
                 else:
-                    stk_duration = stockobj.srv_duration
+                    stk_duration = stockobj.itm_duration
 
                 stkduration = int(stk_duration) + 30
                 hrs = '{:02d}:{:02d}'.format(*divmod(stkduration, 60))
@@ -10879,10 +10898,10 @@ class CourseTmpItemHelperViewset(viewsets.ModelViewSet):
             if serializer.is_valid():
                 if ('appt_fr_time' in request.data and not request.data['appt_fr_time'] == None):
                     if ('add_duration' in request.data and not request.data['add_duration'] == None):
-                        if tmpobj.itemcart.itemcodeid.srv_duration is None or float(tmpobj.itemcart.itemcodeid.srv_duration) == 0.0:
+                        if tmpobj.itemcart.itemcodeid.itm_duration is None or float(tmpobj.itemcart.itemcodeid.itm_duration) == 0.0:
                             stk_duration = 60
                         else:
-                            stk_duration = int(tmpobj.itemcart.itemcodeid.srv_duration)
+                            stk_duration = int(tmpobj.itemcart.itemcodeid.itm_duration)
 
                         stkduration = int(stk_duration) + 30
                         t1 = datetime.datetime.strptime(str(request.data['add_duration']), '%H:%M')
@@ -10922,6 +10941,17 @@ class CourseTmpItemHelperViewset(viewsets.ModelViewSet):
                     tmpl_ids = TmpItemHelper.objects.filter(tmptreatment=tmpobj.tmptreatment,site_code=site.itemsite_code).order_by('pk')
                     for t in tmpl_ids:
                         TmpItemHelper.objects.filter(id=t.pk).update(workcommpoints=value)
+
+                tmp_upids = TmpItemHelper.objects.filter(itemcart__pk=tmpobj.itemcart.pk,helper_id__pk=tmpobj.helper_id.pk).order_by('pk')
+                if tmp_upids:
+                    if 'percent' in request.data and request.data['percent']:
+                        tmp_upids.update(percent=request.data['percent'])
+
+                    if 'work_amt' in request.data and request.data['work_amt']:
+                        tmp_upids.update(work_amt=request.data['work_amt'])
+    
+
+
 
                 result = {'status': status.HTTP_200_OK,"message":"Updated Succesfully",'error': False}
                 return Response(result, status=status.HTTP_200_OK)
@@ -10998,6 +11028,9 @@ class CourseTmpItemHelperViewset(viewsets.ModelViewSet):
                     if not tmp_ids:
                         result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Without employee cant do confirm!!",'error': False}
                         return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+
+                    trmt_obj[0].remarks = request.GET.get('remarks',None)
+                    trmt_obj[0].save()
                     
                     # for existing in trmt_obj[0].helper_ids.all():
                     #     trmt_obj[0].helper_ids.remove(existing) 
@@ -11293,10 +11326,10 @@ class PackageServiceTmpItemHelperViewset(viewsets.ModelViewSet):
             else:
                 workcommpoints = stock_obj.workcommpoints
         
-            if not stock_obj.srv_duration or stock_obj.srv_duration is None or stock_obj.srv_duration == 0.0:
+            if not stock_obj.itm_duration or stock_obj.itm_duration is None or stock_obj.itm_duration == 0.0:
                 srvduration = 60
             else:
-                srvduration = stock_obj.srv_duration
+                srvduration = stock_obj.itm_duration
 
             stkduration = int(srvduration) + 30
             hrs = '{:02d}:{:02d}'.format(*divmod(stkduration, 60))
@@ -11405,10 +11438,10 @@ class PackageServiceTmpItemHelperViewset(viewsets.ModelViewSet):
 
             count = 1;Source_Codeid=None;Room_Codeid=None;new_remark=None;appt_fr_time=None;appt_to_time=None;add_duration=None
             session=1
-            if not stock_obj.srv_duration or stock_obj.srv_duration is None or float(stock_obj.srv_duration) == 0.0:
+            if not stock_obj.itm_duration or stock_obj.itm_duration is None or float(stock_obj.itm_duration) == 0.0:
                 stk_duration = 60
             else:
-                stk_duration = stock_obj.srv_duration
+                stk_duration = stock_obj.itm_duration
 
             stkduration = int(stk_duration) + 30
             hrs = '{:02d}:{:02d}'.format(*divmod(stkduration, 60))
@@ -11630,10 +11663,10 @@ class PackageServiceTmpItemHelperViewset(viewsets.ModelViewSet):
             if serializer.is_valid():
                 if ('appt_fr_time' in request.data and not request.data['appt_fr_time'] == None):
                     if ('add_duration' in request.data and not request.data['add_duration'] == None):
-                        if tmpobj.itemcart.itemcodeid.srv_duration is None or float(tmpobj.itemcart.itemcodeid.srv_duration) == 0.0:
+                        if tmpobj.itemcart.itemcodeid.itm_duration is None or float(tmpobj.itemcart.itemcodeid.itm_duration) == 0.0:
                             stk_duration = 60
                         else:
-                            stk_duration = int(tmpobj.itemcart.itemcodeid.srv_duration)
+                            stk_duration = int(tmpobj.itemcart.itemcodeid.itm_duration)
 
                         stkduration = int(stk_duration) + 30
                         t1 = datetime.datetime.strptime(str(request.data['add_duration']), '%H:%M')
@@ -12436,10 +12469,10 @@ class AddRemoveSalesStaffViewset(viewsets.ModelViewSet):
 
                                                 count = 1;Source_Codeid=None;Room_Codeid=None;new_remark=None;appt_fr_time=None;appt_to_time=None;add_duration=None
                                                 session=1
-                                                if cartobj.itemcodeid.srv_duration is None or float(cartobj.itemcodeid.srv_duration) == 0.0:
+                                                if cartobj.itemcodeid.itm_duration is None or float(cartobj.itemcodeid.itm_duration) == 0.0:
                                                     stk_duration = 60
                                                 else:
-                                                    stk_duration = stockobj.srv_duration
+                                                    stk_duration = stockobj.itm_duration
 
                                                 stkduration = int(stk_duration) + 30
                                                 hrs = '{:02d}:{:02d}'.format(*divmod(stkduration, 60))
@@ -12640,10 +12673,10 @@ class AddRemoveSalesStaffViewset(viewsets.ModelViewSet):
 
                                         count = 1;Source_Codeid=None;Room_Codeid=None;new_remark=None;appt_fr_time=None;appt_to_time=None;add_duration=None
                                         session=1
-                                        if trmt_obj.Item_Codeid.srv_duration is None or float(trmt_obj.Item_Codeid.srv_duration) == 0.0:
+                                        if trmt_obj.Item_Codeid.itm_duration is None or float(trmt_obj.Item_Codeid.itm_duration) == 0.0:
                                             stk_duration = 60
                                         else:
-                                            stk_duration = stockobj.srv_duration
+                                            stk_duration = stockobj.itm_duration
 
                                         stkduration = int(stk_duration) + 30
                                         hrs = '{:02d}:{:02d}'.format(*divmod(stkduration, 60))
@@ -29335,3 +29368,35 @@ class QuotationCustViewset(viewsets.ModelViewSet):
         except Exception as e:
             invalid_message = str(e)
             return general_error_response(invalid_message)     
+
+
+class WeddingpackageAPIView(generics.ListAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    serializer_class = []
+
+    def list(self, request):
+        try:
+            cart_date = timezone.now().date()
+ 
+            if not request.GET.get('cust_noid',None):
+                raise Exception('Please give customer noid!!.')
+
+            if not request.GET.get('cart_id',None):
+                raise Exception('Please give Cart id!!.')    
+
+            cust_obj = Customer.objects.filter(pk=request.GET.get('cust_noid',None),cust_isactive=True).first()
+            cart_id = request.GET.get('cart_id',None)
+
+            
+            queryset = ItemCart.objects.filter(cust_noid=cust_obj,cart_id=cart_id,cart_date=cart_date,
+            cart_status="Inprogress",isactive=True,is_payment=False,itemcodeid__item_dept="45").exclude(type__in=type_ex).order_by('lineno')  
+
+            
+            result = {'status': status.HTTP_200_OK,"message": "Listed Succesfully",'error': False, 
+            'wedding_package': True  if queryset else False}
+            return Response(data=result, status=status.HTTP_200_OK) 
+
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)   

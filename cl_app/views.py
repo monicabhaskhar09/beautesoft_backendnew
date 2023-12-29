@@ -4216,10 +4216,10 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                 # stock_obj = Stock.objects.filter(pk=trmt_obj.Item_Codeid.pk,item_isactive=True).first()
                 stock_obj = Stock.objects.filter(pk=trmt_obj.Item_Codeid.pk).first()
                 if stock_obj:
-                    if stock_obj.srv_duration is None or stock_obj.srv_duration == 0.0:
+                    if stock_obj.itm_duration is None or stock_obj.itm_duration == 0.0:
                         srvduration = 60
                     else:
-                        srvduration = stock_obj.srv_duration
+                        srvduration = stock_obj.itm_duration
 
                 stkduration = int(srvduration) + 30
                 hrs = '{:02d}:{:02d}'.format(*divmod(stkduration, 60))
@@ -4468,10 +4468,10 @@ class TrmtTmpItemHelperViewset(viewsets.ModelViewSet):
                     count = 1;Source_Codeid=None;Room_Codeid=None;new_remark=None;appt_fr_time=None;appt_to_time=None;add_duration=None
                     # session=1
                     session = len(arrtreatmentid)
-                    if trmt_obj.Item_Codeid.srv_duration is None or float(trmt_obj.Item_Codeid.srv_duration) == 0.0:
+                    if trmt_obj.Item_Codeid.itm_duration is None or float(trmt_obj.Item_Codeid.itm_duration) == 0.0:
                         stk_duration = 60
                     else:
-                        stk_duration = stockobj.srv_duration if stockobj and stockobj.srv_duration else 60
+                        stk_duration = stockobj.itm_duration if stockobj and stockobj.itm_duration else 60
 
                     stkduration = int(stk_duration) + 30
                     hrs = '{:02d}:{:02d}'.format(*divmod(stkduration, 60))
@@ -5245,10 +5245,10 @@ class TrmtTmpItemHelperViewsetOld(viewsets.ModelViewSet):
                 # stock_obj = Stock.objects.filter(pk=trmt_obj.Item_Codeid.pk,item_isactive=True).first()
                 stock_obj = Stock.objects.filter(pk=trmt_obj.Item_Codeid.pk).first()
                 if stock_obj:
-                    if stock_obj.srv_duration is None or stock_obj.srv_duration == 0.0:
+                    if stock_obj.itm_duration is None or stock_obj.itm_duration == 0.0:
                         srvduration = 60
                     else:
-                        srvduration = stock_obj.srv_duration
+                        srvduration = stock_obj.itm_duration
 
                 stkduration = int(srvduration) + 30
                 hrs = '{:02d}:{:02d}'.format(*divmod(stkduration, 60))
@@ -5391,10 +5391,10 @@ class TrmtTmpItemHelperViewsetOld(viewsets.ModelViewSet):
                 count = 1;Source_Codeid=None;Room_Codeid=None;new_remark=None;appt_fr_time=None;appt_to_time=None;add_duration=None
                 # session=1
                 session = len(arrtreatmentid)
-                if trmt_obj.Item_Codeid.srv_duration is None or float(trmt_obj.Item_Codeid.srv_duration) == 0.0:
+                if trmt_obj.Item_Codeid.itm_duration is None or float(trmt_obj.Item_Codeid.itm_duration) == 0.0:
                     stk_duration = 60
                 else:
-                    stk_duration = stockobj.srv_duration if stockobj and stockobj.srv_duration else 60
+                    stk_duration = stockobj.itm_duration if stockobj and stockobj.itm_duration else 60
 
                 stkduration = int(stk_duration) + 30
                 hrs = '{:02d}:{:02d}'.format(*divmod(stkduration, 60))
@@ -5618,10 +5618,10 @@ class TrmtTmpItemHelperViewsetOld(viewsets.ModelViewSet):
             if serializer.is_valid():
                 if ('appt_fr_time' in request.data and not request.data['appt_fr_time'] == None):
                     if ('add_duration' in request.data and not request.data['add_duration'] == None):
-                        if tmpobj.treatment.Item_Codeid.srv_duration is None or float(tmpobj.treatment.Item_Codeid.srv_duration) == 0.0:
+                        if tmpobj.treatment.Item_Codeid.itm_duration is None or float(tmpobj.treatment.Item_Codeid.itm_duration) == 0.0:
                             stk_duration = 60
                         else:
-                            stk_duration = int(tmpobj.treatment.Item_Codeid.srv_duration)
+                            stk_duration = int(tmpobj.treatment.Item_Codeid.itm_duration)
 
                         stkduration = int(stk_duration) + 30
                         t1 = datetime.datetime.strptime(str(request.data['add_duration']), '%H:%M')
@@ -15971,7 +15971,7 @@ class StockUsageViewset(viewsets.ModelViewSet):
             s1 = str(now.strftime("%Y/%m/%d %H:%M:%S"))
 
             for idx, req in enumerate(request.data, start=1):
-                # print(req,"req 4444")
+                print(req,"req 4444")
                 serializer = TreatmentUsageSerializer(data=req)
                 if serializer.is_valid():
                     stock_obj = Stock.objects.filter(pk=req['stock_id']).first()
@@ -16029,7 +16029,7 @@ class StockUsageViewset(viewsets.ModelViewSet):
 
                 else:
                     data = serializer.errors
-                    # print(data,"data")
+                    print(data,"data")
                     result = {'status': status.HTTP_400_BAD_REQUEST,"message":data['non_field_errors'][0],'error': True, 'data': serializer.errors} 
                     return Response(result, status=status.HTTP_400_BAD_REQUEST) 
             
@@ -19680,10 +19680,10 @@ class EcomTreatmentApptAPI(generics.ListAPIView):
                     
                     stock = row.Item_Codeid
                     if stock:
-                        if stock.srv_duration is None or stock.srv_duration == 0.0:
+                        if stock.itm_duration is None or stock.itm_duration == 0.0:
                             srvduration = 60
                         else:
-                            srvduration = int(stock.srv_duration) if stock.srv_duration else 60   
+                            srvduration = int(stock.itm_duration) if stock.itm_duration else 60   
                     hrs = '{:02d}:{:02d}'.format(*divmod(srvduration, 60))        
 
                     # name = str(stock.item_name)+" "+str(row.treatment_parentcode) if stock and stock.item_name else ""

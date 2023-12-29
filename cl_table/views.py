@@ -28,7 +28,7 @@ from .models import (Gender, Employee, Fmspw, Attendance2, Customer, Images, Tre
                      MGMPolicyCloud,CustomerReferral,sitelistip,CustomerExtended,DisplayCatalog,
                      DisplayItem,OutletRequestLog,ItemBrand,PrepaidOpenCondition,PrepaidValidperiod,invoicetemplate,
                      StaffDocument,OutletDocument,ItemBatchSno,TempprepaidAccountCondition,TempcartprepaidAccCond,
-                     TaxType2TaxCode,Treatmentids,ItemLink,apiUrls,ItemContent)
+                     TaxType2TaxCode,Treatmentids,ItemLink,apiUrls,ItemContent,Item_MembershipPrice)
 from cl_app.models import ItemSitelist, SiteGroup, LoggedInUser,TmpTreatmentSession
 from custom.models import Room,ItemCart,VoucherRecord,EmpLevel,PosPackagedeposit,payModeChangeLog,ProjectModel
 from .serializers import (EmployeeSerializer, FMSPWSerializer, UserLoginSerializer, Attendance2Serializer,
@@ -412,8 +412,40 @@ class CustomerViewset(viewsets.ModelViewSet):
                 if not control_obj:
                     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer Control No does not exist!!",'error': True} 
                     return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+
+                if control_obj.include_sitecode == True:
+                    cus_code = str(control_obj.Site_Codeid.itemsite_code) + str(control_obj.control_no)
+                else:
+                    if control_obj.control_prefix:
+                        cus_code = str(control_obj.control_prefix) + str(control_obj.control_no)
+                    else:
+                        cus_code = str(control_obj.control_no)
+                
+                sa_count = 1; control_check = False
+
+                while sa_count > 0:
+                    cust_v = Customer.objects.filter(cust_code=cus_code)
                     
-                cus_code = str(control_obj.Site_Codeid.itemsite_code)+str(control_obj.control_no)
+                    if cust_v:    
+                        newcontrol_obj = ControlNo.objects.filter(control_description__iexact="VIP CODE",
+                                                    Site_Codeid__pk=site.pk).first()
+
+                        if newcontrol_obj.include_sitecode == True:
+                            cus_code = str(newcontrol_obj.Site_Codeid.itemsite_code) + str(newcontrol_obj.control_no)
+                        else:
+                            if newcontrol_obj.control_prefix:
+                                cus_code = str(newcontrol_obj.control_prefix) + str(newcontrol_obj.control_no)
+                            else:
+                                cus_code = str(newcontrol_obj.control_no)
+                                            
+                        newcontrol_obj.control_no = int(newcontrol_obj.control_no) + 1
+                        newcontrol_obj.save() 
+                        sa_count += 1
+                        control_check = True
+                    else:
+                        sa_count = 0   
+                    
+                # cus_code = str(control_obj.Site_Codeid.itemsite_code)+str(control_obj.control_no)
                 gender = False
                 if request.data['Cust_sexesid']:
                     gender = Gender.objects.filter(pk=request.data['Cust_sexesid'],itm_isactive=True).first()
@@ -432,8 +464,9 @@ class CustomerViewset(viewsets.ModelViewSet):
                     Cust_Classid=classobj,custallowsendsms=True,or_key=site.itemsite_code)
 
                 if k.pk:
-                    control_obj.control_no = int(control_obj.control_no) + 1
-                    control_obj.save()
+                    if control_check == False:
+                        control_obj.control_no = int(control_obj.control_no) + 1
+                        control_obj.save()
                 state = status.HTTP_201_CREATED
                 message = "Created Succesfully"
                 error = False
@@ -3380,10 +3413,10 @@ class AppointmentViewset(viewsets.ModelViewSet):
                     starttime = datetime.datetime.strptime(start_time, "%H:%M")
                     # if dict_v['srv_duration'] is None or dict_v['srv_duration'] == 0.0:
         
-                    if  stock_obj.srv_duration is None or float(stock_obj.srv_duration) == 0.0:
+                    if  stock_obj.itm_duration is None or float(stock_obj.itm_duration) == 0.0:
                         stk_duration = 60
                     else:
-                        stk_duration = int(stock_obj.srv_duration)
+                        stk_duration = int(stock_obj.itm_duration)
 
                     stkduration = int(stk_duration) + 30
                     # print(stkduration,"stkduration")
@@ -3648,10 +3681,10 @@ class AppointmentViewset(viewsets.ModelViewSet):
             master = Treatment_Master.objects.filter(Appointment=app).order_by('id')
             treat_lst = []; pay = ""
             for m in master:
-                if m.Item_Codeid.srv_duration == 0.0 or m.Item_Codeid.srv_duration == None:
+                if m.Item_Codeid.itm_duration == 0.0 or m.Item_Codeid.itm_duration == None:
                     srvduration = 60
                 else:
-                    srvduration = m.Item_Codeid.srv_duration
+                    srvduration = m.Item_Codeid.itm_duration
 
                 stkduration = int(srvduration) + 30
 
@@ -5834,7 +5867,58 @@ class AppointmentEditViewset(viewsets.ModelViewSet):
                                                 salesamt="{:.2f}".format(float(salesamt)),type=None,isdelete=False,role=1,
                                                 dt_lineno=cart.lineno,itemcart=cart,emp_id=logstaff,salescommpoints=salescommpoints)
                                                 tmpmulti.save()
-                                                cart.multistaff_ids.add(tmpmulti.pk) 
+                                                cart.multistaff_ids.add(tmpmulti.pk)
+
+
+                                        msystem_obj = Systemsetup.objects.filter(title='MembershipPrice',
+                                        value_name='MembershipPrice',isactive=True).first()
+                                        if msystem_obj and msystem_obj.value_data == 'True' and appment.cust_noid.cust_class:
+                                            memb_ids = Item_MembershipPrice.objects.filter(item_code=stockobj.item_code,
+                                                class_code=appment.cust_noid.cust_class).order_by('pk').first()
+                                            if memb_ids:
+                                                if cart.pos_disc.all().exists():
+                                                    cart.pos_disc.all().delete()
+
+                                                # uprice = req['price']
+                                                # if memb_ids.price and memb_ids.price > 0:
+                                                uprice = memb_ids.price
+                                                cart.price = memb_ids.price
+                                                cart.discount_price = memb_ids.price * 1.0
+                                                cart.discount = 0
+                                                cart.discount_amt = 0
+                                                cart.total_price=float(memb_ids.price) * int(cart.quantity) if cart.quantity else float(memb_ids.price) * 1.0
+                                                cart.trans_amt=float(memb_ids.price) * int(cart.quantity) if cart.quantity else float(memb_ids.price) * 1.0
+                                                cart.deposit=float(memb_ids.price) * int(cart.quantity) if cart.quantity else float(memb_ids.price) * 1.0
+                                                cart.save()
+
+                                                if memb_ids.discount_percent and memb_ids.discount_percent > 0:
+                                                    discper = memb_ids.discount_percent
+                                                    discamt = (float(uprice) * discper) / 100
+
+                                                    value = float(uprice) - discamt
+
+                                                    if value > 0:
+                                                        amount = value * int(cart.quantity)
+
+                                                        cart.discount = discper
+                                                        cart.discount_amt = discamt
+                                                        cart.discount_price = value
+                                                        cart.deposit = amount
+                                                        cart.trans_amt = amount
+                                                        cart.save()
+
+                                                    
+                                                        posdisc = PosDisc(sa_transacno=None,dt_itemno=stockobj.item_code+"0000",
+                                                        disc_amt=discamt,disc_percent=discper,
+                                                        dt_lineno=cart.lineno,remark='Membership Price',site_code=site.itemsite_code,
+                                                        dt_status="New",dt_auto=1,line_no=1,disc_user=fmspw.emp_code,lnow=1,dt_price=None,
+                                                        istransdisc=False)
+                                                        posdisc.save()
+                                                        # print(posdisc.id,"posdisc")  
+                                                        cart.pos_disc.add(posdisc.id) 
+
+
+
                         
                     if j['appt_id']:
                         appt_obj.save()
@@ -6297,10 +6381,10 @@ class StockListViewset(viewsets.ModelViewSet):
                 for dat in d:
                     dict_v = dict(dat)
                     stock_obj = Stock.objects.filter(pk=dict_v['id'],item_isactive=True).first()
-                    if dict_v['srv_duration'] is None or dict_v['srv_duration'] == 0.0:
+                    if dict_v['itm_duration'] is None or dict_v['itm_duration'] == 0.0:
                         srvduration = 60
                     else:
-                        srvduration = dict_v['srv_duration']     
+                        srvduration = dict_v['itm_duration']     
 
                     dict_v['name'] = str(dict_v['item_desc'])+" "+"["+str(int(srvduration))+" "+"Mins"+""+"]"
                     dict_v['item_price'] = "{:.2f}".format(float(dict_v['item_price'])) if dict_v['item_price'] else "0.00"
@@ -6432,10 +6516,10 @@ class TreatmentApptAPI(generics.ListAPIView):
                     
                     stock = row.Item_Codeid
                     if stock:
-                        if stock.srv_duration is None or stock.srv_duration == 0.0:
+                        if stock.itm_duration is None or stock.itm_duration == 0.0:
                             srvduration = 60
                         else:
-                            srvduration = int(stock.srv_duration) if stock.srv_duration else 60   
+                            srvduration = int(stock.itm_duration) if stock.itm_duration else 60   
                     hrs = '{:02d}:{:02d}'.format(*divmod(srvduration, 60))        
 
                     # name = str(stock.item_name)+" "+str(row.treatment_parentcode) if stock and stock.item_name else ""
@@ -7098,10 +7182,10 @@ class TreatmentdetailsViewset(viewsets.ModelViewSet):
             site = fmspw[0].Emp_Codeid.Site_Codeid
         
             if serializer.is_valid():
-                if int(stock_obj.srv_duration) == 0.0:
+                if int(stock_obj.itm_duration) == 0.0:
                     stk_duration = 60
                 else:
-                    stk_duration = int(stock_obj.srv_duration)
+                    stk_duration = int(stock_obj.itm_duration)
 
                 stkduration = int(stk_duration) + 30
                 # print(stkduration,"stkduration")
@@ -8540,7 +8624,13 @@ class postaudViewset(viewsets.ModelViewSet):
                     result = {'status': status.HTTP_204_NO_CONTENT,"message":"No Content",'error': False, 'data': []}
                     return Response(data=result, status=status.HTTP_200_OK)
 
-                gst = GstSetting.objects.filter(item_code="100001",item_desc='GST',isactive=True).first()
+                paydate = datetime.datetime.strptime(str(poshaud_v.sa_date), "%Y-%m-%d %H:%M:%S").date()  
+
+                gst = GstSetting.objects.filter(isactive=True,activefromdate__date__lte=paydate,
+                activetodate__date__gte=paydate).first()
+  
+                # gst = GstSetting.objects.filter(item_code="100001",item_desc='GST',isactive=True).first()
+                
                 calcgst = 0
                 if gst:
                     calcgst = gst.item_value if gst and gst.item_value else 0.0
@@ -8550,7 +8640,7 @@ class postaudViewset(viewsets.ModelViewSet):
                         if sitegst.site_is_gst == False:
                             calcgst = 0    
 
-                paydate = datetime.datetime.strptime(str(poshaud_v.sa_date), "%Y-%m-%d %H:%M:%S").date()  
+                
                 value = postaud_calculation(self, request, queryset,paydate)
 
                 depotop_ids = queryset.filter(type__in=['Deposit','Top Up'])
@@ -9020,6 +9110,12 @@ class postaudViewset(viewsets.ModelViewSet):
                             return Response(result, status=status.HTTP_400_BAD_REQUEST) 
                         
                         # sa_transacno_ref = str(refcontrol_obj.control_prefix)+str(refcontrol_obj.Site_Codeid.itemsite_code)+str(refcontrol_obj.control_no)
+                
+                pack_check = True
+                studioa_system_obj = Systemsetup.objects.filter(title='studioAbooking',
+                        value_name='studioAbooking',isactive=True).first()
+                if studioa_system_obj and studioa_system_obj.value_data == 'True':
+                    pack_check = False
 
                 for ca in cart_ids.filter(type='Deposit'):
                     if ca.itemcodeid.Item_Divid.itm_code == '1':
@@ -9030,9 +9126,10 @@ class postaudViewset(viewsets.ModelViewSet):
                     
                     if int(ca.itemcodeid.item_div) == 3 and ca.itemcodeid.item_type == 'PACKAGE' and ca.is_foc == False:
                         if float(ca.deposit) == 0.0:
-                            pamsg = "{0} Package Product can not be 0.00".format(str(ca.itemcodeid.item_name))
-                            result = {'status': status.HTTP_400_BAD_REQUEST,"message":pamsg,'error': True} 
-                            return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
+                            if pack_check == True:
+                                pamsg = "{0} Package Product can not be 0.00".format(str(ca.itemcodeid.item_name))
+                                result = {'status': status.HTTP_400_BAD_REQUEST,"message":pamsg,'error': True} 
+                                return Response(data=result, status=status.HTTP_400_BAD_REQUEST)
                     
                     
                 #poshaud_ids = PosHaud.objects.filter(sa_transacno=sa_transacno,sa_custno=cust_obj.cust_code,
@@ -9227,7 +9324,7 @@ class postaudViewset(viewsets.ModelViewSet):
                                 splt = str(req['pay_rem1']).split("-")
                                 pp_no = splt[0]
                                 line_no = splt[1]
-                                print(pp_no,line_no,"line_no")
+                                # print(pp_no,line_no,"line_no")
 
                                 if 'pay_rem2' in req and req['pay_rem2']:
                                     mpre_obj = PrepaidAccount.objects.filter(pk=req['pay_rem2']).first()
@@ -9257,7 +9354,7 @@ class postaudViewset(viewsets.ModelViewSet):
                                     pos_daud_lineno=line_no).order_by('pk')
 
                                 if pac_ids and ol_open_ids:
-                                    print("ol_open_ids")
+                                    # print("ol_open_ids")
                                     # .filter(~Q(itemcodeid__item_type='PACKAGE'))
                                     whole_ids = depotop_ids.filter(itemcodeid__item_div__in=[3,1,4,5])
                                     service_ids = depotop_ids.filter(itemcodeid__item_div=3)
@@ -10025,23 +10122,38 @@ class postaudViewset(viewsets.ModelViewSet):
                     else:
                         in_refcontrol_obj = ControlNo.objects.filter(control_description__iexact="Reference Non Sales No",Site_Codeid__pk=fmspw.loginsite.pk).first()
                         sa_transacno_type = "Non Sales"
-                        
-                    focnot_ids = cart_ids.filter(type__in=['Deposit','Top Up'],is_foc=False) 
-                    if focnot_ids:
-                        sa_transacno_refval = str(in_refcontrol_obj.control_prefix)+str(in_refcontrol_obj.Site_Codeid.itemsite_code)+str(in_refcontrol_obj.control_no)
-                        in_refcontrol_obj.control_no = int(in_refcontrol_obj.control_no) + 1
-                        in_refcontrol_obj.save()
-                    else:
-                        nscontrol_obj = ControlNo.objects.filter(control_description__iexact="Reference Non Sales No",Site_Codeid__pk=fmspw.loginsite.pk).first()
-                        # if not nscontrol_obj:
-                        #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Reference Non Sales No does not exist!!",'error': True} 
-                        #     return Response(result, status=status.HTTP_400_BAD_REQUEST) 
-                        
-                        sa_transacno_refval = str(nscontrol_obj.control_prefix)+str(nscontrol_obj.Site_Codeid.itemsite_code)+str(nscontrol_obj.control_no)
-                        nscontrol_obj.control_no = int(nscontrol_obj.control_no) + 1
-                        nscontrol_obj.save()      
-                        sa_transacno_type = "Non Sales"
-                        
+
+                    pay_check = True
+
+                    studioabok_system_obj = Systemsetup.objects.filter(title='studioAbooking',
+                    value_name='studioAbooking',isactive=True).first()
+                    if studioabok_system_obj and studioabok_system_obj.value_data == 'True':
+                        if float(value['deposit_amt']) == 0:
+                            ns_control_obj = ControlNo.objects.filter(control_description__iexact="Reference Non Sales No",Site_Codeid__pk=fmspw.loginsite.pk).first()
+                       
+                            sa_transacno_refval = str(ns_control_obj.control_prefix)+str(ns_control_obj.Site_Codeid.itemsite_code)+str(ns_control_obj.control_no)
+                            ns_control_obj.control_no = int(ns_control_obj.control_no) + 1
+                            ns_control_obj.save()      
+                            sa_transacno_type = "Non Sales"  
+                            pay_check = False  
+
+                    if pay_check == True:    
+                        focnot_ids = cart_ids.filter(type__in=['Deposit','Top Up'],is_foc=False) 
+                        if focnot_ids:
+                            sa_transacno_refval = str(in_refcontrol_obj.control_prefix)+str(in_refcontrol_obj.Site_Codeid.itemsite_code)+str(in_refcontrol_obj.control_no)
+                            in_refcontrol_obj.control_no = int(in_refcontrol_obj.control_no) + 1
+                            in_refcontrol_obj.save()
+                        else:
+                            nscontrol_obj = ControlNo.objects.filter(control_description__iexact="Reference Non Sales No",Site_Codeid__pk=fmspw.loginsite.pk).first()
+                            # if not nscontrol_obj:
+                            #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Reference Non Sales No does not exist!!",'error': True} 
+                            #     return Response(result, status=status.HTTP_400_BAD_REQUEST) 
+                            
+                            sa_transacno_refval = str(nscontrol_obj.control_prefix)+str(nscontrol_obj.Site_Codeid.itemsite_code)+str(nscontrol_obj.control_no)
+                            nscontrol_obj.control_no = int(nscontrol_obj.control_no) + 1
+                            nscontrol_obj.save()      
+                            sa_transacno_type = "Non Sales"
+
 
                     taudgst_gt1ids = PosTaud.objects.filter(sa_transacno=sa_transacno,itemsite_code=site.itemsite_code,
                     pay_type__in=gt1_lst).order_by('pk').aggregate(pay_gst_amt_collect=Coalesce(Sum('pay_gst_amt_collect'), 0))
@@ -10405,7 +10517,9 @@ class postaudViewset(viewsets.ModelViewSet):
                     #     cust_obj.cust_class =  nonmember_ids.class_code
                     #     cust_obj.Cust_Classid = nonmember_ids
                     #     cust_obj.save()
-                
+
+                Cust_Classid = cust_obj.Cust_Classid
+
                 sys_obj = Systemsetup.objects.filter(title='CustomerClassUpgrade',
                 value_name='CustomerClassUpgrade',isactive=True).first()
                 custclass_ids = CustomerClass.objects.filter(class_code=cust_obj.cust_class
@@ -10423,7 +10537,18 @@ class postaudViewset(viewsets.ModelViewSet):
                                 # print("iff")
                                 cust_obj.cust_class =  class_ids.class_code
                                 cust_obj.Cust_Classid = class_ids
+
+                                if Cust_Classid and Cust_Classid.pk != int(class_ids.pk):
+                                    current_date = date.today()
+                                    # print(current_date)
+                                    future_date = current_date + relativedelta.relativedelta(years=2)
+                                    # print(future_date)
+                                    cust_obj.custclass_changedate = future_date
+                                    cust_obj.save()
+
                                 cust_obj.save()
+
+                                
 
                 msystem_obj = Systemsetup.objects.filter(title='MembershipPrice',
                 value_name='MembershipPrice',isactive=True).first()
@@ -14287,10 +14412,10 @@ class TmpItemHelperViewset(viewsets.ModelViewSet):
                 workcommpoints = cart_obj.itemcodeid.workcommpoints
 
             stock_obj = Stock.objects.filter(pk=cart_obj.itemcodeid.pk).first()
-            if stock_obj.srv_duration is None or stock_obj.srv_duration == 0.0:
+            if stock_obj.itm_duration is None or stock_obj.itm_duration == 0.0:
                 srvduration = 60
             else:
-                srvduration = stock_obj.srv_duration
+                srvduration = stock_obj.itm_duration
 
             stkduration = int(srvduration) + 30
             hrs = '{:02d}:{:02d}'.format(*divmod(stkduration, 60))
@@ -14387,10 +14512,10 @@ class TmpItemHelperViewset(viewsets.ModelViewSet):
             tmp = []
 
             count = 1;Source_Codeid=None;Room_Codeid=None;new_remark=None;appt_fr_time=None;appt_to_time=None;add_duration=None
-            if cart_obj.itemcodeid.srv_duration is None or float(cart_obj.itemcodeid.srv_duration) == 0.0:
+            if cart_obj.itemcodeid.itm_duration is None or float(cart_obj.itemcodeid.itm_duration) == 0.0:
                 stk_duration = 60
             else:
-                stk_duration = int(cart_obj.itemcodeid.srv_duration)
+                stk_duration = int(cart_obj.itemcodeid.itm_duration)
 
             stkduration = int(stk_duration) + 30
             hrs = '{:02d}:{:02d}'.format(*divmod(stkduration, 60))
@@ -14549,10 +14674,10 @@ class TmpItemHelperViewset(viewsets.ModelViewSet):
             if serializer.is_valid():
                 if ('appt_fr_time' in request.data and not request.data['appt_fr_time'] == None):
                     if ('add_duration' in request.data and not request.data['add_duration'] == None):
-                        if tmpobj.itemcart.itemcodeid.srv_duration is None or float(tmpobj.itemcart.itemcodeid.srv_duration) == 0.0:
+                        if tmpobj.itemcart.itemcodeid.itm_duration is None or float(tmpobj.itemcart.itemcodeid.itm_duration) == 0.0:
                             stk_duration = 60
                         else:
-                            stk_duration = int(tmpobj.itemcart.itemcodeid.srv_duration)
+                            stk_duration = int(tmpobj.itemcart.itemcodeid.itm_duration)
 
                         stkduration = int(stk_duration) + 30
                         t1 = datetime.datetime.strptime(str(request.data['add_duration']), '%H:%M')
@@ -19190,6 +19315,14 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
                             else:
                                 k.cust_dob = None
                                 k.save()
+                    
+                    if 'Cust_Classid' in request.data and request.data['Cust_Classid']:
+                        current_date = date.today()
+                        # print(current_date)
+                        future_date = current_date + relativedelta.relativedelta(years=2)
+                        # print(future_date)
+                        k.custclass_changedate = future_date
+                        k.save()
 
                     
                     if k.cust_dob and k.cust_dob != str(date.today()):
@@ -19313,6 +19446,9 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
                 serializer_class = None
                 customer = self.get_object(pk)
 
+                Cust_Classid = customer.Cust_Classid
+                # print(Cust_Classid,"Cust_Classid")
+
                 if 'cust_email' in request.data and request.data['cust_email']:
                     customer_mail =  Customer.objects.filter(cust_email=request.data['cust_email']).exclude(pk=customer.pk)
                     if len(customer_mail) > 0:
@@ -19408,6 +19544,16 @@ class CustomerPlusViewset(viewsets.ModelViewSet):
                     if request.data['cust_dob'] and request.data['cust_dob'] != str(date.today()):
                         customer.dob_status = True
                         customer.save()
+
+                    if 'Cust_Classid' in request.data and request.data['Cust_Classid']:
+                        # print(request.data['Cust_Classid'],"request.data['Cust_Classid']")
+                        if (Cust_Classid and Cust_Classid.pk != int(request.data['Cust_Classid'])) or not Cust_Classid:
+                            current_date = date.today()
+                            # print(current_date)
+                            future_date = current_date + relativedelta.relativedelta(years=2)
+                            # print(future_date)
+                            customer.custclass_changedate = future_date
+                            customer.save()    
 
                     state = status.HTTP_200_OK
                     message = "Updated Succesfully"
@@ -22644,7 +22790,7 @@ class TempcustsignInvoiceViewset(viewsets.ModelViewSet):
             return general_error_response(invalid_message)     
     
     @transaction.atomic
-    @action(detail=False, methods=['POST'], name='changepayment')
+    @action(detail=False, methods=['POST'], name='addsign')
     def addsign(self, request):
         try:
             with transaction.atomic():
@@ -26508,10 +26654,10 @@ class AvailableTimeSlotsAPIView(GenericAPIView):
             if not given_date:
                 raise ValueError("Please select given_date!!") 
             stock_obj = Stock.objects.filter(pk=Item_Codeid,item_isactive=True).first()
-            if stock_obj.srv_duration is None or stock_obj.srv_duration == 0.0:
+            if stock_obj.itm_duration is None or stock_obj.itm_duration == 0.0:
                 srvduration = 60
             else:
-                srvduration = stock_obj.srv_duration  
+                srvduration = stock_obj.itm_duration  
             systemsetup_dur = Systemsetup.objects.filter(title='AppointmentServiceDurationAdd'
             ,value_name='AppointmentServiceDurationAdd',isactive=True).first()       
 
@@ -27291,10 +27437,10 @@ class EcomAppointBookingViewset(viewsets.ModelViewSet):
                     starttime = datetime.datetime.strptime(start_time, "%H:%M")
                     # if dict_v['srv_duration'] is None or dict_v['srv_duration'] == 0.0:
         
-                    if  stock_obj.srv_duration is None or float(stock_obj.srv_duration) == 0.0:
+                    if  stock_obj.itm_duration is None or float(stock_obj.itm_duration) == 0.0:
                         stk_duration = 60
                     else:
-                        stk_duration = int(stock_obj.srv_duration)
+                        stk_duration = int(stock_obj.itm_duration)
 
                     stkduration = int(stk_duration) + 30
                     # print(stkduration,"stkduration")

@@ -1441,7 +1441,7 @@ class StockListSerializer(serializers.ModelSerializer):
   
     class Meta:
         model = Stock
-        fields = ['id','item_desc','item_name','item_price','Stock_PIC','Item_Classid','Item_Class','srv_duration']
+        fields = ['id','item_desc','item_name','item_price','Stock_PIC','Item_Classid','Item_Class','srv_duration','itm_duration']
         read_only_fields = ('item_code',)
 
 
@@ -2030,7 +2030,8 @@ class TmpItemHelperSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TmpItemHelper
-        fields = ['id','helper_id','helper_name','wp1','appt_fr_time','appt_to_time','add_duration','session']
+        fields = ['id','helper_id','helper_name','wp1','appt_fr_time','appt_to_time',
+        'add_duration','session','percent','work_amt']
 
 class FocReasonSerializer(serializers.ModelSerializer):
     

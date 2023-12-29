@@ -153,7 +153,7 @@ class TreatmentUsage(models.Model):
     id = models.BigAutoField(db_column='ID',primary_key=True)  # Field name made lowercase.
     treatment_code = models.CharField(db_column='Treatment_Code',  max_length=20)  # Field name made lowercase.
     item_code = models.CharField(db_column='Item_Code', max_length=20)  # Field name made lowercase.
-    item_desc = models.CharField(db_column='Item_Desc', max_length=50)  # Field name made lowercase.
+    item_desc = models.CharField(db_column='Item_Desc', max_length=250)  # Field name made lowercase.
     qty = models.FloatField(db_column='Qty')  # Field name made lowercase.
     uom = models.CharField(db_column='UOM', max_length=20)  # Field name made lowercase.
     site_code = models.CharField(db_column='Site_Code', max_length=50)  # Field name made lowercase.
