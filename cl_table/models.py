@@ -1009,7 +1009,7 @@ class Customer(models.Model):
     cust_referby_code = models.CharField(db_column='Cust_ReferBy_Code', max_length=20, blank=True, null=True)  # Field name made lowercase.
     # cust_state = models.CharField(db_column='Cust_State', max_length=20, blank=True, null=True)  # Field name made lowercase.
     # cust_country = models.CharField(db_column='Cust_Country', max_length=20, blank=True, null=True)  # Field name made lowercase.
-    # cust_group = models.CharField(db_column='Cust_Group', max_length=20, blank=True, null=True)  # Field name made lowercase.
+    cust_group = models.CharField(db_column='Cust_Group', max_length=20, blank=True, null=True)  # Field name made lowercase.
     cust_title = models.CharField(db_column='Cust_Title', max_length=20, blank=True, null=True)  # Field name made lowercase.
     # cust_pic_b = models.BinaryField(db_column='Cust_Pic_B', blank=True, null=True)  # Field name made lowercase.
     # cust_group2 = models.CharField(db_column='Cust_Group2', max_length=50, blank=True, null=True)  # Field name made lowercase.

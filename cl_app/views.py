@@ -34,7 +34,7 @@ CreditNote,Multistaff,ItemHelper,ItemUom,Treatment_Master,Holditemdetail,Prepaid
 CnRefund,ItemBrand,Title,ItemBatch,Stktrn,Paytable,ItemLink,Appointment,ItemStocklist,Systemsetup,
 Tmpmultistaff,PosDisc,CustomerPoint,CustomerPointDtl,RewardPolicy,PackageAuditingLog,AuditLog,
 ItemFlexiservice,TreatmentPackage,ItemBatchSno,Tmptreatment,Treatmentids,TempprepaidAccountCondition,
-TempcartprepaidAccCond,CustomerClass)
+TempcartprepaidAccCond,CustomerClass,Attendance2)
 from custom.models import (ItemCart, Room, Combo_Services,VoucherRecord,PosPackagedeposit,SmtpSettings,
 ManualInvoiceModel)
 from datetime import date, timedelta
@@ -12890,7 +12890,42 @@ class SpaDashboardAPIView(APIView):
             appt_status="Cancelled").order_by('pk').count()
             lastmincancel_ids = Appointment.objects.filter(appt_date__gte=from_date,appt_date__lte=to_date,appt_isactive=True,itemsite_code=site.itemsite_code,
             appt_status="LastMinCancel").order_by('pk').count()
+
+            #attendance 
+            attend_ids = Attendance2.objects.filter(attn_date__date__gte=from_date,attn_date__date__lte=to_date,
+            attn_site_code=site.itemsite_code).order_by('-pk')
+            att_lst = []   
+            if attend_ids:
+                for i in attend_ids:
+                    emp_obj = Employee.objects.filter(emp_code=i.attn_emp_code,emp_isactive=True).first()
+                    work_out = False ; work_in = False
+                    if i.attn_type == "00":
+                        work_out = True
+                    elif i.attn_type == "01": 
+                        work_in = True
                     
+                    if emp_obj and emp_obj.emp_name:
+                        emp_res = {'name' : emp_obj.emp_name if emp_obj and emp_obj.emp_name else "", 'work_out' :work_out,
+                        'work_in' : work_in} 
+                        att_lst.append(emp_res)
+
+            today_date = timezone.now().date() 
+            last_year = today_date.year - 1
+
+            treat_doneids = Treatment.objects.filter(treatment_date__date__gte=from_date,
+            treatment_date__date__lte=to_date,status="Done",site_code=site.itemsite_code).order_by('-pk').count()
+            
+            treat_months_ids = Treatment.objects.filter(site_code=site.itemsite_code,treatment_date__month=today_date.month,
+            treatment_date__year=today_date.year,status="Done").order_by('-pk').count()
+
+            treat_year_ids = Treatment.objects.filter(site_code=site.itemsite_code,
+            treatment_date__year=today_date.year,status="Done").order_by('-pk').count()
+            
+            treat_lastyear_ids = Treatment.objects.filter(site_code=site.itemsite_code,
+            treatment_date__year=last_year,status="Done").order_by('-pk').count()
+            
+            
+       
 
             result = {'status': status.HTTP_200_OK,"message":"Listed Successful",'error': False,
             'ar_analysis':{
@@ -12911,7 +12946,12 @@ class SpaDashboardAPIView(APIView):
                 'done': done_ids,
                 'cancel': cancel_ids,
                 'lastmincancel' : lastmincancel_ids
-            }
+            },
+            'att_lst' : att_lst,
+            'current_date_TD' : treat_doneids,
+            'MTD' : treat_months_ids,
+            'YTD' : treat_year_ids,
+            'LYTD' : treat_lastyear_ids
             } 
             now1 = timezone.now()
             # print(str(now1.hour) + '  ' +  str(now1.minute) + '  ' +  str(now1.second),"End hour, minute, second\n")
@@ -15769,7 +15809,8 @@ class TreatmentHistoryAPIView(generics.ListAPIView):
                             i['purchase_date'] = datetime.datetime.strptime(str(splt_sa[0]), "%Y-%m-%d").strftime("%d/%m/%Y")
                             i['trasac_date'] = datetime.datetime.strptime(str(splt[0]), "%Y-%m-%d").strftime("%d/%m/%Y")+" "+str(time_data)
                             # pos_haud.sa_transacno_ref if pos_haud.sa_transacno_ref else ""
-                            i['transac'] = pos_haud.sa_transacno if pos_haud.sa_transacno else ""
+                            # pos_haud.sa_transacno if pos_haud.sa_transacno else ""
+                            i['transac'] = pos_haud.sa_transacno_ref if pos_haud.sa_transacno_ref else ""
                             i['link_code'] = ""
                             i['record_status'] = i['record_status'] if i['record_status'] else ""
                             i['remarks'] = i['remarks'] if i['remarks'] else ""

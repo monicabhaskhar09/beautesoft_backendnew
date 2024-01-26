@@ -7994,7 +7994,10 @@ class UsersList(APIView):
             value_name='backendAllowedMonths',isactive=True).first()
             appointmentlabelfontsize_setup = Systemsetup.objects.filter(title='appointmentLabelFontSize',
             value_name='appointmentLabelFontSize',isactive=True).first()
-       
+            
+            voucher_setup = Systemsetup.objects.filter(title='ValidateMemberVoucher',
+            value_name='ValidateMemberVoucher',isactive=True).first()
+                    
        
        
        
@@ -8123,6 +8126,7 @@ class UsersList(APIView):
             'allowToChangeTotalAmountInCourse': True if changetotalpriceincourse_setup and changetotalpriceincourse_setup.value_data == 'True' else False,
             'backendAllowedMonths': backendallowedmonths_setup.value_data if backendallowedmonths_setup and backendallowedmonths_setup.value_data else False,
             'appointmentLabelFontSize': appointmentlabelfontsize_setup.value_data if appointmentlabelfontsize_setup and appointmentlabelfontsize_setup.value_data else False,
+            'validatemembervoucher': True if voucher_setup and voucher_setup.value_data  == 'True' else False,
             }
 
 
@@ -9050,6 +9054,8 @@ class postaudViewset(viewsets.ModelViewSet):
                         check.append("VOUCHER")
                     if str(st_new) == 'Point':
                         check.append("Point") 
+                    if str(st_new) == 'MEMBERVOUCHER':
+                        check.append("MEMBER VOUCHER")     
 
 
                 # print(check,"check")
@@ -9775,6 +9781,13 @@ class postaudViewset(viewsets.ModelViewSet):
                                 check.remove("CREDIT")
                             # elif req['pay_typeid'] == 9:
                             # elif str(paytable.pay_code).upper() in ['VCPM','VC']: 
+                            elif 'MVC' in str(paytable.pay_code).upper(): 
+                                vouc_obj = VoucherRecord.objects.filter(voucher_no=req['pay_rem1']).first()
+                                # print(card_no,"card_no")
+                                if vouc_obj:
+                                    VoucherRecord.objects.filter(pk=vouc_obj.pk).update(isvalid=False,used=True)
+
+                                check.remove("MEMBER VOUCHER")
                             elif 'VC' in str(paytable.pay_code).upper():       
                                 card_no = req['pay_rem1']
                                 # crdobj = CreditNote.objects.filter(credit_code=req['pay_rem1'],cust_code=cust_obj.cust_code,site_code=site.itemsite_code).first()
@@ -28803,4 +28816,82 @@ class TreatmentBalanceImportAPIView(GenericAPIView):
             invalid_message = str(e)
             return general_error_response(invalid_message)
          
-               
+
+
+class ValidateMemberVoucherAPIView(GenericAPIView):
+    authentication_classes = [ExpiringTokenAuthentication]
+    permission_classes = [IsAuthenticated & authenticated_only]
+    serializer_class = []
+    
+    @transaction.atomic
+    def post(self, request):
+        try:  
+            with transaction.atomic(): 
+                # if not 'cust_id' in request.data or not request.data['cust_id']:
+                #     raise Exception('Please give Customer id!!.') 
+
+                if not 'voucher_no' in request.data or not request.data['voucher_no']:
+                    raise Exception('Please give Voucher No!!.')
+
+                if not 'enter_amount' in request.data or not request.data['enter_amount']:
+                    raise Exception('Please give Enter Amount!!.') 
+     
+                # cust_id = request.data['cust_id'] 
+
+                # cust_obj = Customer.objects.filter(pk=cust_id,cust_isactive=True).first()
+                # if not cust_obj:
+                #     result = {'status': status.HTTP_400_BAD_REQUEST,"message":"Customer id Does't Exist!!",'error': True} 
+                #     return Response(data=result, status=status.HTTP_400_BAD_REQUEST) 
+
+                vouc_ids = VoucherRecord.objects.filter(voucher_no=request.data['voucher_no'],isvalid=True,used=0).order_by('-pk').first()
+                
+                # if not vouc_ids:
+                #     raise Exception("Voucher Does't Exist!!.") 
+
+                if vouc_ids:
+                    if vouc_ids.issued_expiry_date:
+                        # split = str(vouc_ids.issued_expiry_date).split(" ")
+                        # print(split,"split")
+                        expiry_date = datetime.datetime.strptime(str(vouc_ids.issued_expiry_date), "%Y-%m-%d %H:%M:%S").date()
+                        # print(expiry_date,"expiry_date")
+                        if expiry_date < date.today():
+                            raise Exception("Voucher is Expired!!.") 
+                    
+                    #allow less than equal to
+                    if vouc_ids.value:
+                        if vouc_ids.value > float(request.data['enter_amount']):
+                            raise Exception("Partial Amount is not applicable in voucher!!.") 
+                    
+                        if vouc_ids.value < 0:
+                            raise Exception("Vocuher amount should not be negative!!.") 
+
+                    # voucher_setup = Systemsetup.objects.filter(title='ValidateMemberVoucher',
+                    # value_name='ValidateMemberVoucher',isactive=True).first()
+                    
+                    # allow = False 
+                    # if voucher_setup and voucher_setup.value_data == 'True':
+                    #     vouc_cust_ids = VoucherRecord.objects.filter(used=0,isvalid=True,
+                    #     cust_codeid=cust_obj.cust_no,voucher_no=request.data['voucher_no']).order_by('-pk')
+                    #     if not vouc_cust_ids:
+                    #         raise Exception("ValidateMemberVoucher setting is Failed,other customer voucher will not allowed!!.") 
+                        
+                    #     allow = True
+                    # elif voucher_setup and voucher_setup.value_data == 'False':
+                    #     allow = True     
+
+                    
+                    result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",
+                    'error': False, 'allow': True}
+                    return Response(data=result, status=status.HTTP_200_OK)    
+                else:
+                    result = {'status': status.HTTP_200_OK,"message":"Listed Succesfully",
+                    'error': False, 'allow': False}
+                    return Response(data=result, status=status.HTTP_200_OK)  
+
+                                      
+                        
+        except Exception as e:
+            invalid_message = str(e)
+            return general_error_response(invalid_message)
+         
+    

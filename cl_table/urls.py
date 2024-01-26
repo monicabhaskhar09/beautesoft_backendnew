@@ -138,6 +138,7 @@ urlpatterns = [
     path('be/api/customerreceiptprintbeforecheckout/', views.CustomerReceiptPrintBeforeCheckoutList.as_view(), name='customerreceiptprintbeforecheckout'),
     path('be/api/availableservicetimeslots/', views.AvailableTimeSlotsAPIView.as_view(), name='availableservicetimeslots'),
     path('be/api/treatmentbalanceimport/', views.TreatmentBalanceImportAPIView.as_view(), name='treatmentbalanceimport'),
+    path('be/api/validatemembervoucher/', views.ValidateMemberVoucherAPIView.as_view(), name='validatemembervoucher'),
 
 
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

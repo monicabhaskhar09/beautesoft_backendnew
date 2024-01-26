@@ -45,7 +45,7 @@ def get_itemcontentservices(daud):
         content_dtl = ItemContent.objects.filter(itemcode=daud.dt_itemnoid.item_code,is_active=True)
         for i in content_dtl:
             desc = i.content_detail_1
-            detail = i.Content_Detail_2
+            detail = i.Content_detail_2
             service_desc.append(desc +" "+detail)
         services = tuple(service_desc)
 
